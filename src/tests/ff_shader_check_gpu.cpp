@@ -75,6 +75,7 @@ VertexLayout layout_of(uint32_t fvf)
 struct Shared {
     VkDevice device = nullptr;
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout light_set_layout = VK_NULL_HANDLE; // (round FL: set 1, the view's light inputs)
     VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
     VkRenderPass render_pass = VK_NULL_HANDLE;
     std::vector<VkShaderModule> vertex_modules;
@@ -97,6 +98,7 @@ struct Shared {
         vkDestroyRenderPass(device, render_pass, nullptr);
         vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
         vkDestroyDescriptorSetLayout(device, set_layout, nullptr);
+        vkDestroyDescriptorSetLayout(device, light_set_layout, nullptr);
     }
 };
 
@@ -135,16 +137,6 @@ bool make_layouts(Shared& shared)
                         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                         .descriptorCount = 1,
                         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
-    // (NOT ORIGINAL - round V) the surface's light inputs (vulkan_surface_light.h)
-    for (uint32_t input = 0; input < 8; ++input) { // (path tracing, stage 5: the specular input too; round DB: the layer)
-        bindings.push_back({.binding = render::vulkan::kLightVisibilityBinding + input,
-                            .descriptorType = render::vulkan::kLightVisibilityBinding + input == render::vulkan::kLightGuidesBinding
-                                                  ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
-                                                  : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                            .descriptorCount = 1,
-                            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-                            .pImmutableSamplers = nullptr});
-    }
     // (added by cel shading) its block (the scene's binding is only in a ray-tracing device's layout)
     bindings.push_back({.binding = render::vulkan::kCelUniformsBinding,
                         .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -156,9 +148,28 @@ bool make_layouts(Shared& shared)
     if (vkCreateDescriptorSetLayout(shared.device, &set_info, nullptr, &shared.set_layout) != VK_SUCCESS) {
         return false;
     }
+    // (NOT ORIGINAL - round V; round FL: a set of their own, kLightInputsSet) the view's light inputs
+    // (vulkan_surface_light.h), the front layer's with them
+    std::vector<VkDescriptorSetLayoutBinding> light_bindings;
+    for (uint32_t input = 0; input < render::vulkan::kLightInputCount; ++input) {
+        light_bindings.push_back({.binding = input,
+                                  .descriptorType = input == render::vulkan::kLightGuidesBinding
+                                                        ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+                                                        : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                  .descriptorCount = 1,
+                                  .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                  .pImmutableSamplers = nullptr});
+    }
+    const VkDescriptorSetLayoutCreateInfo light_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                                                        .bindingCount = static_cast<uint32_t>(light_bindings.size()),
+                                                        .pBindings = light_bindings.data()};
+    if (vkCreateDescriptorSetLayout(shared.device, &light_info, nullptr, &shared.light_set_layout) != VK_SUCCESS) {
+        return false;
+    }
+    const std::array<VkDescriptorSetLayout, 2> set_layouts{shared.set_layout, shared.light_set_layout};
     const VkPipelineLayoutCreateInfo layout_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-                                                    .setLayoutCount = 1,
-                                                    .pSetLayouts = &shared.set_layout};
+                                                    .setLayoutCount = static_cast<uint32_t>(set_layouts.size()),
+                                                    .pSetLayouts = set_layouts.data()};
     return vkCreatePipelineLayout(shared.device, &layout_info, nullptr, &shared.pipeline_layout) == VK_SUCCESS;
 }
 

@@ -98,6 +98,9 @@ public:
     void save_now();
 
     [[nodiscard]] VkPipelineLayout layout() const { return layout_; }
+    // (NOT ORIGINAL - round FL) set 1's layout: the view's light inputs (ff_uniforms.h kLightInputsSet), a descriptor set a
+    // view - vulkan_surface_light.cpp allocates them
+    [[nodiscard]] VkDescriptorSetLayout light_set_layout() const { return light_set_layout_; }
     // The key's pipeline (made the first time); VK_NULL_HANDLE when its shaders don't compile or the driver refuses it
     // (reported once through `error`).
     VkPipeline pipeline(const PipelineKey& key, std::string* error);
@@ -144,6 +147,7 @@ private:
 
     VkDevice device_ = nullptr;
     VkDescriptorSetLayout set_layout_ = VK_NULL_HANDLE;
+    VkDescriptorSetLayout light_set_layout_ = VK_NULL_HANDLE; // (round FL)
     VkPipelineLayout layout_ = VK_NULL_HANDLE;
     std::string folder_;
     std::unordered_map<PipelineKey, VkPipeline, PipelineKeyHash> pipelines_;

@@ -463,13 +463,14 @@ std::string coord_of(const FragmentKey& key, std::size_t stage)
 // b is read off this fragment's own screen derivatives of both, the prepass surface's 1 / w then follows from its
 // depth; along the pixel's ray the distance from the eye goes as w, so the two are |w_p / w - 1| x the eye distance
 // apart, and that times |N.V| (N this fragment's face) is their distance along its normal.
-constexpr const char* kLightInputsGlsl = R"(layout(set = 0, binding = 24) uniform sampler2D light_visibility_map;
-layout(set = 0, binding = 25) uniform sampler2D light_lamps_map;
-layout(set = 0, binding = 26) uniform sampler2D light_lamps_on_map;
-layout(set = 0, binding = 27) uniform sampler2D light_depth_map;
-layout(set = 0, binding = 28) uniform sampler2D light_decals_map;
-layout(set = 0, binding = 30) uniform sampler2D light_specular_map;
-layout(set = 0, binding = 31) uniform sampler2D light_layer_map;
+// (Round FL: the view's light inputs are set 1 - ff_uniforms.h kLightInputsSet - one descriptor set a view.)
+constexpr const char* kLightInputsGlsl = R"(layout(set = 1, binding = 0) uniform sampler2D light_visibility_map;
+layout(set = 1, binding = 1) uniform sampler2D light_lamps_map;
+layout(set = 1, binding = 2) uniform sampler2D light_lamps_on_map;
+layout(set = 1, binding = 3) uniform sampler2D light_depth_map;
+layout(set = 1, binding = 4) uniform sampler2D light_decals_map;
+layout(set = 1, binding = 6) uniform sampler2D light_specular_map;
+layout(set = 1, binding = 7) uniform sampler2D light_layer_map;
 bool light_at = false;    // the fragment is on the surface the inputs were made for
 bool light_exact = false; // ... at its very depth (the surface the prepass kept - Ray Reconstruction's guides)
 void light_find()
@@ -517,7 +518,7 @@ vec3 light_specular_now() { return light_here() ? texelFetch(light_specular_map,
 // for, written once the fragment is kept (after its alpha test): its albedo and specular albedo (display-encoded 8 bits,
 // the roughness and a mark in their alphas) and its normal in the camera's space (halves; without one - a colour lit
 // already - the upscaler's own from the depth). The surface's lighting sets guide_*; a fragment that set none writes none.
-constexpr const char* kLightGuidesGlsl = R"(layout(set = 0, binding = 29, rgba32ui) uniform writeonly uimage2D light_guides_image;
+constexpr const char* kLightGuidesGlsl = R"(layout(set = 1, binding = 5, rgba32ui) uniform writeonly uimage2D light_guides_image;
 vec3 guide_albedo = vec3(-1.0);
 vec3 guide_specular = vec3(0.0);
 vec3 guide_normal = vec3(0.0);
@@ -534,6 +535,26 @@ void light_write_guides()
                uvec4(packUnorm4x8(vec4(a, clamp(guide_rough, 0.0, 1.0))), packUnorm4x8(vec4(s, 1.0)),
                      packHalf2x16(guide_normal.xy), packHalf2x16(vec2(guide_normal.z, guide_has_normal))));
 })";
+
+// (NOT ORIGINAL - round FL, the front layer: vulkan_front_layer.h; UE5 Lumen's Front Layer Translucency) A key with
+// kLightFront - glass, a blended overlay, rt_water's water - reads the front layer's light where it is the nearest
+// see-through surface (light_front_find: its depth the front layer's, within 1 % of its distance, and not the surface the
+// inputs were made for - that one's own light wins): the light list's light there - all but the disc's, a white
+// diffuser's radiance (light_front_now().rgb) - and the disc's on a white diffuser and its visibility
+// (light_front_sun_now()). Water finds its match along the view itself (its waves move it off the layer's rest depth).
+constexpr const char* kLightFrontGlsl = R"(layout(set = 1, binding = 8) uniform sampler2D light_front_depth_map;
+layout(set = 1, binding = 9) uniform sampler2D light_front_map;
+layout(set = 1, binding = 10) uniform sampler2D light_front_sun_map;
+bool light_front_at = false;
+float light_front_depth() { return texelFetch(light_front_depth_map, ivec2(gl_FragCoord.xy), 0).r; }
+void light_front_find(bool taken)
+{
+    float z = light_front_depth();
+    light_front_at = !taken && z < 1.0 && abs(gl_FragCoord.z - z) <= max(1.0e-6, (1.0 - z) * 0.01);
+}
+vec4 light_front_now() { return light_front_at ? texelFetch(light_front_map, ivec2(gl_FragCoord.xy), 0) : vec4(0.0); }
+vec4 light_front_sun_now() { return light_front_at ? texelFetch(light_front_sun_map, ivec2(gl_FragCoord.xy), 0) : vec4(0.0); }
+)";
 
 // (the inputs' use - a key lit per pixel has them whether it reads the inputs or not)
 constexpr const char* kLightHelpersGlsl = R"(// the sun's visibility at the pixel, else `own` (the vertex's - the light store's)
@@ -1202,6 +1223,15 @@ void surface_finish(std::string& out, const FragmentKey& key)
                        "    vec3 surface_specular_in = light_specular_now();"
                      : "    vec4 surface_li = vec4(-1.0, 0.0, 1.0, 0.0);\n    vec3 surface_lamps = vec3(0.0);\n"
                        "    vec3 surface_specular_in = vec3(0.0);"});
+    // (NOT ORIGINAL - round FL: the front layer - a see-through surface lit by the light list as everything else is: its
+    // sun's or moon's visibility traced there, the rest of the list's light - sky, emitters, lamps, the further bounces -
+    // on its albedo as the lamps input's is; the store's environment has no weight there, as where ReSTIR GI lit a
+    // surface - its specular environment is the reflections pass's for the in-place classes)
+    const bool front = (key.light & kLightFront) != 0U;
+    if (front) {
+        add(out, {"    if (light_front_at) {\n        surface_li = vec4(light_front_sun_now().a, 0.0, 0.0, 1.0);\n"
+                  "        surface_lamps = light_front_now().rgb;\n        surface_specular_in = vec3(0.0);\n    }"});
+    }
     // (round DB: the decals' material layers - the environment's weight above stays the surface's own roughness's: what
     // the reflections pass, which sees the surface and not its decals, takes over; the layered material weighs the rest)
     std::string layer_m;
@@ -1266,7 +1296,13 @@ void surface_finish(std::string& out, const FragmentKey& key)
                   layer_m_inner,
                   "        vec3 light = linear_from_display(v_diffuse.rgb * surface_word);\n"
                   "        surface_out = brdf_ambient(surface_m, surface_nv, light * surface_hemi, light * surface_env) * "
-                  "light_share(surface_li) + surface_m.albedo * surface_lamps;\n"
+                  "light_share(surface_li) + surface_m.albedo * surface_lamps;\n",
+                  // (round FL: on the front layer the vertex's light has no share - the disc's light by the light model, as
+                  // with a store)
+                  front ? "        if (light_front_at && s.sun.w > 0.5 && dot(surface_geo, s.sun.xyz) > 0.0) {\n"
+                          "            surface_out += brdf_direct(surface_m, surface_n, surface_v, s.sun.xyz, s.sun_light.rgb * "
+                          "surface_li.r);\n        }\n"
+                        : "",
                   "    }"});
     } else {
         // the bake: its light (the vertex colour doubled, display-referred) as the environment's (round V: its light not
@@ -1328,6 +1364,14 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
     } else if (key.water != 0U) {
         add(out, {kSurfaceVaryingsIn}); // (NOT ORIGINAL - rt_water: the water's inputs alone)
     }
+    if ((key.light & kLightFront) != 0U) {
+        // (NOT ORIGINAL - round FL: the front layer's light - before the water's, which reads it)
+        static_assert(kLightInputsSet == 1 && kLightFrontDepthBinding == 8 && kLightFrontBinding == 9 &&
+                          kLightFrontSunBinding == 10,
+                      "kLightFrontGlsl names them");
+        add(out, {"#define LIGHT_FRONT"});
+        add(out, {kLightFrontGlsl});
+    }
     if (key.water != 0U) {
         add(out, {water_declarations_glsl(key.water == kWaterMoving)}); // (NOT ORIGINAL - rt_water, water_shader.h)
     }
@@ -1364,9 +1408,9 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
         }
     }
     if ((key.light & (kLightInputs | kLightShare)) != 0U) {
-        static_assert(kLightVisibilityBinding == 24 && kLightLampsBinding == 25 && kLightLampsOnBinding == 26 &&
-                          kLightDepthBinding == 27 && kLightDecalsBinding == 28 && kLightSpecularBinding == 30 &&
-                          kLightLayerBinding == 31,
+        static_assert(kLightInputsSet == 1 && kLightVisibilityBinding == 0 && kLightLampsBinding == 1 &&
+                          kLightLampsOnBinding == 2 && kLightDepthBinding == 3 && kLightDecalsBinding == 4 &&
+                          kLightSpecularBinding == 6 && kLightLayerBinding == 7,
                       "kLightInputsGlsl names them");
         if (key.surface != 0) { // (round DB: a surface lit per pixel - its eye position and face - lies on the prepass's)
             add(out, {"#define LIGHT_LAYERS\n#define LIGHT_LAYER_LIFT ", num(kLayerLift)});
@@ -1377,7 +1421,7 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
         add(out, {kLightHelpersGlsl});
     }
     if ((key.light & kLightGuides) != 0U && (key.light & (kLightInputs | kLightShare)) != 0U) {
-        static_assert(kLightGuidesBinding == 29, "kLightGuidesGlsl names it");
+        static_assert(kLightGuidesBinding == 5, "kLightGuidesGlsl names it");
         add(out, {kLightGuidesGlsl}); // (NOT ORIGINAL - round V: Ray Reconstruction's guides)
     }
     add(out, {"layout(location = 0) out vec4 o_colour;"});
@@ -1890,6 +1934,9 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     add(out, {"void main()\n{"});
     if ((key.light & (kLightInputs | kLightShare)) != 0U) {
         add(out, {"    light_find();"}); // (NOT ORIGINAL - round V / DB: before any branch - its derivatives)
+        if ((key.light & kLightFront) != 0U) {
+            add(out, {"    light_front_find(light_at);"}); // (round FL: the front layer, where the inputs' surface isn't)
+        }
     }
     fragment_program(out, key, sampled);
     // (round M: a surface lit per pixel leaves the program as light - its alpha alone clamped)

@@ -124,6 +124,9 @@ struct RestirGiStats {
 // nothing); and whether it lit the view being drawn (the reflections leave the light model's specular to it). The
 // caller holds the lock.
 [[nodiscard]] bool restir_gi_wanted(Backend& state);
+// (round FL) The same asked before the view's inputs exist (a view decided lit per surface at its first world draw: its
+// see-through draws are prepared to read the front layer then - vulkan_front_layer.h).
+[[nodiscard]] bool restir_gi_chosen(const Backend& state);
 [[nodiscard]] bool restir_gi_lit_view(const Backend& state);
 struct FrameLightList; // (vulkan_light_list.h)
 // (round WF - path tracing, stage 7) The full light list and the radiance cache this frame's view was lit with (false: GI

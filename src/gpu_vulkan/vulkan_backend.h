@@ -136,8 +136,8 @@ struct BoundState {
     VkDescriptorImageInfo pushed_surface_map{};
     bool surface_kept = false;
     bool surface_pushed = false;
-    bool light_pushed = false; // (NOT ORIGINAL - round V) the light inputs pushed (the same images for a view's draws)
-    bool light_guides_pushed = false;
+    // (NOT ORIGINAL - round V; round FL: a set of its own) the view's light inputs' descriptor set bound (set 1)
+    VkDescriptorSet light_set = VK_NULL_HANDLE;
 };
 
 // Counts and times for the log (vulkan_draws.cpp writes a line every so many frames).

@@ -62,6 +62,7 @@
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_display.h"
+#include "engine/gfx/rt_light_list.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_relit.h"
@@ -71,6 +72,7 @@
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
+#include "gpu_vulkan/vulkan_front_layer.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
@@ -2421,6 +2423,7 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
 }
 
 void run_decal_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally);
+void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally);
 
 void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
 {
@@ -2726,6 +2729,7 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
         render::vulkan::set_surface_light_guides_forced(false);
     }
     run_decal_layers(gpu, meshes, tally); // (round DB: with the lit glow's texture and program)
+    run_front_layer(gpu, meshes, tally);  // (round FL: the same)
     if (lit_glow_draw().shader != nullptr) {
         gpu.release_pixel_shader(lit_glow_draw().shader);
     }
@@ -3066,6 +3070,282 @@ void run_decal_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally
     }
     rt::set_cel_world({});
     render::vulkan::set_hdr_settings({});
+    rt::set_hdr_colour(hdr_before);
+}
+
+// --- (round FL) the front layer: see-through surfaces lit by the light list ------------------------------------------
+// UE5 Lumen's Front Layer Translucency (vulkan_front_layer.h). The view lit per surface with ReSTIR DI and GI (direct_light
+// / indirect_light restir), at night (the relit world's sun none, no sky) under one point lamp: the floor lit per pixel (a
+// lit object's draw) and a glass pane kFrontGlassHeight over part of it (the same draw alpha-blended, no depth written).
+// The glass is the view's front layer; its light there must be the lamp's as the light list's model sends it (rt_lights.h
+// lamp_geometry on a white diffuser facing up, x the colour, the intensity and the frame's pre-exposure) - as the floor's
+// lamps input (ReSTIR DI's) is the same model's at its points. The same frames with indirect_light passes (no ReSTIR GI,
+// no list): no front layer lit.
+constexpr double kFrontGlassHeight = 40.0;
+constexpr std::array<double, 4> kFrontGlass{30.0, 130.0, -70.0, 40.0}; // x0, x1, z0, z1
+constexpr Vec3 kFrontLamp{-40.0, 120.0, 40.0};
+constexpr double kFrontReach = 600.0;
+constexpr int kFrontFrames = 40;
+constexpr double kFrontLeast = 0.02;    // (pixels compared where the expected light is at least this)
+constexpr double kFrontMargin = 4.0;    // (units kept off the quads' and the box's edges)
+constexpr double kFrontRatioLow = 0.93;  // the device's light over the model's, its mean over the pixels
+constexpr double kFrontRatioHigh = 1.07;
+constexpr double kFrontGlassAlpha = 2.0 * 64.0 / 255.0; // (the pane's vertex alpha 0x40: the program's x 2 on v0.a x t0.a)
+
+// A frame of the view: the floor, the glass over it or not; `front` / `lamps` read (RGBA16F each) when given.
+bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, std::span<const rt::Light> points,
+                bool glass, uint64_t frame, std::vector<uint8_t>* front, std::vector<uint8_t>* lamps,
+                std::vector<uint8_t>* colour = nullptr)
+{
+    using render::GpuRenderState;
+    rt::FrameRecord& record = rt::frame_record();
+    record = rt::FrameRecord{};
+    record.frame = frame;
+    record.lights.assign(points.begin(), points.end());
+    constexpr std::array<std::array<float, 4>, 3> kIdentityRows{
+        {{1.0F, 0.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F, 0.0F}}};
+    for (const SceneMesh& mesh : meshes) {
+        record.instances.push_back(
+            {.mesh = mesh.id, .material = mesh.material, .flags = mesh.flags, .object_to_world = kIdentityRows});
+    }
+    gpu.begin_scene();
+    rt::ray_tracing()->begin_frame(record);
+    gpu.set_render_target(0, targets.colour);
+    gpu.set_depth_surface(targets.depth);
+    gpu.set_viewport({.x = 0, .y = 0, .width = kTargetWidth, .height = kTargetHeight, .min_z = 0.0F, .max_z = 1.0F});
+    gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth | value::kClearStencil, 0xFF000000U, 1.0F, 0);
+    rt::view_begins(view_drawn());
+    rt::set_world_surfaces_drawing(true);
+    draw_scene(gpu, {}); // (the states and the camera)
+    gpu.set_render_state(GpuRenderState::kLighting, 1);
+    gpu.set_render_state(GpuRenderState::kAmbient, 0x00000000U);
+    gpu.set_render_state(GpuRenderState::kDiffuseMaterialSource, value::kSourceColour1);
+    gpu.set_material({.diffuse = {1, 1, 1, 1}, .ambient = {1, 1, 1, 1}, .specular = {}, .emissive = {}, .power = 0});
+    render::GpuLight light{}; // (black: a lit object's draw has a light - it adds nothing)
+    light.type = value::kLightDirectional;
+    light.direction = {0.0F, -1.0F, 0.0F};
+    gpu.set_light(0, light);
+    gpu.enable_light(0, true);
+    gpu.set_vertex_format(kFvfColourNormal);
+    gpu.set_pixel_shader(lit_glow_draw().shader);
+    constexpr std::array<float, 4> kHalf{0.5F, 0.5F, 0.5F, 0.5F};
+    gpu.set_pixel_constants(0, kHalf.data(), 1);
+    gpu.set_texture(0, lit_glow_draw().texture);
+    const auto quad = [&gpu](double height, double x0, double x1, double z0, double z1, uint32_t colour) {
+        std::vector<NormalVertex> corners;
+        for (const ColourVertex& corner : quad_at(height, x0, x1, z0, z1, colour)) {
+            corners.push_back({.position = corner.position, .normal = {0.0F, 1.0F, 0.0F}, .colour = corner.colour});
+        }
+        gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(corners.size() / 3), corners.data(),
+                             sizeof(NormalVertex));
+    };
+    quad(0.0, -kFloorHalf, kFloorHalf, -kFloorHalf, kFloorHalf, 0xFFFFFFFFU);
+    if (glass) {
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, 0);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 1);
+        gpu.set_render_state(GpuRenderState::kSrcBlend, value::kBlendSrcAlpha);
+        gpu.set_render_state(GpuRenderState::kDestBlend, value::kBlendInvSrcAlpha);
+        quad(kFrontGlassHeight, core::at(kFrontGlass, 0), core::at(kFrontGlass, 1), core::at(kFrontGlass, 2),
+             core::at(kFrontGlass, 3), 0x40FFFFFFU);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
+    }
+    gpu.set_pixel_shader(nullptr);
+    gpu.set_texture(0, nullptr);
+    gpu.enable_light(0, false);
+    gpu.set_render_state(GpuRenderState::kLighting, 0);
+    gpu.set_vertex_format(kFvfColour);
+    rt::set_world_surfaces_drawing(false);
+    rt::opaque_view_drawn(view_drawn());
+    bool read = true;
+    if (front != nullptr || lamps != nullptr) {
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::FrontLayerImages images;
+        render::vulkan::Image* const lamps_image = render::vulkan::surface_light_lamps_input();
+        read = render::vulkan::surface_light_front_images(&images) && lamps_image != nullptr &&
+               render::vulkan::finish_work(state);
+        const std::size_t bytes = static_cast<std::size_t>(kTargetWidth) * kTargetHeight * 8;
+        if (read && front != nullptr) {
+            front->resize(bytes);
+            read = state.memory.read_image_level(images.light.front(), 0, front);
+        }
+        if (read && lamps != nullptr) {
+            lamps->resize(bytes);
+            read = state.memory.read_image_level(lamps_image, 0, lamps);
+        }
+    }
+    if (colour != nullptr) {
+        read = read && render::vulkan::read_surface(targets.colour, colour);
+    }
+    gpu.end_scene();
+    gpu.present();
+    return read;
+}
+
+void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    namespace vk = render::vulkan;
+    text::print("round FL - the front layer (see-through surfaces lit by the light list, Lumen's front layer):\n");
+    vk::RtLightSettings lights = settings_for(true, 4);
+    lights.direct = vk::RtDirectLight::kRestir;
+    vk::set_rt_light_settings(lights);
+    vk::set_rt_shadow_settings({});
+    vk::set_hdr_settings({.on = true});
+    const bool hdr_before = rt::hdr_colour();
+    rt::set_hdr_colour(true);
+    // (the frame's point light switched on by the lighting state: the level's own lamps on, no clock - as the fog's case)
+    rt::LevelEmitters lamps_on;
+    lamps_on.serial = 1;
+    lamps_on.own_lamps = 1.0F;
+    rt::set_level_emitters(std::move(lamps_on));
+    rt::set_day_light({});
+    const std::array<float, 3> up{0.0F, 1.0F, 0.0F};
+    rt::set_cel_world({.relit = true, .sun = {0.0F, 0.0F, 0.0F}, .toward = up});
+    const render::GpuSurfaceDesc colour{.width = kTargetWidth,
+                                        .height = kTargetHeight,
+                                        .format = value::kFormatA16B16G16R16F,
+                                        .samples = 0,
+                                        .quality = 0,
+                                        .lockable_or_discard = true};
+    render::GpuSurfaceDesc depth = colour;
+    depth.format = value::kFormatD24S8;
+    depth.lockable_or_discard = false;
+    Targets targets;
+    bool ok = gpu.create_render_target(colour, &targets.colour) == value::kResultOk &&
+              gpu.create_depth_surface(depth, &targets.depth) == value::kResultOk && lit_glow_draw().texture != nullptr &&
+              lit_glow_draw().shader != nullptr;
+    const std::array<rt::Light, 1> points{{{.kind = rt::Light::Kind::kPoint,
+                                            .colour = {1.0F, 0.9F, 0.7F},
+                                            .position = floats(kFrontLamp),
+                                            .radius = static_cast<float>(kFrontReach)}}};
+    // without ReSTIR GI: no list, no layer lit
+    vk::set_rt_gi_settings({.indirect = vk::RtIndirectLight::kPasses});
+    const uint64_t passes_before = vk::front_layer_stats().passes;
+    uint64_t frame = 5000;
+    for (int k = 0; ok && k < 3; ++k) {
+        ok = draw_front(gpu, targets, meshes, points, true, frame++, nullptr, nullptr);
+    }
+    tally->check(ok && vk::front_layer_stats().passes == passes_before,
+                 text::format("  indirect_light passes: no front layer lit (%llu passes)",
+                              static_cast<unsigned long long>(vk::front_layer_stats().passes - passes_before)));
+    // with it: the frames for the sky's grid and the layer's history, then the layer and the floor's lamps read
+    vk::set_rt_gi_settings({.indirect = vk::RtIndirectLight::kRestir});
+    std::vector<uint8_t> front;
+    std::vector<uint8_t> lamps;
+    std::vector<uint8_t> with_glass;
+    std::vector<uint8_t> without_glass;
+    for (int k = 0; ok && k < kFrontFrames; ++k) {
+        const bool last = k + 1 == kFrontFrames;
+        ok = draw_front(gpu, targets, meshes, points, true, frame++, last ? &front : nullptr, last ? &lamps : nullptr,
+                        last ? &with_glass : nullptr);
+    }
+    ok = ok && draw_front(gpu, targets, meshes, points, false, frame++, nullptr, nullptr, &without_glass);
+    const uint64_t lit = vk::front_layer_stats().passes - passes_before;
+    tally->check(ok && lit > 0, text::format("  the layer lit (%llu passes of %d frames)", static_cast<unsigned long long>(lit),
+                                             kFrontFrames));
+    // the model's light at a point facing up
+    rt::Emitter lamp;
+    const bool emitter = rt::lights::point_emitter(core::at(points, 0), std::clamp(rt::open_sky_lamps(rt::day_light(), rt::level_emitters().get()), 0.0F, 1.0F), &lamp);
+    const rt::LampShape shape{.position = lamp.position,
+                              .shape = lamp.shape,
+                              .axis = lamp.axis,
+                              .half_length = lamp.half_length,
+                              .core = lamp.core,
+                              .reach = lamp.reach};
+    const double exposure = rt::frame_pre_exposure();
+    const auto model = [&](const Vec3& at) {
+        std::array<float, 3> toward{};
+        const double g = rt::lamp_geometry(shape, floats(at), up, &toward);
+        return Rgb{core::at(lamp.colour, 0) * lamp.intensity * g * exposure, core::at(lamp.colour, 1) * lamp.intensity * g * exposure,
+                   core::at(lamp.colour, 2) * lamp.intensity * g * exposure};
+    };
+    text::print("  (the lamp: %s, intensity %.4f, reach %.0f, core %.1f; the pre-exposure %.4g; at the glass's middle %.4g)\n",
+                emitter ? "made" : "none", static_cast<double>(lamp.intensity), static_cast<double>(lamp.reach),
+                static_cast<double>(lamp.core), exposure, emitter ? luma_of(model(Vec3{80.0, kFrontGlassHeight, -15.0})) : 0.0);
+    const Solid& box = core::at(kScene, 1);
+    double glass_got = 0.0;
+    double glass_want = 0.0;
+    double floor_got = 0.0;
+    double floor_want = 0.0;
+    int glass_pixels = 0;
+    int floor_pixels = 0;
+    int shaded_wrong = 0;
+    const double x0 = core::at(kFrontGlass, 0);
+    const double x1 = core::at(kFrontGlass, 1);
+    const double z0 = core::at(kFrontGlass, 2);
+    const double z1 = core::at(kFrontGlass, 3);
+    for (int y = 0; ok && emitter && y < kRows; ++y) {
+        for (int x = 0; x < kColumns; ++x) {
+            Vec3 at{};
+            if (through_quad(x, y, kFrontGlassHeight, x0, x1, z0, z1)) {
+                if (!floor_point(kEye, x, y, kFrontGlassHeight, &at) || x_of(at) < x0 + kFrontMargin ||
+                    x_of(at) > x1 - kFrontMargin || z_of(at) < z0 + kFrontMargin || z_of(at) > z1 - kFrontMargin) {
+                    continue;
+                }
+                const double want = luma_of(model(at));
+                if (want < kFrontLeast) {
+                    continue;
+                }
+                const double layer = luma_of(linear_pixel_at(front, x, y));
+                glass_got += layer;
+                glass_want += want;
+                ++glass_pixels;
+                // the pane drawn with it: its white albedo x the layer's light, a quarter over the floor behind
+                const double drawn = luma_of(linear_pixel_at(with_glass, x, y));
+                const double behind = luma_of(linear_pixel_at(without_glass, x, y));
+                const double expected = (kFrontGlassAlpha * layer) + ((1.0 - kFrontGlassAlpha) * behind);
+                shaded_wrong += std::abs(drawn - expected) > std::max(0.002, 0.03 * expected) ? 1 : 0;
+                continue;
+            }
+            // the floor where the box neither stands nor shadows nor reflects much (away from it), in the open
+            if (!floor_point(kEye, x, y, 0.0, &at) || std::abs(x_of(at)) > kFloorHalf - kEdgeMargin ||
+                std::abs(z_of(at)) > kFloorHalf - kEdgeMargin) {
+                continue;
+            }
+            const Seen seen = seen_at(view_from(kEye), x + 0.5, y + 0.5);
+            const Vec3 to_lamp = minus(kFrontLamp, at);
+            const Hit blocked = intersect(box, Vec3{x_of(at), 0.5, z_of(at)}, normalised(to_lamp));
+            if (seen.solid != 1 || blocked.distance < length_of(to_lamp) ||
+                (x_of(at) > core::at(box.low, 0) - kEdgeMargin && x_of(at) < core::at(box.high, 0) + kEdgeMargin &&
+                 z_of(at) > core::at(box.low, 2) - kEdgeMargin && z_of(at) < core::at(box.high, 2) + kEdgeMargin)) {
+                continue;
+            }
+            const double want = luma_of(model(at));
+            if (want < kFrontLeast) {
+                continue;
+            }
+            floor_got += luma_of(linear_pixel_at(lamps, x, y));
+            floor_want += want;
+            ++floor_pixels;
+        }
+    }
+    const double glass_ratio = glass_want > 0.0 ? glass_got / glass_want : 0.0;
+    const double floor_ratio = floor_want > 0.0 ? floor_got / floor_want : 0.0;
+    tally->check(ok && emitter && glass_pixels > 500 && glass_ratio >= kFrontRatioLow && glass_ratio <= kFrontRatioHigh,
+                 text::format("  the glass pane (the front layer) under the lamp: %d pixels, its light %.4f x the lamp "
+                              "model's",
+                              glass_pixels, glass_ratio));
+    tally->check(ok && glass_pixels > 500 && shaded_wrong == 0,
+                 text::format("  ... and the pane drawn by it (its albedo x the layer's light over the floor behind): %d of %d "
+                              "pixels off",
+                              shaded_wrong, glass_pixels));
+    tally->check(ok && floor_pixels > 500 && floor_ratio >= kFrontRatioLow && floor_ratio <= kFrontRatioHigh,
+                 text::format("  the opaque floor under the same lamp (ReSTIR DI's lamps input): %d pixels, %.4f x the "
+                              "model's - the glass / the floor %.4f",
+                              floor_pixels, floor_ratio, floor_ratio > 0.0 ? glass_ratio / floor_ratio : 0.0));
+    vk::set_rt_gi_settings({});
+    vk::set_rt_light_settings({});
+    rt::set_level_emitters({});
+    gpu.set_render_target(0, nullptr);
+    gpu.set_depth_surface(nullptr);
+    for (GpuSurface* surface : {targets.colour, targets.depth}) {
+        if (surface != nullptr) {
+            gpu.release_surface(surface);
+        }
+    }
+    rt::set_cel_world({});
+    vk::set_hdr_settings({});
     rt::set_hdr_colour(hdr_before);
 }
 

@@ -181,9 +181,8 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     constexpr std::size_t kSnowBindings = 2;   // (NOT ORIGINAL - snow: kSnowUniformsBinding, kSnowSkyBinding)
     constexpr std::size_t kPaintBindings = 3;  // (NOT ORIGINAL - paint: kPaintUniformsBinding - kPaintPlaceBinding)
     constexpr std::size_t kWetBindings = 2;    // (NOT ORIGINAL - rain: kWetUniformsBinding, kWetMapBinding)
-    constexpr std::size_t kLightBindings = 8;  // (NOT ORIGINAL - round V: kLightVisibilityBinding - kLightLayerBinding)
     std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 4 + kWaterBindings + kDetailBindings + kSnowBindings +
-                                                 kPaintBindings + kWetBindings + kLightBindings>
+                                                 kPaintBindings + kWetBindings>
         bindings{};
     core::at(bindings, 0) = {.binding = kVertexUniformsBinding,
                              .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -222,8 +221,7 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     constexpr std::size_t kSnowFirstSlot = kDetailFirstSlot + kDetailBindings;
     constexpr std::size_t kPaintFirstSlot = kSnowFirstSlot + kSnowBindings;
     constexpr std::size_t kWetFirstSlot = kPaintFirstSlot + kPaintBindings;
-    constexpr std::size_t kLightFirstSlot = kWetFirstSlot + kWetBindings;
-    constexpr std::size_t kCelSceneSlot = kLightFirstSlot + kLightBindings;
+    constexpr std::size_t kCelSceneSlot = kWetFirstSlot + kWetBindings;
     static_assert(kCelSceneSlot + 1 == bindings.size(), "the scene is the last binding");
     core::at(bindings, kCelBlockSlot) = {.binding = kCelUniformsBinding,
                                            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -295,17 +293,6 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
                                              .descriptorCount = 1,
                                              .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                              .pImmutableSamplers = nullptr};
-    // (NOT ORIGINAL - round V, vulkan_surface_light.h) the surface's light inputs: pushed only for the keys that read them
-    for (uint32_t light = 0; light < kLightBindings; ++light) {
-        core::at(bindings, kLightFirstSlot + light) = {.binding = kLightVisibilityBinding + light,
-                                                      .descriptorType = kLightVisibilityBinding + light == kLightGuidesBinding
-                                                                            ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
-                                                                            : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                                      .descriptorCount = 1,
-                                                      .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                      .pImmutableSamplers = nullptr};
-    }
-    static_assert(kLightLayerBinding == kLightVisibilityBinding + kLightBindings - 1, "the light inputs follow each other");
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                    .pNext = nullptr,
                                                    .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
@@ -314,11 +301,32 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     if (vkCreateDescriptorSetLayout(device_, &set_info, nullptr, &set_layout_) != VK_SUCCESS) {
         return false;
     }
+    // (NOT ORIGINAL - round V, vulkan_surface_light.h; round FL: a set of their own) the view's light inputs: set 1, one
+    // descriptor set a view (vulkan_surface_light.cpp), bound for the keys that read them
+    std::array<VkDescriptorSetLayoutBinding, kLightInputCount> light_bindings{};
+    for (uint32_t light = 0; light < kLightInputCount; ++light) {
+        core::at(light_bindings, light) = {.binding = light,
+                                           .descriptorType = light == kLightGuidesBinding ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+                                                                                          : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                           .descriptorCount = 1,
+                                           .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                           .pImmutableSamplers = nullptr};
+    }
+    const VkDescriptorSetLayoutCreateInfo light_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                                                     .pNext = nullptr,
+                                                     .flags = 0,
+                                                     .bindingCount = kLightInputCount,
+                                                     .pBindings = light_bindings.data()};
+    if (vkCreateDescriptorSetLayout(device_, &light_info, nullptr, &light_set_layout_) != VK_SUCCESS) {
+        return false;
+    }
+    static_assert(kLightInputsSet == 1, "the light inputs' set follows the draws' pushed set");
+    const std::array<VkDescriptorSetLayout, 2> set_layouts{set_layout_, light_set_layout_};
     const VkPipelineLayoutCreateInfo layout_info{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                                                  .pNext = nullptr,
                                                  .flags = 0,
-                                                 .setLayoutCount = 1,
-                                                 .pSetLayouts = &set_layout_,
+                                                 .setLayoutCount = static_cast<uint32_t>(set_layouts.size()),
+                                                 .pSetLayouts = set_layouts.data(),
                                                  .pushConstantRangeCount = 0,
                                                  .pPushConstantRanges = nullptr};
     if (vkCreatePipelineLayout(device_, &layout_info, nullptr, &layout_) != VK_SUCCESS) {
@@ -552,8 +560,12 @@ void Pipelines::shutdown()
     if (set_layout_ != VK_NULL_HANDLE) {
         vkDestroyDescriptorSetLayout(device_, set_layout_, nullptr);
     }
+    if (light_set_layout_ != VK_NULL_HANDLE) {
+        vkDestroyDescriptorSetLayout(device_, light_set_layout_, nullptr);
+    }
     layout_ = VK_NULL_HANDLE;
     set_layout_ = VK_NULL_HANDLE;
+    light_set_layout_ = VK_NULL_HANDLE;
     device_ = nullptr;
     stats_ = {};
 }

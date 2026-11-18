@@ -3103,6 +3103,59 @@ glossy layer's sharper reflection of structure not traced); the reflections pass
 the surface's own roughness); the lamps-on input (lamps x the traced albedo, for colours lit already) is the traced
 surface's - the paint is relit, so it never reads it.
 
+### Round FL: the front layer (see-through surfaces lit per pixel)
+
+UE5 Lumen's Front Layer Translucency (`gpu_vulkan/vulkan_front_layer.h`). Glass, soft overlays and rt_water's water write
+no depth - what is behind them shows through - so the prepass has no pixel for them and they kept their vertices' light
+store (the bake's light: no per-pixel lamps, no traced sun shadow). Lumen's answer: the nearest see-through surface of
+each pixel - the front layer - gets a G-buffer of its own and is lit like an opaque surface; the layers behind it keep
+their own light.
+
+- **Its depth** (ViewOrder::kFrontLayer = 391: the inputs made, before the shading): the kept draws that read the layer
+  (`kLightFront`: see-through - alpha-blended, no depth written - and lit by the light model, the relit world's or an
+  object's; and rt_water's water, prepared as its plain rest surface - no copy behind it made then) drawn into a depth
+  of their own (`vulkan_surface_light.h` surface_light_front_prepass; the view's depth format, cleared, each draw
+  testing and writing, from its own preparation with its depth-only pipeline). A pixel has a front layer where that
+  depth is in front of the prepass's and not within 1 % of its distance (an overlay lying on its wall is the wall's -
+  round DB's kLayerLift lights it as the wall).
+- **Its light** (compute, ray queries): the point from the layer's depth, its normal from the layer's own neighbours (the
+  nearer along the view on each axis - a pane or the water's rest surface is flat), and the light list ReSTIR GI used
+  this frame (`FrameLightList` - the disc, the sky's grid, the emitting triangles, the lamps; one list, one power):
+  - the rest of the list by the shared `light_sample` (2 draws a pixel, one light and one ray each) with the disc's picks
+    left out (`LL_NO_DISC` - the estimate is of the others), x cos / pi: a white diffuser's radiance, the lamps input's
+    unit; + the radiance cache's bounce (SHaRC - every further bounce); pre-exposed;
+  - the disc (sun or moon): its visibility toward a point of its cone (`ray_light`, the clouds' shadow map) - the shading
+    puts the disc's light through the light model with it, as the shadows pass's visibility on an opaque surface - and
+    its light on a white diffuser there (for the water);
+  - accumulated over frames (Ray Reconstruction doesn't denoise its transparency layer, where see-through surfaces are
+    drawn - DLSS-RR guide 3.4.10): the point through the last view's camera, the layer there within 2 % of the distance
+    + 1 unit, a moving average of at most 16 frames, the history scaled by the pre-exposure's change.
+- **Its use** (`ff_shaders.cpp` kLightFrontGlsl; `water_shader.cpp`): a fragment of a kLightFront key at the layer's
+  depth (and not the inputs' surface - that one's own light wins) takes the layer's light in place of its light store's:
+  the disc's visibility for its sun term, the rest as the lamps input's light on its albedo, the store's environment
+  without weight (as where ReSTIR GI lit a surface). Its environment specular stays the reflections pass's (the in-place
+  classes: glass, water - one owner). The water finds the layer along the view within its waves' reach (2 Hs + 1 unit:
+  the layer holds the rest surface); its body's colour is the texture's mean lit by the layer's light (the disc's and the
+  rest's), its glitter shown where the disc's traced visibility is.
+- **The reflections pass**: painted glass's own colour under its reflection (the base layer) is lit by the light list in
+  a view ReSTIR GI lit (`list_hit_light`), not by the light store - the same light as the front layer's.
+- **The light inputs as a descriptor set of their own**: the push-descriptor set of the fixed-function draws was at the
+  device's limit (32 bindings with ray queries). The view-wide inputs - the round V / DB inputs and the front layer's -
+  are set 1 (`ff_uniforms.h` kLightInputsSet, 11 bindings), one descriptor set a view from a pool per frame slot (reset
+  when the slot's frame comes round), bound once with vkCmdBindDescriptorSets: set 0's push descriptors hold the per-draw
+  ones (24 now).
+- **One owner per light**: on the layer the list's lights arrive through this pass alone (the light store's K, B and
+  lamps are not read there). Only in a view ReSTIR GI lit; elsewhere - the fallback tier, no ray tracing, a view not lit
+  per surface - nothing changes (the layer is cleared at the inputs' begin; its draws find no match). The fallback tier's
+  reflections still take the lamps pass's lit set (`RtLitLamps`, its lamp owner there) - its only reader.
+
+Check: `thug2_vulkan_rt_lights_check` "round FL" - a night scene under one point lamp with ReSTIR DI and GI: the glass
+pane (the front layer) gets the lamp model's light (`rt_lights.h` lamp_geometry on a white diffuser) as the opaque floor's
+lamps input (ReSTIR DI's) does; with indirect_light passes no layer is lit.
+Not done: the layers behind the front one keep their own light (Lumen's too); light from behind a pane (transmitted
+diffuse) is not the layer's; the lamps' specular highlight on glass is the reflections pass's emitters only (analytic
+lamps without a surface give none there).
+
 ### Time of day (`tod`, `tod_cycle`)
 
 Every level can be played at any hour: the sun (and at night a full moon) moves along a real path over the level, the
@@ -5761,9 +5814,5 @@ One light list, one way to sample it:
 - rt_water's water: its reflection (screen-space over the path-traced frame) and refraction (the frame copied behind
   it) already carry the path tracer's light; what it still takes from the store is its body's scattered colour (the
   vertex's light) and the glitter's sunlit test.
-- Not yet: glass and water lit per pixel themselves (their diffuse / scattered light) - they aren't in the prepass, so
-  the inputs have no pixel for them. The standard answer is a front-layer G-buffer for the first seen-through surface
-  (UE5 Lumen's Front Layer Translucency): its depth and normal written by a second depth prepass of the kept
-  seen-through draws and rt_water's, a pass lighting it from the list and the cache (temporally accumulated - the RR
-  transparency layer is not denoised), the glass / water shading reading that light where its depth matches. It needs
-  the prepass, the kept draws' keys and the water shader - a round of its own.
+- Glass and water lit per pixel themselves (their diffuse / scattered light): round FL's front layer ("Round FL: the
+  front layer" above).

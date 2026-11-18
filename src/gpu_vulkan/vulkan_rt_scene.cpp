@@ -36,6 +36,7 @@
 #include "gpu_vulkan/vulkan_rt_effects.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
+#include "gpu_vulkan/vulkan_front_layer.h"
 #include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_path_reference.h"
 #include "gpu_vulkan/vulkan_restir_di.h"
@@ -2804,6 +2805,7 @@ void create_ray_tracing(Backend& state)
     install_path_reference(); // (path tracing, stage 1: the reference - vulkan_path_reference.h)
     install_restir_di();      // (path tracing, stage 4: the lamps by ReSTIR DI - vulkan_restir_di.h)
     install_restir_gi();      // (path tracing, stage 5: the indirect light by ReSTIR GI - vulkan_restir_gi.h)
+    install_front_layer();    // (round FL: see-through surfaces lit by the light list - vulkan_front_layer.h)
     rt::set_ray_tracing(&made.backend);
     get_log("vulkan: ray tracing on (%s): acceleration structures and ray queries; at most %llu instances, scratch "
             "aligned to %u",
@@ -2862,6 +2864,8 @@ void release_ray_tracing(Backend& state)
     }
     uninstall_surface_light(); // (round V)
     release_surface_light(state);
+    uninstall_front_layer(); // (round FL)
+    release_front_layer(state);
     uninstall_path_reference(); // (path tracing, stage 1)
     release_path_reference(state);
     uninstall_restir_di(); // (path tracing, stage 4)
