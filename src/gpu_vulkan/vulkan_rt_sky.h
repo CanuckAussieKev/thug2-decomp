@@ -115,6 +115,9 @@ struct AtmosphereTexels {
 };
 bool read_atmosphere_table(Backend& state, AtmosphereTable which, AtmosphereTexels* out);
 [[nodiscard]] uint64_t atmosphere_generation();
+// (path tracing, stage 1) Whether the sky-view table is made, and what it was made for (its sun, its exposure - the
+// frame's pre-exposure it holds the light x). The caller holds the lock.
+bool atmosphere_view(AtmosphereInput* input);
 void release_atmosphere(Backend& state);
 
 } // namespace render::vulkan

@@ -1672,8 +1672,10 @@ void emitter_work()
     // solved from the bake, in the global unit - not the brightness found here (the bake itself finds them)
     if (!relit_bake::requested()) {
         std::vector<rt::Emitter> solved;
-        if (rt_relit_world::data_emitters(&solved)) {
+        std::vector<uint8_t> surfaced;
+        if (rt_relit_world::data_emitters(&solved, &surfaced)) {
             found.emitters = std::move(solved);
+            found.surfaced = std::move(surfaced); // (path tracing: the lamps whose own surface emits)
             found.triangle_emitter.clear();
             found.solved = true; // (round O: only the solved lamps shine)
         }

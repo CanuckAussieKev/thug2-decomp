@@ -23,6 +23,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/light_store.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/glsl_compiler.h"
@@ -33,6 +34,7 @@
 #include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
 #include "gpu_vulkan/vulkan_surface_light.h"
+#include "gpu_vulkan/vulkan_path_reference.h"
 #include "gpu_vulkan/vulkan_cel_draw.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
@@ -2227,7 +2229,24 @@ SceneView current_scene(const Backend& state)
             .geometry = frame.geometry.buffer,
             .geometry_bytes = std::max<VkDeviceSize>(static_cast<VkDeviceSize>(frame.count) * sizeof(GeometryRecord),
                                                      sizeof(GeometryRecord)),
-            .reflective_instances = frame.reflective};
+            .reflective_instances = frame.reflective,
+            .instances_address = frame.instances_address};
+}
+
+void scene_instance_triangles(const Backend& state, std::vector<uint32_t>* out)
+{
+    (void)state;
+    out->clear();
+    const Scene& made = scene();
+    if (!made.installed || !made.any_built) {
+        return;
+    }
+    const FrameScene& frame = core::at(made.frames, made.current);
+    out->reserve(frame.meshes.size());
+    for (const rt::MeshId id : frame.meshes) {
+        const auto found = made.meshes.find(id);
+        out->push_back(found != made.meshes.end() && found->second.built ? found->second.triangles : 0U);
+    }
 }
 
 std::string_view scene_geometry_glsl()
@@ -2272,6 +2291,150 @@ bool ray_blocked(uint mask, vec3 origin, vec3 direction, float reach)
 }
 )";
     return kCutoutRays;
+}
+
+std::string_view hit_surface_glsl()
+{
+    // (path tracing, stage 1 - P1: one hit surface; vulkan_rt_scene.h) The painted surface's values and the metal's
+    // least F0 are the material table's (rt_material_table.h), written in as constants.
+    static const std::string made = [] {
+        std::string text = "const float HIT_SURFACE_F0 = " +
+                           std::to_string(std::get<0>(rt::material_f0(rt::MaterialKind::kPainted))) +
+                           ";\nconst float HIT_SURFACE_ROUGHNESS = " +
+                           std::to_string(rt::material_values(rt::MaterialKind::kPainted).roughness) +
+                           ";\nconst float HIT_SURFACE_METAL_F0 = " + std::to_string(kHitMetalF0) + ";\n";
+        text += R"(
+const uint HIT_RELIT_WORLD = 0u;
+const uint HIT_BAKED_WORLD = 1u;
+const uint HIT_OBJECT = 2u;
+const uint HIT_KIND_DIELECTRIC = 0u;
+const uint HIT_KIND_METAL = 1u;
+const uint HIT_INSTANCE_OBJECT = 32u; // (rt::kObject)
+struct HitSurface {
+    vec3 position;
+    vec3 normal;
+    vec3 shading_normal;
+    vec3 base_colour;
+    BrdfMaterial material;
+    uint kind;
+    float alpha;
+    bool cut_out;
+    vec3 emitted;
+    uint origin;
+    float area;
+    bool hidden;
+};
+// The light store at the hit, as stored (the global unit - not x the frame's pre-exposure): the tint, the emission,
+// whether the emission is a lamp drawn in a texture (word 6's blue), whether the mesh is hidden (word 6's alpha 128).
+// False: no store there (none, or an animated vertex).
+bool hit_store(uint instance, uint primitive, vec2 barycentrics, out vec3 tint, out vec3 emit, out bool masked,
+               out bool hidden)
+{
+    GeometryRecord g = geometry_record(instance);
+    tint = vec3(0.0);
+    emit = vec3(0.0);
+    masked = false;
+    hidden = false;
+    if ((g.flags & GEOMETRY_LIVE) == 0u || (g.flags & GEOMETRY_LIGHT) == 0u) {
+        return false;
+    }
+    float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
+    for (uint k = 0u; k < 3u; ++k) {
+        uint at = geometry_corner(g, primitive, k) * 32u; // (rt_cel.h kCelStreamBytes)
+        vec4 flags = unpackUnorm4x8(geometry_word(g.light_address, at + 24u)).zyxw;
+        if (flags.a < 0.25) {
+            return false; // (an animated vertex: the game's colour, no store)
+        }
+        if (flags.a < 0.75) {
+            hidden = true;
+        }
+        masked = masked || flags.b > 0.5;
+        tint += unpackUnorm4x8(geometry_word(g.light_address, at + 4u)).zyx * (weights[k] * LIGHT_PER_UNORM);
+        emit += stored_light(geometry_word(g.light_address, at + 28u)) * weights[k];
+    }
+    return true;
+}
+bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4x3 object_to_world, vec3 direction,
+                 out HitSurface s)
+{
+    s.position = vec3(0.0);
+    s.normal = -direction;
+    s.shading_normal = -direction;
+    s.base_colour = vec3(0.0);
+    s.material = brdf_material(vec3(0.0), vec3(HIT_SURFACE_F0), HIT_SURFACE_ROUGHNESS);
+    s.kind = HIT_KIND_DIELECTRIC;
+    s.alpha = 1.0;
+    s.cut_out = false;
+    s.emitted = vec3(0.0);
+    s.origin = HIT_BAKED_WORLD;
+    s.area = 0.0;
+    s.hidden = false;
+    HitVertices v;
+    if (!hit_vertices(instance, primitive, v)) {
+        return false;
+    }
+    vec3 a = object_to_world * vec4(v.position[0], 1.0);
+    vec3 b = object_to_world * vec4(v.position[1], 1.0);
+    vec3 c = object_to_world * vec4(v.position[2], 1.0);
+    float w0 = 1.0 - barycentrics.x - barycentrics.y;
+    s.position = a * w0 + b * barycentrics.x + c * barycentrics.y;
+    vec3 across = cross(b - a, c - a);
+    float twice = length(across);
+    s.area = 0.5 * twice;
+    vec3 n = twice > 0.0 ? across / twice : -direction;
+    if (dot(n, direction) > 0.0) {
+        n = -n;
+    }
+    s.normal = n;
+    s.shading_normal = n;
+    vec3 vertex_normal;
+    if (hit_normal(instance, primitive, barycentrics, vertex_normal)) {
+        vec3 smooth_n = transpose(inverse(mat3(object_to_world))) * vertex_normal;
+        float smooth_length = length(smooth_n);
+        if (smooth_length > 1e-12 && !any(isnan(smooth_n))) {
+            smooth_n /= smooth_length;
+            s.shading_normal = dot(smooth_n, n) < 0.0 ? -smooth_n : smooth_n;
+        }
+    }
+    Material surface = material(id);
+    vec2 uv = hit_uv_set(instance, primitive, barycentrics, surface.uv_set);
+    vec4 texel = material_texel_lod(id, uv, 0.0) * surface.colour;
+    s.alpha = texel.a;
+    s.cut_out = !material_alpha_passes(id, texel.a);
+    vec3 linear = linear_from_display(clamp(texel.rgb, 0.0, 1.0));
+    bool object = (geometry_record(instance).instance_flags & HIT_INSTANCE_OBJECT) != 0u;
+    vec3 tint;
+    vec3 emit;
+    bool masked;
+    bool hidden;
+    if (!object && hit_store(instance, primitive, barycentrics, tint, emit, masked, hidden)) {
+        s.origin = HIT_RELIT_WORLD;
+        s.hidden = hidden;
+        s.base_colour = linear * tint;
+        float lamp_lit = masked ? smoothstep(0.6, 0.7, max(linear.r, max(linear.g, linear.b))) : 1.0;
+        s.emitted = emit * linear * lamp_lit;
+    } else {
+        s.origin = object ? HIT_OBJECT : HIT_BAKED_WORLD;
+        s.base_colour = linear;
+    }
+    if (!material_has_surface(id) || surface.f0 <= 0.0) {
+        s.material = brdf_material(s.base_colour, vec3(HIT_SURFACE_F0), HIT_SURFACE_ROUGHNESS);
+        return true;
+    }
+    float r = clamp(material_surface_lod(id, uv, 0.0).b, 0.0, 1.0);
+    r = mix(r, surface.kind_roughness, surface.kind_roughness_weight);
+    if (surface.f0 >= HIT_SURFACE_METAL_F0) {
+        s.kind = HIT_KIND_METAL;
+        s.material = brdf_material(vec3(0.0), s.base_colour, r);
+    } else {
+        s.material = brdf_material(s.base_colour, vec3(surface.f0), r);
+    }
+    return true;
+}
+)";
+        return text;
+    }();
+    return made;
 }
 
 VkBufferUsageFlags ray_tracing_buffer_usage(const Backend& state)
@@ -2319,6 +2482,7 @@ void create_ray_tracing(Backend& state)
     made.installed = true;
     made.last_log = seconds_now();
     install_surface_light(); // (round V: the world lit per surface - vulkan_surface_light.h)
+    install_path_reference(); // (path tracing, stage 1: the reference - vulkan_path_reference.h)
     rt::set_ray_tracing(&made.backend);
     get_log("vulkan: ray tracing on (%s): acceleration structures and ray queries; at most %llu instances, scratch "
             "aligned to %u",
@@ -2337,6 +2501,8 @@ void release_ray_tracing(Backend& state)
     }
     uninstall_surface_light(); // (round V)
     release_surface_light(state);
+    uninstall_path_reference(); // (path tracing, stage 1)
+    release_path_reference(state);
     rt_shadows_set_scene_locked(VK_NULL_HANDLE);
     cel_set_scene_locked(VK_NULL_HANDLE); // (added by cel shading)
     rt_effects_set_scene_locked(VK_NULL_HANDLE);

@@ -28,6 +28,7 @@
 #include "engine/file/disk_files.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/paint_trails.h"
+#include "engine/gfx/rt_path.h"
 #include "engine/gfx/texture_sets.h"
 #include "engine/objects/entity.h"
 #include "engine/pad_input/input_event.h"
@@ -190,6 +191,8 @@ constexpr const char* kHelp = "scripts [text]  the scripts running (names holdin
                               "rt sun <x y z> | off  the ray-traced shadows' sun set by hand (toward it)\n"
                               "rt census       what lights the world's meshes, objects and particles (logged)\n"
                               "rt set <key> <value>  a [Graphics] setting written and put to use\n"
+                              "pt ref <samples> [EV100]  the path-traced reference (paused, camera still): EXR + PNG\n"
+                              "pt off | status  the reference stopped / its progress\n"
                               "restart         the skater at the level's next restart (F8)\n"
                               "textures [original | pbrify | seedvr2]  the texture set in use / switched (not saved)\n"
                               "paint [clear]   the paint trails' strokes and drops so far; clear: the paint wiped\n"
@@ -478,6 +481,9 @@ std::string run_command(const std::string& line)
     }
     if (command == "rt") {
         return rt_check::console_command(rest);
+    }
+    if (command == "pt") {
+        return render::rt::path::path_console_command(rest); // (the path tracer's reference - engine/gfx/rt_path.h)
     }
     if (command == "restart") {
         return frontend::restart_tester::next_restart(); // (the light energy audit's level walk: F8's next restart)

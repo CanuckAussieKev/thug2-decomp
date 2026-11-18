@@ -445,6 +445,17 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_rt_gi_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_path_check.exe: the reference path tracer (gpu_vulkan/vulkan_path_reference.h, the console's
+# `pt ref`) and its sampling (engine/gfx/rt_path.h) on this machine - the BSDF's pdf and estimator on the processor, the
+# white furnace at every roughness, a floor under an emitting disc against its integral, MIS / the lights alone / the
+# BSDF alone agreeing, the processor's twin path tracer, one owner per lamp, no NaN (src/tests/vulkan_path_check.cpp). Exit
+# 2 on a device without ray queries.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_path_check vulkan_path_check.cpp)
+    target_link_libraries(thug2_vulkan_path_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_path_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_lights_check.exe: the night lighting (gpu_vulkan/vulkan_rt_lights.h, rt_lights) on this
 # machine - the light sources' clustering and selection on the processor, then a lamp beside a box on a dark floor: each
 # pixel's lamp light and the box's shadow against the processor's, four samples, a red-textured glow, two lamps with one

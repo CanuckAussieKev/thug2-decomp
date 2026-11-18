@@ -172,6 +172,25 @@ struct MeterReading {
 };
 bool read_meter(Backend& state, const std::array<uint32_t, 4>& rect, MeterReading* reading);
 
+// (path tracing, stage 1 - P5) The manual mode: the camera set by hand to `ev100` - no metering, no adaptation; the light
+// x exposure_at_ev100 (the factor the meter's slot would hold at that EV: 2^(camera_ev100(0) - ev100), the same ISO 2720
+// calibration), then rt_exposure's offset and the curve as always. What a path tracer's reference and the realtime frame
+// are compared at. Logged (with the EV100) when it changes. The caller of either holds the lock or none (an atomic state).
+void set_manual_ev100(bool on, float ev100);
+struct ManualExposure {
+    bool on = false;
+    float ev100 = 0.0F;
+};
+[[nodiscard]] ManualExposure manual_exposure();
+[[nodiscard]] float exposure_at_ev100(float ev100);
+// The EV100 the last metered viewport's camera stood at (the meter's readout, a frame or two behind - the factor it
+// held: camera_ev100 of its stops); false before any (no meter, or none read yet). The caller holds the lock.
+bool last_metered_ev100(Backend& state, float* ev100);
+// (path tracing, stage 1) The curve's parameters and grading table in use (the pass's - null: no table), for a picture
+// mapped on the processor as the pass maps the frame (tone_map_reference). The caller holds the lock.
+[[nodiscard]] ToneParameters tone_parameters_locked();
+[[nodiscard]] const GradeLut* grade_lut_locked();
+
 // Whether the device's targets are made floating point - the linear frame: HdrSettings::on (the game's: always) and the
 // device draws, blends, samples and blits kHdrFormat (create_device_objects asks, before the back buffer is made; it
 // then sets rt::set_hdr_colour).
