@@ -385,4 +385,222 @@ std::string_view light_instances_glsl() { return kInstancesGlsl; }
 
 std::string_view emitter_scan_glsl() { return kScanGlsl; }
 
+std::string_view light_sample_glsl()
+{
+    static constexpr std::string_view kSource = R"(
+// The disc's light the clouds let through to `at` (their shadow map - the shadows pass's clouds_through); 1 without it.
+float sun_kept(vec3 at)
+{
+#ifdef CLOUD_MAP
+    return cloud_map_kept(at, LL_CLOUD_PLACE, LL_CLOUD_LIGHT);
+#else
+    return 1.0;
+#endif
+}
+// The sky's radiance toward `dir` (the disc not in it): the grid in use's cell.
+vec3 sky_radiance(vec3 dir) { return LL_SKY_DIST > 0.0 ? sky_cells[sky_cell_of(dir)].rgb : vec3(0.0); }
+// The density (solid angle) of the sky's sampling toward `dir`: its cell's luminance over the grid's integral.
+float sky_density(vec3 dir) { return LL_SKY_DIST > 0.0 ? path_luma(sky_cells[sky_cell_of(dir)].rgb) * LL_SKY_DIST : 0.0; }
+
+// One light of the full list (the disc, the sky, an emitting triangle, a lamp - picked by power), one ray to it (the one
+// light ray, `mask`): the light arriving at `p` along `dir` x what of it gets through, over the sample's density - x a
+// BSDF x the cosine (a surface) or x a phase (a medium) it is the estimate of the light reflected or scattered. `n` /
+// `ng` the receiver's shading and geometric normals - directions below either bring nothing (no ray); vec3(0.0) for a
+// point in a medium (every direction).
+vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 dir)
+{
+    float u = path_next(rng);
+    float u1 = path_next(rng);
+    float u2 = path_next(rng);
+    float u3 = path_next(rng);
+    float u4 = path_next(rng);
+    dir = vec3(0.0, 1.0, 0.0);
+    uint count = LL_COUNT;
+    if (count == 0u) {
+        return vec3(0.0);
+    }
+    uint picked = light_pick(u, count);
+    LightEntry e = light_entries[picked];
+    if (!(e.pdf > 0.0)) {
+        return vec3(0.0);
+    }
+    bool surface = dot(ng, ng) > 0.0;
+    uint kind = light_kind(e.payload);
+    if (kind == LIGHT_DISC) {
+        dir = path_to_world(LL_SUN.xyz, path_cone_direction(LL_SUN.w, u1, u2));
+        if (surface && (dot(dir, ng) <= 0.0 || dot(dir, n) <= 0.0)) {
+            return vec3(0.0);
+        }
+        float pdf = e.pdf / LL_SUN_RADIANCE.w;
+        return LL_SUN_RADIANCE.rgb * sun_kept(p) * ray_light(mask, p, dir, LL_REACH) / pdf;
+    }
+    if (kind == LIGHT_SKY) {
+        uint cell;
+        dir = sky_sample(u1, u2, u3, u4, cell);
+        if (surface && (dot(dir, ng) <= 0.0 || dot(dir, n) <= 0.0)) {
+            return vec3(0.0);
+        }
+        vec3 radiance = sky_cells[cell].rgb;
+        float pdf = e.pdf * path_luma(radiance) * LL_SKY_DIST;
+        if (!(pdf > 0.0)) {
+            return vec3(0.0);
+        }
+        return radiance * ray_light(mask, p, dir, LL_REACH) / pdf;
+    }
+    LocalLight l;
+    if (!local_light_at(picked, count, vec2(u1, u2), p, l) || !(l.pdf > 0.0)) {
+        return vec3(0.0);
+    }
+    dir = l.dir;
+    if (surface && (dot(dir, ng) <= 0.0 || !(dot(dir, n) > 1.0e-4))) {
+        return vec3(0.0);
+    }
+    return l.light * ray_light(mask, p, dir, l.reach) / l.pdf;
+}
+
+#ifdef LL_CACHE
+// --- (round MB) the radiance cache: the light further bounces bring --------------------------------------------------
+// NVIDIA's SHaRC (spatially hashed radiance cache - Cyberpunk 2077's path tracing reads it where its paths end; Binder
+// et al. 2019's hash grid without its jitter): a hash table of cells of the world, each a point's position
+// quantised by a side that grows with its distance from the camera (powers of 2 - SHaRC's levels) and the axis its
+// surface faces (the two sides of a wall apart). An entry holds the bounce a white diffuser there gets - the light off
+// other surfaces (E / pi; the lights' own direct light - the disc, the sky, the emitters, the lamps - is not in it: next-
+// event estimation owns it at every vertex). Written by ReSTIR GI's sparse update paths (vulkan_restir_gi.cpp), read at
+// its secondary vertices and (round WF) wherever a surface the prepass doesn't hold is lit by the list - the reflections'
+// hits: there the light they reflect is their direct light (light_sample) + their reflectance x the cache's bounce.
+uint cache_hash(uint x)
+{
+    // (the "lowbias32" integer hash - Chris Wellons 2018)
+    x ^= x >> 16;
+    x *= 0x7FEB352Du;
+    x ^= x >> 15;
+    x *= 0x846CA68Bu;
+    x ^= x >> 16;
+    return x;
+}
+// The table's slot a point's cell starts its probes at and its check word (another hash of the cell - never 0).
+void cache_key(vec3 at, vec3 ng, out uint slot, out uint check)
+{
+    float distance = length(at - LL_EYE);
+    float level = max(floor(log2(max(distance * LL_CACHE_CELLS / CACHE_CELL_LEAST, 1.0))), 0.0);
+    ivec3 c = ivec3(floor(at / (CACHE_CELL_LEAST * exp2(level))));
+    vec3 a = abs(ng);
+    uint axis = a.x >= a.y && a.x >= a.z ? 0u : (a.y >= a.z ? 1u : 2u);
+    float along = axis == 0u ? ng.x : (axis == 1u ? ng.y : ng.z);
+    uint w = uint(level) | ((axis * 2u + (along < 0.0 ? 1u : 0u)) << 8);
+    uvec3 u = uvec3(c);
+    slot = cache_hash(u.x ^ cache_hash(u.y ^ cache_hash(u.z ^ cache_hash(w)))) & (CACHE_CAPACITY - 1u);
+    check = cache_hash(u.z ^ cache_hash(u.y + cache_hash(u.x ^ cache_hash(w ^ 0x9E3779B9u))));
+    check = check == 0u ? 1u : check;
+}
+// The bounce at a point (0 where the cache has no entry yet, or isn't used).
+vec3 cache_bounce(vec3 at, vec3 ng)
+{
+    if (!(LL_CACHE_ON)) {
+        return vec3(0.0);
+    }
+    uint slot;
+    uint check;
+    cache_key(at, ng, slot, check);
+    for (uint k = 0u; k < CACHE_PROBES; ++k) {
+        uint i = (slot + k) & (CACHE_CAPACITY - 1u);
+        uint there = cache[i * 4u].x;
+        if (there == check) {
+            vec4 l = uintBitsToFloat(cache[i * 4u + 3u]);
+            return l.w > 0.0 && !any(isnan(l.rgb)) && !any(isinf(l.rgb)) ? max(l.rgb, vec3(0.0)) : vec3(0.0);
+        }
+        if (there == 0u) {
+            break;
+        }
+    }
+    return vec3(0.0);
+}
+#endif
+)";
+    return kSource;
+}
+
+std::string_view local_light_glsl()
+{
+    static constexpr std::string_view kSource = R"(
+struct LocalLight {
+    vec3 light;
+    vec3 dir;
+    float reach;
+    float pdf;
+};
+float local_light_offset(vec3 p) { return 0.02 + 2.0e-5 * max(abs(p.x), max(abs(p.y), abs(p.z))); }
+bool local_light_at(uint e, uint count, vec2 uv, vec3 at, out LocalLight l)
+{
+    l = LocalLight(vec3(0.0), vec3(0.0, 1.0, 0.0), 0.0, 0.0);
+    if (e >= count) {
+        return false;
+    }
+    LightEntry entry = light_entries[e];
+    uint kind = light_kind(entry.payload);
+    uint index = light_index(entry.payload);
+    if (kind == LIGHT_TRIANGLE) {
+        uvec4 listed = emitter_entries[index];
+        HitVertices tri;
+        if (!hit_vertices(listed.x, listed.y, tri)) {
+            return false;
+        }
+        mat4x3 to_world = instance_transform(listed.x);
+        vec3 a = to_world * vec4(tri.position[0], 1.0);
+        vec3 b = to_world * vec4(tri.position[1], 1.0);
+        vec3 c = to_world * vec4(tri.position[2], 1.0);
+        vec3 across = cross(b - a, c - a);
+        float twice = length(across);
+        if (!(twice > 0.0)) {
+            return false;
+        }
+        vec3 bc = path_triangle_point(uv.x, uv.y);
+        vec3 y = a * bc.x + b * bc.y + c * bc.z;
+        vec3 to = y - at;
+        float d2 = dot(to, to);
+        float d = sqrt(d2);
+        if (!(d > 0.0)) {
+            return false;
+        }
+        vec3 dir = to / d;
+        float cos_there = abs(dot(across / twice, dir));
+        if (!(cos_there > 0.0)) {
+            return false;
+        }
+        vec3 emitted;
+        if (!hit_emission(listed.x, listed.y, instance_material(listed.x), bc.yz, emitted)) {
+            return false;
+        }
+        l.light = max(emitted, vec3(0.0)) * (cos_there / d2);
+        l.dir = dir;
+        l.reach = max(d * 0.999 - local_light_offset(y), 0.0);
+        l.pdf = entry.pdf / (0.5 * twice);
+        return max(l.light.r, max(l.light.g, l.light.b)) > 0.0;
+    }
+    if (kind == LIGHT_LAMP) {
+        LightRecord lamp = lamps[index];
+        vec3 from;
+        lamp_geometry(lamp, at, vec3(0.0), from); // (where its light comes from - the point's own: no facing yet)
+        vec3 to = from - at;
+        float d = length(to);
+        if (!(d > 0.0)) {
+            return false;
+        }
+        vec3 dir = to / d;
+        float g = lamp_geometry(lamp, at, dir, from);
+        if (!(g > 0.0)) {
+            return false;
+        }
+        l.light = max(lamp.colour.rgb, vec3(0.0)) * (PATH_PI * g);
+        l.dir = dir;
+        l.reach = max(d - lamp.at.w, 0.0);
+        l.pdf = entry.pdf;
+        return max(l.light.r, max(l.light.g, l.light.b)) > 0.0;
+    }
+    return false;
+}
+)";
+    return kSource;
+}
+
 } // namespace render::vulkan

@@ -1628,6 +1628,8 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
     out->lamps = own.lamps.buffer;
     out->membership = own.membership.buffer;
     out->slots = own.slots.buffer;
+    out->table = own.lights.buffer;
+    out->entries = own.entries;
     out->triangle_powers = own.list_now >= 0 ? own.triangle_powers : std::vector<float>{};
     out->lamp_list = own.local_lamps;
     out->key = own.table_key;

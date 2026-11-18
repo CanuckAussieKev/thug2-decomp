@@ -2362,6 +2362,16 @@ int run(const Options& options, SDL_Window* window)
         render::vulkan::set_rt_pbr_settings({});
         rt::ray_tracing()->set_material(mirror.floor_material, floor_surface(0.0F));
         run_surface(gpu, mirror, &tally); // (added for the surface reflections)
+        // (round WF) the traces whose hits the light list and the radiance cache light (a view ReSTIR GI lit)
+        std::string why;
+        bool listed = false;
+        {
+            render::vulkan::Backend& state = render::vulkan::backend();
+            const std::scoped_lock lock(state.mutex);
+            listed = render::vulkan::make_rt_reflection_listed_traces(state, &why);
+        }
+        tally.check(listed, "the traces lit by the light list made (single, multisampled, the sky's, the puddles')" +
+                                (listed ? std::string() : ": " + why));
     }
     release_mirror(gpu, &mirror);
     render::vulkan::set_rt_reflection_settings({});

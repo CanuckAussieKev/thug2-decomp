@@ -20,14 +20,18 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_brdf.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
+#include "engine/gfx/rt_light_list.h"
 #include "engine/gfx/rt_material_table.h"
+#include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
+#include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_restir_gi.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
@@ -402,6 +406,14 @@ vec4 reflected(vec3 origin, vec3 direction, float travelled)
     float width = pass.ambient.w * (travelled + t);
     vec2 uv = hit_uv(v, barycentrics);
     vec3 texel = (material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) * material(id).colour).rgb;
+#ifdef LIST_LIT
+    // (round WF) a view ReSTIR GI lit: the hit lit by the same light list and radiance cache (list_hit_light)
+    vec3 listed;
+    if (list_hit_light(id, instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true), barycentrics,
+                       rayQueryGetIntersectionObjectToWorldEXT(query, true), direction, listed)) {
+        return vec4(min(max(listed, vec3(0.0)), vec3(65504.0)), 1.0);
+    }
+#endif
     // (round O) the hit lit as its own pixels are - the light store's light now (hit_light)
     vec3 light = hit_light(id, instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true), barycentrics, v, texel,
                            origin + direction * t, n, -direction, travelled + t);
@@ -768,7 +780,25 @@ constexpr uint32_t kBindingSky = 9;
 constexpr uint32_t kBindingSkyCloudLight = kBindingSky + 2;
 constexpr uint32_t kBindingSkyCloudInfo = kBindingSky + 3;
 constexpr uint32_t kBindingWet = 13; // (added by the decals) the puddles' wet mask (vulkan_scatter.h), WET only
-constexpr uint32_t kBindingCount = 14;
+// (round WF) 14 - 21: the light list and the radiance cache (vulkan_light_list.h FrameLightList - the alias table, the
+// emitters, the lamps, the instances' first triangles, the triangles' slots, the sky's grid and its alias, the cache),
+// 22 their block (ListBlock) - the LIST variants only
+constexpr uint32_t kBindingList = 14;
+constexpr uint32_t kListBuffers = 8;
+constexpr uint32_t kBindingListBlock = kBindingList + kListBuffers;
+constexpr uint32_t kBindingCount = kBindingListBlock + 1;
+
+// (round WF) The list's block (std140).
+struct ListBlock {
+    std::array<uint32_t, 4> counts{};
+    std::array<uint32_t, 4> instances{};
+    std::array<float, 4> sun{};
+    std::array<float, 4> sun_radiance{};
+    std::array<float, 4> sky{};
+    std::array<float, 4> eye{};
+    std::array<float, 4> cache_cells{};
+};
+static_assert(sizeof(ListBlock) == 7 * 16, "the shader's ListBlock (std140)");
 
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 constexpr uint32_t kPushBytes = 16; // the apply's rect, the check's count
@@ -802,6 +832,10 @@ struct ReflectionState {
     VkShaderModule vertex = VK_NULL_HANDLE;
     std::array<VkPipeline, 4> trace{}; // single-sampled depth, multisampled; then the same with the sky (SKY)
     std::array<VkPipeline, 2> trace_wet{}; // (added by the decals) single-sampled, without and with the sky (on first use)
+    // (round WF) the same lit by the light list (a view ReSTIR GI lit): the trace's 4, then the puddles' 2 (on first use)
+    std::array<VkPipeline, 6> trace_listed{};
+    bool listed_failed = false;
+    std::string listed_error;
     VkPipeline surface = VK_NULL_HANDLE;
     std::vector<ApplyPipeline> applies;
     std::vector<std::unique_ptr<ViewSlot>> slots;
@@ -862,9 +896,86 @@ VkShaderModule make_module(VkDevice device, RtShaderStage stage, const std::stri
     return module;
 }
 
+// (round WF - path tracing, stage 7) The hits of a view ReSTIR GI lit, lit as GI's own secondary vertices are: the full
+// light list (the disc, the sky's grid, the emitting triangles, the lamps - by power; vulkan_light_list.h light_sample_glsl,
+// one light, one ray), the radiance cache's bounce (every further bounce - NVIDIA's SHaRC) and the surface's own emission
+// (a lamp seen in a mirror: one owner - the emitter's light reaches the eye along this path alone). The surface is
+// hit_surface's - the path tracer's (its material, normals, emission). The light store's sky K, bounce B and the lamps
+// pass's lit set are not read on this path: glass, water and the game's shine (the in-place classes - what the prepass
+// doesn't light) reflect the light everything else is lit by.
+constexpr const char* kListGlsl = R"(
+#define LIST_LIT
+struct LightEntry {
+    float threshold;
+    uint alias;
+    float pdf;
+    uint payload;
+};
+layout(std430, set = 0, binding = 14) readonly buffer Lights { LightEntry light_entries[]; };
+layout(std430, set = 0, binding = 15) readonly buffer Emitters {
+    uint emitter_count;
+    uint emitter_spare;
+    uint emitter_unused;
+    uint emitter_pad;
+    uvec4 emitter_entries[];
+};
+layout(std430, set = 0, binding = 16) readonly buffer Lamps { LightRecord lamps[]; };
+layout(std430, set = 0, binding = 17) readonly buffer Membership { uint membership[]; };
+layout(std430, set = 0, binding = 18) readonly buffer Slots { uint slots[]; };
+layout(std430, set = 0, binding = 19) readonly buffer SkyCells { vec4 sky_cells[]; };
+layout(std430, set = 0, binding = 20) readonly buffer SkyAlias { uvec2 sky_alias[]; };
+layout(std430, set = 0, binding = 21) readonly buffer Cache { uvec4 cache[]; };
+layout(std140, set = 0, binding = 22) uniform ListBlock {
+    uvec4 counts;    // x the table's entries, z the frame, w 1: the cache is read
+    uvec4 instances; // xy the TLAS instances' device address, z their count
+    vec4 sun;        // toward the disc, w the cosine of its radius
+    vec4 sun_radiance;
+    vec4 sky;        // x 1 / the sky grid's luminance integral
+    vec4 eye;        // xyz the camera the cache is keyed from, w the frame's pre-exposure
+    vec4 cache_cells; // x the angle a cache cell spans
+} list;
+#define LIST_INSTANCE_ADDRESS list.instances.xy
+#define LIST_INSTANCES list.instances.z
+#define LL_COUNT list.counts.x
+#define LL_SUN list.sun
+#define LL_SUN_RADIANCE list.sun_radiance
+#define LL_SKY_DIST list.sky.x
+#define LL_REACH 1.0e6
+#define LL_CACHE
+#define LL_EYE list.eye.xyz
+#define LL_CACHE_CELLS list.cache_cells.x
+#define LL_CACHE_ON (list.counts.w != 0u)
+)";
+constexpr const char* kListHitGlsl = R"(
+const uint LIST_RAYS = 7u; // (world, objects, alpha-tested: GI's light rays)
+bool list_hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x3 to_world, vec3 dir, out vec3 lit)
+{
+    lit = vec3(0.0);
+    HitSurface h;
+    if (!hit_surface(instance, primitive, id, barycentrics, to_world, dir, h) || h.hidden) {
+        return false;
+    }
+    vec3 v = -dir;
+    vec3 ng = h.normal;
+    vec3 n = dot(h.shading_normal, v) > 0.0 ? h.shading_normal : ng;
+    uint rng = path_sequence_start(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, list.counts.z, 0x57F1C0DEu);
+    vec3 p = h.position + ng * local_light_offset(h.position);
+    vec3 toward;
+    vec3 incident = light_sample(p, n, ng, LIST_RAYS, rng, toward);
+    vec3 direct = max(incident.r, max(incident.g, incident.b)) > 0.0 ? path_bsdf_cosine(h.material, n, v, toward) * incident
+                                                                     : vec3(0.0);
+    vec3 reflectance = brdf_ambient(h.material, dot(n, v), vec3(1.0), vec3(1.0));
+    lit = (max(h.emitted, vec3(0.0)) + direct + reflectance * cache_bounce(h.position, ng)) * list.eye.w;
+    if (any(isnan(lit)) || any(isinf(lit))) {
+        lit = vec3(0.0);
+    }
+    return true;
+}
+)";
+
 // A compute pass's GLSL: the version, the defines, the ray-query extension, the material table and the geometry table
 // where it shades hits, its body.
-std::string compute_source(const char* body, bool multisampled, bool materials, bool sky = false)
+std::string compute_source(const char* body, bool multisampled, bool materials, bool sky = false, bool listed = false)
 {
     std::string source = "#version 460\n";
     if (multisampled) {
@@ -896,7 +1007,32 @@ std::string compute_source(const char* body, bool multisampled, bool materials, 
     material_defines("LACQUER", rt::MaterialKind::kLacquer);
     source += rt_lamp_glsl();
     source += rt::brdf::brdf_glsl(); // (round M's light model)
-    source += body;
+    std::string text = body;
+    if (listed && materials) {
+        // (round WF) the hits of a view ReSTIR GI lit: the light list and the radiance cache (the scene declared first:
+        // the light rays' library reads it)
+        const std::string scene_line = "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
+        const std::size_t at = text.find(scene_line);
+        if (at != std::string::npos) {
+            text.erase(at, scene_line.size());
+        }
+        source += scene_line;
+        source += cutout_rays_glsl();
+        source += hit_surface_glsl();
+        source += rt::path::kPathGlsl;
+        source += kListGlsl;
+        source += "const uint SKY_WIDTH = " + std::to_string(rt::lights::kSkyGridWidth) + "u;\n";
+        source += "const uint SKY_HEIGHT = " + std::to_string(rt::lights::kSkyGridHeight) + "u;\n";
+        source += "const uint CACHE_CAPACITY = " + std::to_string(kRadianceCacheCapacity) + "u;\n";
+        source += "const uint CACHE_PROBES = " + std::to_string(kRadianceCacheProbes) + "u;\n";
+        source += "const float CACHE_CELL_LEAST = " + std::to_string(kRadianceCacheCellLeast) + ";\n";
+        source += light_instances_glsl();
+        source += rt::lights::kLightListGlsl;
+        source += local_light_glsl();
+        source += light_sample_glsl();
+        source += kListHitGlsl;
+    }
+    source += text;
     return source;
 }
 
@@ -1000,7 +1136,7 @@ bool ensure_layouts(Backend& state, std::string* error)
         } else if (binding == kBindingOut || binding == kBindingIn || binding == kBindingBase ||
                    binding == kBindingSkyCloudLight || binding == kBindingSkyCloudInfo) {
             type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        } else if (binding == kBindingBlock) {
+        } else if (binding == kBindingBlock || binding == kBindingListBlock) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         }
         core::at(bindings, binding) = {.binding = binding,
@@ -1504,6 +1640,69 @@ void depth_barrier(VkCommandBuffer commands, Image* depth, VkImageLayout layout,
     depth->layout = layout;
 }
 
+// (round WF) A trace lit by the light list (on first use; null - logged once - when it can't be made): `wet` the puddles'
+// (single-sampled), else by the depth's samples, with or without the sky.
+VkPipeline listed_pipeline(Backend& state, bool wet, bool multisampled, bool sky)
+{
+    ReflectionState& own = reflections();
+    const std::size_t index = wet ? 4U + (sky ? 1U : 0U) : (multisampled ? 1U : 0U) + (sky ? 2U : 0U);
+    VkPipeline& made = core::at(own.trace_listed, index);
+    if (made != VK_NULL_HANDLE || own.listed_failed) {
+        return made;
+    }
+    std::string error = "the trace's text: a line the puddles are put in by isn't in it";
+    const std::string body = wet ? wet_trace_body() : std::string(kTraceBody);
+    if (!body.empty()) {
+        made = make_compute(state.context.device(), own.layout,
+                            compute_source(body.c_str(), !wet && multisampled, true, sky, true), &error);
+    }
+    if (made == VK_NULL_HANDLE) {
+        own.listed_failed = true;
+        own.listed_error = error;
+        get_log("vulkan: rt_reflections: the trace lit by the light list couldn't be made (%s) - the hits keep the light "
+                "store's light",
+                error.c_str());
+    }
+    return made;
+}
+
+ListBlock list_block_of(const FrameLightList& frame_list, const SceneView& scene, uint64_t frame)
+{
+    ListBlock block;
+    block.counts = {frame_list.entries, 0U, static_cast<uint32_t>(frame & 0xFFFFFFFFULL), frame_list.cache_on ? 1U : 0U};
+    block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),
+                       static_cast<uint32_t>(scene.instances_address >> 32U), scene.instances, 0U};
+    block.sun = frame_list.sun;
+    block.sun_radiance = frame_list.sun_radiance;
+    block.sky = {frame_list.sky_dist, 0.0F, 0.0F, 0.0F};
+    block.eye = {core::at(frame_list.eye, 0), core::at(frame_list.eye, 1), core::at(frame_list.eye, 2),
+                 rt::frame_pre_exposure()};
+    block.cache_cells = {frame_list.cache_cells, 0.0F, 0.0F, 0.0F};
+    return block;
+}
+
+void push_list_descriptors(VkCommandBuffer commands, const FrameLightList& frame_list, const RingSpan& block)
+{
+    const ReflectionState& own = reflections();
+    const auto whole = [](VkBuffer buffer) { return VkDescriptorBufferInfo{.buffer = buffer, .offset = 0, .range = VK_WHOLE_SIZE}; };
+    const std::array<VkDescriptorBufferInfo, kListBuffers> buffers{
+        whole(frame_list.table),      whole(frame_list.emitters),  whole(frame_list.lamps),
+        whole(frame_list.membership), whole(frame_list.slots),     whole(frame_list.sky_cells),
+        whole(frame_list.sky_alias),  whole(frame_list.cache)};
+    const VkDescriptorBufferInfo block_info{.buffer = block.buffer, .offset = block.offset, .range = sizeof(ListBlock)};
+    std::array<VkWriteDescriptorSet, kListBuffers + 1> writes{};
+    for (uint32_t i = 0; i < writes.size(); ++i) {
+        VkWriteDescriptorSet& one = core::at(writes, i);
+        one.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        one.dstBinding = kBindingList + i;
+        one.descriptorCount = 1;
+        one.descriptorType = i < kListBuffers ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        one.pBufferInfo = i < kListBuffers ? &core::at(buffers, i) : &block_info;
+    }
+    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
+                              static_cast<uint32_t>(writes.size()), writes.data());
+}
+
 // The trace's descriptors: the scene, the depth, the image written, the block and the geometry table.
 void push_trace_descriptors(VkCommandBuffer commands, VkAccelerationStructureKHR tlas, const Image* depth,
                             const Image* out, const Image* base, const RingSpan& block, const SceneView& scene,
@@ -1756,6 +1955,21 @@ bool make_rt_reflection_wet_trace(Backend& state, std::string* error)
     return made;
 }
 
+bool make_rt_reflection_listed_traces(Backend& state, std::string* error)
+{
+    std::string why;
+    bool made = state.context.ray_tracing_enabled() && ensure_objects(state, &why);
+    for (int k = 0; made && k < 6; ++k) {
+        made = listed_pipeline(state, k >= 4, k < 4 && (k & 1) != 0, k < 4 ? (k & 2) != 0 : (k & 1) != 0) != VK_NULL_HANDLE;
+    }
+    if (!made && error != nullptr) {
+        *error = !reflections().listed_error.empty() ? reflections().listed_error
+                 : why.empty()                       ? std::string("ray tracing isn't enabled")
+                                                     : why;
+    }
+    return made;
+}
+
 bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
 {
     ReflectionState& own = reflections();
@@ -1881,12 +2095,30 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
     // 1. the rays
     const VkPipeline wet_trace =
         wet != nullptr && colour->samples == VK_SAMPLE_COUNT_1_BIT ? wet_pipeline(state, sky_seen) : VK_NULL_HANDLE;
+    // (round WF) a view ReSTIR GI lit: its hits lit by the same light list and cache
+    FrameLightList frame_list;
+    std::optional<RingSpan> list_span;
+    VkPipeline listed = VK_NULL_HANDLE;
+    if (restir_gi_frame_lights(state, &frame_list)) {
+        listed = listed_pipeline(state, wet_trace != VK_NULL_HANDLE, colour->samples != VK_SAMPLE_COUNT_1_BIT, sky_seen);
+        if (listed != VK_NULL_HANDLE) {
+            const ListBlock list_block = list_block_of(frame_list, scene, state.frame);
+            std::array<uint8_t, sizeof(ListBlock)> list_bytes{};
+            std::memcpy(list_bytes.data(), &list_block, sizeof(list_block));
+            list_span = state.ring.copy(list_bytes, kUniformAlignment);
+            listed = list_span ? listed : VK_NULL_HANDLE;
+        }
+    }
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
-                      wet_trace != VK_NULL_HANDLE
+                      listed != VK_NULL_HANDLE ? listed
+                      : wet_trace != VK_NULL_HANDLE
                           ? wet_trace
                           : core::at(own.trace, (colour->samples != VK_SAMPLE_COUNT_1_BIT ? 1U : 0U) + (sky_seen ? 2U : 0U)));
     push_trace_descriptors(commands, scene.tlas, depth, &slot->reflection, &slot->base, *block_span, scene,
                            sky_seen ? &sky : nullptr);
+    if (listed != VK_NULL_HANDLE) {
+        push_list_descriptors(commands, frame_list, *list_span);
+    }
     if (wet_trace != VK_NULL_HANDLE) {
         const VkDescriptorImageInfo wet_info{
             .sampler = own.sampler, .imageView = wet->view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
@@ -2106,7 +2338,10 @@ void release_rt_reflections(Backend& state)
         }
         for (const VkPipeline pipeline : {core::at(own.trace, 0), core::at(own.trace, 1), core::at(own.trace, 2),
                                           core::at(own.trace, 3), core::at(own.trace_wet, 0),
-                                          core::at(own.trace_wet, 1), own.surface}) {
+                                          core::at(own.trace_wet, 1), own.surface, core::at(own.trace_listed, 0),
+                                          core::at(own.trace_listed, 1), core::at(own.trace_listed, 2),
+                                          core::at(own.trace_listed, 3), core::at(own.trace_listed, 4),
+                                          core::at(own.trace_listed, 5)}) {
             if (pipeline != VK_NULL_HANDLE) {
                 vkDestroyPipeline(device, pipeline, nullptr);
             }
