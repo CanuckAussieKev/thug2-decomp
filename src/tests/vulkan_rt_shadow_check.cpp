@@ -1016,6 +1016,12 @@ void run_case(render::Gpu& gpu, const Case& test, const Scene& scene, Tally* tal
         const uint64_t passes = draw_frame(gpu, test, targets);
         tally->check(passes == (test.no_scene ? 0U : 1U),
                      text::format("the listener %s the pass", passes == 1 ? "recorded" : "skipped"));
+        // (round SH) the objects' own shadows - the peds' blobs, the skater's projected one, which render_pc's
+        // shadow_base leaves out on this state - are the pass's exactly while it is drawn with the objects casting
+        const bool handed_over = test.settings.objects && passes == 1;
+        tally->check(render::rt::object_shadows_replaced() == handed_over,
+                     text::format("the objects' own shadows (projected, blobs) %s",
+                                  render::rt::object_shadows_replaced() ? "left to the pass" : "drawn by the game"));
         std::vector<uint8_t> texels;
         GpuSurface* read_from = targets.colour;
         bool read = true;

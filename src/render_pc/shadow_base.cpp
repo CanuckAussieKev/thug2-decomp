@@ -36,6 +36,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/gfx/rt_scene.h"
 #include "base/maths/mat4.h"
 
 namespace render {
@@ -315,6 +316,15 @@ void render_shadow_textures()
     if (engine_parts().suppress_draw()) {
         return;
     }
+    // Not original - every caster here is an object's projected shadow (engine/objects/shadow_component: the detailed
+    // kind, the skater's): while a ray-tracing backend casts the objects' shadows (rt_scene.h object_shadows_replaced)
+    // they are its alone - neither drawn into their textures nor onto the ground (draw_shadows). The shadow component
+    // can't hide this kind itself (the original's detailed shadow has no hide: its table's stub), and leaving it in
+    // place only stopped its camera following the object - a piece of the skater's shadow stayed wherever that camera
+    // was left. Original behaviour: every caster drawn.
+    if (rt::object_shadows_replaced()) {
+        return;
+    }
     std::array<float, maths::kMatrixFloats> saved_view{};
     std::array<float, maths::kMatrixFloats> saved_projection{};
     std::memcpy(saved_view.data(), view_matrix_data(), sizeof(saved_view));
@@ -387,6 +397,11 @@ void render_shadow_textures()
 void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
 {
     if (engine_parts().suppress_draw()) {
+        return;
+    }
+    // Not original - the projected shadows are the ray-traced pass's while it casts the objects' (see
+    // render_shadow_textures). Original behaviour: every caster's shadow drawn.
+    if (rt::object_shadows_replaced()) {
         return;
     }
     uint32_t saved_min_filter = 0;

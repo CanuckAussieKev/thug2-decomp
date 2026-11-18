@@ -602,8 +602,8 @@ bool sun_glare_replaced();
 
 // (added for the skater's shadow) Whether a backend's shadow pass casts the objects' shadows - the skater's, the peds',
 // the vehicles' - from the sun this frame (the Vulkan Gpu's [Graphics] rt_shadows with rt_shadow_objects, a pass drawn):
-// the objects' own shadows (engine/objects/shadow_component: the skater's projected one, the peds' blobs) are then
-// hidden. False (the default, Direct3D 9, no sun in the level, the pass off): the original's shadows drawn as always.
+// the objects' own shadows (engine/objects/shadow_component: the peds' blobs; render_pc/shadow_base: the skater's
+// projected one, neither drawn into its texture nor onto the ground) are then hidden. False (the default, Direct3D 9, no sun in the level, the pass off): the original's shadows drawn as always.
 void set_object_shadows_replaced(bool replaced);
 bool object_shadows_replaced();
 

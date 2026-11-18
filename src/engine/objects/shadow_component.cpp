@@ -123,7 +123,8 @@ void GroundShadowModule::refresh_shadow()
     }
     // Not original - a ray-tracing backend casts the objects' shadows from the sun this frame (rt_scene.h
     // object_shadows_replaced: the Vulkan Gpu's rt_shadows with rt_shadow_objects): the object's own shadow hidden, as
-    // when its model is hidden. Original behaviour: the shadow placed and shown.
+    // when its model is hidden (the detailed kind's hide does nothing - the original's stub -: render_pc's shadow_base
+    // leaves the projected shadows out on the same state). Original behaviour: the shadow placed and shown.
     if (render::rt::object_shadows_replaced()) {
         shadow_handle_->hide();
         return;
