@@ -216,8 +216,9 @@ public:
         if (!finite) {
             violation("set_material " + std::to_string(material) + ": a colour or alpha reference not finite");
         }
-        if ((surface.flags & ~(rt::kAlphaTested | rt::kTransparent)) != 0U) {
-            violation("set_material " + std::to_string(material) + ": flags other than alpha-tested / transparent");
+        if ((surface.flags & ~(rt::kAlphaTested | rt::kTransparent | rt::kTextureAlpha)) != 0U) {
+            violation("set_material " + std::to_string(material) +
+                      ": flags other than alpha-tested / transparent / texture alpha");
         }
         const auto address_ok = [](uint32_t mode) { return mode >= kFirstAddress && mode <= kLastAddress; };
         if (!address_ok(surface.address_u) || !address_ok(surface.address_v) || surface.filter > kLastFilter) {

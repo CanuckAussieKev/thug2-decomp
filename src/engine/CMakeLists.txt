@@ -136,6 +136,7 @@ add_library(thug2_engine STATIC
     gfx/rt_daylight.cpp
     gfx/rt_path.cpp
     gfx/rt_light_list.cpp
+    gfx/rt_poses.cpp
     gfx/rt_light_census.cpp
     gfx/rt_light_field.cpp
     gfx/day_clock.cpp

@@ -862,8 +862,10 @@ nothing but test one pointer while no `RayTracing` is installed.
   drawn from, its share's offset in an arena, the strip or list, the indices' copy in memory), removed when destroyed;
   `update_mesh` (an addition to the contract) when the buffers they are in change - a device reset forgets them all
   instead, and they come back under new ids; `mesh_changed` the frame after the CPU rewrote their vertices (skinning,
-  the editor), colour-only writes not counted. A skinned mesh's geometry is therefore the pose it was drawn with the
-  frame before, and one mesh shared by several skinned instances holds the last one's pose.
+  the editor), colour-only writes not counted. (Path tracing, stage 3: a mesh skinned on the CPU is no longer
+  registered itself - its buffers held the frame before's last pose, shared by every instance -; each instance's pose of
+  the frame is a mesh of its own, skinned at the record with that instance's bones: engine/gfx/rt_poses.h, "Everything
+  drawn in the acceleration structure" below.)
 - **Materials:** `set_material` when first used and when their first pass changes (texture animations): its texture,
   UV set 0, blend mode, alpha reference (0-1), colour (the pass's doubled: 1 is the texture unchanged; the fourth value
   the pass's fixed alpha), flags, and R3's sampler states: the pass's address modes (wrap, clamp, border where the
@@ -5176,3 +5178,36 @@ through the tone curve at that EV. `pt off` ends it.
   processor (the alias table's picks against its weights, the groups' shares, each lamp shape's flux against its light
   integrated over a sphere, the sky's pdf integrating to 1 and its samples falling as luminance x solid angle says) and
   on the device (by power against the kinds evenly: the same mean; under 32 lamps of very different power, less noise).
+
+### Everything drawn in the acceleration structure (path tracing, stage 3)
+
+- **A world that stands still.** A reference's run key is every instance's mesh, material, flags and transform and the
+  record's `poses_key` (the bones each skinned pose was written with): anything that moves starts it again. `pt ref`
+  turns a live pause (the world running behind the pause menu - game/front_end/live_pause.h) into the original's
+  freeze, as the level editor does; before, the cars drove on through the sums (the car absent, a green smear where it
+  had been) - the run key left the objects out.
+- **Skinned meshes in their instance's pose of the frame** (engine/gfx/rt_poses.h, render_pc/rt_record.cpp
+  `pose_id`): a mesh skinned on the processor is skinned again at the record, with its instance's bones (the draw's
+  code: `MeshRef::skin_for_rays`, the draw's palette), into a vertex buffer of its own per (instance, mesh) - dynamic,
+  registered as a dynamic mesh with the drawn mesh's indices and layout, refitted each frame. The meshes' own buffers
+  (the last draw's pose, a frame old, shared by every instance) are never registered. A pose not asked for in a frame
+  is released. `mesh_drawn` matches a draw with its instance's pose (the contract check: 0 violations).
+- **Blended surfaces traced by what their material draws** (vulkan_rt_scene.h `hit_blend`, from the first pass's
+  blend mode, alpha and class - never per object): an alpha blend (5, 6, or a blended pass that replaces what is behind
+  it) is a surface over its coverage - hit by chance as its alpha there (the walls drawn with a blended first pass and
+  opaque texels are solid); glass (reflection class glass, seen through) is its painted coverage plus a thin pane:
+  Fresnel reflection as a mirror (the material table's glass F0), the rest straight through; a multiply (7, 8, 15) is a
+  filter on the light behind it; an add / subtract / brighten (1 - 4, 9, 10: glows, light cards, grime) lets light
+  through and adds its own store emission. Shadow rays (sun, sky, lamps, emitters) take the expected light through
+  them (`seen_through`). The path tracer's rays meet the seen-through instances (mask 0x80); every other pass keeps its
+  masks - the realtime shadows, occlusion, bounce and reflections still leave blended instances out.
+- **The alpha a cut-out is tested with** is the one the game draws and tests (vulkan_rt_materials.h
+  `material_drawn_alpha`: the texel's alpha, or the vertex alpha x it doubled - never the pass's fixed alpha, which is 0
+  on nearly every material). Before, an alpha-tested material with a reference above 1 was cut away entirely on every
+  ray that takes cut-outs (a whole stone wall in BO): this changes the realtime passes too - such surfaces (fences,
+  foliage, walls drawn alpha-tested) now cast and occlude by their texels - and the relit bake's rays.
+- The BLASes are built with `VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR`: the light through blended surfaces
+  is a product over the candidates a ray meets.
+- Not yet: particles, billboards, grass, clutter and decals (no per-frame triangle BLAS); objects' baked colours (an
+  object drawn with its own colours - BO's lamp globes, lit yellow by their baked colours - is white and unlit in the
+  reference: its colours are neither tint nor emission until objects are de-baked like the world).
