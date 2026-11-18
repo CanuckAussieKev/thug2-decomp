@@ -43,6 +43,7 @@
 #include "platform/process_flags.h"
 #include "platform/run_log.h"
 #include "platform/test_workspace.h"
+#include "render_pc/rt_record.h"
 
 namespace render::relit_bake {
 
@@ -373,6 +374,24 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
     }
     return out;
 }
+// (round P10, the bake's report) An emitter kind's name.
+const char* kind_name(rt::EmitterKind kind)
+{
+    switch (kind) {
+    case rt::EmitterKind::kGlow:
+        return "a glow";
+    case rt::EmitterKind::kSelfLit:
+        return "self-lit";
+    case rt::EmitterKind::kPoint:
+        return "a point light";
+    case rt::EmitterKind::kTextured:
+        return "textured";
+    case rt::EmitterKind::kPool:
+        return "from its pool";
+    }
+    return "?";
+}
+
 
 // (round L) Each lamp's luminous area (m^2): its emissive triangles' areas x their lit share (rt_lights.h
 // EmitterTriangle::lit_share - a light card's saturated core, a texture's lamp texels, a self-lit triangle whole).
@@ -955,13 +974,36 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             read.push_back(std::move(one));
         }
     }
+    // (round P10 - objects relit) the level's meshes first, its objects drawn with their own colours after them: the
+    // light model is the level's bake - fitted over its own meshes (fit_count) -, the objects taken apart by it with the
+    // rest (their lamps, tints, emission)
     std::ranges::sort(read, [](const rt_relit_world::BakeMesh& a, const rt_relit_world::BakeMesh& b) {
-        return a.content < b.content;
+        return a.object != b.object ? !a.object : a.content < b.content;
     });
+    const auto fit_count = static_cast<std::size_t>(
+        std::ranges::count_if(read, [](const rt_relit_world::BakeMesh& mesh) { return !mesh.object; }));
+    {
+        const std::string census = rt_record::object_census(true);
+        std::size_t from = 0;
+        bool first = true;
+        while (from <= census.size()) {
+            const std::size_t end = std::min(census.find('\n', from), census.size());
+            const std::string line = census.substr(from, end - from);
+            if (first) {
+                get_log("relit bake: the objects - %s; %zu of the bake's %zu meshes objects'", line.c_str(),
+                        read.size() - fit_count, read.size());
+            } else {
+                get_log("relit bake: %s", line.c_str());
+            }
+            first = false;
+            from = end + 1;
+        }
+    }
     std::vector<uint64_t> contents;
     std::vector<rt::RelitMesh> meshes;
     std::vector<uint8_t> card_meshes; // (round light cards) the original's light cards among them ...
     std::vector<uint8_t> blended_meshes; // ... and its blended meshes
+    std::vector<uint64_t> object_models; // (round P10) each object's model (0: the level's own mesh)
     std::vector<std::pair<uint32_t, uint32_t>> card_given;
     std::size_t vertices = 0;
     for (rt_relit_world::BakeMesh& mesh : read) {
@@ -970,9 +1012,11 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         meshes.push_back(std::move(mesh.mesh));
         card_meshes.push_back(mesh.card ? 1 : 0);
         blended_meshes.push_back(mesh.blended ? 1 : 0);
+        object_models.push_back(mesh.object ? mesh.model : 0);
     }
     data.content = rt::relit_level_content(contents);
-    data.facing = rt::relit_facing(meshes);
+    data.facing = rt::relit_facing(std::span<const rt::RelitMesh>(meshes).first(fit_count));
+    const auto fitted_part = [fit_count](auto& all) { return std::span(all).first(std::min(fit_count, all.size())); };
     std::vector<uint32_t> before_cards; // (reported: the colours the cards' light was put in, as baked)
     {
         std::vector<std::vector<uint32_t>> baked_colours;
@@ -1034,8 +1078,9 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             const rt::DayLight day = own_day_light(sun);
             return rt::RelitLightColours{.sun = day.sun_light, .sky = day.sky_light};
         };
-        rt::RelitModel model = rt::fit_relit_model(meshes, light, up, true); // (the evidence: the bake's own colours)
-        const float sunless_error = rt::relit_edge_error(meshes, light, model);
+        rt::RelitModel model = rt::fit_relit_model(fitted_part(meshes), fitted_part(light), up,
+                                                   true); // (the evidence: the bake's own colours)
+        const float sunless_error = rt::relit_edge_error(fitted_part(meshes), fitted_part(light), model);
         get_log("relit bake: the sunless model - error %.4f (%s)", static_cast<double>(sunless_error),
                 model.valid ? "valid" : "not valid");
         struct Pick {
@@ -1079,8 +1124,12 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                     vertex.sun_baked = vertex.sun;
                 }
             }
-            rt::RelitModel fitted = rt::fit_relit_model(over, *over_light, toward, false);
-            *error = fitted.valid ? rt::relit_edge_error(over, *over_light, fitted) : 1.0F;
+            // (the fit over the level's own meshes of them: the objects come after them)
+            const std::size_t fitted_meshes = std::min(over.size(), fit_count);
+            const std::span<const rt::RelitMesh> fit_over = over.first(fitted_meshes);
+            const std::span<const rt::RelitVertices> fit_light = std::span<const rt::RelitVertices>(*over_light).first(fitted_meshes);
+            rt::RelitModel fitted = rt::fit_relit_model(fit_over, fit_light, toward, false);
+            *error = fitted.valid ? rt::relit_edge_error(fit_over, fit_light, fitted) : 1.0F;
             *share = rt::relit_sun_share(fitted);
             return fitted;
         };
@@ -1133,7 +1182,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         // (the level's own data: a night state's bake shows the night - its directional light the moon's, not a sun;
         // a roofed level's floors see too little of the sky for its bake's sun to be told - daylight reaches it through
         // its openings, traced, whatever the bake)
-        const float floors_sky = open_sky(meshes, light);
+        const float floors_sky = open_sky(fitted_part(meshes), fitted_part(light));
         floors_open = floors_sky;
         const bool night = own_state() == rt::TodState::kNight;
         const bool roofed = floors_sky < rt::kRelitIndoorSky;
@@ -1154,14 +1203,14 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         if (!sunless) {
             set_suns(&pick.suns);
             const rt::RelitLightColours colours = colours_toward(&pick.toward);
-            model = rt::fit_relit_model(meshes, light, pick.toward, false, &colours);
+            model = rt::fit_relit_model(fitted_part(meshes), fitted_part(light), pick.toward, false, &colours);
         } else {
             set_suns(nullptr);
             const rt::RelitLightColours colours = colours_toward(nullptr);
-            model = rt::fit_relit_model(meshes, light, up, true, &colours);
+            model = rt::fit_relit_model(fitted_part(meshes), fitted_part(light), up, true, &colours);
         }
-        log_open_colours(meshes, light);
-        log_bounce_evidence(meshes, light, model);
+        log_open_colours(fitted_part(meshes), fitted_part(light));
+        log_bounce_evidence(fitted_part(meshes), fitted_part(light), model);
         trace_ms = ms_since(traced);
         // (reported) the fit as it came out, in the bake's own colours - before the unit: each channel's sun, sky and
         // bounce coefficients
@@ -1256,6 +1305,13 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                                     : luma(model.sun) / rt::kRelitMinSunLight;
         if (model.valid) {
             rt::decompose_relit(meshes, {}, params, &model, &light);
+            // (round P10) an object's model's tint one wherever it stands (its colours are the model's)
+            const rt::ObjectTints shared = rt::relit_object_tints(object_models, light);
+            get_log("relit bake: the objects' tints - %zu models at two or more places (%zu meshes) given one tint each: "
+                    "their places' tints were apart by x%.2f (median model), x%.2f (most) - the light at their places, "
+                    "not in their colours",
+                    shared.models, shared.meshes, static_cast<double>(shared.spread_median),
+                    static_cast<double>(shared.spread_most));
             data.verdict = sunless ? rt::RelitVerdict::kRelitSunless : rt::RelitVerdict::kRelit;
         } else {
             data.verdict = rt::RelitVerdict::kNoModel;
@@ -1413,6 +1469,58 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             }
             mesh.emitting = core::at(emitting, mi);
             data.meshes.push_back(std::move(mesh));
+        }
+        {
+            // (round P10, reported) the objects as taken apart: their tints, those held at the most a tint may be (light
+            // the model doesn't explain), and their vertices that are a lamp's surface
+            std::vector<float> tints;
+            std::size_t held = 0;
+            std::size_t lit = 0;
+            std::unordered_set<uint32_t> their_lamps;
+            for (std::size_t mi = 0; mi < data.meshes.size() && mi < object_models.size(); ++mi) {
+                if (core::at(object_models, mi) == 0) {
+                    continue;
+                }
+                const rt::RelitDataMesh& mesh = core::at(data.meshes, mi);
+                for (const rt::RelitVertex& vertex : mesh.vertices) {
+                    if (vertex.used) {
+                        tints.push_back(luma(vertex.tint));
+                        held += std::max({std::get<0>(vertex.tint), std::get<1>(vertex.tint), std::get<2>(vertex.tint)}) >=
+                                        rt::kRelitMaxTint
+                                    ? 1
+                                    : 0;
+                    }
+                }
+                lit += mesh.emitting.size();
+                for (const rt::RelitEmitting& one : mesh.emitting) {
+                    their_lamps.insert(one.lamp);
+                }
+                if (!mesh.emitting.empty() && mesh.emitting.front().vertex < core::at(meshes, mi).positions.size()) {
+                    const rt::Vec3& p = core::at(core::at(meshes, mi).positions, mesh.emitting.front().vertex);
+                    const uint32_t li = mesh.emitting.front().lamp;
+                    const rt::RelitLamp* lamp = li < data.lamp_list.size() ? &core::at(data.lamp_list, li) : nullptr;
+                    get_log("relit bake: an object's surface is lamp %u's (%s, %.0f lm at %.0f %.0f %.0f): %zu of its "
+                            "vertices, at %.0f %.0f %.0f",
+                            li, lamp != nullptr ? kind_name(lamp->kind) : "?",
+                            lamp != nullptr ? static_cast<double>(lamp->lumens) : 0.0,
+                            lamp != nullptr ? static_cast<double>(rt::x_of(lamp->position)) : 0.0,
+                            lamp != nullptr ? static_cast<double>(rt::y_of(lamp->position)) : 0.0,
+                            lamp != nullptr ? static_cast<double>(rt::z_of(lamp->position)) : 0.0, mesh.emitting.size(),
+                            static_cast<double>(rt::x_of(p)), static_cast<double>(rt::y_of(p)), static_cast<double>(rt::z_of(p)));
+                }
+            }
+            std::ranges::sort(tints);
+            const auto at = [&tints](double share) {
+                return tints.empty() ? 0.0
+                                     : static_cast<double>(core::at(tints, static_cast<std::size_t>(
+                                                                              static_cast<double>(tints.size() - 1) * share)));
+            };
+            constexpr double kQuarter = 0.25;
+            constexpr double kHalfway = 0.5;
+            constexpr double kThree = 0.75;
+            get_log("relit bake: the objects taken apart - %zu vertices: tints 25%% %.3f, median %.3f, 75%% %.3f; %zu held at "
+                    "the most a tint may be; %zu vertices a lamp's surface (%zu lamps)",
+                    tints.size(), at(kQuarter), at(kHalfway), at(kThree), held, lit, their_lamps.size());
         }
     }
     // the file

@@ -716,6 +716,20 @@ void decompose_relit(std::span<const RelitMesh> meshes, std::span<const uint8_t>
 // light over the model's; 1 where they agree) - the evidence. Returns the vertices changed.
 std::size_t relit_light_across(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted,
                                std::span<const std::vector<float>> differs, std::span<RelitVertices> light);
+// (round P10 - objects relit) The level's objects drawn with their own colours carry their model's colours, the same at
+// every place they stand (Boston: each of its 6 globe lamps, its 6 lanterns, its bollards byte for byte alike, wherever
+// the sun and the walls round them are) - the colours are the model's own, not the bake's light at each place. So a
+// model's tint is one: each vertex's, per channel, the median over its places of what decompose_relit made of it there
+// (its colour over the model's light at that place). `models`: each mesh's model (its content in its own space; 0: not
+// an object - left alone); meshes of one model with another vertex count left alone. The spread is the evidence: for
+// each model at two or more places, its places' mean tints' brightest over darkest (1: the places' light alike).
+struct ObjectTints {
+    std::size_t models = 0;  // models at two or more places
+    std::size_t meshes = 0;  // their meshes (places x meshes)
+    float spread_median = 1.0F; // the models' spreads: median and most
+    float spread_most = 1.0F;
+};
+ObjectTints relit_object_tints(std::span<const uint64_t> models, std::span<RelitVertices> light);
 
 // How the world is lit now, in the global light unit (lighting round A2: rt_daylight.h DayLight::sun_light / sky_light
 // while the clock lights the level; the level's own - relit_own_lighting - while it doesn't). One unit for every level:

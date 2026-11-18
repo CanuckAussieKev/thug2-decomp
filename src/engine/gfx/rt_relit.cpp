@@ -2529,6 +2529,66 @@ void decompose_relit(std::span<const RelitMesh> meshes, std::span<const uint8_t>
     model->across = relit_light_across(meshes.first(count), wanted, differs, std::span<RelitVertices>(*light).first(count));
 }
 
+ObjectTints relit_object_tints(std::span<const uint64_t> models, std::span<RelitVertices> light)
+{
+    ObjectTints out;
+    std::unordered_map<uint64_t, std::vector<std::size_t>> groups;
+    const std::size_t count = std::min(models.size(), light.size());
+    for (std::size_t mi = 0; mi < count; ++mi) {
+        if (core::at(models, mi) != 0) {
+            groups[core::at(models, mi)].push_back(mi);
+        }
+    }
+    std::vector<float> spreads;
+    for (auto& [model, members] : groups) {
+        const std::size_t vertices = core::at(light, members.front()).size();
+        std::erase_if(members, [&light, vertices](std::size_t mi) { return core::at(light, mi).size() != vertices; });
+        if (members.size() < 2) {
+            continue;
+        }
+        out.models += 1;
+        out.meshes += members.size();
+        float brightest = 0.0F;
+        float darkest = std::numeric_limits<float>::max();
+        for (const std::size_t mi : members) {
+            double sum = 0.0;
+            std::size_t used = 0;
+            for (const RelitVertex& vertex : core::at(light, mi)) {
+                if (vertex.used) {
+                    sum += luma(vertex.tint);
+                    ++used;
+                }
+            }
+            const float mean = used > 0 ? static_cast<float>(sum / static_cast<double>(used)) : 0.0F;
+            brightest = std::max(brightest, mean);
+            darkest = std::min(darkest, mean);
+        }
+        spreads.push_back(darkest > 0.0F ? brightest / darkest : 1.0F);
+        std::vector<float> values(members.size());
+        for (std::size_t vi = 0; vi < vertices; ++vi) {
+            Rgbf median{};
+            for (std::size_t ch = 0; ch < 3; ++ch) {
+                for (std::size_t k = 0; k < members.size(); ++k) {
+                    core::at(values, k) = core::at(core::at(core::at(light, core::at(members, k)), vi).tint, ch);
+                }
+                const auto middle = values.begin() + static_cast<std::ptrdiff_t>(values.size() / 2);
+                std::ranges::nth_element(values, middle);
+                core::at(median, ch) = *middle;
+            }
+            for (const std::size_t mi : members) {
+                core::at(core::at(light, mi), vi).tint = median;
+            }
+        }
+    }
+    if (!spreads.empty()) {
+        const auto middle = spreads.begin() + static_cast<std::ptrdiff_t>(spreads.size() / 2);
+        std::ranges::nth_element(spreads, middle);
+        out.spread_median = *middle;
+        out.spread_most = *std::ranges::max_element(spreads);
+    }
+    return out;
+}
+
 std::size_t relit_light_across(std::span<const RelitMesh> meshes, std::span<const uint8_t> wanted,
                                std::span<const std::vector<float>> differs, std::span<RelitVertices> light)
 {

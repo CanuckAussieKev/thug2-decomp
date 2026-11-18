@@ -49,7 +49,8 @@ uint listed_slot(uint instance, uint primitive)
 )";
 
 // The emitters' scan: one invocation a triangle of the frame's instances (flattened by the instances' first triangles,
-// membership[0 .. instances]). A triangle of a world instance that casts and isn't seen through, whose light store emits
+// membership[0 .. instances]). A triangle of an instance with a light store (the world's, and since round P10 an object
+// drawn with its own colours, relit where it stands) that casts and isn't seen through, whose light store emits
 // at a corner (not hidden, not animated), is listed with its power: 2 pi x its area x its emission's mean luminance at the
 // centroids of its TRIANGLE_LATTICE^2 equal sub-triangles (hit_surface's `emitted`: the store's emit x the texel x the
 // lamp texels). (Round PT4b) Every such triangle is listed: one whose few lamp texels fall between those points (Boston:
@@ -107,7 +108,7 @@ void main()
     uint primitive = g - membership[instance];
     GeometryRecord record = geometry_record(instance);
     if ((record.flags & GEOMETRY_LIVE) == 0u || (record.flags & GEOMETRY_LIGHT) == 0u ||
-        (record.instance_flags & HIT_INSTANCE_OBJECT) != 0u || (record.instance_flags & LIST_CASTS) == 0u ||
+        (record.instance_flags & LIST_CASTS) == 0u ||
         (record.instance_flags & LIST_TRANSPARENT) != 0u) {
         return;
     }

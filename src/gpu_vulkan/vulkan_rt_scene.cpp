@@ -2549,7 +2549,8 @@ vec3 store_emission(vec3 emit, vec3 linear, bool masked)
 }
 // (round PT4b) The light a triangle of the world sends at a point (hit_surface's `emitted` alone - no normals, no
 // material: ReSTIR DI's target evaluates it at every candidate); false where nothing is there (a cut-out texel, a hidden
-// mesh). An object's: none (its colours are baked: hit_surface gives it no emission either).
+// mesh). (Round P10) An object's from its store as a world mesh's: an object drawn with its own colours is relit where it
+// stands (its tint and emission taken apart by the bake); one without a store sends nothing.
 bool hit_emission(uint instance, uint primitive, uint id, vec2 barycentrics, out vec3 emitted)
 {
     emitted = vec3(0.0);
@@ -2566,8 +2567,7 @@ bool hit_emission(uint instance, uint primitive, uint id, vec2 barycentrics, out
     vec3 emit;
     bool masked;
     bool hidden;
-    if ((geometry_record(instance).instance_flags & HIT_INSTANCE_OBJECT) != 0u ||
-        !hit_store(instance, primitive, barycentrics, tint, emit, masked, hidden)) {
+    if (!hit_store(instance, primitive, barycentrics, tint, emit, masked, hidden)) {
         return true;
     }
     if (hidden) {
@@ -2626,16 +2626,24 @@ bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4
     s.alpha = material_drawn_alpha(id, uv, hit_colour(v, barycentrics).a);
     s.cut_out = !material_alpha_passes(id, s.alpha);
     vec3 linear = linear_from_display(clamp(texel.rgb, 0.0, 1.0));
-    bool object = (geometry_record(instance).instance_flags & HIT_INSTANCE_OBJECT) != 0u;
+    GeometryRecord record = geometry_record(instance);
+    bool object = (record.instance_flags & HIT_INSTANCE_OBJECT) != 0u;
     vec3 tint;
     vec3 emit;
     bool masked;
     bool hidden;
-    if (!object && hit_store(instance, primitive, barycentrics, tint, emit, masked, hidden)) {
+    // (round P10 - objects relit) one surface whoever drew it: a store (the world's meshes and the objects drawn with their
+    // own colours, taken apart by the bake) gives the tint and the emission; an object the game lights (its object light)
+    // has its vertex colour as its material's diffuse - its paint, as the frame draws it (ff_shaders.cpp: the albedo x
+    // linear Cd); anything else its texel alone
+    if (hit_store(instance, primitive, barycentrics, tint, emit, masked, hidden)) {
         s.origin = HIT_RELIT_WORLD;
         s.hidden = hidden;
         s.base_colour = linear * tint;
         s.emitted = store_emission(emit, linear, masked);
+    } else if (object && (record.flags & GEOMETRY_OBJECT_LIGHT) != 0u && (record.flags & GEOMETRY_COLOUR) != 0u) {
+        s.origin = HIT_OBJECT;
+        s.base_colour = linear * linear_from_display(clamp(hit_colour(v, barycentrics).rgb, 0.0, 1.0));
     } else {
         s.origin = object ? HIT_OBJECT : HIT_BAKED_WORLD;
         s.base_colour = linear;
