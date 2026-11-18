@@ -380,7 +380,8 @@ Surface depth_surface(ivec2 p, vec3 here, vec3 dir)
 #endif
 
 // The pixel's surface: the check's camera ray through its centre; the game's the prepass's depth there, its triangle the
-// one a camera ray meets at that point - (round PT4d) where none does, the depth's own surface (depth_surface).
+// one a camera ray meets at that point (round CW: the one the prepass kept - trace_drawn, a blended layer too) -
+// (round PT4d) where none does, the depth's own surface (depth_surface).
 Surface primary(ivec2 p)
 {
     vec2 centre = vec2(p) + 0.5;
@@ -411,7 +412,7 @@ Surface primary(ivec2 p)
     float t;
     mat4x3 to_world;
     HitSurface h;
-    if (!trace_closest(LIGHT_RAYS, eye, dir, reach, instance, primitive, id, bary, t, to_world) ||
+    if (!trace_drawn(eye, dir, reach, instance, primitive, id, bary, t, to_world) ||
         (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected) ||
         !hit_surface(instance, primitive, id, bary, to_world, dir, h) || h.hidden) {
 #ifdef CHECK
