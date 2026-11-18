@@ -5337,6 +5337,16 @@ the fog scatters them). The shading is unchanged: it stays the one consumer.
      for frames, and Ray Reconstruction took the black and white blotches for the picture - Boston's walls blown white
      with hard edges, speckled pools. The check's lamp drawn in a texture: per-frame relative error 5.5 -> 0.86. Cost:
      the emission read at every candidate - BO at night 1.1 - 1.3 -> 2.0 - 2.6 ms at 1280x720.)
+     (Round PT4c: the candidates come from a **light grid** round the camera - ReGIR, Boksansky et al. 2021: 32 x 16 x 32
+     cells of 128 units, each with 64 slots, each slot one light resampled from 8 of the list's by power toward the most
+     that light can give the cell (widened by half a cell: a pixel's point is moved by up to half a cell before its
+     cell is found) - a triangle's flux / 2 pi d^2 up to pi x its mean radiance, a lamp its model with every cosine 1,
+     0 beyond its reach; kept with its unbiased contribution weight. A pixel's candidates are slots of its cell,
+     weighted by its target x the slot's W (generalised RIS, Lin et al. 2022): every light a pixel can get light from has
+     a bound above 0 there, so unbiased; outside the grid the list by power. Before, a level's far lamps took nearly
+     every candidate - Boston's courtyard lit by 1 candidate in tens, the reservoirs finding and losing its lamps over
+     seconds. The check's 4 near lamps among 120 far: each pixel's variation over the frames 2.5 x lower with the
+     candidates alone and with the temporal reuse. Cost +0.3 ms at 1280x720.)
   3. One ray (vulkan_rt_scene.h `ray_light`: cut-outs by their alpha, seen-through surfaces by their transmittance) to
      the chosen light; one it doesn't reach is dropped (W = 0, M kept: visibility reuse).
   4. Temporal: the point taken back through last frame's camera to last frame's reservoir there, kept when that
@@ -5420,3 +5430,38 @@ traced sky K and bounce B) and of the occlusion and reflections passes. The shad
   the disc, the emitters and the lamps) within 2 % on a still scene (glossy; smooth within 3 %), a camera swapped
   between two views, a red wall's bleeding (red and green within 2 %), a room lit through a window in its roof, a white
   floor under an even sky (energy), no NaN.
+
+### ReSTIR under Ray Reconstruction (round PT4d)
+
+ReSTIR's estimate is unbiased per frame, but its error is correlated: a reservoir keeps its sample for up to its history's
+20 frames and hands it to its neighbours. A temporal denoiser - DLSS Ray Reconstruction here - averages error that
+changes from frame to frame; error that lasts for frames and covers patches it keeps as picture. Boston's courtyard at
+night (DLSS Quality + RR, 1080p, still camera): each pixel's standard deviation of display luma over 90 frames 3.6 - 4.5
+with ReSTIR DI + GI against 0.4 with the noiseless lamps pass. NVIDIA's RTXDI has the settings for a denoised output;
+both ReSTIR passes follow them as RTXDI defines them (gpu_vulkan/vulkan_light_list.h `restir_denoiser_glsl`, in DI's
+and GI's temporal passes):
+- **Permutation sampling** (RTXDI's temporal resampling, `enablePermutationSampling`): the reservoir taken from last
+  frame is another pixel's of the same 4 x 4 block - the block mirrored in x and y after an offset that changes every
+  frame. A pixel's history is a different neighbour's chain each frame, so its error changes from frame to frame. The
+  neighbour's surface passes the same tests and its sample takes the same correction (its own surface's target and ray).
+- **The boiling filter** (RTXDI's, its default strength 0.2): after the temporal reuse, a reservoir whose contribution
+  (target x W) is over 10 / 0.2 - 9 = 41 x the mean of its 8 x 8 group's non-zero contributions is dropped - the sample
+  found by chance whose weight dwarfs its neighbours', which the reuse would keep and spread as a bright patch.
+- **Bias, stated**: in DI none measurable (the check's cases unchanged within their noise; near and far lamps +0.5 %).
+  In GI (its check, against the reference): permutation sampling -0.3 % (glossy floor -0.51 -> -0.82 %, smooth -0.33 ->
+  -1.07 %), the boiling filter's dropped outliers -1.3 % more on the smooth floor (its rare bright glossy samples) -
+  together glossy -1.0 %, smooth -2.3 %. RTXDI's stated trade.
+- **The depth's own surface**: a pixel whose camera ray doesn't find the drawn surface at its depth (outlines drawn
+  smoothed by the tessellation, skinned bodies, grass and litter with no ray-traced copy) is lit from the depth - its
+  point, its normal from the nearer neighbours' depths, a diffuse material. Before, ReSTIR DI gave such a pixel no lamps
+  and ReSTIR GI left it the light store's environment - another owner's light, far brighter at night than ReSTIR GI's:
+  white halos round the archways and the skater that flickered with the jitter.
+- Measured (the same spot, 90 frames, the first clean series of a launch): courtyard 3.6 - 4.5 -> 1.35 - 1.7, the wall
+  right of the green door 2.0 -> 0.65 - 1.0, the ornament above it 3.8 - 4.6 -> 1.3 - 1.9, the whole frame 2.5 - 5 ->
+  0.8 - 1.0. With the lamps by ReSTIR DI and the indirect light by the passes, 0.39 - the lamps pass's own. What remains
+  is mostly at outlines (the skater's idle animation and its skinned outline). Cost (1280x720): permutation sampling and
+  the boiling filter within the runs' spread (DI 2.70 -> 2.69 ms, GI 3.14 -> 3.04 ms); the depth's own surface about
+  +0.1 ms in each (the pixels it lights now get the full work).
+- Check: thug2_vulkan_restir_check case 7 - near lamps among far ones, the error's frame-to-frame correlation 0.34 ->
+  0.02 and what a running average (history weight 0.9, a temporal denoiser's) still varies by x 0.73, the mean within
+  2 % of the exact light.

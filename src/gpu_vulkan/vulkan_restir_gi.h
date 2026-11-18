@@ -84,6 +84,10 @@ struct RestirGiOverrides {
     float albedo_scale = 1.0F;
     uint32_t spatial = 0xFFU; // spatial neighbours (0xFF: the default; 0: none)
     bool temporal = true;
+    // (round PT4d) the denoiser's settings (vulkan_light_list.h restir_denoiser_glsl): permutation sampling of the
+    // temporal reuse, the boiling filter
+    bool permutation = true;
+    bool boiling_filter = true;
     uint32_t seed = 0;
 };
 void set_restir_gi_overrides(const RestirGiOverrides& overrides);

@@ -67,7 +67,9 @@ constexpr uint32_t kBindingSums = 15;
 constexpr uint32_t kBindingMembership = 16;
 constexpr uint32_t kBindingSlots = 17;
 constexpr uint32_t kBindingCounters = 18;
-constexpr uint32_t kBindingCount = 19;
+constexpr uint32_t kBindingBounds = 19;
+constexpr uint32_t kBindingCells = 20;
+constexpr uint32_t kBindingCount = 21;
 constexpr uint32_t kMaterialSet = 1;
 
 constexpr uint32_t kGroupSide = 8;
@@ -88,10 +90,20 @@ constexpr uint32_t kHistoryCap = 20;
 constexpr float kSpatialRadius = 24.0F;
 constexpr float kNormalAgreement = 0.9F;
 constexpr float kPlaneShare = 0.02F;
+// (round PT4c) The light grid round the camera (kGridBody): cells across x and z, up y, a cell's side (world units -
+// about 3 m), each cell's slots and the list's candidates each slot is resampled from. 32 x 16 x 32 cells of 128 reach
+// about 2000 units from the camera each way across, 1000 up and down; a point beyond takes the list by power.
+constexpr uint32_t kGridAcross = 32;
+constexpr uint32_t kGridUp = 16;
+constexpr float kGridSide = 128.0F;
+constexpr uint32_t kGridSlots = 64;
+constexpr uint32_t kGridCandidates = 8;
 // Flags (the block's counts.w)
 constexpr uint32_t kFlagTemporal = 1U;
 constexpr uint32_t kFlagSpatial = 2U;
 constexpr uint32_t kFlagAccumulate = 4U;
+constexpr uint32_t kFlagPermute = 8U;  // (round PT4d) restir_denoiser_glsl
+constexpr uint32_t kFlagBoiling = 16U;
 
 constexpr uint32_t kTimingSlots = 16;
 constexpr uint32_t kTimingReport = 600;
@@ -112,8 +124,10 @@ struct RestirBlock {
     std::array<float, 4> force{};          // x roughness, y F0, z the albedo's scale (the check's material)
     std::array<uint32_t, 4> instances{};   // xy the instances' device address, z instances, w triangles
     std::array<uint32_t, 4> list{};        // x the scan's capacity
+    std::array<float, 4> grid{};           // (round PT4c) the light grid: xyz its corner, w a cell's side
+    std::array<uint32_t, 4> grid_cells{};  // its cells across x, y, z; w its slots a cell (0: no grid - the list alone)
 };
-static_assert(sizeof(RestirBlock) == (2 * 64) + (9 * 16));
+static_assert(sizeof(RestirBlock) == (2 * 64) + (11 * 16));
 
 // --- the shaders -------------------------------------------------------------------------------------------------------
 
@@ -131,6 +145,8 @@ layout(std140, set = 0, binding = 2) uniform RestirBlock {
     vec4 force;
     uvec4 instances;
     uvec4 list;
+    vec4 grid;
+    uvec4 grid_cells;
 } pass;
 struct LightEntry {
     float threshold;
@@ -149,6 +165,10 @@ layout(std430, set = 0, binding = 4) buffer Emitters {
 layout(std430, set = 0, binding = 5) readonly buffer Lamps { LightRecord lamps[]; };
 layout(std430, set = 0, binding = 16) readonly buffer Membership { uint membership[]; };
 layout(std430, set = 0, binding = 17) buffer Slots { uint slots[]; };
+// (round PT4c) the light grid: each entry's bounds (light_bounds below), each cell's slots (the entry + 1 - 0: none -,
+// the slot's unbiased contribution weight)
+layout(std430, set = 0, binding = 19) buffer Bounds { vec4 bounds[]; };
+layout(std430, set = 0, binding = 20) buffer Cells { uvec2 cells[]; };
 const uvec2 sky_alias[1] = uvec2[1](uvec2(0u)); // (the light list's sky isn't sampled here)
 #define LIST_INSTANCE_ADDRESS pass.instances.xy
 #define LIST_INSTANCES pass.instances.z
@@ -178,6 +198,8 @@ layout(std430, set = 0, binding = 18) buffer Counters { uint bad_samples; uint c
 const uint FLAG_TEMPORAL = 1u;
 const uint FLAG_SPATIAL = 2u;
 const uint FLAG_ACCUMULATE = 4u;
+const uint FLAG_PERMUTE = 8u;
+const uint FLAG_BOILING = 16u;
 const uint MOST_SPATIAL = 4u;
 const uint LIGHT_RAYS = 7u;      // world, objects, alpha-tested (the reference's light rays)
 const uint LIGHT_RAYS_ON_OBJECT = 5u; // (an object's pixel: the world's alone - its low-poly body doesn't shadow itself)
@@ -277,8 +299,48 @@ bool trace_closest(vec3 origin, vec3 dir, float reach, out uint instance, out ui
     return true;
 }
 
+#ifndef CHECK
+// (round PT4d) The depth's own surface at pixel `p` (its point `here`, seen along `dir`): where the drawn surface isn't the
+// one the rays find - its outline drawn smoothed by the tessellation, a skinned body's, grass and litter drawn without a
+// ray-traced copy - the point from the depth, its normal from the nearer neighbours' depths (facing the eye), a diffuse
+// material (the inputs carry the light a white diffuser gets: the shading puts it on the surface's own material; no
+// albedo for the lit-already colours' input). Before, such pixels got no lamps here - and none from the lamps pass (one
+// owner) - and ReSTIR GI left the light store's environment there: the outline of every such surface flickered with the
+// jitter between lit and not (Ray Reconstruction's halos round the skater, the archways, the grass).
+vec3 depth_point(ivec2 q, out bool drawn)
+{
+    q = clamp(q, pass.rect.xy, pass.rect.xy + pass.rect.zw - 1);
+    float d = imageLoad(u_depth, q).r;
+    drawn = d < 1.0;
+    return world_at(vec2(q) + 0.5, d);
+}
+Surface depth_surface(ivec2 p, vec3 here, vec3 dir)
+{
+    float best[2] = float[2](1.0e30, 1.0e30);
+    vec3 step[2] = vec3[2](vec3(0.0), vec3(0.0));
+    for (int k = 0; k < 4; ++k) {
+        ivec2 o = k == 0 ? ivec2(1, 0) : (k == 1 ? ivec2(-1, 0) : (k == 2 ? ivec2(0, 1) : ivec2(0, -1)));
+        bool drawn;
+        vec3 q = depth_point(p + o, drawn);
+        vec3 v = (q - here) * float(o.x + o.y); // (toward +x / +y)
+        float apart = abs(dot(q - here, dir));
+        int axis = k < 2 ? 0 : 1;
+        if (drawn && apart < best[axis]) {
+            best[axis] = apart;
+            step[axis] = v;
+        }
+    }
+    vec3 n = cross(step[0], step[1]);
+    n = dot(n, n) > 0.0 ? normalize(n) : -dir;
+    if (dot(n, dir) > 0.0) {
+        n = -n;
+    }
+    return Surface(here, n, n, vec3(0.0), true, false);
+}
+#endif
+
 // The pixel's surface: the check's camera ray through its centre; the game's the prepass's depth there, its triangle the
-// one a camera ray meets at that point (none: no lamps here, as the lamps pass had none).
+// one a camera ray meets at that point - (round PT4d) where none does, the depth's own surface (depth_surface).
 Surface primary(ivec2 p)
 {
     vec2 centre = vec2(p) + 0.5;
@@ -308,13 +370,15 @@ Surface primary(ivec2 p)
     vec2 bary;
     float t;
     mat4x3 to_world;
-    if (!trace_closest(eye, dir, reach, instance, primitive, id, bary, t, to_world) ||
-        (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected)) {
-        return no_surface();
-    }
     HitSurface h;
-    if (!hit_surface(instance, primitive, id, bary, to_world, dir, h) || h.hidden) {
+    if (!trace_closest(eye, dir, reach, instance, primitive, id, bary, t, to_world) ||
+        (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected) ||
+        !hit_surface(instance, primitive, id, bary, to_world, dir, h) || h.hidden) {
+#ifdef CHECK
         return no_surface();
+#else
+        return depth_surface(p, here, dir);
+#endif
     }
     Surface s;
     s.at = h.position;
@@ -425,6 +489,21 @@ vec3 seen(Surface s, LightPoint lp)
 }
 bool seen_at_all(vec3 through) { return max(through.r, max(through.g, through.b)) > 0.0; }
 
+// (round PT4c) The light grid's cell holding a point (NO_CELL outside it or with no grid).
+const uint NO_CELL = 0xFFFFFFFFu;
+uint grid_cell_of(vec3 p)
+{
+    if (pass.grid_cells.w == 0u) {
+        return NO_CELL;
+    }
+    vec3 at = floor((p - pass.grid.xyz) / pass.grid.w);
+    if (any(lessThan(at, vec3(0.0))) || any(greaterThanEqual(at, vec3(pass.grid_cells.xyz)))) {
+        return NO_CELL;
+    }
+    uvec3 c = uvec3(at);
+    return (c.y * pass.grid_cells.z + c.z) * pass.grid_cells.x + c.x;
+}
+
 // A reservoir: its sample (the list's entry + 1 - 0: none -, the point on it), its weight W (the unbiased contribution
 // weight: 1 / the sample's effective pdf) and its sample count M.
 struct Reservoir {
@@ -440,23 +519,23 @@ vec2 kept_uv(vec2 uv) { return round(clamp(uv, 0.0, 1.0) * 65535.0) / 65535.0; }
 float good(float x) { return isnan(x) || isinf(x) ? 0.0 : x; }
 
 #ifdef PASS_TEMPORAL
-void main()
+// The pixel's reservoir after the initial candidates and the temporal reuse; `weight` its sample's contribution (target x
+// W - what the boiling filter compares).
+Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
 {
-    ivec2 local = ivec2(gl_GlobalInvocationID.xy);
-    if (any(greaterThanEqual(local, pass.rect.zw))) {
-        return;
-    }
-    uint i = uint(local.y * pass.rect.z + local.x);
+    weight = 0.0;
     Surface s = primary(pass.rect.xy + local);
     put_surface(i, s);
     float cap = float(pass.params.z);
     if (!s.valid) {
-        res_a[i] = uvec4(0u, 0u, 0u, floatBitsToUint(0.0));
-        return;
+        return Reservoir(0u, vec2(0.0), 0.0, 0.0);
     }
     uint rng = path_sequence_start(uint(local.x), uint(local.y), pass.counts.z, pass.params.w);
-    // 1. the initial candidates, resampled toward the target
+    // 1. the initial candidates, resampled toward the target - (round PT4c) from the pixel's cell of the light grid (its
+    // point moved by up to half a cell first: no cell edges in the picture), each slot a light with its unbiased
+    // contribution weight; outside the grid from the whole list by power
     uint count = pass.counts.x;
+    uint cell = grid_cell_of(s.at + (vec3(path_next(rng), path_next(rng), path_next(rng)) - 0.5) * pass.grid.w);
     Reservoir r = Reservoir(0u, vec2(0.0), 0.0, float(pass.params.x));
     float wsum = 0.0;
     float chosen = 0.0;
@@ -469,11 +548,22 @@ void main()
             continue;
         }
         LightPoint lp;
-        uint e = light_pick(u, count);
+        uint e;
+        float slot_weight = 1.0; // (x the list's pdf of the entry: the slot's weight over the list's)
+        if (cell != NO_CELL) {
+            uvec2 slot = cells[cell * pass.grid_cells.w + min(uint(u * float(pass.grid_cells.w)), pass.grid_cells.w - 1u)];
+            if (slot.x == 0u) {
+                continue;
+            }
+            e = slot.x - 1u;
+            slot_weight = uintBitsToFloat(slot.y) * light_entries[e].pdf;
+        } else {
+            e = light_pick(u, count);
+        }
         if (!light_point(e, uv, s, lp) || !(lp.pdf > 0.0)) {
             continue;
         }
-        float w = good(lp.target / lp.pdf);
+        float w = good(lp.target / lp.pdf * slot_weight);
         wsum += w;
         if (w > 0.0 && pick * wsum < w) {
             r.entry = e + 1u;
@@ -487,11 +577,15 @@ void main()
     if (r.W > 0.0 && !seen_at_all(seen(s, chosen_point))) {
         r.W = 0.0;
     }
-    // 2. the reservoir this point had last frame
+    float kept_target = chosen;
+    // 2. the reservoir this point had last frame - (round PT4d) a neighbour's in its 4 x 4 block by the frame's permutation
     if ((pass.counts.w & FLAG_TEMPORAL) != 0u) {
         vec4 q = pass.prev_to_pixel * vec4(s.at, 1.0);
         if (q.w > 0.0) {
             ivec2 before = ivec2(floor(q.xy / q.w)) - pass.rect.xy;
+            if ((pass.counts.w & FLAG_PERMUTE) != 0u) {
+                before = restir_permuted(before, pass.counts.z);
+            }
             if (all(greaterThanEqual(before, ivec2(0))) && all(lessThan(before, pass.rect.zw))) {
                 uint j = uint(before.y * pass.rect.z + before.x);
                 Surface then = surface_of(before_at[j], before_more[j]);
@@ -527,13 +621,33 @@ void main()
                             }
                         }
                         out_r.W = z > 0.0 && target > 0.0 ? good(total / (z * target)) : 0.0;
+                        kept_target = target;
                     }
                     r = out_r;
                 }
             }
         }
     }
-    res_a[i] = words_of(r);
+    weight = r.entry > 0u && r.W > 0.0 ? good(kept_target * r.W) : 0.0;
+    return r;
+}
+void main()
+{
+    ivec2 local = ivec2(gl_GlobalInvocationID.xy);
+    bool inside = all(lessThan(local, pass.rect.zw));
+    uint i = uint(local.y * pass.rect.z + local.x);
+    float weight = 0.0;
+    Reservoir r = Reservoir(0u, vec2(0.0), 0.0, 0.0);
+    if (inside) {
+        r = temporal_reservoir(local, i, weight);
+    }
+    // (round PT4d) the boiling filter - every invocation of the group takes part (no early return above)
+    if ((pass.counts.w & FLAG_BOILING) != 0u && restir_boiling(weight)) {
+        r = Reservoir(0u, vec2(0.0), 0.0, 0.0);
+    }
+    if (inside) {
+        res_a[i] = words_of(r);
+    }
 }
 #endif
 
@@ -543,7 +657,7 @@ void put_result(ivec2 p, uint i, vec3 lamps, vec3 on_albedo, vec3 full)
 #ifdef CHECK
     if ((pass.counts.w & FLAG_ACCUMULATE) != 0u) {
         sums[i] += vec4(full, 1.0);
-        sums[uint(pass.rect.z * pass.rect.w) + i] = vec4(full, 1.0);
+        sums[uint(pass.rect.z * pass.rect.w) + i] = vec4(full, path_luma(lamps)); // (w: the lamps' light alone)
     }
 #else
     imageStore(o_lamps, p, vec4(lamps, 0.0));
@@ -657,7 +771,134 @@ void main()
 #endif
 )";
 
-enum class Shader : uint8_t { kScan, kTemporal, kSpatial };
+// (round PT4c) The light grid (ReGIR - Boksansky et al. 2021, "Rendering many lights with grid-based reservoirs", Ray
+// Tracing Gems II ch. 23): the initial candidates of a pixel come from its cell's slots instead of the whole list by
+// power. Without it a level's far lamps took nearly every candidate (Boston at night: 58 lamps and 242 emitting
+// triangles over the whole level, a courtyard's few found by 1 candidate in tens - the reservoirs then held a nearby
+// light for frames and lost it again: the slow boiling Ray Reconstruction keeps as picture).
+//   PASS_BOUNDS: each entry's bounds (one invocation an entry): bounds[2e] = its centre and radius, bounds[2e + 1] its
+//     kind's numbers - a triangle (1): its flux / 2 pi (the light at a distance d face-on: x / d^2) and flux / 2A (the
+//     most a Lambertian emitter can give: pi x its mean radiance); a lamp (2 a point or panel, 3 a line): its colour's
+//     luminance, its core, its reach (the lamp model's bound - lamp_geometry with every cosine 1).
+//   PASS_CELLS: each slot of each cell (one invocation a slot): the cell's light bound at its box widened by half a cell
+//     (a pixel's point is moved by up to half a cell before its cell is found) - by RIS over the list's candidates by
+//     power toward that bound; kept with its unbiased contribution weight W = sum w / (candidates x bound). The bound is
+//     above 0 wherever a pixel of the cell can get light from the entry (the lamp's reach, any triangle with flux), so a
+//     pixel's candidates from the slots (weight = its target x W) cover every light it can see: unbiased (RIS with
+//     candidates of their own contribution weights - generalised RIS, Lin et al. 2022).
+constexpr const char* kGridBody = R"(
+#ifdef PASS_BOUNDS
+layout(local_size_x = 64) in;
+void main()
+{
+    uint e = gl_GlobalInvocationID.x;
+    if (e >= pass.counts.x) {
+        return;
+    }
+    LightEntry entry = light_entries[e];
+    uint kind = light_kind(entry.payload);
+    uint index = light_index(entry.payload);
+    vec4 place = vec4(0.0);
+    vec4 numbers = vec4(0.0);
+    if (kind == LIGHT_TRIANGLE) {
+        uvec4 listed = emitter_entries[index];
+        HitVertices tri;
+        if (hit_vertices(listed.x, listed.y, tri)) {
+            mat4x3 to_world = instance_transform(listed.x);
+            vec3 a = to_world * vec4(tri.position[0], 1.0);
+            vec3 b = to_world * vec4(tri.position[1], 1.0);
+            vec3 c = to_world * vec4(tri.position[2], 1.0);
+            vec3 centre = (a + b + c) / 3.0;
+            float area = 0.5 * length(cross(b - a, c - a));
+            float flux = uintBitsToFloat(listed.z);
+            if (area > 0.0 && flux > 0.0) {
+                place = vec4(centre, sqrt(max(dot(a - centre, a - centre), max(dot(b - centre, b - centre), dot(c - centre, c - centre)))));
+                numbers = vec4(flux / (2.0 * PATH_PI), flux / (2.0 * area), 0.0, 1.0);
+            }
+        }
+    } else if (kind == LIGHT_LAMP) {
+        LightRecord light = lamps[index];
+        uint shape = uint(light.more.z + 0.5);
+        bool line = shape == 2u && light.shape.w > 0.0;
+        place = vec4(light.at.xyz, line ? light.shape.w : 0.0);
+        numbers = vec4(path_luma(max(light.colour.rgb, vec3(0.0))), light.more.y, light.colour.w, line ? 3.0 : 2.0);
+    }
+    bounds[2u * e] = place;
+    bounds[2u * e + 1u] = numbers;
+}
+#endif
+
+#ifdef PASS_CELLS
+layout(local_size_x = 64) in;
+// the most light entry `e` can bring to a point of the box [low, high]
+float cell_bound(uint e, vec3 low, vec3 high)
+{
+    vec4 place = bounds[2u * e];
+    vec4 numbers = bounds[2u * e + 1u];
+    uint kind = uint(numbers.w + 0.5);
+    if (kind == 0u) {
+        return 0.0;
+    }
+    vec3 nearest = clamp(place.xyz, low, high);
+    float d = max(length(place.xyz - nearest) - place.w, 0.0);
+    if (kind == 1u) {
+        return d > 0.0 ? min(numbers.x / (d * d), numbers.y) : numbers.y;
+    }
+    float core = numbers.y;
+    float reach = numbers.z;
+    if (!(core > 0.0) || !(reach > 0.0) || !(d < reach)) {
+        return 0.0;
+    }
+    float x = d / reach;
+    float window = 1.0 - x * x * x * x;
+    float falloff = kind == 3u ? core / sqrt(d * d + core * core) : core * core / (core * core + d * d);
+    return numbers.x * falloff * window * window;
+}
+void main()
+{
+    uint slots = pass.grid_cells.w;
+    uint total = pass.grid_cells.x * pass.grid_cells.y * pass.grid_cells.z * slots;
+    uint i = gl_GlobalInvocationID.y * 65535u * 64u + gl_GlobalInvocationID.x;
+    if (i >= total) {
+        return;
+    }
+    uint cell = i / slots;
+    uvec3 c = uvec3(cell % pass.grid_cells.x, cell / (pass.grid_cells.x * pass.grid_cells.z),
+                    (cell / pass.grid_cells.x) % pass.grid_cells.z);
+    float side = pass.grid.w;
+    vec3 low = pass.grid.xyz + (vec3(c) - 0.5) * side;
+    vec3 high = low + 2.0 * side;
+    uint rng = path_sequence_start(i % 4096u, i / 4096u, pass.counts.z, pass.params.w + 7u);
+    uint count = pass.counts.x;
+    float wsum = 0.0;
+    float chosen = 0.0;
+    uint picked = 0u;
+    for (uint k = 0u; k < pass.list.y; ++k) {
+        float u = path_next(rng);
+        float pick = path_next(rng);
+        if (count == 0u) {
+            continue;
+        }
+        uint e = light_pick(u, count);
+        float pdf = light_entries[e].pdf;
+        float t = cell_bound(e, low, high);
+        float w = pdf > 0.0 ? t / pdf : 0.0;
+        if (!(w > 0.0) || isinf(w)) {
+            continue;
+        }
+        wsum += w;
+        if (pick * wsum < w) {
+            picked = e + 1u;
+            chosen = t;
+        }
+    }
+    float W = chosen > 0.0 ? wsum / (float(pass.list.y) * chosen) : 0.0;
+    cells[i] = uvec2(W > 0.0 && !isinf(W) ? picked : 0u, floatBitsToUint(W));
+}
+#endif
+)";
+
+enum class Shader : uint8_t { kScan, kTemporal, kSpatial, kBounds, kCells };
 
 std::string shader_source(Shader which, bool check)
 {
@@ -665,7 +906,13 @@ std::string shader_source(Shader which, bool check)
     if (check) {
         source += "#define CHECK\n";
     }
-    source += which == Shader::kTemporal ? "#define PASS_TEMPORAL\n" : (which == Shader::kSpatial ? "#define PASS_SPATIAL\n" : "");
+    switch (which) {
+    case Shader::kTemporal: source += "#define PASS_TEMPORAL\n"; break;
+    case Shader::kSpatial: source += "#define PASS_SPATIAL\n"; break;
+    case Shader::kBounds: source += "#define PASS_BOUNDS\n"; break;
+    case Shader::kCells: source += "#define PASS_CELLS\n"; break;
+    case Shader::kScan: break;
+    }
     source += "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
     source += "#define THUG2_MATERIAL_SET 1\n";
     source += material_glsl();
@@ -676,13 +923,22 @@ std::string shader_source(Shader which, bool check)
     source += rt::brdf::brdf_glsl();
     source += hit_surface_glsl();
     source += rt::path::kPathGlsl;
+    if (which == Shader::kTemporal) {
+        source += restir_denoiser_glsl();
+    }
     source += rt_lamp_glsl();
     source += "const uint SKY_WIDTH = 1u;\nconst uint SKY_HEIGHT = 1u;\n";
     source += "const uint TRIANGLE_LATTICE = " + std::to_string(rt::lights::kTriangleLattice) + "u;\n";
     source += kCommon;
     source += light_instances_glsl();
     source += rt::lights::kLightListGlsl;
-    source += which == Shader::kScan ? std::string(emitter_scan_glsl()) : std::string(kRestirBody);
+    if (which == Shader::kScan) {
+        source += emitter_scan_glsl();
+    } else if (which == Shader::kBounds || which == Shader::kCells) {
+        source += kGridBody;
+    } else {
+        source += kRestirBody;
+    }
     return source;
 }
 
@@ -807,6 +1063,10 @@ struct RestirState {
     VkPipeline scan = VK_NULL_HANDLE;
     std::array<VkPipeline, 2> temporal{}; // the game's, the check's
     std::array<VkPipeline, 2> spatial{};
+    VkPipeline bounds_pass = VK_NULL_HANDLE; // (round PT4c) the light grid's
+    VkPipeline cells_pass = VK_NULL_HANDLE;
+    DeviceBuffer bounds;
+    DeviceBuffer cells;
     bool failed = false;
     // the emitting triangles: the list in use and the one a scan fills, read back without a wait
     std::array<DeviceBuffer, 2> emitters{};
@@ -984,6 +1244,14 @@ bool ensure_pipelines(Backend& state, bool check, std::string* error)
     const VkDevice device = state.context.device();
     if (!ensure_scan(state, error)) {
         return false;
+    }
+    for (auto [pipeline, which] : {std::pair{&own.bounds_pass, Shader::kBounds}, std::pair{&own.cells_pass, Shader::kCells}}) {
+        if (*pipeline == VK_NULL_HANDLE) {
+            *pipeline = make_compute(device, own.layout, shader_source(which, false), error);
+            if (*pipeline == VK_NULL_HANDLE) {
+                return false;
+            }
+        }
     }
     const std::size_t variant = check ? 1U : 0U;
     if (core::at(own.temporal, variant) == VK_NULL_HANDLE) {
@@ -1360,6 +1628,56 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
     return true;
 }
 
+std::string_view restir_denoiser_glsl()
+{
+    // (round PT4d) ReSTIR's output as a denoiser's input. Ray Reconstruction (like every temporal denoiser) averages noise
+    // that changes from frame to frame; ReSTIR's reuse holds a sample in a pixel's history for up to its 20 frames and
+    // hands it to the neighbours - the error is correlated over frames and over patches, and the denoiser keeps it as
+    // picture (Boston's courtyard: RR left 3-5 of display std where the lamps pass, noiseless, had 0.4). NVIDIA's RTXDI
+    // has two settings for exactly this, on in its denoised configurations; both followed here as RTXDI defines them.
+    static constexpr std::string_view kSource = R"(
+// Permutation sampling (RTXDI's temporal resampling, enablePermutationSampling): the reservoir taken from last frame is
+// another pixel's of the same 4 x 4 block - the block's pixels mirrored in x and y after an offset that changes every frame
+// (the same for every pixel). A pixel's history is then no single chain carried for frames but a different neighbour's
+// each frame: its error changes from frame to frame, the noise a temporal denoiser averages. Bias: none beyond the reuse's
+// own - the neighbour's surface passes the same tests and its sample is taken with the same correction (its own surface's
+// target and ray).
+ivec2 restir_permuted(ivec2 before, uint frame)
+{
+    uint bits = path_pcg(frame * 0x9E3779B9u + 0x7F4A7C15u);
+    ivec2 offset = ivec2(int(bits & 3u), int((bits >> 2u) & 3u));
+    return ((before + offset) ^ ivec2(3)) - offset;
+}
+// The boiling filter (RTXDI's, its default strength 0.2): a reservoir whose contribution (its target x W) is over
+// 10 / 0.2 - 9 = 41 x the mean of the group's (8 x 8 pixels) non-zero contributions is dropped. Such a sample - found by
+// chance, its weight dwarfing its neighbours' - is kept by the temporal reuse and spread by the spatial reuse for frames:
+// a bright patch that grows and fades (the "boiling"). Bias: the dropped outliers' energy (darker where a rare very bright
+// light is the true answer) - RTXDI's stated trade.
+const float RESTIR_BOILING_STRENGTH = 0.2;
+shared float restir_boil_weight[64];
+shared uint restir_boil_count[64];
+bool restir_boiling(float weight)
+{
+    uint t = gl_LocalInvocationIndex;
+    restir_boil_weight[t] = weight > 0.0 ? weight : 0.0;
+    restir_boil_count[t] = weight > 0.0 ? 1u : 0u;
+    memoryBarrierShared();
+    barrier();
+    for (uint stride = 32u; stride > 0u; stride >>= 1u) {
+        if (t < stride) {
+            restir_boil_weight[t] += restir_boil_weight[t + stride];
+            restir_boil_count[t] += restir_boil_count[t + stride];
+        }
+        memoryBarrierShared();
+        barrier();
+    }
+    float mean = restir_boil_weight[0] / float(max(restir_boil_count[0], 1u));
+    return weight > mean * (10.0 / RESTIR_BOILING_STRENGTH - 9.0);
+}
+)";
+    return kSource;
+}
+
 void set_restir_overrides(const RestirOverrides& overrides)
 {
     Backend& state = backend();
@@ -1405,6 +1723,7 @@ bool read_restir_accumulation(Backend& state, RestirAccumulation* out)
     out->height = own.height;
     out->mean.resize(pixels);
     out->last.resize(pixels);
+    out->last_light.resize(pixels);
     float frames = 0.0F;
     for (std::size_t i = 0; i < pixels; ++i) {
         std::array<float, 4> sum{};
@@ -1415,6 +1734,7 @@ bool read_restir_accumulation(Backend& state, RestirAccumulation* out)
         frames = std::max(frames, core::at(sum, 3));
         core::at(out->mean, i) = {core::at(sum, 0) / count, core::at(sum, 1) / count, core::at(sum, 2) / count};
         core::at(out->last, i) = {core::at(last, 0), core::at(last, 1), core::at(last, 2)};
+        core::at(out->last_light, i) = core::at(last, 3);
     }
     out->frames = static_cast<uint32_t>(frames);
     std::vector<uint8_t> counters;
@@ -1430,6 +1750,7 @@ RestirStats restir_stats()
     const std::scoped_lock lock(state.mutex);
     const RestirState& own = restir_state();
     return RestirStats{.passes = own.passes,
+                       .lighting = own.lit_view,
                        .listed = static_cast<uint32_t>(own.triangle_powers.size()),
                        .candidates = own.candidates,
                        .lamps = own.lamp_count,
@@ -1515,7 +1836,12 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     bool made = ensure_buffer(state, &own.reservoirs_a, pixels * 16, storage, BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.reservoirs_b, pixels * 16, storage, BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.counters, 16, storage, BufferPlace::kDevice) &&
-                (!check || ensure_buffer(state, &own.sums, pixels * 2 * 16, storage, BufferPlace::kDevice));
+                (!check || ensure_buffer(state, &own.sums, pixels * 2 * 16, storage, BufferPlace::kDevice)) &&
+                ensure_buffer(state, &own.bounds, std::max<VkDeviceSize>(own.entries, 1) * 2 * 16, storage,
+                              BufferPlace::kDevice) &&
+                ensure_buffer(state, &own.cells,
+                              static_cast<VkDeviceSize>(kGridAcross) * kGridUp * kGridAcross * kGridSlots * 2 * sizeof(uint32_t),
+                              storage, BufferPlace::kDevice);
     for (std::size_t k = 0; k < 2 && made; ++k) {
         made = ensure_buffer(state, &core::at(own.at, k), pixels * 16, storage, BufferPlace::kDevice) &&
                ensure_buffer(state, &core::at(own.more, k), pixels * 16, storage, BufferPlace::kDevice);
@@ -1548,7 +1874,10 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     const uint32_t candidates =
         check && own.overrides.candidates > 0 ? own.overrides.candidates : kInitialCandidates;
     const uint32_t spatial = check && own.overrides.spatial != 0xFFU ? own.overrides.spatial : kSpatialNeighbours;
-    const uint32_t flags = (history ? kFlagTemporal : 0U) | (spatial > 0 ? kFlagSpatial : 0U) | (check && own.accumulate ? kFlagAccumulate : 0U);
+    const uint32_t flags = (history ? kFlagTemporal : 0U) | (spatial > 0 ? kFlagSpatial : 0U) |
+                           (check && own.accumulate ? kFlagAccumulate : 0U) |
+                           (!check || own.overrides.permutation ? kFlagPermute : 0U) |
+                           (!check || own.overrides.boiling_filter ? kFlagBoiling : 0U);
     block.counts = {own.entries, own.lamp_count, static_cast<uint32_t>(own.frames), flags};
     block.params = {candidates, std::min(spatial, kMostSpatial), kHistoryCap * candidates,
                     check ? own.overrides.seed : 0x2545F491U};
@@ -1556,7 +1885,17 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     block.force = {own.overrides.roughness, own.overrides.f0, own.overrides.albedo_scale, check ? 1.0F : 0.0F};
     block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),
                        static_cast<uint32_t>(scene.instances_address >> 32U), scene.instances, 0U};
-    block.list = {kListCapacity, 0U, 0U, 0U};
+    block.list = {kListCapacity, kGridCandidates, 0U, 0U};
+    // (round PT4c) the light grid round the camera, its corner on a cell's boundary (cells keep their place in the world
+    // while the camera moves within one)
+    const bool grid = (!check || own.overrides.grid) && own.entries > 0;
+    for (std::size_t axis = 0; axis < 3; ++axis) {
+        const uint32_t across = axis == 1 ? kGridUp : kGridAcross;
+        core::at(block.grid, axis) =
+            (std::floor(core::at(view.camera.position, axis) / kGridSide) - static_cast<float>(across / 2)) * kGridSide;
+    }
+    core::at(block.grid, 3) = kGridSide;
+    block.grid_cells = {kGridAcross, kGridUp, kGridAcross, grid ? kGridSlots : 0U};
     std::array<uint8_t, sizeof(RestirBlock)> block_bytes{};
     std::memcpy(block_bytes.data(), &block, sizeof(block));
     const std::optional<RingSpan> block_span = state.ring.copy(block_bytes, kUniformAlignment);
@@ -1601,7 +1940,7 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         return VkDescriptorBufferInfo{.buffer = buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     };
     const DeviceBuffer& list = core::at(own.emitters, static_cast<std::size_t>(std::max(own.list_now, 0)));
-    const std::array<VkDescriptorBufferInfo, 13> buffers{
+    const std::array<VkDescriptorBufferInfo, 15> buffers{
         VkDescriptorBufferInfo{.buffer = scene.geometry, .offset = 0, .range = scene.geometry_bytes},
         VkDescriptorBufferInfo{.buffer = block_span->buffer, .offset = block_span->offset, .range = sizeof(RestirBlock)},
         whole(own.lights),
@@ -1614,12 +1953,14 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         whole(core::at(own.at, before)),
         whole(core::at(own.more, before)),
         whole(check ? own.sums : own.counters),
-        whole(own.counters)};
-    constexpr std::array<uint32_t, 13> kBufferBindings{kBindingGeometry,    kBindingBlock,      kBindingLights,
+        whole(own.counters),
+        whole(own.bounds),
+        whole(own.cells)};
+    constexpr std::array<uint32_t, 15> kBufferBindings{kBindingGeometry,    kBindingBlock,      kBindingLights,
                                                        kBindingEmitters,    kBindingLamps,      kBindingReservoirsA,
                                                        kBindingReservoirsB, kBindingNowAt,      kBindingNowMore,
                                                        kBindingBeforeAt,    kBindingBeforeMore, kBindingSums,
-                                                       kBindingCounters};
+                                                       kBindingCounters,    kBindingBounds,     kBindingCells};
     std::array<VkDescriptorImageInfo, 3> images{};
     if (inputs != nullptr) {
         images = {VkDescriptorImageInfo{.sampler = VK_NULL_HANDLE, .imageView = inputs->depth->view,
@@ -1662,6 +2003,20 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     const std::size_t variant = check ? 1U : 0U;
     const uint32_t groups_x = (width + kGroupSide - 1) / kGroupSide;
     const uint32_t groups_y = (height + kGroupSide - 1) / kGroupSide;
+    if (grid) {
+        // (round PT4c) the light grid: the entries' bounds, then every cell's slots
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.bounds_pass);
+        vkCmdDispatch(commands, (own.entries + kScanGroup - 1) / kScanGroup, 1, 1);
+        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+        constexpr uint32_t kSlots = kGridAcross * kGridUp * kGridAcross * kGridSlots;
+        constexpr uint32_t kSlotGroups = (kSlots + kScanGroup - 1) / kScanGroup;
+        const uint32_t slot_groups_x = std::min(kSlotGroups, kMostGroupsX);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.cells_pass);
+        vkCmdDispatch(commands, slot_groups_x, (kSlotGroups + slot_groups_x - 1) / slot_groups_x, 1);
+        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    }
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.temporal, variant));
     vkCmdDispatch(commands, groups_x, groups_y, 1);
     barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -1717,8 +2072,10 @@ void release_restir_di(Backend& state)
             }
         }
     }
-    if (own.scan != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, own.scan, nullptr);
+    for (VkPipeline pipeline : {own.scan, own.bounds_pass, own.cells_pass}) {
+        if (pipeline != VK_NULL_HANDLE) {
+            vkDestroyPipeline(device, pipeline, nullptr);
+        }
     }
     if (own.layout != VK_NULL_HANDLE) {
         vkDestroyPipelineLayout(device, own.layout, nullptr);
@@ -1732,7 +2089,7 @@ void release_restir_di(Backend& state)
     for (DeviceBuffer* buffer : {&core::at(own.emitters, 0), &core::at(own.emitters, 1), &own.membership, &own.slots,
                                  &own.read_back, &own.lights, &own.lamps, &own.reservoirs_a, &own.reservoirs_b,
                                  &core::at(own.at, 0), &core::at(own.at, 1), &core::at(own.more, 0), &core::at(own.more, 1),
-                                 &own.sums, &own.counters}) {
+                                 &own.sums, &own.counters, &own.bounds, &own.cells}) {
         state.memory.destroy_buffer(buffer);
     }
     const RestirOverrides overrides = own.overrides;

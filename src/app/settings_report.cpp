@@ -224,9 +224,10 @@ void add_running(Fields* out)
         const render::vulkan::ArtStyle style = render::vulkan::style_settings().style;
         const bool cel = render::rt::cel_settings().on;
         add("art style", render::vulkan::art_style_name(cel ? render::vulkan::ArtStyle::kCel : style));
-        // (path tracing, stage 4) who lit the lamps: ReSTIR DI's passes so far, its lights
+        // (path tracing, stage 4) who lights the lamps now: ReSTIR DI (its passes so far, its lights) when it lit the
+        // last view drawn - after a live switch to the lamps pass the passes so far stay counted but it lights nothing
         const render::vulkan::RestirStats restir = render::vulkan::restir_stats();
-        add("direct light", restir.passes > 0
+        add("direct light", restir.lighting
                                 ? text::format("ReSTIR DI (%llu passes; %u lamps, %u emitting triangles; %.3f ms at %ux%u)",
                                                static_cast<unsigned long long>(restir.passes), restir.lamps,
                                                restir.listed, restir.gpu_ms, restir.gpu_width, restir.gpu_height)

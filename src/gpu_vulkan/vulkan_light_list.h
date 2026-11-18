@@ -130,4 +130,11 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
 // emitter_count, emitter_spare and uvec4 emitter_entries[]).
 [[nodiscard]] std::string_view emitter_scan_glsl();
 
+// (round PT4d) GLSL for ReSTIR DI's and GI's temporal passes (local_size 8 x 8; after rt_path.h's kPathGlsl): what makes
+// their output a denoiser's input (NVIDIA RTXDI's settings for a denoiser that follows - Ray Reconstruction):
+//   ivec2 restir_permuted(ivec2 before, uint frame) - permutation sampling of the temporal reuse;
+//   bool restir_boiling(float weight) - the boiling filter (every invocation of the group calls it: a barrier inside).
+// Defined in vulkan_restir_di.cpp; docs/design/vulkan.md "ReSTIR under Ray Reconstruction".
+[[nodiscard]] std::string_view restir_denoiser_glsl();
+
 } // namespace render::vulkan
