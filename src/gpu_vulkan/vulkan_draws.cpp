@@ -490,7 +490,7 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
     constexpr std::size_t kSnowWrites = 3;   // (NOT ORIGINAL - snow's: kSnowUniformsBinding, kSnowSkyBinding, the map)
     constexpr std::size_t kPaintWrites = 3;  // (NOT ORIGINAL - paint's: kPaintUniformsBinding - kPaintPlaceBinding)
     constexpr std::size_t kWetWrites = 2;    // (NOT ORIGINAL - rain's: kWetUniformsBinding, kWetMapBinding)
-    constexpr std::size_t kLightWrites = 7;  // (NOT ORIGINAL - round V's: kLightVisibilityBinding - kLightSpecularBinding)
+    constexpr std::size_t kLightWrites = 8;  // (NOT ORIGINAL - round V's: kLightVisibilityBinding - kLightLayerBinding)
     std::array<VkWriteDescriptorSet,
                2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites + kWetWrites + kLightWrites>
         writes{};

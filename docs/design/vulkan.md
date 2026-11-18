@@ -3019,6 +3019,51 @@ depth can't be kept for it - translucent layers drawn with depth); per-pixel lam
 surface the inputs were made for has them); a colour lit already has no albedo of its own for the guides; the
 reflections pass still adds over the shaded colour (round M's M6).
 
+### Round DB: decals and painted layers as material layers
+
+The deferred decal's model (UE's DBuffer decals, RTX Remix's decal textures): a mark or a painted layer edits the
+surface's material before it is lit, and the surface is lit once with the composite material - by its own shading,
+ReSTIR GI's specular on its specular albedo, and Ray Reconstruction's guides alike. Before, a decal was an albedo factor
+(x 0.3 at an oil spot's core: at dusk, under the sky alone, a soft dark patch read exactly as a shadow), and a layer the
+game paints over a surface (Boston's crosswalk, 0.8 units over its asphalt) was lit by two models across its alpha.
+
+- **Two layer inputs** (`vulkan_surface_light.h` SurfaceInputs::decals / layer, bindings 28 and 31; RGBA16F, begun as
+  (0, 0, 0, 1)): albedo' = albedo x decals.a + decals.rgb, roughness' = roughness x layer.a + layer.r, F0' = F0 x
+  layer.a + layer.g. The decals' pass (`vulkan_scatter.h`, LAYER) lays each mark over the last with DBuffer's blend
+  (src x 1 + dst x src alpha; alpha dst x src alpha). A pigment mark writes (its colour x coverage, 1 - coverage) and
+  (its kind's roughness and F0 x coverage, 1 - coverage); the wet patch is water in the surface - (0, its darkening)
+  and water's roughness and F0 by its coverage, the puddles' wet mask the same coverage.
+- **One rule for the marks' materials** (`scatter.h` decal_material): the atlas's rgb is the mark's own colour
+  (display-encoded, as the game's textures), its alpha the coverage; crack, stain and grime the material table's
+  ground, tyre and gum rubber, oil a film of motor oil (index 1.47 - F0 0.036 - levelled to roughness 0.3), wet still
+  water (`rain.h`). The art composes inside a tile as layers do (coverage 1 - (1 - a1)(1 - a2), the colour's
+  premultiplied sum); oil's painted "sheen" (a lighter ring) became a thin film of its own colour - its gloss is its
+  material's now. Without per-surface lighting the marks still multiply the lit colour by mix(1, colour, coverage) -
+  for one mark exactly the old factor.
+- **Where the layers are laid** (`ff_shaders.cpp` decal_layer_onto): where the surface's albedo is final - a relit
+  surface's after its tint, an object's on both its ambient material and its lit one -, before any light. The
+  environment's weight (the share of the store's specular estimate the reflections pass may take over) stays the
+  surface's own roughness's: the reflections pass sees the surface, not its decals. A colour lit already (no albedo
+  apart from its light) takes the layer as over a white surface: x (a + rgb).
+- **A layer lying on the surface** (`ff_key.h` kLayerLift, 2 units; `light_find` at the start of the fragment shader):
+  a fragment lit per pixel is the surface the inputs were made for when its depth is the prepass's (within 1 % of the
+  distance, as before) or when it lies within kLayerLift of that surface along its own normal - the depth is affine in
+  1 / w, its slope read off the fragment's own screen derivatives, the prepass surface's 1 / w follows from its depth,
+  the gap along the ray is |w_p / w - 1| x the eye distance and x |N.V| the gap along the normal. So the crosswalk's
+  paint where the prepass kept the asphalt, and the asphalt under the paint the prepass kept, take the same inputs: the
+  alpha blend of two surfaces lit by the same light is the light on their blended material (diffuse exactly, specular
+  through F0 - linear). Ray Reconstruction's guides keep the exact test (the surface the prepass kept writes them).
+
+Checks: `thug2_vulkan_rt_lights_check` "round DB" - a floor lit per pixel under an even environment, seen low: an oil
+layer over the whole view gives the light model's result for oil alone (A (1 - E) + E at each pixel's N.V), darker than
+the bare floor and lighter than a rough layer of its colour, and the albedo guide carries its colour and roughness; a
+white layer painted 0.8 over the white floor with a checker alpha either side of one half is, at a 3 - 7 degree view,
+the floor alone at every pixel. `thug2_scatter_check`: the kinds' materials and the atlas's colour / coverage.
+Not done: ReSTIR GI's traced specular lobe is the surface's own (the layer re-weights it: exact under an even sky, a
+glossy layer's sharper reflection of structure not traced); the reflections pass doesn't see the layers (it adds for
+the surface's own roughness); the lamps-on input (lamps x the traced albedo, for colours lit already) is the traced
+surface's - the paint is relit, so it never reads it.
+
 ### Time of day (`tod`, `tod_cycle`)
 
 Every level can be played at any hour: the sun (and at night a full moon) moves along a real path over the level, the
@@ -4490,7 +4535,8 @@ after the grass, each density row shown only while its switch is on). No ray tra
   row of four 256-square variants per kind - cracks (wandering branching lines with a dirty halo), stains (soft uneven
   blots with a faint tide line), oil (a dark spot, a sheen, drips), tyre marks (a skid's band, streaked along it,
   building up and fading), gum (clusters of round spots), wet patches (a soft blot, darker inside), grime (darkest at the
-  foot, fading up, drips) - rgb what the surface's colour is multiplied by, alpha a fade to the cell's border; and five
+  foot, fading up, drips) - rgb the mark's own colour, alpha its coverage faded to the cell's border (round DB: the marks
+  are material layers - "Round DB" under the ray tracing); and five
   meshes of 48 vertices (a curled leaf, a crumpled scrap of paper, a can lying on its side, a weed of seven blades and four
   leaves, a pebble), each vertex with its own shade.
 - **The decals' pass** (`ViewOrder::kDecals` 390, at opaque_drawn: after the shadows, occlusion, bounce and lamps,

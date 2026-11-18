@@ -181,7 +181,7 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     constexpr std::size_t kSnowBindings = 2;   // (NOT ORIGINAL - snow: kSnowUniformsBinding, kSnowSkyBinding)
     constexpr std::size_t kPaintBindings = 3;  // (NOT ORIGINAL - paint: kPaintUniformsBinding - kPaintPlaceBinding)
     constexpr std::size_t kWetBindings = 2;    // (NOT ORIGINAL - rain: kWetUniformsBinding, kWetMapBinding)
-    constexpr std::size_t kLightBindings = 7;  // (NOT ORIGINAL - round V: kLightVisibilityBinding - kLightSpecularBinding)
+    constexpr std::size_t kLightBindings = 8;  // (NOT ORIGINAL - round V: kLightVisibilityBinding - kLightLayerBinding)
     std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 4 + kWaterBindings + kDetailBindings + kSnowBindings +
                                                  kPaintBindings + kWetBindings + kLightBindings>
         bindings{};
@@ -305,7 +305,7 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
                                                       .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                                       .pImmutableSamplers = nullptr};
     }
-    static_assert(kLightSpecularBinding == kLightVisibilityBinding + kLightBindings - 1, "the light inputs follow each other");
+    static_assert(kLightLayerBinding == kLightVisibilityBinding + kLightBindings - 1, "the light inputs follow each other");
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                    .pNext = nullptr,
                                                    .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,

@@ -63,11 +63,14 @@ constexpr uint32_t kLightVisibilityBinding = 24; // RGBA16F: the sun's visibilit
 constexpr uint32_t kLightLampsBinding = 25;      // RGBA16F: the lamps' light (a white diffuser's radiance)
 constexpr uint32_t kLightLampsOnBinding = 26;    // RGBA16F: ... on the surface's traced albedo (for kLightShare)
 constexpr uint32_t kLightDepthBinding = 27;      // R32F: the prepass's depth (the surface the inputs were made for)
-constexpr uint32_t kLightDecalsBinding = 28;     // RGBA16F: the decals over the surface - its albedo's factor (1: none)
+constexpr uint32_t kLightDecalsBinding = 28;     // RGBA16F: (round DB) the decals' layer over the surface's albedo - albedo x a
+                                                 // + rgb ((0, 0, 0, 1): none - the deferred decal's DBuffer)
 constexpr uint32_t kLightGuidesBinding = 29;     // RGBA32UI storage, written: the surface's material for Ray
                                                  // Reconstruction (kLightGuides; vulkan_surface_light.h)
 constexpr uint32_t kLightSpecularBinding = 30;   // (path tracing, stage 5) RGBA16F: the environment's specular over the
                                                  // specular albedo (ReSTIR GI's - vulkan_restir_gi.h; a 1 where made)
+constexpr uint32_t kLightLayerBinding = 31;      // (round DB) RGBA16F: the decals' layer over its roughness and F0 -
+                                                 // roughness x a + r, F0 x a + g ((0, 0, 0, 1): none)
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.

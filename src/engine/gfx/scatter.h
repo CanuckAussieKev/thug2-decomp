@@ -10,7 +10,8 @@
 // flags, its shape - and the level's grind rails, and placed by hashes of the faces' corners, the item's number and
 // the seed (the level's): the same decals and clutter every run, whatever order the sectors load in.
 //
-// The decals (flat marks drawn over the surface, multiplying its colour - visual only):
+// The decals (flat marks laid over the surface as layers of their own material - round DB, kDecalTile's comment;
+// visual only):
 //   - on flat ground (normal y >= kFlatUp): asphalt gets cracks, oil spots, tyre marks, stains and wet patches;
 //     concrete (smooth, rough, wet, and the levels' default terrain) stains, gum, cracks and wet patches; paving
 //     (sidewalk, tiles) gum, stains and cracks; brick and rock floors stains; dirt wet patches. Wet patches sit in dips
@@ -243,13 +244,38 @@ struct Placement {
 
 // --- the art (procedural: nothing fetched, nothing third-party) ---------------------------------------------------
 
-// The decals' atlas: kDecalVariants columns x kDecalKinds rows of kDecalTile squares, RGBA8 - rgb what the surface's
-// colour is multiplied by, a how much (0: untouched); row k is DecalKind k (each row's art drawn for its kind's shape:
-// a tyre mark's runs along v). The same bytes every time.
+// The decals' atlas: kDecalVariants columns x kDecalKinds rows of kDecalTile squares, RGBA8 - rgb the mark's own
+// colour (display-encoded, as the game's textures are), a its coverage (0: untouched); row k is DecalKind k (each row's
+// art drawn for its kind's shape: a tyre mark's runs along v). The same bytes every time.
+// (Round DB) A mark is a layer of its own material laid over the surface's before the surface is lit - the deferred
+// decal's model (UE's DBuffer decals, RTX Remix's decal textures; gpu_vulkan/vulkan_scatter.h): a pigment layer (oil,
+// rubber, gum, grit, a dried stain, grime) takes the surface's albedo toward its colour by its coverage, its roughness
+// and F0 toward its kind's (decal_material); the wet patch is water in the surface (no colour of its own: it darkens
+// the albedo by its colour's luminance - the art's darkening of a wet patch - and takes the roughness and F0 toward
+// still water's by its coverage). Where nothing lights a surface per pixel (no ray tracing, no relit level) the mark
+// multiplies the lit colour by mix(1, its colour, its coverage) - the same as before for one mark.
+// Art over art inside a tile composes as layers do: coverage a = 1 - (1 - a1)(1 - a2), colour the premultiplied sum
+// (ArtTile::paint).
 inline constexpr uint32_t kDecalTile = 256;
 inline constexpr uint32_t kAtlasWidth = kDecalTile * kDecalVariants;
 inline constexpr uint32_t kAtlasHeight = kDecalTile * static_cast<uint32_t>(kDecalKinds);
 [[nodiscard]] std::vector<uint8_t> make_decal_atlas();
+
+// (round DB) A decal kind's layer: what it is (a pigment over the surface, or water in it), its F0 and its roughness
+// (perceptual, as the material table's - rt_material_table.h) - one rule, no per-decal values:
+//   crack, grime: grit / dirt - the table's ground; stain: a dried residue - the table's ground; oil: a film of motor
+//   oil (refractive index 1.47, F0 0.036) levelled smooth over the asphalt's grain - roughness 0.3; tyre, gum: rubber
+//   (the table's: index 1.52, roughness 0.75); wet: still water (engine/gfx/rain.h - the puddles' and the rain's own,
+//   kWaterRoughness, water_f0()).
+enum class DecalLayer : uint8_t { kPigment, kWater };
+struct DecalMaterial {
+    DecalLayer layer = DecalLayer::kPigment;
+    float f0 = 0.04F;
+    float roughness = 0.5F;
+};
+[[nodiscard]] DecalMaterial decal_material(DecalKind kind);
+inline constexpr float kOilIndex = 1.47F;     // motor oil's refractive index
+inline constexpr float kOilRoughness = 0.3F;  // a film levelled over the asphalt's grain (its tips poke through)
 
 // The clutter's meshes: kMeshVertices vertices each (a triangle list; unused ones collapse to the origin), by ItemKind:
 // x, y, z in a unit item (y up, its root at 0) and the vertex's shade (0 - 1: the mesh's own light - a leaf's veins, a

@@ -10,6 +10,9 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rain.h"
+#include "engine/gfx/rt_brdf.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/scatter.h"
 
 namespace render::scatter {
@@ -138,20 +141,28 @@ struct Texel {
     Vec2 uv{};
 };
 
-// A tile being drawn: each texel's multiplier (1: untouched).
+// A tile being drawn (round DB: the mark as a layer - scatter.h kDecalTile): each texel's colour premultiplied by its
+// coverage, and its coverage (0: untouched).
 class ArtTile {
 public:
-    ArtTile() : texels_(static_cast<std::size_t>(kDecalTile) * kDecalTile, Rgb{1.0F, 1.0F, 1.0F}) {}
-    // Darken a texel by `amount` (0 - 1) toward `colour` (the multiplier at full).
-    void darken(const Texel& texel, float amount, const Rgb& colour)
+    ArtTile()
+        : colours_(static_cast<std::size_t>(kDecalTile) * kDecalTile, Rgb{0.0F, 0.0F, 0.0F}),
+          cover_(static_cast<std::size_t>(kDecalTile) * kDecalTile, 0.0F)
     {
-        Rgb& here = core::at(texels_, (static_cast<std::size_t>(texel.row) * kDecalTile) + texel.column);
+    }
+    // Lay `colour` (display-encoded) over a texel by `amount` (0 - 1): over what is painted there already.
+    void paint(const Texel& texel, float amount, const Rgb& colour)
+    {
+        const std::size_t at = (static_cast<std::size_t>(texel.row) * kDecalTile) + texel.column;
+        Rgb& here = core::at(colours_, at);
         const float share = std::clamp(amount, 0.0F, 1.0F);
         for (std::size_t channel = 0; channel < 3; ++channel) {
-            core::at(here, channel) *= 1.0F - (share * (1.0F - core::at(colour, channel)));
+            core::at(here, channel) = (core::at(here, channel) * (1.0F - share)) + (core::at(colour, channel) * share);
         }
+        core::at(cover_, at) = core::at(cover_, at) + (share * (1.0F - core::at(cover_, at)));
     }
-    // Into the atlas's cell (`cell`: column, row).
+    // Into the atlas's cell (`cell`: column, row): the colour (white where nothing is painted) and the coverage, faded
+    // to nothing at the tile's border.
     void into_atlas(std::vector<uint8_t>* atlas, const std::array<uint32_t, 2>& cell) const
     {
         for (uint32_t row = 0; row < kDecalTile; ++row) {
@@ -159,21 +170,25 @@ public:
                 const float u = (static_cast<float>(column) + kHalf) / kTexels;
                 const float v = (static_cast<float>(row) + kHalf) / kTexels;
                 const float edge = smooth(0.0F, kEdgeFade, std::min({u, v, 1.0F - u, 1.0F - v}));
-                const Rgb& texel = core::at(texels_, (static_cast<std::size_t>(row) * kDecalTile) + column);
+                const std::size_t index = (static_cast<std::size_t>(row) * kDecalTile) + column;
+                const Rgb& premultiplied = core::at(colours_, index);
+                const float cover = core::at(cover_, index);
                 const std::size_t line = (static_cast<std::size_t>(core::at(cell, 1)) * kDecalTile) + row;
                 const std::size_t across = (static_cast<std::size_t>(core::at(cell, 0)) * kDecalTile) + column;
                 const std::size_t at = ((line * kAtlasWidth) + across) * kTexel;
                 for (std::size_t channel = 0; channel < 3; ++channel) {
-                    core::at(*atlas, at + channel) = static_cast<uint8_t>(
-                        std::lround(std::clamp(core::at(texel, channel), 0.0F, 1.0F) * kByteScale));
+                    const float colour = cover > kTinySpan ? core::at(premultiplied, channel) / cover : 1.0F;
+                    core::at(*atlas, at + channel) =
+                        static_cast<uint8_t>(std::lround(std::clamp(colour, 0.0F, 1.0F) * kByteScale));
                 }
-                core::at(*atlas, at + 3) = static_cast<uint8_t>(std::lround(edge * kByteScale));
+                core::at(*atlas, at + 3) = static_cast<uint8_t>(std::lround(std::clamp(cover * edge, 0.0F, 1.0F) * kByteScale));
             }
         }
     }
 
 private:
-    std::vector<Rgb> texels_;
+    std::vector<Rgb> colours_;
+    std::vector<float> cover_;
 };
 
 template <typename Paint>
@@ -346,10 +361,10 @@ void paint_crack(ArtTile* tile, uint32_t seed)
         }
         const float grain =
             fbm(texel.uv, {.seed = seed + art.grain.seed, .base = art.grain.base, .octaves = art.grain.octaves});
-        tile->darken(texel,
+        tile->paint(texel,
                      smooth(width + art.edge, width * art.core, nearest) * (art.grain_low + (art.grain_high * grain)),
                      art.dark);
-        tile->darken(texel, art.halo * std::exp(-nearest / art.halo_fall) * grain, art.dirt);
+        tile->paint(texel, art.halo * std::exp(-nearest / art.halo_fall) * grain, art.dirt);
     });
 }
 
@@ -422,7 +437,7 @@ void paint_stain(ArtTile* tile, uint32_t seed)
         const float inside = fbm(texel.uv, seeded(art.inside, seed));
         const float patches = smooth(art.patch_low, art.patch_high, fbm(texel.uv, seeded(art.patches, seed)));
         const float ring = blob(texel.uv, seeded(art.ring_outer, seed)) - blob(texel.uv, seeded(art.ring_inner, seed));
-        tile->darken(texel,
+        tile->paint(texel,
                      (mask * ((art.inside_weight * inside) + (art.patch_weight * patches))) +
                          (art.ring_weight * std::max(ring, 0.0F)),
                      art.colour);
@@ -431,13 +446,12 @@ void paint_stain(ArtTile* tile, uint32_t seed)
 
 struct OilArt {
     Rgb colour{};
-    Rgb sheen_colour{};
     Blob body{};
-    Blob sheen{};
+    Blob film{}; // (round DB) the thin film round the body: the oil's own colour, thinly - its gloss is its material's
     Fractal inside{};
     float body_low{};
     float body_high{};
-    float sheen_weight{};
+    float film_weight{};
     float least_drops{};
     float drop_spread{};
     float drop_out{}; // the drops' distance from the centre (tile units) and its spread
@@ -448,13 +462,12 @@ struct OilArt {
     float drop_dark{};
 };
 constexpr OilArt kOil{.colour = {0.2F, 0.2F, 0.23F},
-                      .sheen_colour = {0.75F, 0.72F, 0.8F},
                       .body = {.seed = 0, .radius = 0.28F, .rough = 0.35F, .soft = 0.1F},
-                      .sheen = {.seed = 3U, .radius = 0.4F, .rough = 0.4F, .soft = 0.15F},
+                      .film = {.seed = 3U, .radius = 0.4F, .rough = 0.4F, .soft = 0.15F},
                       .inside = {.seed = 9U, .base = 4, .octaves = 3},
                       .body_low = 0.7F,
                       .body_high = 0.3F,
-                      .sheen_weight = 0.4F,
+                      .film_weight = 0.25F,
                       .least_drops = 3.0F,
                       .drop_spread = 5.0F,
                       .drop_out = 0.3F,
@@ -479,8 +492,8 @@ void paint_oil(ArtTile* tile, uint32_t seed)
     each_texel([&](const Texel& texel) {
         const float mask = blob(texel.uv, seeded(art.body, seed));
         const float inside = fbm(texel.uv, seeded(art.inside, seed));
-        tile->darken(texel, mask * (art.body_low + (art.body_high * inside)), art.colour);
-        tile->darken(texel, blob(texel.uv, seeded(art.sheen, seed)) * art.sheen_weight, art.sheen_colour);
+        tile->paint(texel, blob(texel.uv, seeded(art.film, seed)) * art.film_weight, art.colour);
+        tile->paint(texel, mask * (art.body_low + (art.body_high * inside)), art.colour);
         for (uint32_t k = 0; k < drops; ++k) {
             const float angle = hash_unit(seed, kDropAngle, k) * kTau;
             const float out = art.drop_out + (art.drop_out_spread * hash_unit(seed, kDropOut, k));
@@ -490,7 +503,7 @@ void paint_oil(ArtTile* tile, uint32_t seed)
             const float du = x_of(texel.uv) - cx;
             const float dv = y_of(texel.uv) - cy;
             const float apart = std::sqrt((du * du) + (dv * dv));
-            tile->darken(texel, smooth(radius, radius * art.drop_core, apart) * art.drop_dark, art.colour);
+            tile->paint(texel, smooth(radius, radius * art.drop_core, apart) * art.drop_dark, art.colour);
         }
     });
 }
@@ -557,7 +570,7 @@ void paint_tyre(ArtTile* tile, uint32_t seed)
                                                                .period = static_cast<int>(art.streak_cells)}));
         const float patchy =
             art.patch_low + (art.patch_high * fbm({u * art.patch_squash, v}, seeded(art.patches, seed)));
-        tile->darken(texel, band * ends * streaks * patchy * art.darkness, art.colour);
+        tile->paint(texel, band * ends * streaks * patchy * art.darkness, art.colour);
     });
 }
 
@@ -617,8 +630,8 @@ void paint_gum(ArtTile* tile, uint32_t seed)
             const float radius =
                 spot.radius * (1.0F + (art.lumpy * std::sin((angle * art.lobes) + static_cast<float>(k))));
             const float apart = std::sqrt((du * du) + (dv * dv));
-            tile->darken(texel, smooth(radius, radius * art.core, apart) * spot.dark, art.colour);
-            tile->darken(texel, smooth(radius * art.smear, radius, apart) * art.smear_dark, art.colour);
+            tile->paint(texel, smooth(radius, radius * art.core, apart) * spot.dark, art.colour);
+            tile->paint(texel, smooth(radius * art.smear, radius, apart) * art.smear_dark, art.colour);
         }
     });
 }
@@ -642,7 +655,7 @@ void paint_wet(ArtTile* tile, uint32_t seed)
     each_texel([&](const Texel& texel) {
         const float mask = blob(texel.uv, seeded(art.body, seed));
         const float deep = blob(texel.uv, seeded(art.deep, seed));
-        tile->darken(texel, (mask * art.body_weight) + (deep * art.deep_weight), art.colour);
+        tile->paint(texel, (mask * art.body_weight) + (deep * art.deep_weight), art.colour);
     });
 }
 
@@ -710,7 +723,7 @@ void paint_grime(ArtTile* tile, uint32_t seed)
                                  smooth(top, top * art.drip_soft_top, v);
             amount = std::max(amount, streak * art.drip_dark);
         }
-        tile->darken(texel, amount, art.colour);
+        tile->paint(texel, amount, art.colour);
     });
 }
 
@@ -962,6 +975,32 @@ std::vector<uint8_t> make_decal_atlas()
         }
     }
     return atlas;
+}
+
+DecalMaterial decal_material(DecalKind kind)
+{
+    const auto of_kind = [](rt::MaterialKind table) {
+        return DecalMaterial{.layer = DecalLayer::kPigment,
+                             .f0 = rt::brdf::f0_of_index(rt::material_values(table).index),
+                             .roughness = rt::material_values(table).roughness};
+    };
+    switch (kind) {
+    case DecalKind::kOil:
+        return {.layer = DecalLayer::kPigment, .f0 = rt::brdf::f0_of_index(kOilIndex), .roughness = kOilRoughness};
+    case DecalKind::kTyre:
+    case DecalKind::kGum:
+        return of_kind(rt::MaterialKind::kRubber);
+    case DecalKind::kWet:
+        return {.layer = DecalLayer::kWater,
+                .f0 = rt::brdf::f0_of_index(static_cast<float>(rain::kWaterIndex)), // (rain::water_f0's)
+                .roughness = static_cast<float>(rain::kWaterRoughness)};
+    case DecalKind::kCrack:
+    case DecalKind::kStain:
+    case DecalKind::kGrime:
+    case DecalKind::kCount:
+        break;
+    }
+    return of_kind(rt::MaterialKind::kGround);
 }
 
 std::vector<MeshVertex> make_meshes()
