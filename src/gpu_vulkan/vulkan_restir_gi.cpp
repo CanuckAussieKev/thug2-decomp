@@ -1876,13 +1876,15 @@ bool ensure_image(Backend& state, Image* image, VkFormat format, const Extent& e
 
 } // namespace
 
-bool restir_gi_wanted(Backend& state)
+bool restir_gi_chosen(const Backend& state)
 {
     const RtGiSettings settings = rt_gi_settings_locked();
     const bool restir = settings.indirect == RtIndirectLight::kRestir ||
                         (settings.indirect == RtIndirectLight::kAuto && ray_reconstruction_active());
-    return restir && !gi_state().failed && state.context.ray_tracing_enabled() && surface_inputs(state) != nullptr;
+    return restir && !gi_state().failed && state.context.ray_tracing_enabled();
 }
+
+bool restir_gi_wanted(Backend& state) { return restir_gi_chosen(state) && surface_inputs(state) != nullptr; }
 
 bool restir_gi_lit_view(const Backend& /*state*/) { return gi_state().lit_view; }
 

@@ -338,6 +338,22 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
     // auto: the game's own colour here without the texture's detail - the texture's mean through what the program did
     // to its texel (the bake's and the pass colours' tints: a level's painted shallows keep their colour)
     vec3 own = mean * clamp(colour.rgb / max(texel.rgb, vec3(0.02)), vec3(0.0), vec3(4.0));
+#ifdef LIGHT_FRONT
+    // (NOT ORIGINAL - round FL: the front layer, ff_shaders.cpp kLightFrontGlsl) where this water is the view's nearest
+    // see-through surface (the layer's depth along the view within the waves' reach of the fragment's - the layer holds
+    // the rest surface), its light is the light list's there - the disc's and the rest's on a white diffuser - not the
+    // vertex's: the body's colour is the texture's mean lit by it
+    float front_z = light_front_depth();
+    if (front_z < 1.0) {
+        float front_eye = water.projection[3][2] / (front_z - water.projection[2][2]);
+        light_front_at = abs(front_eye - eye.z) <= max(0.01 * eye.z, 2.0 * water.sea.x + 1.0);
+    }
+    if (light_front_at) {
+        vec3 front_light = max(light_front_now().rgb + light_front_sun_now().rgb, vec3(0.0));
+        own = display_from_linear(linear_from_display(mean) * front_light);
+        gain = clamp(water_luma(own) / max(water_luma(mean), 0.02), 0.0, 4.0);
+    }
+#endif
     vec3 tint = water.tint.w > 0.5 ? own : water.tint.rgb * gain;
     vec3 hue = clamp(tint / max(max(tint.r, tint.g), max(tint.b, 1.0e-3)), 0.03, 1.0);
     float light = water_luma(tint);
@@ -397,6 +413,11 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
         float nh = max(dot(n, h), 0.0);
         float f = kWaterF0 + (1.0 - kWaterF0) * pow(1.0 - max(dot(v, h), 0.0), 5.0);
         float sunlit = smoothstep(0.3, 0.6, water_luma(v_diffuse.rgb * 2.0)) * smoothstep(0.0, 0.05, l.y);
+#ifdef LIGHT_FRONT
+        if (light_front_at) {
+            sunlit = light_front_sun_now().a * smoothstep(0.0, 0.05, l.y); // (round FL: the disc's visibility traced there)
+        }
+#endif
         float spec = 190.0 * pow(nh, 1500.0) * f * max(dot(n, l), 0.0);
         glitter = water.sun_colour.rgb * min(spec, water.sun_colour.w) * sunlit;
     }

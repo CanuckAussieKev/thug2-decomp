@@ -71,6 +71,7 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_scatter.cpp
     vulkan_cel.cpp
     vulkan_surface_light.cpp
+    vulkan_front_layer.cpp
     vulkan_water.cpp
     water_shader.cpp
     # NOT ORIGINAL - the vhs, retro and watercolour art styles (vulkan_style_film.h)

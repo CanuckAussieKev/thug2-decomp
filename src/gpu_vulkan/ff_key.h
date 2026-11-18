@@ -185,7 +185,13 @@ constexpr uint8_t kLightDepthHalf = 0x08;
 // kLightGuides (with kLightInputs / kLightShare, while Ray Reconstruction denoises the view): the surface the inputs were
 // made for writes its material - DLSS Ray Reconstruction's guides - into kLightGuidesBinding.
 constexpr uint8_t kLightGuides = 0x10;
-constexpr uint8_t kLightKnown = kLightInputs | kLightShare | kLightDepthOnly | kLightDepthHalf | kLightGuides;
+// (round FL - the front layer: vulkan_front_layer.h; UE5 Lumen's Front Layer Translucency) kLightFront: a see-through
+// surface (glass, a blended overlay - alpha-blended, no depth written - lit per pixel, or rt_water's water) reads the
+// front layer's light where it is the nearest see-through surface (its depth the front layer's): the light list's light
+// there in place of its vertex's light store (kLightFrontDepthBinding - kLightFrontSunBinding). Set only in a view whose
+// front layer is lit (ReSTIR GI's); the key's last bits but two stay spare.
+constexpr uint8_t kLightFront = 0x20;
+constexpr uint8_t kLightKnown = kLightInputs | kLightShare | kLightDepthOnly | kLightDepthHalf | kLightGuides | kLightFront;
 // (round DB) How far a surface lit per pixel may lie from the prepass's surface, along its own normal, and still be lit
 // as that surface (world units, inches): a layer the game lays over another - a road's painted markings, a decal
 // mesh, lifted 0.5 - 1 unit (Boston's crosswalk 0.8) - and the surface under it are one surface lit once with their

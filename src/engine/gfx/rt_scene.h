@@ -487,6 +487,8 @@ inline constexpr int kSurfaceInputs = 60;   // (round V - gpu_vulkan/vulkan_surf
                                             // light inputs begun from the prepass's depth, before the shadows
 inline constexpr int kSurfaceShading = 392; // ... its kept draws shaded with them: after the lamps and the decals (which
                                             // write the inputs), before the rain's wet mask and the reflections
+inline constexpr int kFrontLayer = 391;     // (round FL - gpu_vulkan/vulkan_front_layer.h) its nearest see-through surface's
+                                            // depth and light (after ReSTIR GI's light list), before the shading
 inline constexpr int kLights = 350;       // (added by the night lighting) the lamps' light: after the bounce, before the
                                           // reflections (opaque_drawn) - gpu_vulkan/vulkan_rt_lights.h
 } // namespace ViewOrder

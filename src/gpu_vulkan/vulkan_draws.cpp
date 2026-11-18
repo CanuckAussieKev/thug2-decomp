@@ -477,11 +477,17 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
     const SurfaceInputDescriptors& light = light_inputs ? draw.light : none;
     const bool same_surface = !surface.on || (bound.surface_pushed && same_buffer_info(bound.pushed_surface_block, surface.block) &&
                                               (!surface.has_map || same_image_info(bound.pushed_surface_map, surface.map)));
+    // (NOT ORIGINAL - round V; round FL: the view's light inputs are a descriptor set of their own - set 1, bound once
+    // for the view's draws)
+    if (light.on && light.set != VK_NULL_HANDLE && bound.light_set != light.set) {
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), kLightInputsSet, 1,
+                                &light.set, 0, nullptr);
+        bound.light_set = light.set;
+    }
     const bool same = bound.descriptors_set && same_buffer_info(bound.pushed_vertex_block, draw.vertex_block) &&
                       same_buffer_info(bound.pushed_fragment_block, draw.fragment_block) &&
                       std::ranges::equal(images, bound.images, same_image_info) && same_surface && !surface.cel &&
-                      !surface.detail &&
-                      (!light.on || (bound.light_pushed && bound.light_guides_pushed == light.guides)); // (round V)
+                      !surface.detail;
     if (same && !water.on && !snow.on && !paint.on && !wet.on) {
         return;
     }
@@ -490,9 +496,7 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
     constexpr std::size_t kSnowWrites = 3;   // (NOT ORIGINAL - snow's: kSnowUniformsBinding, kSnowSkyBinding, the map)
     constexpr std::size_t kPaintWrites = 3;  // (NOT ORIGINAL - paint's: kPaintUniformsBinding - kPaintPlaceBinding)
     constexpr std::size_t kWetWrites = 2;    // (NOT ORIGINAL - rain's: kWetUniformsBinding, kWetMapBinding)
-    constexpr std::size_t kLightWrites = 8;  // (NOT ORIGINAL - round V's: kLightVisibilityBinding - kLightLayerBinding)
-    std::array<VkWriteDescriptorSet,
-               2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites + kWetWrites + kLightWrites>
+    std::array<VkWriteDescriptorSet, 2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites + kWetWrites>
         writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -613,19 +617,6 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
         map.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         map.pImageInfo = &wet.map;
     }
-    if (light.on) { // (NOT ORIGINAL - round V: the surface's light inputs - vulkan_surface_light.h)
-        for (uint32_t input = 0; input < kLightWrites; ++input) {
-            if (kLightVisibilityBinding + input == kLightGuidesBinding && !light.guides) {
-                continue;
-            }
-            VkWriteDescriptorSet& image = core::at(writes, count++);
-            image.dstBinding = kLightVisibilityBinding + input;
-            image.descriptorType = kLightVisibilityBinding + input == kLightGuidesBinding
-                                       ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
-                                       : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            image.pImageInfo = &core::at(light.images, input);
-        }
-    }
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), 0, count, writes.data());
     bound.images = images;
     bound.pushed_vertex_block = draw.vertex_block;
@@ -633,8 +624,6 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
     // (added by cel shading: the next draw pushes again - its block is per draw; so the detail layer's)
     bound.descriptors_set = !surface.cel && !surface.detail;
     bound.surface_pushed = surface.on;
-    bound.light_pushed = light.on; // (round V: the inputs stay the view's while it is shaded)
-    bound.light_guides_pushed = light.guides;
     bound.pushed_surface_block = surface.block;
     bound.pushed_surface_map = surface.map;
 }
@@ -1355,7 +1344,9 @@ Prepared prepare_draw(Backend& state, const GpuStateBlock& block, const DrawCall
     // NOT ORIGINAL - water shaded where render_pc marked the material ([Graphics] rt_water, vulkan_water.h; nothing with
     // it off): the key with the water bit, the copy behind the water made first (outside the pass); opaque water before
     // the opaque world is finished kept back and drawn then
-    if (!water_key(state, block, call, &shaders, &out->water)) {
+    // (round FL: not for the front layer's depth - the water's rest surface, no copy behind it made then)
+    out->water = {};
+    if (light_role != SurfaceDrawRole::kFrontDepth && !water_key(state, block, call, &shaders, &out->water)) {
         return Prepared::kNone; // (drawn as water once the opaque world is finished)
     }
     // NOT ORIGINAL - the snow's cover on the world's ground and the scene objects ([Graphics] snow, vulkan_snow.h; nothing
@@ -1369,7 +1360,7 @@ Prepared prepare_draw(Backend& state, const GpuStateBlock& block, const DrawCall
     // colour word, rt_cel.h - the surface's tint x its light), read in place of the vertex colour, its alpha the game's.
     // The game's vertex buffers are never written by relit.
     // NOT ORIGINAL - round V: a kept draw's key: the relit world and the lit objects lit per pixel
-    if (light_role != SurfaceDrawRole::kAsItComes) {
+    if (light_role == SurfaceDrawRole::kShaded) {
         surface_light_force(block, relit_colour_stream(state, call, shaders.vertex) != nullptr, &shaders);
     }
     Buffer* const relit = relit_colour_stream(state, call, shaders.vertex);
@@ -1385,7 +1376,7 @@ Prepared prepare_draw(Backend& state, const GpuStateBlock& block, const DrawCall
     }
     // NOT ORIGINAL - round V: a kept draw's light inputs
     out->light = {};
-    if (light_role != SurfaceDrawRole::kAsItComes) {
+    if (light_role == SurfaceDrawRole::kShaded) {
         surface_light_finish(state, block, &shaders, &out->light);
     }
     std::string why;

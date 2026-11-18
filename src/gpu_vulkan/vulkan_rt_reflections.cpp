@@ -538,8 +538,15 @@ void main()
                         // doubled or the frame's lights) - is put back under the reflection: the pane shows (1 - E) of
                         // it, the reflection the rest; the environment map is kept only for what the rays miss (the base
                         // layer, premultiplied; linear light, as the frame).
-                        vec3 own = hit_light(id, hit_instance, primitive, bary, v, texel.rgb * surface.colour.rgb, point,
-                                             sn, -view, t);
+                        vec3 own;
+#ifdef LIST_LIT
+                        // (round FL) a view ReSTIR GI lit: the glass's own colour lit by the light list and the
+                        // radiance cache, as the front layer lights the see-through surfaces - not the light store's
+                        if (!list_hit_light(id, hit_instance, primitive, bary,
+                                            rayQueryGetIntersectionObjectToWorldEXT(query, true), view, own))
+#endif
+                        own = hit_light(id, hit_instance, primitive, bary, v, texel.rgb * surface.colour.rgb, point,
+                                        sn, -view, t);
                         float kept = mask * (1.0 - clamp(weight, 0.0, 1.0));
                         base_layer = vec4(own * kept, kept);
                     }

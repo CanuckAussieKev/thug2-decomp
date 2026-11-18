@@ -427,6 +427,9 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
     bool surface = dot(ng, ng) > 0.0;
     uint kind = light_kind(e.payload);
     if (kind == LIGHT_DISC) {
+#ifdef LL_NO_DISC
+        return vec3(0.0); // (round FL: the caller estimates the disc's light itself - the rest of the list by this sample)
+#endif
         dir = path_to_world(LL_SUN.xyz, path_cone_direction(LL_SUN.w, u1, u2));
         if (surface && (dot(dir, ng) <= 0.0 || dot(dir, n) <= 0.0)) {
             return vec3(0.0);

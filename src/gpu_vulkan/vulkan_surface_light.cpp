@@ -22,6 +22,7 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_prepared_draw.h"
+#include "gpu_vulkan/vulkan_restir_gi.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_upscale.h"
@@ -45,7 +46,7 @@ constexpr uint32_t kBlendSourceAlpha = 5;  // D3DBLEND_SRCALPHA
 constexpr uint32_t kBlendInverseAlpha = 6; // D3DBLEND_INVSRCALPHA
 constexpr uint32_t kBlendOpAdd = 1;        // D3DBLENDOP_ADD
 constexpr uint32_t kGroupSide = 8;
-constexpr uint32_t kBeginBindings = 9;
+constexpr uint32_t kBeginBindings = 12;
 constexpr std::size_t kMostKept = 16384; // (a view's world draws: a few hundred; past this, drawn as they come)
 
 // The inputs begun: the prepass's depth copied (read as the depth surface's), the visibility "not traced", nothing
@@ -61,6 +62,9 @@ layout(set = 0, binding = 5, rgba16f) uniform writeonly image2D o_decals;
 layout(set = 0, binding = 6, rgba32ui) uniform writeonly uimage2D o_guides;
 layout(set = 0, binding = 7, rgba16f) uniform writeonly image2D o_specular;
 layout(set = 0, binding = 8, rgba16f) uniform writeonly image2D o_layer;
+layout(set = 0, binding = 9, r32f) uniform writeonly image2D o_front_depth;
+layout(set = 0, binding = 10, rgba16f) uniform writeonly image2D o_front_light;
+layout(set = 0, binding = 11, rgba16f) uniform writeonly image2D o_front_sun;
 layout(push_constant) uniform Pass { ivec4 rect; } pc;
 void main()
 {
@@ -77,6 +81,9 @@ void main()
     imageStore(o_layer, p, vec4(0.0, 0.0, 0.0, 1.0));
     imageStore(o_guides, p, uvec4(0u));
     imageStore(o_specular, p, vec4(0.0));
+    imageStore(o_front_depth, p, vec4(1.0, 0.0, 0.0, 0.0)); // (round FL: no front layer until its pass finds one)
+    imageStore(o_front_light, p, vec4(0.0));
+    imageStore(o_front_sun, p, vec4(0.0));
 }
 )";
 
@@ -99,7 +106,17 @@ struct KeptDraw {
     bool water_waves = false;
     MotionSourceState motion;
     bool ready = false; // prepared
+    bool water = false; // (round FL) rt_water's (recorded at the shading - its front-layer depth prepared on its own)
     PreparedDraw prepared;
+};
+
+// (round FL) The view-wide descriptor sets (set 1, ff_uniforms.h kLightInputsSet): a pool per frame slot, reset when its
+// frame comes round (its last frame's work finished), a set made in it whenever the inputs' images change.
+constexpr uint32_t kSetsPerFrame = 16;
+struct SetSlot {
+    VkDescriptorPool pool = VK_NULL_HANDLE;
+    uint64_t frame = 0;
+    std::vector<std::pair<std::array<VkImageView, kLightInputCount>, VkDescriptorSet>> made; // (this frame's, by images)
 };
 
 enum class Phase : uint8_t {
@@ -136,6 +153,18 @@ struct LightState {
     bool in_layer = false;     // its draws being recorded (vulkan_draws.cpp's pipeline key: the layer's alpha blend)
     std::vector<DeviceBuffer> kept_buffers; // (kept draws' vertices and indices whose buffers were written again)
     std::unordered_set<VkBuffer> kept_reads; // the buffers the kept draws read now
+    // (round FL) the front layer (vulkan_front_layer.h): the see-through draws' depth (the view's depth format and size),
+    // the layer's depth, light and the disc's light - two of each, this view's and the last lit one's (its history)
+    Surface front;
+    std::array<Image, 2> front_depth;
+    std::array<Image, 2> front_light;
+    std::array<Image, 2> front_sun;
+    std::size_t front_now = 0;
+    bool front_on = false;      // this view's see-through draws read the front layer (ReSTIR GI lights the view)
+    bool front_history = false; // the other images hold the last view's lit layer
+    bool front_lit = false;     // this view's layer was lit (the front layer's pass)
+    std::array<SetSlot, Context::kFramesInFlight> sets;
+    VkDescriptorSet view_set = VK_NULL_HANDLE; // this view's
     SurfaceInputs inputs;
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
@@ -189,6 +218,11 @@ bool transparency(const GpuStateBlock& block)
     return blend == Blend::kOther && block.render_state(GpuRenderState::kDestBlend) == kBlendOne &&
            block.render_state(GpuRenderState::kBlendOp) == kBlendOpAdd;
 }
+
+// (round FL) Whether a draw is a see-through surface the front layer may hold: blended by its alpha, writing no depth
+// (glass, a soft overlay - its light is a surface's, unlike a glow's added light). Lit per pixel and of the light model's
+// world or objects too (surface_light_finish's kLightFront).
+bool see_through(const GpuStateBlock& block) { return blend_of(block) == Blend::kAlpha && !surface_draw(block); }
 
 // A kept draw's prepass pipeline: its shaded pipeline's key (`shaded`) with the fragment half depth alone
 // (depth_only_fragment - `half`: a blended draw's) and nothing written to or blended into the colour; the vertex half,
@@ -336,6 +370,127 @@ bool ensure_image(Backend& state, Image* image, VkFormat format, Extent extent, 
     return true;
 }
 
+// The images the view's descriptor set holds (its inputs; round FL: the front layer's this view's too).
+std::array<Image*, kLightInputCount> input_images()
+{
+    LightState& own = light_state();
+    const std::size_t now = own.front_now;
+    return {&own.visibility, &own.lamps,   &own.lamps_on, &own.depth_copy, &own.decals, &own.guides, &own.specular,
+            &own.layer_material, &core::at(own.front_depth, now), &core::at(own.front_light, now),
+            &core::at(own.front_sun, now)};
+}
+
+// (round FL) The front layer's depth attachment: the view's depth surface's format, size and samples (the kept draws'
+// pipelines draw into it as into the view's depth), samplable.
+bool ensure_front_surface(Backend& state)
+{
+    LightState& own = light_state();
+    const Surface* const depth = own.depth;
+    Image* const depth_image = image_of_surface(own.depth);
+    if (depth == nullptr || depth_image == nullptr) {
+        return false;
+    }
+    Image& image = own.front.image;
+    if (image.image != VK_NULL_HANDLE && image.format == depth_image->format &&
+        image.extent.width == depth_image->extent.width && image.extent.height == depth_image->extent.height) {
+        return true;
+    }
+    retire_image(state, &image);
+    const ImageRequest request{.format = depth_image->format,
+                               .aspect = depth_image->aspect,
+                               .extent = depth_image->extent,
+                               .levels = 1,
+                               .samples = VK_SAMPLE_COUNT_1_BIT,
+                               .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                               .alpha_one = false};
+    if (!state.memory.create_image(request, &image)) {
+        return false;
+    }
+    image.resting = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    prepare_image(state, &image);
+    own.front.kind = SurfaceKind::kDepth;
+    own.front.plan = depth->plan;
+    own.front.d3d_format = depth->d3d_format;
+    own.front.extent = depth->extent;
+    own.front.samples = depth->samples;
+    own.front.quality = depth->quality;
+    return true;
+}
+
+// (round FL) The view's light inputs as set 1 (ff_uniforms.h kLightInputsSet): its frame slot's set when its images are
+// the same, else a new one from the slot's pool (reset as its frame comes round - the slot's last frame is finished
+// then). VK_NULL_HANDLE when it can't be made.
+VkDescriptorSet light_view_set(Backend& state)
+{
+    LightState& own = light_state();
+    const VkDevice device = state.context.device();
+    SetSlot& slot = core::at(own.sets, state.frames.slot_index());
+    if (slot.pool == VK_NULL_HANDLE) {
+        const std::array<VkDescriptorPoolSize, 2> sizes{{
+            {.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = kSetsPerFrame * (kLightInputCount - 1)},
+            {.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = kSetsPerFrame},
+        }};
+        const VkDescriptorPoolCreateInfo info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+                                              .pNext = nullptr,
+                                              .flags = 0,
+                                              .maxSets = kSetsPerFrame,
+                                              .poolSizeCount = static_cast<uint32_t>(sizes.size()),
+                                              .pPoolSizes = sizes.data()};
+        if (vkCreateDescriptorPool(device, &info, nullptr, &slot.pool) != VK_SUCCESS) {
+            slot.pool = VK_NULL_HANDLE;
+            return VK_NULL_HANDLE;
+        }
+    }
+    if (slot.frame != state.frames.frame()) {
+        vkResetDescriptorPool(device, slot.pool, 0);
+        slot.frame = state.frames.frame();
+        slot.made.clear();
+    }
+    const std::array<Image*, kLightInputCount> images = input_images();
+    static_assert(kLightVisibilityBinding == 0 && kLightLampsBinding == 1 && kLightLampsOnBinding == 2 &&
+                      kLightDepthBinding == 3 && kLightDecalsBinding == 4 && kLightGuidesBinding == 5 &&
+                      kLightSpecularBinding == 6 && kLightLayerBinding == 7 && kLightFrontDepthBinding == 8 &&
+                      kLightFrontBinding == 9 && kLightFrontSunBinding == 10,
+                  "the images in the bindings' order");
+    std::array<VkImageView, kLightInputCount> views{};
+    for (std::size_t i = 0; i < images.size(); ++i) {
+        core::at(views, i) = core::at(images, i)->view;
+    }
+    for (const auto& [made_views, made_set] : slot.made) {
+        if (made_views == views) {
+            return made_set;
+        }
+    }
+    const VkDescriptorSetLayout layout = state.pipelines.light_set_layout();
+    const VkDescriptorSetAllocateInfo allocate{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+                                               .pNext = nullptr,
+                                               .descriptorPool = slot.pool,
+                                               .descriptorSetCount = 1,
+                                               .pSetLayouts = &layout};
+    VkDescriptorSet set = VK_NULL_HANDLE;
+    if (layout == VK_NULL_HANDLE || vkAllocateDescriptorSets(device, &allocate, &set) != VK_SUCCESS) {
+        return VK_NULL_HANDLE;
+    }
+    std::array<VkDescriptorImageInfo, kLightInputCount> infos{};
+    std::array<VkWriteDescriptorSet, kLightInputCount> writes{};
+    for (uint32_t i = 0; i < kLightInputCount; ++i) {
+        const bool storage = i == kLightGuidesBinding;
+        core::at(infos, i) = {.sampler = storage ? VK_NULL_HANDLE : own.sampler,
+                              .imageView = core::at(views, i),
+                              .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+        VkWriteDescriptorSet& write = core::at(writes, i);
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = set;
+        write.dstBinding = i;
+        write.descriptorCount = 1;
+        write.descriptorType = storage ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        write.pImageInfo = &core::at(infos, i);
+    }
+    vkUpdateDescriptorSets(device, kLightInputCount, writes.data(), 0, nullptr);
+    slot.made.emplace_back(views, set);
+    return set;
+}
+
 /// The view's input images (the colour target's size) and the pipeline that begins them made - before its first draw is
 // kept: the kept draws are prepared with the inputs' descriptors. False: they couldn't be (reported once).
 bool make_inputs(Backend& state)
@@ -356,7 +511,7 @@ bool make_inputs(Backend& state)
     const Extent extent{.width = colour->extent.width, .height = colour->extent.height};
     if (!ensure_image(state, &own.depth_copy, VK_FORMAT_R32_SFLOAT, extent, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT) ||
         !ensure_image(state, &own.visibility, kHdrFormat, extent, kUsage) ||
-        !ensure_image(state, &own.lamps, kHdrFormat, extent, kUsage) ||
+        !ensure_image(state, &own.lamps, kHdrFormat, extent, kUsage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT) ||
         !ensure_image(state, &own.lamps_on, kHdrFormat, extent, kUsage) ||
         !ensure_image(state, &own.specular, kHdrFormat, extent, kUsage) ||
         !ensure_image(state, &own.decals, kHdrFormat, extent,
@@ -368,6 +523,39 @@ bool make_inputs(Backend& state)
         own.failed = true;
         if (first_report(state, kReportFailed)) {
             get_log("vulkan: per-surface lighting: its images couldn't be made - the passes draw over the colour as before");
+        }
+        return false;
+    }
+    // (round FL) the front layer's images: a new size starts without history
+    const VkImage before = own.front_depth.front().image;
+    bool front_made = ensure_front_surface(state);
+    for (std::size_t k = 0; k < 2 && front_made; ++k) {
+        front_made = ensure_image(state, &core::at(own.front_depth, k), VK_FORMAT_R32_SFLOAT, extent,
+                                  kUsage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT) &&
+                     ensure_image(state, &core::at(own.front_light, k), kHdrFormat, extent,
+                                  kUsage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT) &&
+                     ensure_image(state, &core::at(own.front_sun, k), kHdrFormat, extent,
+                                  kUsage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+    }
+    if (!front_made) {
+        own.failed = true;
+        if (first_report(state, kReportFailed)) {
+            get_log("vulkan: per-surface lighting: the front layer's images couldn't be made - the passes draw over the "
+                    "colour as before");
+        }
+        return false;
+    }
+    if (own.front_depth.front().image != before) {
+        own.front_lit = false;
+    }
+    own.front_now ^= 1U; // (this view's layer into the other images: the last one's is its history)
+    own.front_history = own.front_lit;
+    own.front_lit = false;
+    own.view_set = light_view_set(state);
+    if (own.view_set == VK_NULL_HANDLE) {
+        if (first_report(state, kReportFailed + 0x30)) {
+            get_log("vulkan: per-surface lighting: the light inputs' descriptor set couldn't be made - this view's passes "
+                    "draw over the colour as before");
         }
         return false;
     }
@@ -406,13 +594,18 @@ bool view_can_be_lit(Backend& state)
                 : !rt::cel_world().relit                    ? "the level isn't relit"
                                                             : "cel shading");
     }
+    // (round FL) the front layer is lit where ReSTIR GI publishes the frame's light list and cache (vulkan_front_layer.h)
+    own.front_on = can && restir_gi_chosen(state);
     return can && make_inputs(state);
 }
 
-// The view's depth cleared to the far plane (as the draws' passes, its stencil isn't attached) - outside a pass.
-void clear_depth(Backend& state)
+// The view's depth (or `depth`: round FL's front layer's) cleared to the far plane (as the draws' passes, its stencil
+// isn't attached) - outside a pass.
+void clear_depth(Backend& state, Image* depth = nullptr)
 {
-    Image* const depth = image_of_surface(light_state().depth);
+    if (depth == nullptr) {
+        depth = image_of_surface(light_state().depth);
+    }
     if (depth == nullptr || (depth->aspect & VK_IMAGE_ASPECT_DEPTH_BIT) == 0) {
         return;
     }
@@ -611,8 +804,7 @@ void flush(Backend& state)
             (void)begin_inputs(state);
         }
         VkCommandBuffer commands = outside_pass(state);
-        for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.layer_material, &own.guides,
-                           &own.specular}) {
+        for (Image* image : input_images()) {
             Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
         }
         state.bound = BoundState{};
@@ -640,13 +832,13 @@ bool begin_inputs(Backend& state)
     const uint32_t height = std::min(core::at(own.view.rect, 3), extent.height - top);
     VkCommandBuffer commands = outside_pass(state);
     Memory::transition(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-    for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.layer_material, &own.guides,
-                           &own.specular}) {
+    for (Image* image : input_images()) {
         Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
     }
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.begin);
     const VkDescriptorImageInfo depth_info{
         .sampler = own.sampler, .imageView = depth->view, .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
+    const std::size_t now = own.front_now;
     const std::array<VkDescriptorImageInfo, kBeginBindings - 1> storage{{
         {.sampler = VK_NULL_HANDLE, .imageView = own.depth_copy.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
         {.sampler = VK_NULL_HANDLE, .imageView = own.visibility.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
@@ -656,6 +848,9 @@ bool begin_inputs(Backend& state)
         {.sampler = VK_NULL_HANDLE, .imageView = own.guides.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
         {.sampler = VK_NULL_HANDLE, .imageView = own.specular.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
         {.sampler = VK_NULL_HANDLE, .imageView = own.layer_material.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
+        {.sampler = VK_NULL_HANDLE, .imageView = core::at(own.front_depth, now).view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
+        {.sampler = VK_NULL_HANDLE, .imageView = core::at(own.front_light, now).view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
+        {.sampler = VK_NULL_HANDLE, .imageView = core::at(own.front_sun, now).view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
     }};
     std::array<VkWriteDescriptorSet, kBeginBindings> writes{};
     for (uint32_t binding = 0; binding < kBeginBindings; ++binding) {
@@ -679,10 +874,10 @@ bool begin_inputs(Backend& state)
                          0, nullptr, 0, nullptr);
     state.bound = BoundState{};
     const uint64_t serial = state.frames.serial();
-    for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.layer_material,
-                         &own.guides, &own.specular, depth}) {
+    for (Image* image : input_images()) {
         image->used = serial;
     }
+    depth->used = serial;
     own.inputs = {.visibility = &own.visibility,
                   .lamps = &own.lamps,
                   .lamps_on = &own.lamps_on,
@@ -746,8 +941,7 @@ public:
         }
         // the passes' writes read by the draws
         VkCommandBuffer commands = outside_pass(state);
-        for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.layer_material, &own.guides,
-                           &own.specular}) {
+        for (Image* image : input_images()) {
             Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
         }
         own.guides_frame = ray_reconstruction_active() || own.guides_forced ? state.frames.serial() : 0;
@@ -822,15 +1016,26 @@ void release_surface_light(Backend& state)
     own.role = SurfaceDrawRole::kAsItComes;
     own.inputs = {};
     for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.layer_material,
-                         &own.guides, &own.specular, &own.layer.image}) {
+                         &own.guides, &own.specular, &own.layer.image, &own.front.image, &own.front_depth.front(),
+                         &own.front_depth.back(), &own.front_light.front(), &own.front_light.back(),
+                         &own.front_sun.front(), &own.front_sun.back()}) {
         if (image->image != VK_NULL_HANDLE) {
             state.memory.destroy_image(image);
         }
         *image = Image{};
     }
     own.layer_frame = 0;
+    own.front_history = false;
+    own.front_lit = false;
+    own.view_set = VK_NULL_HANDLE;
     const VkDevice device = state.context.device();
     if (device != VK_NULL_HANDLE) {
+        for (SetSlot& slot : own.sets) { // (round FL: the view-wide descriptor sets)
+            if (slot.pool != VK_NULL_HANDLE) {
+                vkDestroyDescriptorPool(device, slot.pool, nullptr);
+            }
+            slot = SetSlot{};
+        }
         if (own.begin != VK_NULL_HANDLE) {
             vkDestroyPipeline(device, own.begin, nullptr);
         }
@@ -895,6 +1100,7 @@ bool surface_light_keep(Backend& state, const GpuStateBlock& block, const DrawCa
     ++own.stats.kept;
     // (water rt_water shades: recorded at the shading, its copy behind the water made then - never in the prepass)
     if (water_candidate(state, block)) {
+        kept.water = true;
         return true;
     }
     // Prepared once as the shading will draw it (its key with the light inputs, its pipeline, blocks and descriptors)
@@ -953,8 +1159,17 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
     FragmentKey& fragment = shaders->fragment;
     // (the view's inputs' images: made when it was found lit per surface - the draws are prepared with them before the
     // passes write them)
-    if (own.role != SurfaceDrawRole::kShaded || !own.on || own.visibility.image == VK_NULL_HANDLE || fragment.water != 0U ||
+    if (own.role != SurfaceDrawRole::kShaded || !own.on || own.visibility.image == VK_NULL_HANDLE || own.view_set == VK_NULL_HANDLE ||
         fvf_pre_transformed(shaders->vertex.fvf) || (fragment.surface & (kSurfaceCel | kSurfaceCelHull)) != 0U) {
+        return;
+    }
+    if (fragment.water != 0U) {
+        // (round FL) rt_water's water reads the front layer alone - its body lit by the light list there
+        if (own.front_on) {
+            fragment.light = kLightFront;
+            out->on = true;
+            out->set = own.view_set;
+        }
         return;
     }
     // (round RG) A draw that adds or multiplies - a glow, a light cone, a flare, a multiplied mark - is never the surface
@@ -972,21 +1187,135 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
         return;
     }
     out->on = true;
-    const std::array<const Image*, 8> images{&own.visibility, &own.lamps,  &own.lamps_on, &own.depth_copy,
-                                             &own.decals,     &own.guides, &own.specular, &own.layer_material};
+    out->set = own.view_set;
     // (Ray Reconstruction's guides: written while it denoises the view - by the surfaces the prepass drew alone: a
     // transparency over one leaves its guides, its light laid over in the transparency layer - NVIDIA's DLSS-RR
     // Integration Guide 3.4.1: the guides describe the opaque surface)
     if ((ray_reconstruction_active() || own.guides_forced) && surface_draw(block)) {
         fragment.light = static_cast<uint8_t>(fragment.light | kLightGuides);
-        out->guides = true;
     }
-    for (std::size_t i = 0; i < images.size(); ++i) {
-        core::at(out->images, i) = {.sampler = own.sampler,
-                                    .imageView = core::at(images, i)->view,
-                                    .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+    // (round FL) a see-through surface lit by the light model - the relit world's glass and overlays, an object's
+    // windows - reads the front layer where it is the nearest see-through surface (its prepass: surface_light_front_prepass)
+    if (own.front_on && fragment.light == kLightInputs && see_through(block) &&
+        (fragment.surface & (kSurfaceRelit | kSurfaceLit)) != 0U) {
+        fragment.light = static_cast<uint8_t>(fragment.light | kLightFront);
     }
     (void)state;
+}
+
+bool surface_light_front_prepass(Backend& state, FrontLayerImages* out)
+{
+    *out = {};
+    LightState& own = light_state();
+    if (own.phase != Phase::kInputs || !own.front_on || own.front.image.image == VK_NULL_HANDLE ||
+        own.inputs.depth == nullptr) {
+        return false;
+    }
+    const auto drawn_here = [&state](const KeptDraw& draw) {
+        return draw.water ||
+               (prepared_now(state, draw) && (draw.prepared.key.shaders.fragment.light & kLightFront) != 0U);
+    };
+    if (std::ranges::none_of(own.kept, drawn_here)) {
+        return false;
+    }
+    restore_sampled_layouts(state, own.kept);
+    clear_depth(state, &own.front.image);
+    // The see-through draws' depth alone into the front layer's attachment, nearest kept (each tests and writes depth;
+    // all of a draw's pixels - the layer is where the nearest see-through surface is, however clear): the prepared ones
+    // emitted from their preparations with their depth-only pipelines, rt_water's prepared now as plain draws (the
+    // water's rest surface - its shading finds the layer along the view within its waves' reach).
+    Surface* const depth_before = state.depth;
+    state.depth = &own.front;
+    state.bound = BoundState{};
+    const CelSourceNamed cel_before = cel_source_now();
+    const bool ground_before = surface_trail::current_ground();
+    const bool character_before = surface_trail::current_character();
+    const GpuTexture* const water_before = water::current_texture();
+    const uint32_t material_before = water::current_material();
+    const water::WaterBody body_before = water::current_body();
+    const bool waves_before = water::current_waves();
+    const MotionSourceState motion_before = state.motion.source;
+    uint32_t drawn = 0;
+    for (const KeptDraw& draw : own.kept) {
+        if (!drawn_here(draw)) {
+            continue;
+        }
+        PreparedDraw front;
+        if (draw.water) {
+            cel_source_put(draw.cel);
+            surface_trail::set_current_ground(draw.ground);
+            surface_trail::set_current_character(draw.character);
+            water::set_current(draw.water_texture, draw.water_material);
+            water::set_current_body(draw.water_body);
+            water::set_current_waves(draw.water_waves);
+            state.motion.source = draw.motion;
+            own.role = SurfaceDrawRole::kFrontDepth;
+            const Prepared prepared = prepare_draw(state, draw.block, draw.call, &front);
+            own.role = SurfaceDrawRole::kAsItComes;
+            if (prepared != Prepared::kDraw) {
+                continue;
+            }
+        } else {
+            front = draw.prepared;
+        }
+        front.dynamics.depth_test = true;
+        front.dynamics.depth_write = true;
+        front.dynamics.depth_compare = VK_COMPARE_OP_LESS_OR_EQUAL;
+        const VkPipeline pipeline = depth_pipeline(state, front.key, false);
+        if (pipeline != VK_NULL_HANDLE) {
+            emit_draw(state, front, {.pipeline = pipeline, .light_inputs = false});
+            ++drawn;
+        }
+    }
+    cel_source_put(cel_before);
+    surface_trail::set_current_ground(ground_before);
+    surface_trail::set_current_character(character_before);
+    water::set_current(water_before, material_before);
+    water::set_current_body(body_before);
+    water::set_current_waves(waves_before);
+    state.motion.source = motion_before;
+    (void)outside_pass(state); // (the front layer's pass ended)
+    state.depth = depth_before;
+    state.bound = BoundState{};
+    own.stats.front += drawn;
+    if (drawn == 0) {
+        return false;
+    }
+    const std::size_t now = own.front_now;
+    const std::size_t before = now ^ 1U;
+    out->drawn = &own.front.image;
+    out->opaque = own.inputs.depth;
+    out->depth = {&core::at(own.front_depth, now), &core::at(own.front_depth, before)};
+    out->light = {&core::at(own.front_light, now), &core::at(own.front_light, before)};
+    out->sun = {&core::at(own.front_sun, now), &core::at(own.front_sun, before)};
+    out->history = own.front_history;
+    return true;
+}
+
+void surface_light_front_lit() { light_state().front_lit = true; }
+
+bool surface_light_front_images(FrontLayerImages* out)
+{
+    LightState& own = light_state();
+    *out = {};
+    if (own.front_depth.front().image == VK_NULL_HANDLE) {
+        return false;
+    }
+    const std::size_t now = own.front_now;
+    const std::size_t before = now ^ 1U;
+    out->drawn = &own.front.image;
+    out->opaque = &own.depth_copy;
+    out->depth = {&core::at(own.front_depth, now), &core::at(own.front_depth, before)};
+    out->light = {&core::at(own.front_light, now), &core::at(own.front_light, before)};
+    out->sun = {&core::at(own.front_sun, now), &core::at(own.front_sun, before)};
+    out->history = own.front_lit;
+    return true;
+}
+
+Image* surface_light_lamps_input()
+{
+    LightState& own = light_state();
+    return own.lamps.image != VK_NULL_HANDLE ? &own.lamps : nullptr;
 }
 
 const SurfaceInputs* surface_inputs(Backend& state)

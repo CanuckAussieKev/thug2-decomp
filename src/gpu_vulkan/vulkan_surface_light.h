@@ -47,8 +47,9 @@ struct DrawCall;
 struct Image;
 
 // What a draw is prepared as now (prepare_draw asks): as it comes, or a kept draw shaded with the inputs (its depth
-// emitted from the same preparation with a depth-only pipeline - vulkan_prepared_draw.h).
-enum class SurfaceDrawRole : uint8_t { kAsItComes, kShaded };
+// emitted from the same preparation with a depth-only pipeline - vulkan_prepared_draw.h), or (round FL) rt_water's water
+// prepared for the front layer's depth alone (as plain water: no water key - its copy behind is made at its shading).
+enum class SurfaceDrawRole : uint8_t { kAsItComes, kShaded, kFrontDepth };
 
 // The view's light inputs while its passes make them (from ViewOrder::kSurfaceInputs to kSurfaceShading): the images
 // a pass draws into in place of the colour (RGBA16F, the colour target's size; each COLOR_ATTACHMENT-usable), and the
@@ -69,11 +70,11 @@ struct SurfaceInputs {
     Image* specular = nullptr;
 };
 
-// The pushed descriptors of a draw that reads the inputs (kLightVisibilityBinding - kLightLayerBinding).
+// The descriptors of a draw that reads the inputs: (round FL) the view's descriptor set - set 1 (ff_uniforms.h
+// kLightInputsSet: every input, the front layer's too), bound once for the view's draws, not pushed with each.
 struct SurfaceInputDescriptors {
     bool on = false;
-    std::array<VkDescriptorImageInfo, 8> images{};
-    bool guides = false; // (the last, a storage image: pushed with kLightGuides)
+    VkDescriptorSet set = VK_NULL_HANDLE;
 };
 
 // The listeners (vulkan_gpu.cpp: added while ray tracing is enabled).
@@ -121,6 +122,30 @@ void set_surface_light_guides_forced(bool forced);
 void set_surface_light_layer_forced(bool forced);
 // (round RG) Whether the draws being recorded are the layer's (the pipeline key's alpha blend - PipelineKey::layer).
 [[nodiscard]] bool surface_light_in_layer();
+// (round FL - the front layer, vulkan_front_layer.h; UE5 Lumen's Front Layer Translucency) The view's images for it: the
+// see-through draws' depth (`drawn`: the view's depth format, resting as a depth attachment), the prepass's (`opaque`:
+// SurfaceInputs::depth), and the layer's depth (R32F, 1: none), light and the disc's light (RGBA16F) - [0] this view's
+// (what its draws read: the view's descriptor set), [1] the last view's (`history`: it was lit).
+struct FrontLayerImages {
+    Image* drawn = nullptr;
+    Image* opaque = nullptr;
+    std::array<Image*, 2> depth{};
+    std::array<Image*, 2> light{};
+    std::array<Image*, 2> sun{};
+    bool history = false;
+};
+// At ViewOrder::kFrontLayer (the inputs made, the shading next): the kept draws that read the front layer (kLightFront -
+// see-through draws lit by the light model, and rt_water's water) drawn into its depth alone, the nearest kept. False
+// (nothing drawn): the view has none, or its layer isn't lit (no ReSTIR GI) - its layer stays empty (the inputs' begin
+// cleared it), its draws keep their own light. The caller holds the lock.
+[[nodiscard]] bool surface_light_front_prepass(Backend& state, FrontLayerImages* out);
+// The front layer's pass lit this view's layer: its images are the next view's history.
+void surface_light_front_lit();
+// (the checks) The last view's front layer images (false: none made yet) and its lamps input (null: none), as its passes
+// left them. The caller holds the lock.
+[[nodiscard]] bool surface_light_front_images(FrontLayerImages* out);
+[[nodiscard]] Image* surface_light_lamps_input();
+
 // A buffer destroyed: kept draws that name it forget it (vulkan_cel_draw.h cel_forget_buffer_locked's twin).
 void surface_light_forget_buffer(const void* buffer);
 // A texture's image destroyed: prepared draws that sample it no longer look after its layout (its view lives to the
@@ -137,6 +162,7 @@ struct SurfaceLightStats {
     uint64_t elsewhere = 0; // world draws in a view lit per surface into another target (drawn as they came)
     uint64_t rewritten = 0; // kept draws' buffers kept before they were written again
     uint64_t layered = 0;   // (round RG) of the shaded, drawn into Ray Reconstruction's transparency layer
+    uint64_t front = 0;     // (round FL) see-through draws drawn into the front layer's depth
 };
 [[nodiscard]] SurfaceLightStats surface_light_stats();
 

@@ -183,6 +183,8 @@ struct FrameLightList {
 //   float sun_kept(vec3 at); vec3 sky_radiance(vec3 dir); float sky_density(vec3 dir);
 //   vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 dir)   - the light along dir x its
 //       visibility / its density: x a BSDF x the cosine, or x a phase, the estimate (n = ng = vec3(0): a medium's point)
+// With LL_NO_DISC (round FL) a pick of the disc brings nothing: the estimate is of the rest of the list (the caller owns
+// the disc's light - its own visibility ray).
 // With LL_CACHE (the caller's `cache[]` - ReSTIR GI's radiance cache, 4 uvec4 an entry -, CACHE_CAPACITY, CACHE_PROBES,
 // CACHE_CELL_LEAST, LL_EYE, LL_CACHE_CELLS, LL_CACHE_ON):
 //   void cache_key(vec3 at, vec3 ng, out uint slot, out uint check); vec3 cache_bounce(vec3 at, vec3 ng)
