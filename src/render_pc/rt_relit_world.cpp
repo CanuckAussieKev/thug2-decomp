@@ -832,18 +832,6 @@ uint64_t switch_lamps(const rt::DayLight& day)
                                   ? rt::scaled(lamp.light, lamp.luminance / unit_luminance / y)
                                   : rt::scaled(lamp.light, kLambertian);
     }
-    // (round L) the brightest emission the level shows now - the frame's pre-exposure keeps it in range
-    // (rt_daylight.h set_brightest_emission)
-    float brightest = 0.0F;
-    for (std::size_t li = 0; li < lamps.size(); ++li) {
-        const rt::Rgbf& light = core::at(shown, li);
-        // (round indoor lamps: every lamp's head may be drawn - a candidate's own surface, or the fixture geometry a
-        // light card's, a point light's or a pool's lamp took - relit_bake.cpp emitting_vertices)
-        const float drawn = 1.0F;
-        brightest = std::max(brightest, std::max({std::get<0>(light), std::get<1>(light), std::get<2>(light)}) * drawn *
-                                            core::at(st.lamps_on, li));
-    }
-    rt::set_brightest_emission(brightest);
     for (const VertexBufferData* buffer : st.order) {
         Entry& entry = st.entries.at(buffer);
         if (!entry.analysed || entry.lamps_for == hash || entry.data_mesh >= data.data.meshes.size()) {
@@ -1023,7 +1011,6 @@ void level_changed(uint32_t level)
         return;
     }
     rt::set_sun_relight({}); // (added by the scene's sun: a new level is lit by its bake until it is relit)
-    rt::set_brightest_emission(0.0F); // (round L: the last level's lamps no longer shown)
     st.field_lighting = 0;
     rt::set_light_field(nullptr); // (the one lighting path: the level before's field gone)
     restore_all();

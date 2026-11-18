@@ -55,7 +55,8 @@ constexpr uint64_t kLogEvery = 600; // (passes between the log's lines)
 
 constexpr float kTwo = 2.0F;   // (clip space: 2 across; a half angle doubled)
 constexpr float kHalfF = 0.5F;
-constexpr std::size_t kPrepareBindings = 9; // (round V: 6 the surfaces' guides, 7 the albedo, 8 the specular albedo)
+constexpr std::size_t kPrepareBindings = 10; // (round V: 6 the surfaces' guides, 7 the albedo, 8 the specular albedo;
+                                             // round RX: 9 the colour)
 constexpr float kLeastFrameMilliseconds = 0.1F;
 constexpr uint64_t kReportMultisampled = 0x75C0'0001ULL;
 constexpr uint64_t kReportTargets = 0x75C0'0002ULL;
@@ -75,6 +76,9 @@ layout(set = 0, binding = 5, rgba16f) uniform writeonly image2D normal_out;
 layout(set = 0, binding = 6, rgba32ui) uniform readonly uimage2D guides_in;
 layout(set = 0, binding = 7, rgba16f) uniform writeonly image2D albedo_out;
 layout(set = 0, binding = 8, rgba16f) uniform writeonly image2D specular_out;
+// (round RX) the colour the provider is given, made finite: past the 16-bit range its largest value, not a number 0 (the
+// frame's pre-exposure is the camera's - rt_daylight.h kFrameHalfMost - and blended light can still sum past it)
+layout(set = 0, binding = 9, rgba16f) uniform image2D colour_io;
 layout(push_constant) uniform Pass {
     mat4 to_before; // this frame's clip space (jittered) -> the frame before's (Direct3D's row vectors)
     vec4 size;      // the drawn rectangle's width, height; the jitter (pixels)
@@ -159,6 +163,9 @@ void main()
     imageStore(motion_out, pixel, vec4(motion, 0.0, 0.0));
     imageStore(depth_out, pixel, vec4(depth));
     imageStore(reactive_out, pixel, vec4(clamp(drawn.z, 0.0, 0.9)));
+    vec4 colour = imageLoad(colour_io, pixel);
+    colour.rgb = mix(clamp(colour.rgb, vec3(0.0), vec3(65504.0)), vec3(0.0), isnan(colour.rgb));
+    imageStore(colour_io, pixel, colour);
 }
 )";
 
@@ -972,6 +979,7 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         {.sampler = VK_NULL_HANDLE,
          .imageView = guides != nullptr ? own.specular.view : own.motion.view,
          .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
+        {.sampler = VK_NULL_HANDLE, .imageView = own.colour.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL}, // (round RX)
     }};
     std::array<VkWriteDescriptorSet, kPrepareBindings> writes{};
     for (uint32_t binding = 0; binding < writes.size(); ++binding) {

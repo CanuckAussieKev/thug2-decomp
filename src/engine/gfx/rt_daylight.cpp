@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <array>
-#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <cmath>
@@ -765,22 +764,6 @@ float direct_share_now(const DayLight& day, bool own_sun, double own_elevation)
 }
 
 namespace {
-std::atomic<float>& brightest_slot()
-{
-    static std::atomic<float> value{0.0F};
-    return value;
-}
-} // namespace
-
-void set_brightest_emission(float unit_radiance)
-{
-    brightest_slot().store(std::isfinite(unit_radiance) && unit_radiance > 0.0F ? unit_radiance : 0.0F,
-                           std::memory_order_relaxed);
-}
-
-float brightest_emission() { return brightest_slot().load(std::memory_order_relaxed); }
-
-namespace {
 // (round PX) the camera's exposure (set_camera_exposure)
 struct CameraReading {
     std::mutex mutex;
@@ -833,17 +816,15 @@ float pre_exposure_for(const DayLight& light)
     if (!light.on) {
         return 1.0F;
     }
-    // (round L: and the brightest emission held in the 16-bit floats - kFrameLightMost)
-    const double emission = static_cast<double>(brightest_emission());
-    const double most = std::max(kLeastPreExposure,
-                                 emission > 0.0 ? std::min(kMostPreExposure, kFrameLightMost / emission) : kMostPreExposure);
+    // (round RX: the camera's, not held under the brightest emission - what passes the 16-bit floats is written as their
+    // largest finite value, kFrameHalfMost)
     const double camera = static_cast<double>(camera_exposure());
     if (camera > 0.0) {
-        return static_cast<float>(std::clamp(camera, kLeastPreExposure, most));
+        return static_cast<float>(std::clamp(camera, kLeastPreExposure, kMostPreExposure));
     }
     // (no reading yet: the light on a level surface now - the first frames of a lighting, no meter)
     const double ground = static_cast<double>(light.illuminance_lux) / unit_illuminance();
-    return static_cast<float>(ground > 0.0 ? std::clamp(1.0 / ground, 1.0, std::max(1.0, most)) : std::max(1.0, most));
+    return static_cast<float>(ground > 0.0 ? std::clamp(1.0 / ground, 1.0, kMostPreExposure) : 1.0);
 }
 
 void pre_expose(DayLight* light)
