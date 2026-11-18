@@ -94,6 +94,7 @@ constexpr float kTraceReach = 1.0e6F; // a ray's reach (world units)
 constexpr float kSameEye = 1.0e-3F;   // the camera stood still: its eye within this (world units) ...
 constexpr float kSamePixels = 0.25F;  // ... and its rays within this share of a pixel
 constexpr double kDegreesToRadians = 0.017453292519943295;
+constexpr uint32_t kBlendedOpenBit = 16; // (PathBlock::lists.w past the light kinds: the shaders' PATH_BLENDED_OPEN)
 
 using Matrix = std::array<std::array<double, kMatrixSide>, kMatrixSide>;
 using Vec3d = std::array<double, 3>;
@@ -114,7 +115,8 @@ struct PathBlock {
     std::array<uint32_t, 4> frame{};     // x the first sample's index, y samples now, z bounces at most, w strategy
     std::array<uint32_t, 4> size{};      // x width, y height, z seed, w the list's capacity
     std::array<uint32_t, 4> instances{}; // xy the instances' device address (low, high)
-    std::array<uint32_t, 4> lists{};     // x the light list's entries, y its first lamp, z 1: the clouds' shadow map
+    std::array<uint32_t, 4> lists{};     // x the light list's entries, y its first lamp, z 1: the clouds' shadow map, w the
+                                         // kinds of light counted (rt_path.h kLightKind*)
     std::array<float, 4> sky_dist{};     // x 1 / the sky's luminance integral over the sphere (0: no sky)
     std::array<float, 4> cloud_place{};  // (the clouds' shadow map: vulkan_rt_sky_pass.h CloudShadowMap)
     std::array<float, 4> cloud_light{};
@@ -184,6 +186,7 @@ const float PATH_DELTA_PDF = 1.0e15; // a mirror's "pdf" (a delta lobe: a light 
 const uint PATH_CASTS = 4u;         // (rt::kCastsShadow)
 const uint PATH_TRANSPARENT = 64u;  // (rt::kTransparent)
 const float PATH_REACH = 1.0e6;
+const uint PATH_BLENDED_OPEN = 16u; // (pass.lists.w: `pt ref ... open` - the light's rays pass the blended surfaces)
 
 // An instance's object-to-world transform (its TLAS record's rows).
 mat4x3 instance_transform(uint i)
@@ -442,7 +445,7 @@ bool trace_surface(vec3 origin, vec3 dir, float reach, uint seed, out uint insta
 vec3 seen_through(vec3 origin, vec3 dir, float reach)
 {
     vec3 through = vec3(1.0);
-    if (reach <= 0.0) {
+    if (reach <= 0.0 || (pass.lists.w & PATH_BLENDED_OPEN) != 0u) {
         return through;
     }
     rayQueryEXT query;
@@ -484,6 +487,10 @@ vec3 transmittance(vec3 origin, vec3 dir, float reach)
 }
 
 bool in_sun(vec3 dir) { return pass.sun.w <= 1.0 && dot(dir, pass.sun.xyz) >= pass.sun.w; }
+
+// (`pt ref ... only <kinds>`) Whether light of the list's kind `kind` (LIGHT_DISC .. LIGHT_LAMP: rt_path.h's bit 1 << kind)
+// is counted - 1, else 0.
+float counted(uint kind) { return (pass.lists.w & (1u << kind)) != 0u ? 1.0 : 0.0; }
 
 // The share of the disc's light the clouds let through to `at` (their shadow map over the lighting state's mean beam -
 // the shadows pass's clouds_through); 1 without the map.
@@ -535,6 +542,9 @@ vec3 sample_light(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rn
     }
     bool mis = pass.frame.w == STRATEGY_MIS;
     uint kind = light_kind(e.payload);
+    if (counted(kind) == 0.0) {
+        return vec3(0.0);
+    }
     if (kind == LIGHT_DISC) {
         vec3 dir = path_to_world(pass.sun.xyz, path_cone_direction(pass.sun.w, u1, u2));
         if (dot(dir, ng) <= 0.0) {
@@ -649,9 +659,9 @@ vec3 trace_path(vec3 origin, vec3 dir, inout uint rng)
         path_next(rng);
         bool hit = trace_surface(origin, dir, PATH_REACH, seed, instance, primitive, id, bary, t, to_world);
         if (!hit) {
-            vec3 seen_sky = sky_radiance(dir);
+            vec3 seen_sky = sky_radiance(dir) * counted(LIGHT_SKY);
             bool sun_seen = in_sun(dir);
-            vec3 seen_sun = sun_seen ? pass.sun_radiance.rgb * sun_kept(origin) : vec3(0.0);
+            vec3 seen_sun = sun_seen ? pass.sun_radiance.rgb * sun_kept(origin) * counted(LIGHT_DISC) : vec3(0.0);
             if (depth == 0u || strategy == STRATEGY_BSDF) {
                 radiance += weight * (seen_sky + seen_sun);
             } else if (strategy == STRATEGY_MIS) {
@@ -683,7 +693,7 @@ vec3 trace_path(vec3 origin, vec3 dir, inout uint rng)
             }
             ++crossed;
             if (blend.kind == HIT_ADDED) {
-                radiance += weight * s.emitted;
+                radiance += weight * s.emitted * counted(LIGHT_TRIANGLE);
             } else if (blend.kind == HIT_FILTER) {
                 weight *= blend.tint;
             } else if (path_next(rng) < hit_glass_reflectance(dot(s.normal, dir))) {
@@ -699,7 +709,7 @@ vec3 trace_path(vec3 origin, vec3 dir, inout uint rng)
             --depth;
             continue;
         }
-        if (max(s.emitted.r, max(s.emitted.g, s.emitted.b)) > 0.0) {
+        if (max(s.emitted.r, max(s.emitted.g, s.emitted.b)) > 0.0 && counted(LIGHT_TRIANGLE) > 0.0) {
             uint slot = listed_slot(instance, primitive);
             if (depth == 0u || strategy == STRATEGY_BSDF || slot == 0u) {
                 radiance += weight * s.emitted;
@@ -857,6 +867,7 @@ struct Lighting {
     RtSkyFrame cloud_frame;         // (their parameters - the sky pass's last)
     std::vector<rt::Emitter> lamps; // the analytic ones (x their switches) and the frame record's point lights
     uint32_t owned = 0;
+    double owned_power = 0.0; // (reported) the owned lamps' flux by their model, as switched now (rt_light_list.h lamp_power)
     uint32_t points = 0;
     uint64_t cut = 0; // (rt_daylight.h DayLight::cut)
 };
@@ -866,7 +877,7 @@ struct Lighting {
 // where it is made (with the drawn clouds marched, else x the clouds' kept share with the clock); the level's lamps
 // without a surface of their own; the frame record's point lights where the level's lamps aren't solved (rt_lights.h
 // LevelEmitters::solved - as the lamps pass shines them, x the open sky's lamps).
-Lighting frame_lighting(const PathOverrides* overrides)
+Lighting frame_lighting(const PathOverrides* overrides, bool every_lamp_analytic)
 {
     Lighting out;
     if (overrides != nullptr) {
@@ -907,9 +918,17 @@ Lighting frame_lighting(const PathOverrides* overrides)
     const std::shared_ptr<const rt::LevelEmitters> level = rt::level_emitters();
     const float open = rt::open_sky_lamps(day, level.get());
     if (level) {
-        const std::vector<rt::Emitter> analytic = rt::path::analytic_lamps(level->emitters, level->surfaced);
+        const std::vector<rt::Emitter> analytic =
+            every_lamp_analytic ? level->emitters : rt::path::analytic_lamps(level->emitters, level->surfaced);
         out.owned = static_cast<uint32_t>(level->emitters.size() - analytic.size());
         const float sky_now = rt::lamp_sky_now(day, level.get());
+        for (std::size_t i = 0; i < level->emitters.size() && i < level->surfaced.size(); ++i) {
+            if (core::at(level->surfaced, i) != 0) {
+                rt::Emitter lamp = core::at(level->emitters, i);
+                lamp.intensity *= rt::lamp_on(lamp.switch_sky, sky_now, open);
+                out.owned_power += rt::lights::lamp_power(lamp);
+            }
+        }
         for (rt::Emitter lamp : analytic) {
             lamp.intensity *= rt::lamp_on(lamp.switch_sky, sky_now, open);
             if (lamp.intensity > 0.0F) {
@@ -1043,6 +1062,8 @@ struct PathState {
     SkySource sky_source = SkySource::kEven;
     bool cloud_map = false;
     rt::lights::LightWeights weights = rt::lights::LightWeights::kPower;
+    uint32_t light_kinds = rt::path::kAllLightKinds; // (`only`: the kinds of light counted)
+    bool blended_open = false;                        // (`open`: the light's rays pass the blended surfaces)
     ListPhase phase = ListPhase::kGather;
     uint32_t list_count = 0;
     uint32_t first_lamp = 0;
@@ -1496,11 +1517,12 @@ void save_captures(Backend& state, PathState& own)
     const double pixels = std::max<double>(1.0, static_cast<double>(reference.mean.size()));
     get_log(
         "pt: saved %s_reference / _realtime (.exr, .png) %s - %ux%u, %u samples a pixel, EV100 %.2f; %u emitting "
-        "triangles listed, %u lamps sampled analytically (%u by their surfaces), sky %s, %s; %u samples not finite; "
-        "mean luma reference %.5g, realtime %.5g (x %.4f of the reference)",
+        "triangles listed, %u lamps sampled analytically (%u by their surfaces), sky %s, %s, light counted: %s; %u "
+        "samples not finite; mean luma reference %.5g, realtime %.5g (x %.4f of the reference)",
         base.c_str(), ok ? "" : "(a file couldn't be written)", reference.width, reference.height, reference.samples,
         static_cast<double>(own.ev100), own.listed, own.lamp_count, own.lamps_owned, own.sky_text.c_str(),
         own.weights == rt::lights::LightWeights::kPower ? "lights by power" : "lights evenly by kind",
+        rt::path::light_kinds_text(own.light_kinds).c_str(),
         reference.not_finite, reference_sum / pixels, realtime_sum / pixels,
         reference_sum > 0.0 ? realtime_sum / reference_sum : 0.0);
     own.saved = true;
@@ -1677,13 +1699,14 @@ bool build_run_list(Backend& state, PathState& own)
     own.list_text =
         text::format("light list (%s): %u lights - the disc (power %.4g), the sky (%.4g, integral %.4g), %u emitting "
                      "triangles%s (of %u emitting at a corner; %.4g), "
-                     "%u lamps (%u point lights; %.4g); picked %.1f / %.1f / %.1f / %.1f %%",
+                     "%u lamps (%u point lights; %.4g); picked %.1f / %.1f / %.1f / %.1f %%; the %u lamps owned by "
+                     "their surfaces send %.4g by their model",
                      own.weights == rt::lights::LightWeights::kPower ? "by power" : "the kinds evenly", own.list_count,
                      core::at(list.kind_power, 0), core::at(list.kind_power, 1), sky.integral, listed,
                      core::at(words, 0) > kEmitterCapacity ? " (the list full)" : "", core::at(words, 1),
                      core::at(list.kind_power, 2),
                      static_cast<uint32_t>(set.lamps.size()), own.lighting.points, core::at(list.kind_power, 3),
-                     share(0), share(1), share(2), share(3));
+                     share(0), share(1), share(2), share(3), own.lighting.owned, own.lighting.owned_power);
     return true;
 }
 
@@ -1815,7 +1838,7 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     const uint64_t key = scene_key_of(rt::frame_record());
-    const Lighting lighting = frame_lighting(checking ? &own.overrides : nullptr);
+    const Lighting lighting = frame_lighting(checking ? &own.overrides : nullptr, !checking && request.analytic_lamps);
     const uint64_t lighting_key = lighting_key_of(lighting);
     const rt::lights::LightWeights weights =
         checking ? own.overrides.light_weights
@@ -1848,6 +1871,10 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
         own.lighting_key = lighting_key;
         own.lighting = lighting;
         own.weights = weights;
+        own.light_kinds = checking ? own.overrides.light_kinds
+                                   : (request.analytic_lamps ? request.light_kinds & ~rt::path::kLightKindEmitters
+                                                             : request.light_kinds);
+        own.blended_open = !checking && request.blended_open;
         own.sky_source =
             !lighting.table ? SkySource::kEven : (lighting.clouds ? SkySource::kTableClouds : SkySource::kTable);
         own.cloud_map = map_now;
@@ -1996,7 +2023,8 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
                   kEmitterCapacity};
     block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),
                        static_cast<uint32_t>(scene.instances_address >> 32U), 0U, 0U};
-    block.lists = {own.list_count, own.first_lamp, own.cloud_map ? 1U : 0U, 0U};
+    block.lists = {own.list_count, own.first_lamp, own.cloud_map ? 1U : 0U,
+                   own.light_kinds | (own.blended_open ? kBlendedOpenBit : 0U)};
     block.sky_dist = {own.sky_inverse, 0.0F, 0.0F, 0.0F};
     if (own.cloud_map && map_now) {
         block.cloud_place = cloud_map.place;

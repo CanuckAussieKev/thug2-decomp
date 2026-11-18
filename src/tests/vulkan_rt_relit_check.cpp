@@ -1406,6 +1406,50 @@ void check_level_list(Tally* tally)
     tally->check(!rt::parse_relit_levels(R"({"levels": {"x": })", &broken), "a broken list refused");
 }
 
+// (the night's light, decomposed) A vertex taken from the level's data: under the clock's lighting its bounce starts from
+// none - the data's B is the bake's afternoon light - and only its own light lights it; lit by the level's own light it
+// keeps the data's B. Before, a mesh met after a night's cut showed the afternoon's bounce (Boston: 10^4 - 10^5 x the
+// night's light) and the bounce passes spread it.
+void check_data_bounce(Tally* tally)
+{
+    rt::RelitVertex stored;
+    stored.normal = {0.0F, 1.0F, 0.0F};
+    stored.sun_baked = 0.7F;
+    stored.sky = 0.4F;
+    stored.bounce = {0.12F, 0.10F, 0.08F}; // (an afternoon's bounce in the unit)
+    stored.tint = {0.5F, 0.5F, 0.5F};
+    stored.lamp = {1.0e-5F, 1.0e-5F, 1.0e-5F};
+    const rt::RelitLighting night{.toward = {0.0F, 1.0F, 0.0F},
+                                  .sun = {3.3e-6F, 2.4e-6F, 1.5e-6F},
+                                  .sky = {5.6e-7F, 5.8e-7F, 6.3e-7F},
+                                  .lamps = 1.0F};
+    rt::RelitVertex clock = stored;
+    clock.bounce = {1.0F, 1.0F, 1.0F};
+    clock.sun = 0.0F;
+    rt::relit_vertex_from_data(stored, true, &clock);
+    rt::RelitVertex own = stored;
+    own.bounce = {};
+    rt::relit_vertex_from_data(stored, false, &own);
+    const rt::RelitModel model;
+    const float shown = luma(rt::relit_reflected(model, clock, night));
+    const float with_bake = luma(rt::relit_reflected(model, own, night));
+    Rgbf own_light{};
+    for (std::size_t ch = 0; ch < own_light.size(); ++ch) {
+        core::at(own_light, ch) = core::at(stored.tint, ch) * ((core::at(night.sun, ch) * stored.sun_baked) +
+                                                               (core::at(night.sky, ch) * stored.sky) +
+                                                               core::at(stored.lamp, ch));
+    }
+    const float expected = luma(own_light); // (the night's own lights: the moon, the sky, the lamps)
+    tally->check(clock.bounce == rt::Rgbf{} && own.bounce == stored.bounce && clock.sun == stored.sun_baked &&
+                     clock.sky == stored.sky && clock.tint == stored.tint && clock.lamp == stored.lamp &&
+                     std::abs(shown - expected) <= 0.05F * expected,
+                 text::format("a vertex taken from the data under the clock's night: no bounce of the bake's (its light "
+                              "%.3g, its own lights' %.3g); lit by the level's own light it keeps the data's (%.3g at "
+                              "night would be %.0f x)",
+                              static_cast<double>(shown), static_cast<double>(expected), static_cast<double>(with_bake),
+                              static_cast<double>(with_bake / std::max(shown, 1.0e-30F))));
+}
+
 // --perf: a level of the game's size - the ground's vertices over many meshes (a few hundred thousand vertices)
 void run_perf(render::Gpu& gpu, const Scene& scene, rt::RayTracing& backend)
 {
@@ -2659,6 +2703,7 @@ void check_indoor_lamps(Tally* tally)
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
     check_round_l(tally);
+    check_data_bounce(tally);
     check_lamp_solve(tally);
     check_indoor_lamps(tally);
     check_baked_shadow(tally);

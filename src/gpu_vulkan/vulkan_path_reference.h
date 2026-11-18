@@ -74,6 +74,7 @@ struct PathOverrides {
     std::vector<rt::Emitter> lamps;                 // the level's lamps (each x its intensity)
     std::vector<uint8_t> lamps_surfaced;            // per lamp: its own surface emits (rt_path.h analytic_lamps)
     rt::lights::LightWeights light_weights = rt::lights::LightWeights::kPower; // how the list picks its lights
+    uint32_t light_kinds = rt::path::kAllLightKinds; // the kinds of light counted (`pt ref ... only`)
 };
 void set_path_overrides(const PathOverrides& overrides);
 

@@ -1120,6 +1120,16 @@ Rgbf colour_light(uint32_t argb)
             core::at(kLinear, argb & kByteMask)};
 }
 
+void relit_vertex_from_data(const RelitVertex& stored, bool clock_lit, RelitVertex* out)
+{
+    out->sun = stored.sun_baked;
+    out->sun_baked = stored.sun_baked;
+    out->sky = stored.sky;
+    out->bounce = clock_lit ? Rgbf{} : stored.bounce;
+    out->tint = stored.tint;
+    out->lamp = stored.lamp;
+}
+
 void relit_normals(const RelitMesh& mesh, float facing, RelitVertices* out)
 {
     const std::size_t count = mesh.positions.size();

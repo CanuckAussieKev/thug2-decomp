@@ -45,7 +45,52 @@ std::string status_text(const PathReferenceStatus& status, const PathReferenceRe
     return text;
 }
 
+constexpr const char* kRefUsage = "pt ref <samples a pixel, 1 - 1048576> [EV100] [even] [analytic] [open] [only disc,sky,emit,lamps]";
+
 } // namespace
+
+uint32_t light_kinds_of(const std::string& words)
+{
+    uint32_t kinds = 0;
+    std::istringstream in(words);
+    std::string word;
+    while (std::getline(in, word, ',')) {
+        if (word == "disc" || word == "sun" || word == "moon") {
+            kinds |= kLightKindDisc;
+        } else if (word == "sky") {
+            kinds |= kLightKindSky;
+        } else if (word == "emit" || word == "emitters") {
+            kinds |= kLightKindEmitters;
+        } else if (word == "lamps") {
+            kinds |= kLightKindLamps;
+        } else {
+            return 0;
+        }
+    }
+    return kinds;
+}
+
+std::string light_kinds_text(uint32_t kinds)
+{
+    if ((kinds & kAllLightKinds) == kAllLightKinds) {
+        return "all";
+    }
+    std::string text;
+    const auto add = [&text](const char* word) { text += (text.empty() ? "" : ",") + std::string(word); };
+    if ((kinds & kLightKindDisc) != 0) {
+        add("disc");
+    }
+    if ((kinds & kLightKindSky) != 0) {
+        add("sky");
+    }
+    if ((kinds & kLightKindEmitters) != 0) {
+        add("emit");
+    }
+    if ((kinds & kLightKindLamps) != 0) {
+        add("lamps");
+    }
+    return text.empty() ? "none" : text;
+}
 
 void request_path_reference(PathReferenceRequest request)
 {
@@ -83,19 +128,35 @@ std::string path_console_command(const std::string& arguments)
     in >> verb;
     if (verb == "ref") {
         std::string count;
-        std::string ev;
-        std::string mode;
-        in >> count >> ev >> mode;
-        if (ev == "even") {
-            std::swap(ev, mode);
-        }
+        in >> count;
         const long samples = std::strtol(count.c_str(), nullptr, 10);
-        if (samples <= 0 || samples > static_cast<long>(kMostSamples) || (!mode.empty() && mode != "even")) {
-            return "pt ref <samples a pixel, 1 - 1048576> [EV100] [even]";
+        if (samples <= 0 || samples > static_cast<long>(kMostSamples)) {
+            return kRefUsage;
         }
         PathReferenceRequest request;
         request.samples = static_cast<uint32_t>(samples);
-        request.even_lights = mode == "even";
+        std::string ev;
+        std::string word;
+        while (in >> word) {
+            if (word == "even") {
+                request.even_lights = true;
+            } else if (word == "analytic") {
+                request.analytic_lamps = true;
+            } else if (word == "open") {
+                request.blended_open = true;
+            } else if (word == "only") {
+                std::string kinds;
+                in >> kinds;
+                request.light_kinds = light_kinds_of(kinds);
+                if (request.light_kinds == 0) {
+                    return kRefUsage;
+                }
+            } else if (ev.empty()) {
+                ev = word;
+            } else {
+                return kRefUsage;
+            }
+        }
         if (!ev.empty()) {
             char* end = nullptr;
             const float value = std::strtof(ev.c_str(), &end);
@@ -106,9 +167,11 @@ std::string path_console_command(const std::string& arguments)
             request.ev100 = value;
         }
         request_path_reference(request);
-        get_log("pt: reference asked - %u samples a pixel, EV100 %s, lights %s", request.samples,
+        get_log("pt: reference asked - %u samples a pixel, EV100 %s, lights %s, light counted: %s%s%s", request.samples,
                 request.ev_given ? ev.c_str() : "the camera's metered one",
-                request.even_lights ? "evenly by kind" : "by power");
+                request.even_lights ? "evenly by kind" : "by power", light_kinds_text(request.light_kinds).c_str(),
+                request.analytic_lamps ? ", every lamp analytic (no surface's emission)" : "",
+                request.blended_open ? ", the light's rays pass the blended surfaces" : "");
         return text::format("pt: reference of %u samples a pixel started (pause the game; the camera must stay still)",
                             request.samples);
     }
@@ -118,7 +181,7 @@ std::string path_console_command(const std::string& arguments)
         return "pt: off";
     }
     if (!verb.empty() && verb != "status") {
-        return "pt ref <samples> [EV100] [even] | pt off | pt status";
+        return "pt ref <samples> [EV100] [even] [analytic] [open] [only <kinds>] | pt off | pt status";
     }
     return status_text(path_reference_status(), path_reference_request());
 }

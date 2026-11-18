@@ -253,8 +253,30 @@ struct PathReferenceRequest {
     // (stage 2) `pt ref <samples> [EV100] even`: the light list picks the kinds of light evenly and each kind's lights
     // evenly (stage 1's sampling - rt_light_list.h LightWeights::kKindsEvenly) instead of by power: a comparison
     bool even_lights = false;
-    uint64_t serial = 0;           // (set_path_reference numbers each request)
+    // (the night's light, decomposed) `pt ref <samples> ... only <kinds>`: only these kinds of light are counted - their
+    // next-event samples and what a path's BSDF rays meet of them (the others still picked and sampled, counting 0, so
+    // the sums of runs of each kind alone are the whole); the paths, their bounces and the surfaces are unchanged. A
+    // diagnostic: which light a pixel's radiance is made of. kLightKind* bits; kAllLightKinds the reference.
+    uint32_t light_kinds = 0xFU;
+    // `pt ref <samples> ... analytic`: every lamp is its analytic light (rt_lights.h's model, as the lamps pass shines
+    // it) and no surface's emission is counted - the other owner of a lamp's light, for comparison (one owner still)
+    bool analytic_lamps = false;
+    // `pt ref <samples> ... open`: the light's rays (next-event estimation) pass the blended surfaces as the realtime
+    // tier's rays do (vulkan_rt_scene.h's masks: the seen-through instances are no caster) - for comparison; the paths
+    // still meet them
+    bool blended_open = false;
+    uint64_t serial = 0;         // (set_path_reference numbers each request)
 };
+inline constexpr uint32_t kLightKindDisc = 1U;     // the sun's or the moon's disc
+inline constexpr uint32_t kLightKindSky = 2U;      // the sky (its grid)
+inline constexpr uint32_t kLightKindEmitters = 4U; // emitting surfaces (the light store's emission, listed or not)
+inline constexpr uint32_t kLightKindLamps = 8U;    // the analytic lamps
+inline constexpr uint32_t kAllLightKinds = 0xFU;
+// `only`'s words (disc / sun / moon, sky, emit / emitters, lamps) as kLightKind* bits, comma-separated; 0: a word
+// isn't one.
+[[nodiscard]] uint32_t light_kinds_of(const std::string& words);
+// The kinds as words ("all" for kAllLightKinds).
+[[nodiscard]] std::string light_kinds_text(uint32_t kinds);
 void request_path_reference(PathReferenceRequest request);
 [[nodiscard]] PathReferenceRequest path_reference_request();
 // What the backend reports back (the console's `pt` prints it).

@@ -5145,7 +5145,7 @@ stacking another on top.
 
 The yardstick for every realtime light pass: an unbiased, progressive path tracer over the frame's own acceleration
 structures, material table and light store (gpu_vulkan/vulkan_path_reference.h; its sampling engine/gfx/rt_path.h with a
-CPU twin). With the game paused, the console's `pt ref <samples> [EV100]` accumulates that many paths a pixel from the
+CPU twin). With the game paused, the console's `pt ref <samples> [EV100] [even] [analytic] [open] [only <kinds>]` accumulates that many paths a pixel from the
 camera as it stood (another camera or scene starts it again), shows their mean in the frame at a manual exposure
 (vulkan_hdr.h `set_manual_ev100`: the given EV100, else the meter's when it began; the EV100 is logged) and saves
 `Screenshots\pt_<stamp>_reference.exr/.png` and `_realtime.exr/.png` - the EXRs linear in the global unit, the PNGs
@@ -5173,6 +5173,21 @@ through the tone curve at that EV. `pt off` ends it.
   even` picks as stage 1 did (the kinds evenly, each kind's lights evenly) - for comparisons.
 - One owner per lamp: a lamp whose own surface emits (the relit data's emitting vertices - rt_lights.h
   `LevelEmitters::surfaced`) is sampled as that surface, its analytic light left out (rt_path.h `analytic_lamps`).
+- Diagnostics (the night's light, decomposed): `pt ref <samples> ... only disc,sky,emit,lamps` counts those kinds of
+  light alone (their next-event samples and what the BSDF rays meet of them; the paths unchanged - the runs of each kind
+  add up to the whole); `analytic` makes every lamp its analytic light and counts no surface's emission (the other
+  owner); `open` lets the light's rays pass the blended surfaces as the realtime tier's rays do. The light list's log
+  line gives the owned lamps' model flux beside the listed triangles' measured power. `rt probe` prints the light store's
+  terms in the unit (%g), each nearby vertex's light as drawn and its lamp links (lamp, weight, share of L).
+- What the reference showed by night in Boston (relit data v14, full moon, EV100 fixed): the frame 3.6 - 29 x the
+  reference, varying from one load to the next. Two causes on the realtime side: (1) the meshes met after the
+  lighting's cut (the night state's) kept the bake's afternoon bounce B (~0.1 in the unit), and the bounce passes
+  spread it - fixed (rt_relit.h `relit_vertex_from_data`: under the clock's lighting a vertex from the data starts with
+  no bounce), the frame now 3.4 x, the same every load; (2) the blended world meshes drawn opaque (BO's brick
+  facades: blend 5, opaque texels, flagged seen-through) are no occluder for any realtime or bake ray (mask 0x80) - the
+  relit bake's lamp links light them through the buildings, and the per-pixel passes skip their pixels; with `open` the
+  reference agrees (0.92 x). Not fixed yet: one visibility for every ray (the reference's seen_through) and their
+  classification by drawn coverage, then a rebake.
 - Checked by thug2_vulkan_path_check: the white furnace at every roughness, a floor under an emitting disc against its
   integral, MIS / lights-only / BSDF-only agreeing, the processor's twin, the owner rule, no NaN; the light list on the
   processor (the alias table's picks against its weights, the groups' shares, each lamp shape's flux against its light

@@ -371,6 +371,13 @@ struct RelitStats {
 // The vertices' normals (where the mesh gives none: its triangles', area-weighted, turned by `facing` - +1 or -1, the
 // world's winding: relit_facing) and which vertices are used.
 void relit_normals(const RelitMesh& mesh, float facing, RelitVertices* out);
+// (the night's light, decomposed) A vertex as the game takes it from the level's data (`stored`) into `out` (its normal,
+// used and inward already made): its shares, tint and lamps' links' light; its sun toward the bake's sun until traced
+// again. The data's bounce B is the bake's light - the level's own time: kept only while the level is lit by its own
+// light; under the clock's lighting (`clock_lit`) none, as every vertex's at a lighting cut, the bounce passes adding the
+// light now. (A mesh met after the cut - Boston's night-state meshes - kept the afternoon's B, 10^4 - 10^5 x a night's
+// light, and the passes spread it round them.)
+void relit_vertex_from_data(const RelitVertex& stored, bool clock_lit, RelitVertex* out);
 // (lighting round A3) Where a vertex's rays start: kRelitOffset off its surface along its normal and `inward` into it
 // (every ray of the analysis - sky, bounce, sun, lamps - and the game's traces again).
 [[nodiscard]] Vec3 relit_ray_origin(const Vec3& position, const RelitVertex& vertex);
