@@ -190,6 +190,14 @@ struct RelitMesh {
     // `baked_vertices`: how many of the vertices they use (the first); 0: all. Not in the data's content key.
     std::vector<std::array<uint32_t, 3>> baked_triangles;
     uint32_t baked_vertices = 0;
+    // (round LV - the relit data whatever the geometry settings) The mesh as the level's file gives it, before those
+    // passes: its own vertices are the first `file_vertices` (0: all - none made), and each vertex after them was made
+    // from earlier ones (`made`: smoothing's from the file's, relief's from those it relieved; one per made vertex). The
+    // relit data keys each mesh by this too (relit_mesh_original), so data made with other geometry settings still
+    // gives the file's vertices their light and the made ones their sources' (relit_data_for_geometry). Not in the
+    // content key; nothing traced reads it.
+    uint32_t file_vertices = 0;
+    std::vector<Source> made;
 };
 // (the bake's evidence) Whether a mesh's vertex is one the bake's light is on (RelitMesh::baked_vertices).
 [[nodiscard]] inline bool relit_baked_vertex(const RelitMesh& mesh, std::size_t vertex)

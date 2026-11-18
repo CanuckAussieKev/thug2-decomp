@@ -132,6 +132,11 @@ struct Entry {
     std::array<float, 16> to_world{};
     uint64_t model_content = 0; // (its content in its own space - BakeMesh::model)
     std::size_t data_mesh = SIZE_MAX; // (round A3) its mesh in the level's data (its lamp links and emitting vertices)
+    // (round LV) the mesh as the level's file gives it (rt::relit_mesh_original), and - found by it in data made with
+    // other geometry settings - that data made for its own vertices (rt::relit_data_for_geometry): read in place of
+    // the level's data mesh
+    uint64_t original = 0;
+    std::shared_ptr<const rt::RelitDataMesh> data_for_geometry;
     uint64_t lamps_for = 0;           // ... and the lamps' switches its L was made for (State::lamps_hash)
     uint64_t emission_written = 0;    // (round PX) ... and the lamps_for its light store's emission was written with
     rt::RelitMesh input;
@@ -239,7 +244,22 @@ struct LevelData {
     std::string why;    // why not
     rt::RelitLevelData data;
     std::unordered_map<uint64_t, std::size_t> by_content;
+    std::unordered_map<uint64_t, std::size_t> by_original; // (round LV: v18 data; a key two meshes share left out)
 };
+
+// (round LV) An entry's mesh in the level's data - its own (found by content) or the one made for its geometry from the
+// data's (found by the file's mesh) - or null.
+const rt::RelitDataMesh* data_of(const LevelData& data, const std::shared_ptr<const rt::RelitDataMesh>& for_geometry,
+                                 std::size_t data_mesh)
+{
+    if (!data.found) {
+        return nullptr;
+    }
+    if (for_geometry != nullptr) {
+        return for_geometry.get();
+    }
+    return data_mesh < data.data.meshes.size() ? &core::at(data.data.meshes, data_mesh) : nullptr;
+}
 
 struct State {
     std::unordered_map<const VertexBufferData*, Entry> entries;
@@ -466,8 +486,19 @@ const LevelData& level_data(uint32_t level)
         data.why = "made for another scene";
     } else {
         data.found = true;
+        std::unordered_map<uint64_t, std::size_t> originals;
         for (std::size_t mi = 0; mi < data.data.meshes.size(); ++mi) {
-            data.by_content.emplace(core::at(data.data.meshes, mi).content, mi);
+            const rt::RelitDataMesh& mesh = core::at(data.data.meshes, mi);
+            data.by_content.emplace(mesh.content, mi);
+            if (mesh.original != 0) {
+                originals[mesh.original] += 1;
+                data.by_original.emplace(mesh.original, mi);
+            }
+        }
+        for (const auto& [key, meshes] : originals) {
+            if (meshes > 1) {
+                data.by_original.erase(key); // (one file mesh made into several: none of them by it)
+            }
         }
     }
     if (data.found) {
@@ -642,6 +673,23 @@ bool make_entry(const WorldMesh& world, Entry* out)
             }
         }
     }
+    // (round LV) the mesh as the level's file gives it: its own vertices and every vertex the load's passes made from
+    // earlier ones - what finds its data when the bake was made with other geometry settings (relit_mesh_original)
+    if (const mesh_smoothing::MadeVertices file = mesh_smoothing::made_of(core::at(mesh->index_buffers(), 0));
+        file.original > 0 && file.original < count && file.made.size() == count - file.original &&
+        mesh->vertex_count() == count) {
+        entry.input.file_vertices = file.original;
+        entry.input.made.resize(file.made.size());
+        for (std::size_t k = 0; k < file.made.size(); ++k) {
+            const relief::VertexSource& from = core::at(file.made, k);
+            rt::RelitMesh::Source& to = core::at(entry.input.made, k);
+            to.count = from.count;
+            for (std::size_t corner = 0; corner < from.from.size(); ++corner) {
+                core::at(to.from, corner) = core::at(from.from, corner);
+                core::at(to.weight, corner) = core::at(from.weight, corner);
+            }
+        }
+    }
     // the triangles as the RayTracing numbers them (a strip's odd ones turned back round)
     const std::size_t index_bytes = geometry.indices_32bit ? sizeof(uint32_t) : sizeof(uint16_t);
     const std::span<const uint8_t> indices(static_cast<const uint8_t*>(geometry.cpu_indices),
@@ -705,6 +753,7 @@ bool make_entry(const WorldMesh& world, Entry* out)
     // (the offline relit data's key: its positions, triangles and made vertices' sources - whatever the vertex format;
     // not its colours, which the game rewrites)
     entry.content = rt::relit_mesh_content(entry.input);
+    entry.original = rt::relit_mesh_original(entry.input); // (round LV)
     *out = std::move(entry);
     return true;
 }
@@ -834,11 +883,12 @@ uint64_t switch_lamps(const rt::DayLight& day)
     }
     for (const VertexBufferData* buffer : st.order) {
         Entry& entry = st.entries.at(buffer);
-        if (!entry.analysed || entry.lamps_for == hash || entry.data_mesh >= data.data.meshes.size()) {
+        const rt::RelitDataMesh* found = data_of(data, entry.data_for_geometry, entry.data_mesh);
+        if (!entry.analysed || entry.lamps_for == hash || found == nullptr) {
             continue;
         }
         entry.lamps_for = hash;
-        const rt::RelitDataMesh& mesh = core::at(data.data.meshes, entry.data_mesh);
+        const rt::RelitDataMesh& mesh = *found;
         rt::relit_mesh_lamp_light(entry.input, &entry.light, mesh.links, lamps, st.lamps_on);
         for (const rt::RelitEmitting& emitting : mesh.emitting) {
             if (emitting.vertex < entry.light.size() && emitting.lamp < lamps.size()) {
@@ -862,16 +912,27 @@ void take_from_data()
             continue;
         }
         entry.looked_up = true;
+        entry.data_for_geometry = nullptr;
         const auto found = data.found ? data.by_content.find(entry.content) : data.by_content.end();
-        if (found == data.by_content.end()) {
-            continue;
+        const rt::RelitDataMesh* own = found != data.by_content.end() ? &core::at(data.data.meshes, found->second) : nullptr;
+        if (own != nullptr && own->vertices.size() != entry.input.positions.size()) {
+            own = nullptr;
         }
-        const rt::RelitDataMesh& mesh = core::at(data.data.meshes, found->second);
-        if (mesh.vertices.size() != entry.input.positions.size()) {
-            continue;
+        if (own == nullptr) {
+            // (round LV) not this geometry's: the same file mesh in data made with other geometry settings (smoothing,
+            // building relief turned on or off since the bake), its vertices made for this one's
+            const auto by_file = data.found ? data.by_original.find(entry.original) : data.by_original.end();
+            rt::RelitDataMesh made;
+            if (by_file == data.by_original.end() ||
+                !rt::relit_data_for_geometry(entry.input, core::at(data.data.meshes, by_file->second), &made)) {
+                continue;
+            }
+            entry.data_for_geometry = std::make_shared<const rt::RelitDataMesh>(std::move(made));
+            own = entry.data_for_geometry.get();
         }
+        const rt::RelitDataMesh& mesh = *own;
         rt::relit_normals(entry.input, data.data.facing, &entry.light);
-        entry.data_mesh = found->second;
+        entry.data_mesh = found != data.by_content.end() && entry.data_for_geometry == nullptr ? found->second : SIZE_MAX;
         entry.lamps_for = 0;
         // (the night's light, decomposed) the data's bounce only while the level is lit by its own light - under the
         // clock's a mesh met after the lighting's cut starts with none, as every mesh did at the cut (rt_relit.h
@@ -904,10 +965,16 @@ Status level_verdict()
     if (data.data.verdict == rt::RelitVerdict::kNoModel || !data.data.model.valid) {
         return Status::kNoModel;
     }
+    // (round LV) over the level's own meshes: an object joins the world once it has stood still a while (round P10), so
+    // counting objects made the share depend on which had stood still yet - a level near the line could turn from relit
+    // to the original's lighting (and back) with the moment it was looked at
     std::size_t all = 0;
     std::size_t matched = 0;
     for (const VertexBufferData* buffer : st.order) {
         const Entry& entry = st.entries.at(buffer);
+        if (entry.object != nullptr) {
+            continue;
+        }
         all += entry.originals.size();
         matched += entry.analysed ? entry.originals.size() : 0;
     }
@@ -921,7 +988,7 @@ Status level_verdict()
             std::size_t missing = 0;
             for (const VertexBufferData* buffer : st.order) {
                 const Entry& entry = st.entries.at(buffer);
-                if (entry.analysed) {
+                if (entry.analysed || entry.object != nullptr) {
                     continue;
                 }
                 ++missing;
@@ -1655,6 +1722,7 @@ void log_misses()
     std::size_t not_in_data_vertices = 0;
     std::size_t waiting = 0;
     std::size_t animated = 0;
+    std::size_t other_geometry = 0; // (round LV: found by the file's mesh in data made with other geometry settings)
     for (const VertexBufferData* buffer : st.order) {
         const Entry& entry = st.entries.at(buffer);
         if (!entry.analysed) {
@@ -1663,6 +1731,7 @@ void log_misses()
             continue;
         }
         (entry.written != 0 ? lit : waiting) += 1;
+        other_geometry += entry.data_for_geometry != nullptr ? 1 : 0;
         animated += static_cast<std::size_t>(std::ranges::count(entry.animated, uint8_t{1}));
     }
     std::map<std::string, std::size_t> refused;
@@ -1680,9 +1749,10 @@ void log_misses()
     }
     // (the waiting ones change from frame to frame while a relight runs: logged once the level's misses settle)
     const std::string line =
-        text::format("%zu world meshes lit by their own light; without it - %zu not in the level's relit data (%zu "
+        text::format("%zu world meshes lit by their own light (%zu of them found by the file's mesh - the data made with "
+                     "other geometry settings); without it - %zu not in the level's relit data (%zu "
                      "vertices), %zu the mode can't relight%s%s%s; %zu animated vertices keep the game's colour",
-                     lit, not_in_data, not_in_data_vertices, refused_count, refused_count > 0 ? " (" : "",
+                     lit, other_geometry, not_in_data, not_in_data_vertices, refused_count, refused_count > 0 ? " (" : "",
                      why_refused.c_str(), refused_count > 0 ? ")" : "", animated);
     if (waiting == 0 && (line != st.misses_logged || st.misses_level != st.level)) {
         st.misses_logged = line;
@@ -2310,10 +2380,11 @@ std::string emitting_lamp_text(const Entry& entry, std::size_t vertex)
 {
     const State& st = state();
     const LevelData& data = level_data(st.level);
-    if (!data.found || entry.data_mesh >= data.data.meshes.size()) {
+    const rt::RelitDataMesh* mesh = data_of(data, entry.data_for_geometry, entry.data_mesh);
+    if (mesh == nullptr) {
         return {};
     }
-    for (const rt::RelitEmitting& emitting : core::at(data.data.meshes, entry.data_mesh).emitting) {
+    for (const rt::RelitEmitting& emitting : mesh->emitting) {
         if (emitting.vertex == vertex && emitting.lamp < data.data.lamp_list.size()) {
             const rt::RelitLamp& lamp = core::at(data.data.lamp_list, emitting.lamp);
             return text::format(" (lamp %u: kind %u, %s, %s, at %.0f %.0f %.0f)", emitting.lamp,
@@ -2457,8 +2528,9 @@ std::string describe_near(const rt::Vec3& point, float radius)
         // (the night's light, decomposed) the lamps its L is made of: each link's lamp, its weight (lamp_geometry x the
         // bake's visibility, per unit of intensity) and its share of L now
         const LevelData& data = level_data(st.level);
-        if (data.found && near.entry->data_mesh < data.data.meshes.size()) {
-            const rt::RelitMeshLinks& links = core::at(data.data.meshes, near.entry->data_mesh).links;
+        if (const rt::RelitDataMesh* mesh = data_of(data, near.entry->data_for_geometry, near.entry->data_mesh);
+            mesh != nullptr) {
+            const rt::RelitMeshLinks& links = mesh->links;
             if (near.vertex + 1 < links.first.size()) {
                 for (uint32_t k = core::at(links.first, near.vertex); k < core::at(links.first, near.vertex + 1); ++k) {
                     const rt::RelitLampLink& link = core::at(links.links, k);

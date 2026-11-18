@@ -2311,7 +2311,7 @@ void check_data_file(const Scene& scene, const rt::RelitModel& model, const std:
         std::string old_sun = bytes;
         std::memcpy(&old_sun.at(kSunRadiusAt), &kOldSunRadius, sizeof(float));
         std::string old_version = bytes;
-        const uint32_t before = rt::kRelitDataVersion - 1;
+        const uint32_t before = rt::kRelitDataOldestRead - 1; // (round LV: v17 is still read - no original keys)
         std::memcpy(&old_version.at(kVersionAt), &before, sizeof(uint32_t));
         rt::RelitLevelData stale;
         std::string sun_why;
@@ -2894,8 +2894,109 @@ void check_game_lights(Tally* tally)
                  "no script) off, a light it never made off");
 }
 
+// (round LV) Data made with other geometry settings: a level baked with smoothing on (or building relief) and played
+// with it off - or the other way round - found every smoothed mesh "not in the data" (Boston: 546 meshes, 88 % of the
+// level's vertices matched, under the 95 % line - the level back to the original's lighting). Each mesh is also keyed
+// by the mesh as the level's file gives it: its file's vertices take the data's own, the vertices the load's passes
+// made their sources' blend.
+void check_geometry_settings(Tally* tally)
+{
+    // the file's quad (a strip 0 1 2 3: triangles 0 1 2 and 2 1 3 - the odd one turned back)
+    rt::RelitMesh file;
+    file.positions = {{0.0F, 0.0F, 0.0F}, {100.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 100.0F}, {100.0F, 0.0F, 100.0F}};
+    file.triangles = {{0, 1, 2}, {2, 1, 3}};
+    // ... smoothed at load: two vertices more (an edge's middle, a point inside the first triangle), new triangles; the
+    // file's still first, its triangles kept as the bake's evidence
+    rt::RelitMesh smoothed = file;
+    smoothed.positions.push_back({50.0F, 2.0F, 0.0F});
+    smoothed.positions.push_back({33.0F, 1.0F, 33.0F});
+    smoothed.triangles = {{0, 4, 5}, {4, 1, 5}, {5, 1, 2}, {0, 5, 2}, {2, 1, 3}};
+    smoothed.baked_triangles = file.triangles;
+    smoothed.file_vertices = 4;
+    smoothed.made = {{.from = {0, 1, 1}, .weight = {0.5F, 0.5F, 0.0F}, .count = 3},
+                     {.from = {0, 1, 2}, .weight = {1.0F / 3.0F, 1.0F / 3.0F, 1.0F / 3.0F}, .count = 3}};
+    tally->check(rt::relit_mesh_content(file) != rt::relit_mesh_content(smoothed) &&
+                     rt::relit_mesh_original(file) == rt::relit_mesh_original(smoothed),
+                 "a smoothed mesh: another content than the file's (not found by it - the cause), the same original key");
+    // the data the bake made for the file's mesh (smoothing off): each vertex its own parts, lamp links, vertices 0 and 1
+    // a lamp's surface
+    rt::RelitDataMesh baked_flat{.content = rt::relit_mesh_content(file),
+                                 .original = rt::relit_mesh_original(file),
+                                 .file_vertices = 4};
+    for (std::size_t vi = 0; vi < 4; ++vi) {
+        const auto f = static_cast<float>(vi);
+        rt::RelitVertex v;
+        v.sun_baked = 0.1F * f;
+        v.sky = 0.2F + (0.1F * f);
+        v.tint = {0.1F * (f + 1.0F), 0.5F, 0.2F};
+        v.lamp = {f, 0.0F, 0.0F};
+        baked_flat.vertices.push_back(v);
+    }
+    baked_flat.links.first = {0, 1, 2, 2, 2};
+    baked_flat.links.links = {{.lamp = 0, .weight = 0.4F}, {.lamp = 0, .weight = 0.8F}};
+    baked_flat.emitting = {{.vertex = 0, .lamp = 0}, {.vertex = 1, .lamp = 0}};
+    rt::RelitDataMesh for_smoothed;
+    const bool made = rt::relit_data_for_geometry(smoothed, baked_flat, &for_smoothed);
+    const auto close = [](float a, float b) { return std::fabs(a - b) < 1e-5F; };
+    bool own_kept = made && for_smoothed.vertices.size() == 6;
+    for (std::size_t vi = 0; own_kept && vi < 4; ++vi) {
+        own_kept = core::at(for_smoothed.vertices, vi).sky == core::at(baked_flat.vertices, vi).sky &&
+                   core::at(for_smoothed.vertices, vi).tint == core::at(baked_flat.vertices, vi).tint;
+    }
+    const bool middle = made && close(for_smoothed.vertices.at(4).sky, 0.25F) &&
+                        close(std::get<0>(for_smoothed.vertices.at(4).tint), 0.15F) &&
+                        close(for_smoothed.vertices.at(5).sky, 0.3F) &&
+                        close(std::get<0>(for_smoothed.vertices.at(5).lamp), 1.0F);
+    const bool links = made && for_smoothed.links.first.size() == 7 && for_smoothed.links.first.at(5) == 3 &&
+                       for_smoothed.links.first.at(4) == 2 && close(for_smoothed.links.links.at(2).weight, 0.6F) &&
+                       for_smoothed.links.first.at(6) == 4 && close(for_smoothed.links.links.at(3).weight, 0.4F);
+    std::vector<uint32_t> emitting;
+    for (const rt::RelitEmitting& e : for_smoothed.emitting) {
+        emitting.push_back(e.vertex);
+    }
+    tally->check(own_kept && middle && links && emitting == std::vector<uint32_t>{0, 1, 4},
+                 "data made with smoothing off, the game smoothing: the file's 4 vertices the data's, the edge's middle "
+                 "and the inner point their sources' blend (sky 0.25 / 0.30, lamp links 0.6 / 0.4), the lamp's surface "
+                 "the edge between its two vertices, not the point that has a third");
+    // the other way: data made with smoothing on, the game without - the file's vertices the data's first
+    rt::RelitDataMesh baked_smooth{.content = rt::relit_mesh_content(smoothed),
+                                   .original = rt::relit_mesh_original(smoothed),
+                                   .file_vertices = 4,
+                                   .vertices = for_smoothed.vertices,
+                                   .links = for_smoothed.links,
+                                   .emitting = for_smoothed.emitting};
+    rt::RelitDataMesh for_file;
+    const bool back = rt::relit_data_for_geometry(file, baked_smooth, &for_file);
+    tally->check(back && for_file.vertices.size() == 4 && for_file.vertices.at(3).sky == baked_flat.vertices.at(3).sky &&
+                     for_file.links.first == baked_flat.links.first && for_file.emitting.size() == 2,
+                 "data made with smoothing on, the game not smoothing: the file's 4 vertices the data's, its lamp links and "
+                 "surface (the made vertex's dropped)");
+    // a made vertex with no sources (the water's grid) or another file mesh: not used
+    rt::RelitMesh unsourced = smoothed;
+    unsourced.made.at(1).count = 0;
+    rt::RelitMesh other = file;
+    other.positions.at(3) = {100.0F, 0.0F, 101.0F};
+    rt::RelitDataMesh refused;
+    tally->check(!rt::relit_data_for_geometry(unsourced, baked_flat, &refused) &&
+                     rt::relit_mesh_original(other) != rt::relit_mesh_original(file),
+                 "a made vertex without sources refused; a file mesh moved by a unit another original key");
+    // the data file keeps the original keys (v18)
+    rt::RelitLevelData level;
+    level.scene = 0x1234U;
+    level.verdict = rt::RelitVerdict::kRelit;
+    level.lamp_list = {rt::RelitLamp{}}; // (the links' and the surface's lamp 0)
+    level.lamps = 1;
+    level.meshes = {baked_smooth};
+    rt::RelitLevelData read;
+    std::string why;
+    tally->check(rt::read_relit_data(rt::write_relit_data(level), &read, &why) && read.meshes.size() == 1 &&
+                     read.meshes.front().original == baked_smooth.original && read.meshes.front().file_vertices == 4,
+                 "the data file keeps each mesh's original key and file vertices" + (why.empty() ? "" : " (" + why + ")"));
+}
+
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
+    check_geometry_settings(tally);
     check_game_lights(tally);
     check_round_l(tally);
     check_data_bounce(tally);

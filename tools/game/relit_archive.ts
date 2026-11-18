@@ -13,8 +13,9 @@
 // (thug2-decomp-data: the new front end's / ported levels' copies), by relative name, size and content. The bake reads the
 // level's world from those; the data version covers the bake's own code. What the hash doesn't see: the game's shared
 // files (textures shared by levels, scripts outside the level's folder) and the graphics settings the bake takes from
-// the build - a change of those is a reason for --rebake (or a data version bump, as for the geometry settings in
-// relit_data.h).
+// the build - a change of those is a reason for --rebake. (The geometry settings - smoothing, building relief - no
+// longer make data another game can't use: since v18 each mesh is also keyed by the mesh as the level's file gives it,
+// relit_data.h.)
 
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";

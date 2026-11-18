@@ -33,9 +33,9 @@ namespace mesh_smoothing {
 // position, an optional normal and colour and texture coordinate pairs; not skinned, no per-vertex colour animation,
 // no bone-scaled positions, not dynamic; its material neither transparent nor cut out.
 // Returns the first level of detail's strip as the file had it when the body was smoothed (empty: left as it was), for
-// remember_original.
+// remember_original; `made` (when given) gets each new vertex's sources among the original ones (remember_made).
 [[nodiscard]] std::vector<uint16_t> smooth_body(scene_format::MeshBody* body, uint32_t fvf, const MaterialRef* material,
-                                                bool dynamic);
+                                                bool dynamic, std::vector<relief::VertexSource>* made = nullptr);
 
 // A smoothed mesh's original strip, by its first level of detail's index buffer (shared by the copies that share its
 // buffers; copied with those that copy them): what the baked sun's samples read (rt_record), so the level's sun and the
@@ -51,6 +51,19 @@ void forget_original(const IndexBufferData* drawn);
 // the relit light's analysis blends their light from (rt_relit_world.cpp, rt_relit.h RelitMesh::sources). Empty: none.
 void remember_sources(const IndexBufferData* drawn, uint32_t vertex_count, std::vector<relief::VertexSource> sources);
 [[nodiscard]] std::span<const relief::VertexSource> sources_of(const IndexBufferData* drawn);
+
+// (round LV - the relit data whatever the geometry settings) A mesh the load's geometry passes changed (smoothing,
+// building relief): how many of its vertices are the file's own (the first) and, for each vertex after them, the
+// earlier vertices it was made from (smoothing's: original ones; relief's: those of the mesh it relieved) - every made
+// vertex, or none. By its first level of detail's index buffer, kept, copied and forgotten with its original strip.
+// What lets a level's relit data made with other geometry settings be used: the file's vertices are the same, the made
+// ones take their sources' (rt_relit_world.cpp).
+struct MadeVertices {
+    uint32_t original = 0; // the file's own vertices (0: the mesh is the file's)
+    std::span<const relief::VertexSource> made;
+};
+void remember_made(const IndexBufferData* drawn, uint32_t original, std::vector<relief::VertexSource> made);
+[[nodiscard]] MadeVertices made_of(const IndexBufferData* drawn);
 
 // The heights a material's mesh is displaced by ([Graphics] rt_displacement above 0): the lookup fills `out` (its lookup
 // and context; the scale is the setting's) and says whether the material has a height map. The seam for the generated

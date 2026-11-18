@@ -21,9 +21,10 @@
 //     of the bake's light in it -, the sun's share toward the bake's sun, the sky's share K, the bounce B (of the relit
 //     light at the bake's sun) and the lamps' light L. The normals and which vertices are used are made again from the
 //     mesh (relit_normals, with the world's winding kept here).
-// The level's content key is the meshes' hashes, sorted: a level whose meshes changed (another overlay, building relief
-// or smoothed curves turned on or off) no longer matches its data - the game then runs the level's original lighting
-// and says the data is out of date.
+// The level's content key is the meshes' hashes, sorted: a level whose meshes changed (another overlay) no longer
+// matches its data - the game then runs the level's original lighting and says the data is out of date. (v18) Building
+// relief or smoothed curves turned on or off since the bake don't: each mesh is also keyed by the mesh as the file
+// gives it (relit_mesh_original) - its file's vertices take their data, the vertices those passes made their sources'.
 //
 // Little-endian; the vertices' parts as half floats. API-neutral (no file access here: the callers read and write).
 
@@ -79,7 +80,13 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // street lamps), each lamp that is one of them carrying its node's name (RelitLamp::game_light: the game switches it);
 // a light whose head is a found emitter one lamp with it (the head's surface emitting); the surfaces of another lighting
 // state looked at for lamp heads.
-inline constexpr uint32_t kRelitDataVersion = 17;
+// v18 (round LV - the data whatever the geometry settings): each mesh also keyed by the mesh as the level's file gives
+// it, before the load's geometry passes (smoothing, building relief) - RelitDataMesh::original, file_vertices. Data made
+// with smoothing on was "made from other meshes" for a game with it off (and the other way round): Boston's 546
+// smoothed meshes not found, the level back to the original's lighting. A v17 file is still read (no original keys:
+// its meshes found by their content alone - kRelitDataOldestRead).
+inline constexpr uint32_t kRelitDataVersion = 18;
+inline constexpr uint32_t kRelitDataOldestRead = 17;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.
@@ -115,6 +122,11 @@ struct RelitEmitting {
 
 struct RelitDataMesh {
     uint64_t content = 0;
+    // (v18 - round LV) the mesh as the level's file gives it (relit_mesh_original) and how many of `vertices` are the
+    // file's own (the first; the rest the bake's geometry passes made): the key a mesh made with other geometry settings
+    // finds it by (0: not known - a v17 file)
+    uint64_t original = 0;
+    uint32_t file_vertices = 0;
     RelitVertices vertices; // (normal and used not stored: made again from the mesh)
     RelitMeshLinks links;   // (round A3) each vertex's lamps (empty: none) - L made again with the lamps on now
     std::vector<RelitEmitting> emitting; // (round A3)
@@ -173,6 +185,15 @@ bool read_relit_head(std::string_view bytes, RelitLevelHead* out);
 // them) and its made vertices' sources. Not its colours: the game writes them (scene lights at a change of the time of
 // day, colour animations) - a mesh found at night is the mesh the bake took apart by day.
 [[nodiscard]] uint64_t relit_mesh_content(const RelitMesh& mesh);
+// (round LV) A mesh's original key: the mesh as the level's file gives it, whatever the load's geometry passes made of
+// it - its file's vertices' positions (RelitMesh::file_vertices) and the file's triangles (RelitMesh::baked_triangles
+// where the passes changed them, else its own).
+[[nodiscard]] uint64_t relit_mesh_original(const RelitMesh& mesh);
+// (round LV) The data of a mesh found by its original key (made with other geometry settings) for the mesh as the
+// game made it: its file's vertices take the data's own (the same vertices, first in both), each vertex made after
+// them its sources' blended - the stored parts, the lamp links by weight, a lamp's surface where all its sources are
+// that lamp's. False (nothing written) when the data doesn't hold the file's vertices or a made vertex has no sources.
+bool relit_data_for_geometry(const RelitMesh& mesh, const RelitDataMesh& data, RelitDataMesh* out);
 
 // The half floats the vertices are kept in (round to nearest even; out of range to the largest).
 [[nodiscard]] uint16_t to_half(float value);
