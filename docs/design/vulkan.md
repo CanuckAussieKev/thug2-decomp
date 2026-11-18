@@ -5260,3 +5260,59 @@ through the tone curve at that EV. `pt off` ends it.
   the seen-through surfaces don't shadow the shafts there; the fog's own light rays take them), and the reflections'
   rays (a view ray, not a light ray: they show the closest solid surface - the seen-through ones are not in reflections,
   as before).
+
+### ReSTIR DI: the lamps' light in real time (path tracing, stage 4)
+
+The first real-time stage of the path tracer (gpu_vulkan/vulkan_restir_di.h; `[Graphics] direct_light`). In a view lit
+per surface (round V: ray tracing, a relit level, the linear frame, single-sampled, no cel), with `rt_lights` on and
+`direct_light` `restir` - or `auto` while DLSS Ray Reconstruction denoises the frame - ReSTIR DI (Bitterli et al. 2020)
+makes the lamps' inputs (`lamps`: a white diffuser's radiance in the frame's pre-exposed unit; `lamps_on`: the same on
+the traced albedo) in place of the lamps pass, which then draws nothing in the view (it still chooses the view's lamps:
+the fog scatters them). The shading is unchanged: it stays the one consumer.
+
+- **The lights** are the light list's local group (vulkan_light_list.h, shared with `pt ref`): every emitting triangle the
+  shared scan lists (hit_surface's `emitted`, its power measured at 64 points) and every analytic lamp (the level's lamps
+  without a surface of their own - one owner - and the frame record's point lights where the level's lamps aren't
+  solved), picked by power from an alias table. No view cap, no "most important N": the lamps pass's 64-of-103 cut is
+  gone. The analytic lamps are uploaded as they are each frame (a moving or switching lamp keeps its place: dark lamps
+  stay in the list at intensity 0); the triangles are scanned again when the world's instances, the lighting cut or the
+  lamps' own surfaces' switches change - the scan's list is copied to host memory in the frame and read once that frame
+  has run (no wait; the old list meanwhile, none across a world change). The alias table is rebuilt on the processor
+  when the powers change.
+- **The sun's or the moon's disc and the sky are not in the reservoir** (separate terms, their owners unchanged): the
+  disc is one light whose only unknown is its visibility - the shadows pass's ray(s) toward it are already its estimator
+  and resampling has nothing to choose; in a reservoir it would take nearly every sample by day and leave the lamps
+  noisier. The sky is the light store's environment term (K x the sky, the occlusion per pixel) in the shading's
+  ambient slot together with the bounce; splitting it out is stage 5's (ReSTIR GI) work.
+- **Per pixel** (two compute passes with ray queries, after the inputs are begun - ViewOrder::kLights - 1):
+  1. The surface: the prepass's depth gives the point, a camera ray its triangle (hit_surface: the point on the
+     triangle, its normal and the shading normal, the albedo); where the ray doesn't end at the depth's point (a
+     seen-through surface drawn in the prepass) the pixel gets no lamps, as the lamps pass gave none. Kept for the next
+     frame (position, both normals as octahedral words, the albedo).
+  2. 16 candidates from the alias table (a point uniform on a triangle, a lamp's own point - rt_lights.h's lamp model),
+     resampled toward the target p^ = the luminance of the light a white diffuser there would get from it, unshadowed
+     (a triangle at its mean radiance, its listed power / 2 pi area; the exact emission only where shaded). The BRDF is
+     left out: the shading puts the light on its own material.
+  3. One ray (vulkan_rt_scene.h `ray_light`: cut-outs by their alpha, seen-through surfaces by their transmittance) to
+     the chosen light; one it doesn't reach is dropped (W = 0, M kept: visibility reuse).
+  4. Temporal: the point taken back through last frame's camera to last frame's reservoir there, kept when that
+     surface's normal agrees (cos >= 0.9) and both planes are within 2 % of the distance; its M capped at 20 x 16.
+  5. Spatial: the reservoir and those of 2 neighbours within 24 pixels passing the same tests, resampled toward this
+     pixel's target; a ray to the chosen light; W = sum / (Z p^) with Z the M of every reservoir that could have made it
+     (its surface's target and a ray from it - Bitterli et al.'s unbiased combination; the same in the temporal step,
+     with a ray from last frame's surface). The result - the light x what gets through x W - goes into the inputs; the
+     reservoir is the next frame's history.
+- **Bias, stated**: none for a world that stands still (the check: within 0.1 % of the reference). Where it moves, last
+  frame's reservoirs were made against last frame's occluders and a moved lamp's last-frame target is evaluated at its
+  new place: a frame's worth. Light only by the list: an emitting triangle with no lamp texel at its 64 points (never
+  listed) is found by the reference's BSDF rays only - here not at all. The lamps' specular is not in the inputs (as
+  before - the shading puts the lamps on the albedo; stage 5's glossy lobe). The skater's and objects' pixels take the
+  world's shadows only (as the lamps pass).
+- **Ray Reconstruction**: the noisy lamps are in the shaded colour RR takes; its guides are round V's (albedo, specular
+  albedo, normal-roughness from the surfaces' shading) - the light inputs need no guide of their own. No specular hit
+  distance is needed for diffuse direct light.
+- Not taken by ReSTIR: `rt_lights_strength`, `_shadowed`, `_max`, `_emissive`, `_level` (the lamps pass's knobs; ReSTIR
+  lights by the lights' own power). With MSAA, cel shading or a level without relit data, the lamps pass lights.
+- Check: thug2_vulkan_restir_check (the reference's direct light within 2 % for a still scene and for a camera swapped
+  between two views every frame; a moving lamp against the exact light; the per-frame error against the light list
+  alone; no NaN).

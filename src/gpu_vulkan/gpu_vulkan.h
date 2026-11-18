@@ -97,6 +97,12 @@ void set_rt_gi_settings(const RtGiSettings& settings);
 // NOT ORIGINAL - the night lighting: lamps, glows and lit windows as ray-traced lights (vulkan_rt_lights.h): [Graphics]
 // rt_lights, rt_lights_strength, rt_lights_shadowed, rt_lights_max, rt_lights_emissive, rt_lights_level. Nothing is
 // drawn differently while `on` is false, or when ray tracing isn't enabled on the device.
+// (path tracing, stage 4) How the lamps' and the emitting surfaces' direct light is made ([Graphics] direct_light):
+// kRestir by ReSTIR DI (vulkan_restir_di.h - every lamp and emitting surface, unbiased, noisy: for Ray Reconstruction to
+// denoise), kPasses by the lamps pass (vulkan_rt_lights.h - the most important rt_lights_max lamps, their brightest
+// rt_lights_shadowed traced: the tier without a denoiser); kAuto ReSTIR where Ray Reconstruction denoises the frame. Either
+// only in a view lit per surface (vulkan_surface_light.h); elsewhere the lamps pass.
+enum class RtDirectLight : uint8_t { kAuto = 0, kRestir = 1, kPasses = 2 };
 inline constexpr float kRtLightsStrength = 1.0F; // (rt_lights_strength's default: each lamp's own brightness - its light falls off as a pool, rt_lights.h light_falloff)
 struct RtLightSettings {
     bool on = false;
@@ -110,9 +116,12 @@ struct RtLightSettings {
     float emissive = 1.0F;              // x the emitters' (glows, self-lit surfaces) intensity (0: none)
     float level = 1.0F;                 // x the level's own point lights' (0: none)
     bool log = false;                   // ([debug] rt_lights_log) the view's lights logged every 600th pass
+    RtDirectLight direct = RtDirectLight::kAuto; // (path tracing, stage 4) direct_light
 };
 void set_rt_light_settings(const RtLightSettings& settings);
 [[nodiscard]] RtLightSettings rt_light_settings();
+// (the passes') The settings while the backend's lock is held.
+[[nodiscard]] const RtLightSettings& rt_light_settings_locked();
 
 // NOT ORIGINAL - ray-traced reflections (vulkan_rt_reflections.h, docs/design/vulkan.md R5): [Graphics] rt_reflections.
 // Nothing is drawn differently while `on` is false, when ray tracing isn't enabled on the device, or where no surface is

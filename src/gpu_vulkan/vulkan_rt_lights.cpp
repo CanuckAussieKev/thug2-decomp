@@ -26,6 +26,7 @@
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_restir_di.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_materials.h"
@@ -920,6 +921,8 @@ RtLightSettings rt_light_settings()
     return lights_state().settings;
 }
 
+const RtLightSettings& rt_light_settings_locked() { return lights_state().settings; }
+
 VkImageUsageFlags rt_lights_depth_usage(const Backend& state, VkFormat format)
 {
     if (!lights_state().settings.on || !state.context.ray_tracing_enabled()) {
@@ -993,6 +996,11 @@ bool record_rt_lights_pass(Backend& state, const rt::ViewDrawn& view)
     own.last_scale = own.settings.strength * lamps;
     own.last_frame = state.frame;
     if (own.last_view.empty()) {
+        return false;
+    }
+    // (path tracing, stage 4) ReSTIR DI lit this view's lamps (vulkan_restir_di.h): one owner - nothing drawn here (the
+    // view's lights above stay chosen: the fog's march scatters them)
+    if (restir_lit_view(state)) {
         return false;
     }
 

@@ -27,6 +27,7 @@
 #include "platform/platform_config.h"
 #ifdef THUG2_VULKAN
 #include "gpu_vulkan/gpu_vulkan.h"
+#include "gpu_vulkan/vulkan_restir_di.h"
 #endif
 
 namespace app {
@@ -222,6 +223,13 @@ void add_running(Fields* out)
         const render::vulkan::ArtStyle style = render::vulkan::style_settings().style;
         const bool cel = render::rt::cel_settings().on;
         add("art style", render::vulkan::art_style_name(cel ? render::vulkan::ArtStyle::kCel : style));
+        // (path tracing, stage 4) who lit the lamps: ReSTIR DI's passes so far, its lights
+        const render::vulkan::RestirStats restir = render::vulkan::restir_stats();
+        add("direct light", restir.passes > 0
+                                ? text::format("ReSTIR DI (%llu passes; %u lamps, %u emitting triangles; %.3f ms at %ux%u)",
+                                               static_cast<unsigned long long>(restir.passes), restir.lamps,
+                                               restir.listed, restir.gpu_ms, restir.gpu_width, restir.gpu_height)
+                                : std::string("the lamps pass"));
     }
 #endif
     if (scale.on && gpu.device_made()) {
