@@ -5388,7 +5388,9 @@ through the tone curve at that EV. `pt off` ends it.
   add up to the whole); `analytic` makes every lamp its analytic light and counts no surface's emission (the other
   owner); `open` lets the light's rays pass the blended surfaces as the realtime tier's rays do; (round LG) `nee` /
   `bsdf` count the light by next-event estimation alone / by the BSDF's rays alone (MIS off) - each is the whole on its
-  own, so a light the list misses (or a sample its next-event estimation can't reach) shows as their difference. The light list's log
+  own, so a light the list misses (or a sample its next-event estimation can't reach) shows as their difference; (round
+  MB) `bounces <n>` cuts the paths at n bounces (`direct` is `bounces 1`; `bounces 2` is what a one-bounce indirect light
+  reaches - its difference from the whole is the further bounces' share). The light list's log
   line gives the owned lamps' model flux beside the listed triangles' measured power. `rt probe` prints the light store's
   terms in the unit (%g), each nearby vertex's light as drawn and its lamp links (lamp, weight, share of L).
 - What the reference showed by night in Boston (relit data v14, full moon, EV100 fixed): the frame 3.6 - 29 x the
@@ -5617,10 +5619,46 @@ traced sky K and bounce B) and of the occlusion and reflections passes. The shad
 - **Bias, stated**: none for a world that stands still beyond the 0.4 % above. Where the world or its light changes,
   reused samples carry their stored light for up to their M cap (20 frames' worth); a secondary surface's glossy
   reflection toward a neighbour is taken as toward the pixel that found it (its light is stored, ReSTIR GI's
-  approximation). One bounce: the secondary vertex has its direct light only (multi-bounce light not there).
-- Check: thug2_vulkan_restir_gi_check - the reference's indirect light (its two-bounce image less its one-bounce image of
-  the disc, the emitters and the lamps) within 2 % on a still scene (glossy; smooth within 3 %), a camera swapped
-  between two views, a red wall's bleeding (red and green within 2 %), a room lit through a window in its roof, a white
+  approximation).
+- **Further bounces: a radiance cache** (round MB - NVIDIA's SHaRC, the spatially hashed radiance cache Cyberpunk 2077's
+  path tracing reads where its paths end; the hash grid of Binder et al. 2019 / Gautron 2020). Before, the secondary
+  vertex had its direct light alone: one bounce - interiors lit through an opening (Training) far darker than the
+  reference. Chosen over more path vertices per pixel (Russian roulette at every pixel): each vertex costs two rays on
+  every pixel every frame (~+2 ms at 1280x720 a bounce, over the budget at night), and the extra vertices are noise that
+  Ray Reconstruction would have to remove; the cache's cost is a sparse set of paths and a hash lookup, and what it
+  returns is already an average. Lumen's surface cache needs mesh cards the level has no data for; NRC a network trained
+  on the device. The cache:
+  - a hash table (2^19 entries) of cells of the world: a point's position quantised by a side that grows in powers of 2
+    with its distance from the camera (4 units near it, beyond that ~12 pixels wide where it is seen - SHaRC's levels;
+    in pixels, so every cell seen gets ~9 update samples a frame at any resolution: with a fixed 1/48 radian the room
+    check at 160x120 was 10 % dark, its cells reached too seldom to keep their entries) and the axis its surface faces
+    (a wall's two sides apart); open addressing, 8 linear probes, a 32-bit check word; 2^19 entries of 64 bytes (32 MB);
+  - an entry holds the **bounce a white diffuser there gets** (E / pi of the light off other surfaces; the lights' own
+    direct light - disc, sky, emitters, lamps - not in it: next-event estimation owns it at every vertex);
+  - written by **update paths**: one pixel of each 4 x 4 block a frame (at random), 3 rays each along the cosine lobe of
+    the vertex they leave; at every surface met its direct light (next_event) and its reflectance (the light model's
+    directional albedo, `brdf_ambient` of an even light - diffuse and specular); back from the last vertex, the light
+    into a vertex along its ray (the next vertex's direct light + its reflectance x its bounce - the next ray's light,
+    past the last the cache's own) is a one-sample estimate of that vertex's bounce, added (fixed point: the exposed
+    light x 2^16, rounded at random, 64-bit sums from 32-bit atomics) into its entry;
+  - each entry's frame (the resolve pass): the frame's samples' mean folded into its light; the history is frames, not
+    samples (SHaRC's accumulated frames): the kept light's weight (64 samples at most) fades by 1 - 1/16 a frame - the
+    further bounces settle within ~4 x 16 frames (the check counts after 64); an entry not updated for 64 frames freed;
+  - read at ReSTIR GI's secondary vertices (the diffuse sample and the specular ray): the light they send toward the
+    pixel = their direct light + their reflectance x the cache's bounce. The paths ending in the cache make every frame
+    one bounce deeper: the sum of all bounces, as the reference's unbounded path (Russian roulette) has.
+  - Bias, stated: the cell's average for the point (a cell's points share one bounce; the specular lobe takes the bounce
+    as an even light), the history's lag (64 samples) where light changes, the first frames after a view moves into
+    cells it hasn't seen (their bounce 0 until written). The store's baked bounce B stays unused on this path.
+  - Measured (round MB, 1280x720 DLAA + Ray Reconstruction; the GPU shared with a shader sweep, so absolute times high):
+    the cache's passes 0.48 - 0.50 ms, the GI total +0.8 - 1.1 ms (the lookups at the secondary vertices). The
+    reference's further bounces (`pt ref 128` against `pt ref 128 bounces 2`) are +0.5 % of the frame at Training's
+    spot, +1.0 % at Boston's archway by day, +1.7 % by night; the realtime frame moved by about as much (0.921 -> 0.928,
+    0.972 -> 0.981) - the rest of those frames' gap to the reference is not missing bounces.
+- Check: thug2_vulkan_restir_gi_check - the reference's indirect light (round MB: its image of every bounce less its
+  one-bounce image of the disc, the emitters and the lamps) within 2 % on a still scene (glossy; smooth within 3 %), a camera swapped
+  between two views, a red wall's bleeding (red and green within 2 %), a room lit through a window in its roof (every
+  bounce within 3 %; without the cache under -10 %; the camera circling - within 3 %, each frame's mean steady), a white
   floor under an even sky (energy), no NaN.
 
 ### The camera as shipping engines model it (round EX: `rt_exposure_adapt`, `rt_local_exposure`, `rt_tonemap`)

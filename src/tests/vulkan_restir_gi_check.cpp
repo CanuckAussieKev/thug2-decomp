@@ -1,7 +1,7 @@
 // NOT ORIGINAL - thug2_vulkan_restir_gi_check.exe: the indirect light by ReSTIR GI (gpu_vulkan/vulkan_restir_gi.h; path
 // tracing plan, stage 5) tried on this machine against the reference path tracer (vulkan_path_reference.h). The
-// reference's indirect light - what ReSTIR GI estimates: the sky at the surface and one bounce of every light off the
-// surfaces around it - is its two-bounce image less its one-bounce image of the disc, the emitters and the lamps alone
+// reference's indirect light - what ReSTIR GI estimates: the sky at the surface and every bounce of every light off the
+// surfaces around it (round MB) - is its image of every bounce less its one-bounce image of the disc, the emitters and the lamps alone
 // (the direct light the shadows pass and ReSTIR DI own). Everything goes through the installed render::rt::RayTracing as
 // the game's frame record feeds it; the material forced (albedo x a scale, F0, roughness):
 //   - still scene (a floor, a disc of 16 emitting triangles with a light store, a wall, 5 lamps, a sun and an even sky):
@@ -9,7 +9,9 @@
 //     (its specular resampled with its diffuse light) and a smooth one (its specular by its own ray, within 3 %);
 //   - colour bleeding: a red wall - the floor's red and green within 2 % of the reference's each, the floor redder than
 //     it is green;
-//   - a room lit only through a window in its roof (the sun's patch on its floor, the sky through it): within 3 %;
+//   - a room lit only through a window in its roof (the sun's patch on its floor, the sky through it): within 3 % of the
+//     reference's every bounce (round MB: the radiance cache's further bounces - without it under -10 %); the camera
+//     circling in it: within 3 %, each frame's mean as steady as a still camera's (under 2 x + 1 %);
 //   - energy: a white floor under an even sky (a furnace's half: nothing to bounce off) - the reference's within 2 %
 //     and the sky's radiance within 3 % (the light model's albedo with its multiple-scattering compensation: 1);
 //   - (round CW) a layer painted on that floor (alpha-blended, 0.8 units over it): the paint is the pixel's surface - the
@@ -620,7 +622,8 @@ bool reference_image(render::Gpu& gpu, const Targets& targets, std::span<const S
     return read;
 }
 
-// The reference's indirect light: its two-bounce image less its one-bounce image of the disc, the emitters and the lamps.
+// The reference's indirect light: its image of every bounce (round MB: was two - ReSTIR GI's secondary vertices now have
+// the radiance cache's further bounces) less its one-bounce image of the disc, the emitters and the lamps.
 Answer reference_gi(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, const Vec3& eye,
                     const Lighting& lighting, const Region& region, int batches, bool* ok, int channel = -1)
 {
@@ -631,7 +634,7 @@ Answer reference_gi(render::Gpu& gpu, const Targets& targets, std::span<const Sc
         vk::PathAccumulation full;
         vk::PathAccumulation direct;
         const uint32_t seed = 4242U + (static_cast<uint32_t>(batch) * 7919U);
-        if (!reference_image(gpu, targets, meshes, eye, lighting, 2, path::kAllLightKinds, seed, &full) ||
+        if (!reference_image(gpu, targets, meshes, eye, lighting, path::kMostBounces, path::kAllLightKinds, seed, &full) ||
             !reference_image(gpu, targets, meshes, eye, lighting, 1,
                              path::kLightKindDisc | path::kLightKindEmitters | path::kLightKindLamps, seed + 1U, &direct)) {
             *ok = false;
@@ -659,6 +662,7 @@ struct RunPlan {
     int settle = 12;
     uint32_t spatial = 0xFFU;
     bool temporal = true;
+    bool cache = true; // (round MB) the radiance cache's further bounces
     std::function<Vec3(int)> camera;
     std::function<bool(int)> counted;
     std::function<void(const vk::RestirGiAccumulation&)> each_frame; // (round BR: read back every counted frame when set)
@@ -684,6 +688,7 @@ Answer restir_gi(render::Gpu& gpu, const Targets& targets, std::span<const Scene
         overrides.lamps_surfaced.assign(lighting.lamps.size(), 0);
         overrides.spatial = plan.spatial;
         overrides.temporal = plan.temporal;
+        overrides.cache = plan.cache;
         overrides.seed = 977U + (static_cast<uint32_t>(batch) * 104729U);
         vk::set_restir_gi_overrides(overrides);
         vk::forget_restir_gi_history();
@@ -931,12 +936,74 @@ void check_device(render::Gpu& gpu, Tally* tally)
             const Region all = every_pixel();
             RunPlan room_plan = plan;
             room_plan.camera = [](int /*frame*/) { return kEyeRoom; };
+            // (round MB) the radiance cache's warm-up before counting: it starts empty (every run forgets its history)
+            // and its further bounces settle over a few of its 16 frames of history - as after a level's first frames
+            room_plan.settle = 64;
+            // (round MB) each counted frame's mean, for the stability below
+            std::vector<double> still_means;
+            room_plan.each_frame = [&still_means, &all](const vk::RestirGiAccumulation& one) {
+                still_means.push_back(region_mean(one.last, all));
+            };
             const Answer r = reference_gi(gpu, targets, scene, kEyeRoom, inside, all, kReferenceBatches, &read);
             const Answer g = restir_gi(gpu, targets, scene, inside, room_plan, all, &read);
             not_finite += r.not_finite + g.not_finite;
             tally->check(read && r.mean > 0.0 && agrees(g.mean, r.mean, kLooseAgreement),
-                         text::format("the room: ReSTIR GI %.5f +- %.5f, the reference %.5f +- %.5f (%+.2f %%; within 3 %%)",
+                         text::format("the room: ReSTIR GI %.5f +- %.5f, the reference's every bounce %.5f +- %.5f (%+.2f %%; "
+                                      "within 3 %%)",
                                       g.mean, g.sigma, r.mean, r.sigma, percent(g.mean, r.mean)));
+            // (round MB) without the radiance cache: one bounce - the light the further bounces bring missing
+            RunPlan one_bounce = room_plan;
+            one_bounce.cache = false;
+            one_bounce.each_frame = nullptr;
+            const Answer g1 = restir_gi(gpu, targets, scene, inside, one_bounce, all, &read);
+            not_finite += g1.not_finite;
+            tally->check(read && g1.mean < 0.9 * r.mean,
+                         text::format("the room without the radiance cache (one bounce): %.5f (%+.2f %% - the further "
+                                      "bounces' share the cache brings; under -10 %%)",
+                                      g1.mean, percent(g1.mean, r.mean)));
+            // (round MB) a moving camera: round a circle about the view every 16 frames, counted where it comes back -
+            // the cache's cells change level with the distance, its entries are made and dropped as the view moves
+            constexpr int kOrbit = 16;
+            constexpr double kOrbitRadius = 60.0;
+            RunPlan moving = room_plan;
+            moving.frames = 128 * kOrbit / 4;
+            moving.camera = [](int frame) {
+                const double angle = 2.0 * kPi * static_cast<double>(frame % kOrbit) / kOrbit;
+                return Vec3{x_of(kEyeRoom) + (kOrbitRadius * std::sin(angle)), y_of(kEyeRoom),
+                            z_of(kEyeRoom) + (kOrbitRadius * (1.0 - std::cos(angle)))};
+            };
+            moving.counted = [](int frame) { return frame % kOrbit == 0; };
+            std::vector<double> moving_means;
+            moving.each_frame = [&moving_means, &all](const vk::RestirGiAccumulation& one) {
+                moving_means.push_back(region_mean(one.last, all));
+            };
+            still_means.clear();
+            RunPlan still = room_plan;
+            still.batches = 1;
+            const Answer g_still = restir_gi(gpu, targets, scene, inside, still, all, &read);
+            moving.batches = 1;
+            const Answer g_moving = restir_gi(gpu, targets, scene, inside, moving, all, &read);
+            not_finite += g_still.not_finite + g_moving.not_finite;
+            const auto spread = [](const std::vector<double>& values) {
+                double mean = 0.0;
+                for (const double v : values) {
+                    mean += v / static_cast<double>(std::max<std::size_t>(values.size(), 1));
+                }
+                double sum = 0.0;
+                for (const double v : values) {
+                    sum += (v - mean) * (v - mean);
+                }
+                return values.size() > 1 && mean > 0.0 ? std::sqrt(sum / static_cast<double>(values.size() - 1)) / mean : 0.0;
+            };
+            const double still_spread = spread(still_means);
+            const double moving_spread = spread(moving_means);
+            tally->check(read && agrees(g_moving.mean, r.mean, kLooseAgreement) && moving_means.size() >= 16 &&
+                             moving_spread < 2.0 * still_spread + 0.01,
+                         text::format("the room, the camera moving (a circle every %d frames, counted where it comes back): "
+                                      "%.5f (%+.2f %%; within 3 %%); each frame's mean varies by %.2f %% (still %.2f %%; under "
+                                      "2 x that + 1 %%)",
+                                      kOrbit, g_moving.mean, percent(g_moving.mean, r.mean), 100.0 * moving_spread,
+                                      100.0 * still_spread));
         }
         for (SceneMesh& mesh : room) {
             release_mesh(gpu, &mesh);

@@ -46,7 +46,7 @@ std::string status_text(const PathReferenceStatus& status, const PathReferenceRe
     return text;
 }
 
-constexpr const char* kRefUsage = "pt ref <samples a pixel, 1 - 1048576> [EV100] [even] [analytic] [open] [only disc,sky,emit,lamps] [direct] [nee | bsdf]";
+constexpr const char* kRefUsage = "pt ref <samples a pixel, 1 - 1048576> [EV100] [even] [analytic] [open] [only disc,sky,emit,lamps] [direct | bounces <n>] [nee | bsdf]";
 
 } // namespace
 
@@ -163,6 +163,16 @@ std::string path_console_command(const std::string& arguments)
                 request.strategy = 2; // (round LG: the BSDF's rays alone)
             } else if (word == "direct") {
                 request.bounces = 1; // (path tracing, stage 4: the direct light alone - ReSTIR DI's yardstick)
+            } else if (word == "bounces") {
+                // (round MB) the paths cut at that many bounces: `bounces 2` is what a one-bounce indirect light reaches -
+                // its difference from the whole is the further bounces' share
+                std::string most;
+                in >> most;
+                const long bounces = std::strtol(most.c_str(), nullptr, 10);
+                if (bounces <= 0 || bounces > static_cast<long>(kMostBounces)) {
+                    return kRefUsage;
+                }
+                request.bounces = static_cast<uint32_t>(bounces);
             } else if (word == "only") {
                 std::string kinds;
                 in >> kinds;
@@ -186,12 +196,15 @@ std::string path_console_command(const std::string& arguments)
             request.ev100 = value;
         }
         request_path_reference(request);
+        const std::string cut = request.bounces == 1                ? ", the direct light alone (one bounce)"
+                                : request.bounces < kMostBounces ? text::format(", %u bounces at most", request.bounces)
+                                                                  : std::string();
         get_log("pt: reference asked - %u samples a pixel, EV100 %s, lights %s, light counted: %s%s%s%s%s", request.samples,
                 request.ev_given ? ev.c_str() : "the camera's metered one",
                 request.even_lights ? "evenly by kind" : "by power", light_kinds_text(request.light_kinds).c_str(),
                 request.analytic_lamps ? ", every lamp analytic (no surface's emission)" : "",
                 request.blended_open ? ", the light's rays pass the blended surfaces" : "",
-                request.bounces == 1 ? ", the direct light alone (one bounce)" : "",
+                cut.c_str(),
                 request.strategy == 1   ? ", the lights' samples alone"
                 : request.strategy == 2 ? ", the BSDF's rays alone"
                                         : "");
