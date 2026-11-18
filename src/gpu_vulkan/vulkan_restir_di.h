@@ -18,7 +18,10 @@
 //   1. the pixel's surface - the prepass's depth gives the point, a camera ray its triangle (hit_surface: position, the
 //      triangle's and the shading normal, albedo; where the ray doesn't end at the depth's point the pixel gets no lamps,
 //      as the lamps pass's did) - kept for the next frame (position, normals) beside its reservoir;
-//      - initial candidates: params' count of lights picked from the alias table by power (a point uniform on an emitting
+//      - initial candidates: params' count of lights from the pixel's cell of the light grid round the camera (round
+//        PT4c - ReGIR: each cell's slots resampled from the list toward the most a light can give the cell, kept with
+//        their unbiased contribution weights; vulkan_restir_di.cpp kGridBody), outside it from the alias table by power
+//        (a point uniform on an emitting
 //        triangle, the lamp's own point for an analytic lamp), resampled (RIS, Talbot et al. 2005 / Bitterli et al. 2020)
 //        toward the target p^ = the luminance of the light a white diffuser would get from it unshadowed (a triangle's at
 //        its mean radiance: its listed power / 2 pi area - exact emission only where shaded) - the BRDF left out: the
@@ -30,9 +33,10 @@
 //        surface's normal agrees (cos >= 0.9) and its plane is within 2 % of the distance; its M capped at 20 x the
 //        candidates;
 //   2. spatial reuse: the pixel's reservoir and those of `spatial` neighbours within 24 pixels that pass the same tests;
-//      the light chosen traced from the pixel and its weight 1 / (Z p^) with Z the samples of the reservoirs that could
-//      have made it - each neighbour's target and a ray from its surface (Bitterli et al. 2020's unbiased combination);
-//      likewise the temporal step (a ray from last frame's surface). Unbiased for a scene that stands still; where the
+//      each sample weighed by its reservoir's share of every reservoir's density for it - each neighbour's target and a
+//      ray from its surface (round PT4c: the generalised balance heuristic, Lin et al. 2022; was 1 / Z, Bitterli et al.
+//      2020's uniform weights - neighbours' outliers kept and spread: boiling patches), a ray from the pixel in its
+//      target; the temporal step keeps 1 / Z (a ray from last frame's surface). Unbiased for a scene that stands still; where the
 //      scene moves, last frame's reservoir was made against last frame's occluders (the stated bias - small, a frame's
 //      worth). The result (the light x its visibility x W) goes into the lamps input (a white diffuser's radiance, the
 //      frame's pre-exposed unit) and on the traced albedo into lamps_on; the reservoir is kept for the next frame.
@@ -58,6 +62,11 @@ struct RestirOverrides {
     uint32_t candidates = 0;  // initial candidates a pixel (0: the default)
     uint32_t spatial = 0xFFU; // spatial neighbours (0xFF: the default; 0: none)
     bool temporal = true;
+    bool grid = true; // (round PT4c) the initial candidates from the light grid's cells (false: the whole list by power)
+    // (round PT4d) the denoiser's settings (vulkan_light_list.h restir_denoiser_glsl): permutation sampling of the
+    // temporal reuse, the boiling filter
+    bool permutation = true;
+    bool boiling_filter = true;
     uint32_t seed = 0;
 };
 // (kept as they are: the reservoirs carry on - the lamps may move between frames; forget_restir_history drops them)
@@ -73,6 +82,7 @@ struct RestirAccumulation {
     uint32_t frames = 0;
     std::vector<std::array<float, 3>> mean;
     std::vector<std::array<float, 3>> last; // the last frame's estimate alone
+    std::vector<float> last_light;          // ... its lamps' light alone (a white diffuser's - what the game's inputs carry; luma)
     uint32_t not_finite = 0;
 };
 bool read_restir_accumulation(Backend& state, RestirAccumulation* out);
@@ -82,6 +92,7 @@ void restart_restir_accumulation();
 // The counts (the log, the checks).
 struct RestirStats {
     uint64_t passes = 0;
+    bool lighting = false;    // the last view drawn was lit by it (a live switch to the lamps pass: false at once)
     uint32_t listed = 0;      // emitting triangles in the list now
     uint32_t candidates = 0;  // (the scan's: emitting at a corner, with an area)
     uint32_t lamps = 0;       // analytic lamps

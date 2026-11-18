@@ -16,6 +16,13 @@
 //   - (round PT4b) a lamp drawn in a texture (the disc's emission on 1 in 64 texels): every emitting triangle listed,
 //     though the scan's points miss the lamp texels of some (none lost); the mean within 2 % of the reference's; the
 //     per-frame error low (the target the sample's own emission - not its triangle's mean);
+//   - (round PT4c) a still floor lit by 4 dim lamps near among 120 bright far away: each pixel's variation over the
+//     frames (the lamps' light alone, what the game's inputs carry) at least 2 x lower with the light grid than with the
+//     list by power - the candidates alone and with the temporal reuse; with the spatial reuse lower than the list by
+//     power's; both means within 2 % of the exact light;
+//   - (round PT4d) the same as a temporal denoiser gets it (a running average over the frames): with permutation
+//     sampling and the boiling filter (vulkan_light_list.h restir_denoiser_glsl) the error's frame-to-frame correlation
+//     and what the running average still varies by lower than without; the mean within 2 % of the exact light;
 //   - no estimate NaN or infinite; the validation layer silent; the passes' device time printed.
 //   thug2_vulkan_restir_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
@@ -588,6 +595,8 @@ struct RunPlan {
     uint32_t candidates = 0;
     uint32_t spatial = 0xFFU;
     bool temporal = true;
+    bool grid = true; // (round PT4c) the initial candidates from the light grid (false: the list by power)
+    bool denoiser = true; // (round PT4d) permutation sampling and the boiling filter (restir_denoiser_glsl)
     std::function<Vec3(int)> camera;
     std::function<bool(int)> counted;
     std::function<std::vector<rt::Emitter>(int)> lamps_at;
@@ -608,6 +617,9 @@ Answer restir(render::Gpu& gpu, const Targets& targets, std::span<const SceneMes
         overrides.candidates = plan.candidates;
         overrides.spatial = plan.spatial;
         overrides.temporal = plan.temporal;
+        overrides.grid = plan.grid;
+        overrides.permutation = plan.denoiser;
+        overrides.boiling_filter = plan.denoiser;
         overrides.seed = 977U + (static_cast<uint32_t>(batch) * 104729U);
         overrides.lamps = plan.lamps_at(0);
         overrides.lamps_surfaced.assign(overrides.lamps.size(), 0);
@@ -746,6 +758,31 @@ double exact_floor_light(const Vec3& eye, const std::vector<rt::Emitter>& lamps,
         }
     }
     return count > 0 ? sum / static_cast<double>(count) : 0.0;
+}
+
+// (round PT4c) The lamps' light a white diffuser on the floor gets at pixel `i` from `eye` (nothing in the way): what the
+// game's inputs carry - the lamp model alone (the luma; the lamps are white).
+double exact_floor_lamps(const Vec3& eye, const std::vector<rt::Emitter>& lamps, std::size_t i)
+{
+    const Vec3 d = pixel_ray(eye, static_cast<double>(i % kWidth) + 0.5, static_cast<double>(i / kWidth) + 0.5);
+    const Vec3 p = add(eye, mul(d, -y_of(eye) / y_of(d)));
+    const std::array<float, 3> at{static_cast<float>(x_of(p)), 0.0F, static_cast<float>(z_of(p))};
+    double light = 0.0;
+    for (const rt::Emitter& lamp : lamps) {
+        const rt::LampShape shape{.position = lamp.position,
+                                  .shape = lamp.shape,
+                                  .axis = lamp.axis,
+                                  .half_length = lamp.half_length,
+                                  .core = lamp.core,
+                                  .reach = lamp.reach};
+        std::array<float, 3> toward{};
+        const float g = rt::lamp_geometry(shape, at, {0.0F, 1.0F, 0.0F}, &toward);
+        if (g > 0.0F) {
+            light += static_cast<double>(lamp.intensity * g) *
+                     luma({core::at(lamp.colour, 0), core::at(lamp.colour, 1), core::at(lamp.colour, 2)});
+        }
+    }
+    return light;
 }
 
 // --- the checks --------------------------------------------------------------------------------------------------------------
@@ -1002,6 +1039,179 @@ void check_device(render::Gpu& gpu, Tally* tally)
         if (texture != nullptr) {
             gpu.release_texture(texture);
         }
+    }
+
+    // 6. (round PT4c) a still scene lit by a few dim lamps near the floor among many bright ones far away (a level at
+    // night: the courtyard's lamps among the whole level's): the frame-to-frame variation of each pixel (what a still
+    // picture boils with) with the light grid and with the list by power, and both means against the exact light
+    text::print("4 dim lamps near among 120 bright far away, standing still: each pixel's variation over the frames:\n");
+    {
+        std::vector<rt::Emitter> field;
+        for (int i = 0; i < 4; ++i) {
+            const double angle = (2.0 * kPi * i / 4.0) + 0.4;
+            field.push_back(lamp_at({250.0 * std::cos(angle), 120.0, 250.0 * std::sin(angle)}, 1.0F, 20.0F));
+        }
+        for (int i = 0; i < 120; ++i) {
+            const double angle = 2.0 * kPi * i / 120.0;
+            const double distance = 2500.0 + (27.0 * i);
+            field.push_back(lamp_at({distance * std::cos(angle), 300.0, distance * std::sin(angle)}, 5.0F, 30.0F));
+        }
+        std::vector<double> exact_px(static_cast<std::size_t>(kWidth) * kHeight, 0.0);
+        double exact_mean = 0.0;
+        std::size_t exact_count = 0;
+        for (std::size_t i = 0; i < exact_px.size(); ++i) {
+            if (core::at(floor_region, i) == 0) {
+                continue;
+            }
+            std::vector<uint8_t> one(floor_region.size(), 0);
+            core::at(one, i) = 1;
+            core::at(exact_px, i) = exact_floor_lamps(kEyeA, field, i);
+            exact_mean += core::at(exact_px, i);
+            ++exact_count;
+        }
+        exact_mean /= static_cast<double>(std::max<std::size_t>(exact_count, 1));
+        struct Variation {
+            double temporal = 0.0; // each pixel's standard deviation over the frames (RMS over the pixels) / the mean
+            double error = 0.0;    // each frame's RMS error against the exact light / the mean
+            double mean = 0.0;
+            // (round PT4d) what a temporal denoiser makes of it: each pixel's running average over the frames (history
+            // weight 1 - kDenoiserBlend - a temporal accumulator's), its standard deviation over the frames after it has
+            // settled (RMS over the pixels) / the mean; and the error's correlation from one frame to the next (each
+            // pixel's deviation from its mean, summed over the pixels) - 0 for noise the accumulator averages, 1 for an
+            // error it keeps as picture
+            double denoised = 0.0;
+            double correlation = 0.0;
+        };
+        constexpr int kVariationFrames = 160;
+        constexpr int kDenoiserSettle = 32;
+        constexpr double kDenoiserBlend = 0.1;
+        const auto variation = [&](bool grid) {
+            RunPlan p = plan;
+            p.grid = grid;
+            p.batches = 1;
+            p.frames = kVariationFrames;
+            p.settle = 32;
+            p.lamps_at = [&field](int /*frame*/) { return field; };
+            std::vector<std::size_t> floor_pixels;
+            for (std::size_t i = 0; i < exact_px.size(); ++i) {
+                if (core::at(floor_region, i) != 0) {
+                    floor_pixels.push_back(i);
+                }
+            }
+            std::vector<std::vector<double>> series; // per frame, per floor pixel
+            p.each_frame = [&](int /*frame*/, const vk::RestirAccumulation& image) {
+                std::vector<double> values(floor_pixels.size(), 0.0);
+                for (std::size_t k = 0; k < floor_pixels.size(); ++k) {
+                    const std::size_t i = core::at(floor_pixels, k);
+                    core::at(values, k) = i < image.last_light.size() ? core::at(image.last_light, i) : 0.0;
+                }
+                series.push_back(std::move(values));
+            };
+            const Answer got = restir(gpu, targets, floor_only, p, floor_region, &read);
+            not_finite += got.not_finite;
+            Variation out;
+            const auto frames = static_cast<double>(series.size());
+            const auto pixels = static_cast<double>(std::max<std::size_t>(floor_pixels.size(), 1));
+            const double scale = std::max(exact_mean, 1e-12);
+            double variance = 0.0;
+            double error = 0.0;
+            double denoised_variance = 0.0;
+            double lagged = 0.0;
+            double squared = 0.0;
+            for (std::size_t k = 0; k < floor_pixels.size() && series.size() > static_cast<std::size_t>(kDenoiserSettle) + 1;
+                 ++k) {
+                const double exact = core::at(exact_px, core::at(floor_pixels, k));
+                double sum = 0.0;
+                for (const std::vector<double>& frame : series) {
+                    sum += core::at(frame, k);
+                    error += (core::at(frame, k) - exact) * (core::at(frame, k) - exact);
+                }
+                const double m = sum / frames;
+                out.mean += m / pixels;
+                double average = core::at(series.front(), k);
+                double before = 0.0;
+                double ema_sum = 0.0;
+                double ema_squares = 0.0;
+                int ema_frames = 0;
+                for (std::size_t f = 0; f < series.size(); ++f) {
+                    const double v = core::at(core::at(series, f), k);
+                    variance += (v - m) * (v - m) / frames;
+                    squared += (v - m) * (v - m);
+                    if (f > 0) {
+                        lagged += (v - m) * before;
+                    }
+                    before = v - m;
+                    average += kDenoiserBlend * (v - average);
+                    if (f >= static_cast<std::size_t>(kDenoiserSettle)) {
+                        ema_sum += average;
+                        ema_squares += average * average;
+                        ++ema_frames;
+                    }
+                }
+                const double ema_mean = ema_sum / std::max(ema_frames, 1);
+                denoised_variance += std::max(0.0, (ema_squares / std::max(ema_frames, 1)) - (ema_mean * ema_mean));
+            }
+            out.temporal = std::sqrt(variance / pixels) / scale;
+            out.error = frames > 0.0 ? std::sqrt(error / (frames * pixels)) / scale : 0.0;
+            out.denoised = std::sqrt(denoised_variance / pixels) / scale;
+            out.correlation = squared > 0.0 ? lagged / squared : 0.0;
+            return out;
+        };
+        const Variation with_grid = variation(true);
+        const Variation by_power = variation(false);
+        const bool kept_temporal = plan.temporal;
+        const uint32_t kept_spatial = plan.spatial;
+        const bool kept_denoiser = plan.denoiser;
+        plan.denoiser = false;
+        const Variation correlated = variation(true);
+        plan.temporal = false;
+        plan.spatial = 0;
+        const Variation grid_alone = variation(true);
+        const Variation power_alone = variation(false);
+        plan.temporal = true;
+        const Variation grid_temporal = variation(true);
+        const Variation power_temporal = variation(false);
+        plan.temporal = kept_temporal;
+        plan.spatial = kept_spatial;
+        plan.denoiser = kept_denoiser;
+        const auto ratio = [](const Variation& a, const Variation& b) { return b.temporal > 0.0 ? a.temporal / b.temporal : 0.0; };
+        tally->check(read && grid_alone.temporal > 0.0 && grid_alone.temporal * 2.0 < power_alone.temporal,
+                     text::format("variation over the frames (each pixel's standard deviation / the mean), the initial "
+                                  "candidates alone: light grid %.3f, the list by power %.3f (x %.2f)",
+                                  grid_alone.temporal, power_alone.temporal, ratio(grid_alone, power_alone)));
+        tally->check(read && grid_temporal.temporal > 0.0 && grid_temporal.temporal * 2.0 < power_temporal.temporal,
+                     text::format("... with the temporal reuse: light grid %.3f, the list by power %.3f (x %.2f)",
+                                  grid_temporal.temporal, power_temporal.temporal, ratio(grid_temporal, power_temporal)));
+        tally->check(read && with_grid.temporal > 0.0 && with_grid.temporal < by_power.temporal,
+                     text::format("... with the temporal and spatial reuse: light grid %.3f, the list by power %.3f (x %.2f); "
+                                  "per-frame RMS error %.3f / %.3f",
+                                  with_grid.temporal, by_power.temporal, ratio(with_grid, by_power), with_grid.error,
+                                  by_power.error));
+        tally->check(read && agrees(with_grid.mean, exact_mean) && agrees(by_power.mean, exact_mean),
+                     text::format("near and far lamps still: light grid %.6f (%+.2f %%), the list by power %.6f (%+.2f %%), "
+                                  "exact %.6f",
+                                  with_grid.mean, 100.0 * (with_grid.mean - exact_mean) / std::max(exact_mean, 1e-12),
+                                  by_power.mean, 100.0 * (by_power.mean - exact_mean) / std::max(exact_mean, 1e-12),
+                                  exact_mean));
+        // 7. (round PT4d) the same as a temporal denoiser gets it: with permutation sampling and the boiling filter
+        // (RTXDI's settings for a denoised output) against without - the error's frame-to-frame correlation and what a
+        // running average (a denoiser's history) still varies by; the mean within 2 % of the exact light (the filter's
+        // bias)
+        text::print("the same through a temporal denoiser (running average, history weight %.2f):\n", 1.0 - kDenoiserBlend);
+        tally->check(read && with_grid.correlation < correlated.correlation,
+                     text::format("the error's frame-to-frame correlation: %.3f with permutation sampling + the boiling "
+                                  "filter, %.3f without (temporal + spatial reuse, light grid)",
+                                  with_grid.correlation, correlated.correlation));
+        tally->check(read && with_grid.denoised > 0.0 && with_grid.denoised < correlated.denoised,
+                     text::format("variation over the frames left after the running average: %.4f, without %.4f (x %.2f); "
+                                  "raw %.3f / %.3f",
+                                  with_grid.denoised, correlated.denoised,
+                                  correlated.denoised > 0.0 ? with_grid.denoised / correlated.denoised : 0.0,
+                                  with_grid.temporal, correlated.temporal));
+        tally->check(read && agrees(with_grid.mean, exact_mean),
+                     text::format("... the mean %.6f (%+.2f %%; without %+.2f %%), exact %.6f", with_grid.mean,
+                                  100.0 * (with_grid.mean - exact_mean) / std::max(exact_mean, 1e-12),
+                                  100.0 * (correlated.mean - exact_mean) / std::max(exact_mean, 1e-12), exact_mean));
     }
 
     tally->check(read && not_finite == 0, text::format("estimates not finite: %u", not_finite));

@@ -104,6 +104,8 @@ constexpr uint32_t kFlagTemporal = 1U;
 constexpr uint32_t kFlagSpatial = 2U;
 constexpr uint32_t kFlagAccumulate = 4U;
 constexpr uint32_t kFlagForced = 8U;
+constexpr uint32_t kFlagPermute = 16U; // (round PT4d) vulkan_light_list.h restir_denoiser_glsl
+constexpr uint32_t kFlagBoiling = 32U;
 
 constexpr uint32_t kTimingSlots = 16;
 constexpr uint32_t kTimingReport = 600;
@@ -212,6 +214,8 @@ const uint FLAG_TEMPORAL = 1u;
 const uint FLAG_SPATIAL = 2u;
 const uint FLAG_ACCUMULATE = 4u;
 const uint FLAG_FORCED = 8u;
+const uint FLAG_PERMUTE = 16u;
+const uint FLAG_BOILING = 32u;
 const uint MOST_SPATIAL = 4u;
 const uint LIGHT_RAYS = 7u;           // world, objects, alpha-tested (the reference's rays)
 const uint LIGHT_RAYS_ON_OBJECT = 5u; // (an object's pixel: the world's alone - its low-poly body doesn't shadow itself)
@@ -338,8 +342,45 @@ BrdfMaterial hit_material(HitSurface h)
     return h.material;
 }
 
+#ifndef CHECK
+// (round PT4d) The depth's own surface where the drawn surface isn't the one the rays find (ReSTIR DI's depth_surface,
+// vulkan_restir_di.cpp): the point from the depth, the normal from the nearer neighbours' depths, a diffuse dielectric
+// (F0 0.04, rough). Before, such a pixel kept the light store's environment - the outlines of tessellated, skinned and
+// ray-less surfaces (grass, litter) another owner's light, far brighter than ReSTIR GI's at night: white halos that
+// flickered with the jitter.
+vec3 depth_point(ivec2 q, out bool drawn)
+{
+    q = clamp(q, pass.rect.xy, pass.rect.xy + pass.rect.zw - 1);
+    float d = imageLoad(u_depth, q).r;
+    drawn = d < 1.0;
+    return world_at(vec2(q) + 0.5, d);
+}
+Surface depth_surface(ivec2 p, vec3 here, vec3 dir)
+{
+    float best[2] = float[2](1.0e30, 1.0e30);
+    vec3 step[2] = vec3[2](vec3(0.0), vec3(0.0));
+    for (int k = 0; k < 4; ++k) {
+        ivec2 o = k == 0 ? ivec2(1, 0) : (k == 1 ? ivec2(-1, 0) : (k == 2 ? ivec2(0, 1) : ivec2(0, -1)));
+        bool drawn;
+        vec3 q = depth_point(p + o, drawn);
+        float apart = abs(dot(q - here, dir));
+        int axis = k < 2 ? 0 : 1;
+        if (drawn && apart < best[axis]) {
+            best[axis] = apart;
+            step[axis] = (q - here) * float(o.x + o.y);
+        }
+    }
+    vec3 n = cross(step[0], step[1]);
+    n = dot(n, n) > 0.0 ? normalize(n) : -dir;
+    if (dot(n, dir) > 0.0) {
+        n = -n;
+    }
+    return Surface(here, n, n, vec3(0.0), vec3(0.04), 1.0, true, false, false);
+}
+#endif
+
 // The pixel's surface: the check's camera ray through its centre; the game's the prepass's depth there, its triangle the
-// one a camera ray meets at that point (none: not lit here - the light store's environment stays).
+// one a camera ray meets at that point - (round PT4d) where none does, the depth's own surface (depth_surface).
 Surface primary(ivec2 p)
 {
     vec2 centre = vec2(p) + 0.5;
@@ -369,13 +410,15 @@ Surface primary(ivec2 p)
     vec2 bary;
     float t;
     mat4x3 to_world;
-    if (!trace_closest(LIGHT_RAYS, eye, dir, reach, instance, primitive, id, bary, t, to_world) ||
-        (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected)) {
-        return no_surface();
-    }
     HitSurface h;
-    if (!hit_surface(instance, primitive, id, bary, to_world, dir, h) || h.hidden) {
+    if (!trace_closest(LIGHT_RAYS, eye, dir, reach, instance, primitive, id, bary, t, to_world) ||
+        (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected) ||
+        !hit_surface(instance, primitive, id, bary, to_world, dir, h) || h.hidden) {
+#ifdef CHECK
         return no_surface();
+#else
+        return depth_surface(p, here, dir);
+#endif
     }
     BrdfMaterial m = hit_material(h);
     Surface s;
@@ -683,20 +726,17 @@ vec3 seen(Surface s, vec3 dir, float reach) { return ray_light(rays_of(s), s.at 
 bool seen_at_all(vec3 through) { return max(through.r, max(through.g, through.b)) > 0.0; }
 
 #ifdef PASS_TEMPORAL
-void main()
+// The pixel's reservoir after its sample and the temporal reuse (stored by main, after the boiling filter); `weight` its
+// sample's contribution (target x W - what the filter compares). Also the mirror-like surfaces' specular ray.
+Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
 {
-    ivec2 local = ivec2(gl_GlobalInvocationID.xy);
-    if (any(greaterThanEqual(local, pass.rect.zw))) {
-        return;
-    }
-    uint i = uint(local.y * pass.rect.z + local.x);
+    weight = 0.0;
     Surface s = primary(pass.rect.xy + local);
     put_surface(i, s);
     specular_rays[i * 2u] = vec4(0.0, 0.0, 0.0, GI_MISS_DISTANCE);
     specular_rays[i * 2u + 1u] = vec4(0.0);
     if (!s.valid) {
-        store_reservoir(false, i, no_reservoir(0.0));
-        return;
+        return no_reservoir(0.0);
     }
     uint rng = path_sequence_start(uint(local.x), uint(local.y), pass.counts.z, pass.params.w);
     vec3 eye = pass.eye.xyz;
@@ -759,11 +799,16 @@ void main()
         }
     }
 
-    // 2. the reservoir this point had last frame, its sample reconnected here
+    // 2. the reservoir this point had last frame, its sample reconnected here - (round PT4d) a neighbour's in its 4 x 4
+    // block by the frame's permutation (vulkan_light_list.h restir_denoiser_glsl)
+    float kept_target = chosen;
     if ((pass.counts.w & FLAG_TEMPORAL) != 0u) {
         vec4 q = pass.prev_to_pixel * vec4(s.at, 1.0);
         if (q.w > 0.0) {
             ivec2 before = ivec2(floor(q.xy / q.w)) - pass.rect.xy;
+            if ((pass.counts.w & FLAG_PERMUTE) != 0u) {
+                before = restir_permuted(before, pass.counts.z);
+            }
             if (all(greaterThanEqual(before, ivec2(0))) && all(lessThan(before, pass.rect.zw))) {
                 uint j = uint(before.y * pass.rect.z + before.x);
                 Surface then = surface_of(before_at[j], before_more[j]);
@@ -808,13 +853,14 @@ void main()
                         }
                         out_r.M = r.M + h.M;
                         out_r.W = z > 0.0 && target > 0.0 ? good(total / (z * target)) : 0.0;
+                        kept_target = target;
                     }
                     r = out_r;
                 }
             }
         }
     }
-    store_reservoir(false, i, r);
+    weight = r.kind != KIND_NONE && r.W > 0.0 ? good(kept_target * r.W) : 0.0;
 
     // 3. a mirror-like surface's specular: one ray along a visible normal of its lobe
     if (!glossy(s)) {
@@ -823,15 +869,34 @@ void main()
         vec3 l = 2.0 * dot(v, h) * h - v;
         if (max(e.r, max(e.g, e.b)) > 0.0 && dot(l, s.ng) > 0.0 && dot(l, s.n) > 0.0) {
             float pdf = path_ggx_reflection_pdf(nv, clamp(dot(s.n, h), 0.0, 1.0), alpha);
-            vec3 weight = pdf > 0.0 ? good3(specular_lobe(s, v, l) / pdf) : vec3(0.0);
+            vec3 lobe_weight = pdf > 0.0 ? good3(specular_lobe(s, v, l) / pdf) : vec3(0.0);
             Secondary sec = trace_secondary(mask, origin, l, rng);
             vec3 through = seen_through(mask, origin, l, sec.hit ? sec.t : GI_REACH);
             vec3 reflected = sec.hit ? sec.bounce : sky_radiance(l);
             vec3 emitted = sec.hit ? sec.emitted : vec3(0.0);
-            specular_rays[i * 2u] = vec4(good3(weight * (reflected + emitted) * through / max(e, vec3(1.0e-4))),
+            specular_rays[i * 2u] = vec4(good3(lobe_weight * (reflected + emitted) * through / max(e, vec3(1.0e-4))),
                                          sec.hit ? sec.t : GI_MISS_DISTANCE);
-            specular_rays[i * 2u + 1u] = vec4(good3(weight * reflected * through), 0.0); // (the check's: no emission)
+            specular_rays[i * 2u + 1u] = vec4(good3(lobe_weight * reflected * through), 0.0); // (the check's: no emission)
         }
+    }
+    return r;
+}
+void main()
+{
+    ivec2 local = ivec2(gl_GlobalInvocationID.xy);
+    bool inside = all(lessThan(local, pass.rect.zw));
+    uint i = uint(local.y * pass.rect.z + local.x);
+    float weight = 0.0;
+    Reservoir r = no_reservoir(0.0);
+    if (inside) {
+        r = temporal_reservoir(local, i, weight);
+    }
+    // (round PT4d) the boiling filter - every invocation of the group takes part (no early return above)
+    if ((pass.counts.w & FLAG_BOILING) != 0u && restir_boiling(weight)) {
+        r = no_reservoir(0.0);
+    }
+    if (inside) {
+        store_reservoir(false, i, r);
     }
 }
 #endif
@@ -1029,6 +1094,9 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
     source += rt::brdf::brdf_glsl();
     source += hit_surface_glsl();
     source += rt::path::kPathGlsl;
+    if (which == Shader::kTemporal) {
+        source += restir_denoiser_glsl();
+    }
     source += rt_lamp_glsl();
     if (which == Shader::kTemporal && cloud_map) {
         source += "#define CLOUD_MAP\n" + cloud_map_glsl(kBindingCloudMap);
@@ -1876,7 +1944,9 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
                   static_cast<int32_t>(width), static_cast<int32_t>(height)};
     const uint32_t spatial = check && own.overrides.spatial != 0xFFU ? own.overrides.spatial : kSpatialNeighbours;
     const uint32_t flags = (history ? kFlagTemporal : 0U) | (spatial > 0 ? kFlagSpatial : 0U) |
-                           (check && own.accumulate ? kFlagAccumulate : 0U) | (check ? kFlagForced : 0U);
+                           (check && own.accumulate ? kFlagAccumulate : 0U) | (check ? kFlagForced : 0U) |
+                           (!check || own.overrides.permutation ? kFlagPermute : 0U) |
+                           (!check || own.overrides.boiling_filter ? kFlagBoiling : 0U);
     block.counts = {own.entries, static_cast<uint32_t>(local.lamp_list.size()), static_cast<uint32_t>(own.frames), flags};
     block.params = {0U, std::min(spatial, kMostSpatial), kHistoryCap, check ? own.overrides.seed : 0x6C8E9CF5U};
     block.tune = {kSpatialRadius, kNormalAgreement, kPlaneShare, kSkyShare};
