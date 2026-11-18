@@ -66,6 +66,8 @@ constexpr uint32_t kLightDepthBinding = 27;      // R32F: the prepass's depth (t
 constexpr uint32_t kLightDecalsBinding = 28;     // RGBA16F: the decals over the surface - its albedo's factor (1: none)
 constexpr uint32_t kLightGuidesBinding = 29;     // RGBA32UI storage, written: the surface's material for Ray
                                                  // Reconstruction (kLightGuides; vulkan_surface_light.h)
+constexpr uint32_t kLightSpecularBinding = 30;   // (path tracing, stage 5) RGBA16F: the environment's specular over the
+                                                 // specular albedo (ReSTIR GI's - vulkan_restir_gi.h; a 1 where made)
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.

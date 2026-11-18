@@ -89,11 +89,9 @@ constexpr std::size_t kLampFloats = kLampRecordFloats; // a LightRecord (vulkan_
 constexpr std::size_t kMatrixSide = 4;
 constexpr double kSingular = 1e-300;
 constexpr float kHalfFloatMost = 65504.0F;
-constexpr float kNoSun = 2.0F;        // (a cosine no direction reaches: no sun)
 constexpr float kTraceReach = 1.0e6F; // a ray's reach (world units)
 constexpr float kSameEye = 1.0e-3F;   // the camera stood still: its eye within this (world units) ...
 constexpr float kSamePixels = 0.25F;  // ... and its rays within this share of a pixel
-constexpr double kDegreesToRadians = 0.017453292519943295;
 constexpr uint32_t kBlendedOpenBit = 16; // (PathBlock::lists.w past the light kinds: the shaders' PATH_BLENDED_OPEN)
 
 using Matrix = std::array<std::array<double, kMatrixSide>, kMatrixSide>;
@@ -105,7 +103,7 @@ struct PathBlock {
     std::array<float, 4> corner{};       // toward the viewport's top-left corner (not normalised)
     std::array<float, 4> across{};       // per pixel right
     std::array<float, 4> down{};         // per pixel down
-    std::array<float, 4> sun{};          // xyz toward the sun; w the cosine of its radius (kNoSun: none)
+    std::array<float, 4> sun{};          // xyz toward the sun; w the cosine of its radius (kNoDisc: none)
     std::array<float, 4> sun_radiance{}; // rgb the disc's radiance; w its solid angle
     std::array<float, 4> sky{};          // rgb an even sky's radiance above the horizon; w 1: the table's
     std::array<float, 4> sky_table{};    // xyz the table's sun; w the factor on its values
@@ -191,54 +189,7 @@ const uint PATH_BLENDED_OPEN = 16u; // (pass.lists.w: `pt ref ... open` - the li
 // The emitters' scan (once a run, before its first paths): vulkan_light_list.h emitter_scan_glsl, on the block's counts.
 constexpr const char* kScanDefines = "#define LIST_TRIANGLES pass.counts.z\n#define LIST_CAPACITY pass.size.w\n";
 
-// The sky's grid (once a run): each cell's radiance toward its centre in the global unit - the sky-view table x the
-// clouds' transmittance + their light (the same march, noise and light as the drawn clouds, faded with distance as the
-// composite fades them) over the table's exposure; without drawn clouds the table x the lighting state's kept share of
-// the sky (DayLight::cloud_sky); without the table an even sky above the horizon.
-constexpr const char* kSkyBody = R"(
-layout(local_size_x = 8, local_size_y = 8) in;
-void main()
-{
-    uvec2 c = gl_GlobalInvocationID.xy;
-    if (c.x >= SKY_WIDTH || c.y >= SKY_HEIGHT) {
-        return;
-    }
-    vec3 dir = sky_cell_centre(c);
-    vec3 radiance;
-#ifdef SKY_TABLE
-    vec3 table = max(sky_view_linear(dir, pass.sky_table.xyz), vec3(0.0));
-#ifdef CLOUDS
-    CloudRay ray;
-    ray.camera_altitude = pass.cloud_ray.z;
-    ray.offset = pass.cloud_ray.xy;
-    ray.direction = dir;
-    ray.to_sun = pass.cloud_toward.xyz;
-    ray.coverage = pass.cloud_ray.w;
-    ray.density_scale = pass.cloud_toward.w;
-    ray.steps = int(pass.cloud_sun.w);
-    ray.jitter = 0.5;
-    ray.sun_light = pass.cloud_sun.rgb;
-    vec3 bottom;
-    vec3 top;
-    cloud_sky_light(bottom, top);
-    ray.ambient_bottom = bottom;
-    ray.ambient_top = top;
-    CloudResult r = march_clouds(ray);
-    float fade = exp(-max(r.distance, 0.0) / CLOUD_AERIAL_DISTANCE);
-    float kept = mix(1.0, clamp(r.transmittance, 0.0, 1.0), fade);
-    radiance = (table * kept + max(r.light, vec3(0.0)) * fade) * pass.sky_table.w;
-#else
-    radiance = table * pass.sky_table.w;
-#endif
-#else
-    radiance = dir.y > 0.0 ? pass.sky.rgb : vec3(0.0);
-#endif
-    if (any(isnan(radiance)) || any(isinf(radiance))) {
-        radiance = vec3(0.0);
-    }
-    sky_cells[c.y * SKY_WIDTH + c.x] = vec4(radiance, 0.0);
-}
-)";
+// The sky's grid (once a run): vulkan_light_list.h sky_grid_glsl.
 
 // The trace: `frame.y` paths a pixel added into its sums.
 constexpr const char* kTraceBody = R"(
@@ -668,20 +619,16 @@ void main()
 )";
 
 enum class Shader : uint8_t { kScan, kSky, kTrace, kOutput };
-// The sky's variants: an even sky (no table), the sky-view table, the table with the clouds marched.
-enum class SkySource : uint8_t { kEven = 0, kTable = 1, kTableClouds = 2 };
-constexpr std::size_t kSkySources = 3;
+// The sky's variants (vulkan_light_list.h): an even sky (no table), the sky-view table, the table with the clouds marched.
+using SkySource = SkyGridSource;
+constexpr std::size_t kSkySources = kSkyGridSources;
 
 // A shader's source: `sky` picks the sky shader's variant, `cloud_map` the trace's (the clouds' shadow map on the sun).
 std::string shader_source(Shader which, SkySource sky, bool cloud_map)
 {
     std::string source = "#version 460\n#extension GL_EXT_ray_query : require\n";
-    if (which == Shader::kSky && sky != SkySource::kEven) {
-        source += "#define SKY_TABLE\n" + atmosphere_glsl(kBindingTransmittance, kBindingSkyView);
-        if (sky == SkySource::kTableClouds) {
-            source += "#define CLOUDS\n" + cloud_glsl(kBindingCloudNoise) + rt_sky_cloud_light_glsl();
-            source += "const float CLOUD_AERIAL_DISTANCE = " + std::to_string(kCloudAerialDistance) + ";\n";
-        }
+    if (which == Shader::kSky) {
+        source += sky_grid_prelude(sky, kBindingTransmittance, kBindingSkyView, kBindingCloudNoise);
     }
     source += "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
     source += "#define THUG2_MATERIAL_SET 1\n";
@@ -713,7 +660,7 @@ std::string shader_source(Shader which, SkySource sky, bool cloud_map)
         source += emitter_scan_glsl();
         break;
     case Shader::kSky:
-        source += kSkyBody;
+        source += sky_grid_glsl();
         break;
     case Shader::kTrace:
         source += kTraceBody;
@@ -1349,27 +1296,6 @@ void barrier(VkCommandBuffer commands, VkPipelineStageFlags from, VkAccessFlags 
     vkCmdPipelineBarrier(commands, from, to, 0, 1, &memory, 0, nullptr, 0, nullptr);
 }
 
-// The disc of the lighting's direct light as the block takes it: toward it + the cosine of its radius, and its radiance
-// + its solid angle. False: none (no light, or no direction).
-bool disc_of(const Lighting& lighting, std::array<float, 4>* sun, std::array<float, 4>* radiance)
-{
-    const float most =
-        std::max({core::at(lighting.sun_light, 0), core::at(lighting.sun_light, 1), core::at(lighting.sun_light, 2)});
-    const auto cos_radius =
-        static_cast<float>(std::cos(static_cast<double>(lighting.sun_radius_degrees) * kDegreesToRadians));
-    const float toward_length = length_of(lighting.sun_toward);
-    if (!(most > 0.0F) || !(toward_length > 0.0F) || !(cos_radius < 1.0F)) {
-        *sun = {0.0F, 1.0F, 0.0F, kNoSun};
-        *radiance = {0.0F, 0.0F, 0.0F, 1.0F};
-        return false;
-    }
-    *sun = {core::at(lighting.sun_toward, 0) / toward_length, core::at(lighting.sun_toward, 1) / toward_length,
-            core::at(lighting.sun_toward, 2) / toward_length, cos_radius};
-    const rt::brdf::Rgb disc = rt::path::disc_radiance(lighting.sun_light, cos_radius);
-    *radiance = {core::at(disc, 0), core::at(disc, 1), core::at(disc, 2), rt::path::cone_solid_angle(cos_radius)};
-    return true;
-}
-
 // A buffer the processor writes once and the device reads (made again; an earlier frame may still read the old one).
 bool upload_buffer(Backend& state, DeviceBuffer* buffer, const void* data, std::size_t bytes)
 {
@@ -1432,15 +1358,7 @@ bool build_run_list(Backend& state, PathState& own)
     set.sky_integral = sky.integral;
     set.lamps = own.lighting.lamps;
     const rt::lights::LightList list = rt::lights::build_light_list(set, own.weights);
-    std::vector<std::array<uint32_t, 2>> alias;
-    alias.reserve(sky.rows.size() + sky.cells.size());
-    for (const std::vector<rt::lights::AliasEntry>* table : {&sky.rows, &sky.cells}) {
-        for (const rt::lights::AliasEntry& entry : *table) {
-            uint32_t threshold = 0;
-            std::memcpy(&threshold, &entry.threshold, sizeof(threshold));
-            alias.push_back({threshold, entry.alias});
-        }
-    }
+    const std::vector<std::array<uint32_t, 2>> alias = sky_alias_words(sky);
     if (!upload_buffer(state, &own.lights, list.table.entries.data(),
                        list.table.entries.size() * sizeof(rt::lights::AliasEntry)) ||
         !upload_buffer(state, &own.sky_alias, alias.data(), alias.size() * sizeof(alias.front()))) {
@@ -1630,8 +1548,7 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
                                    : (request.analytic_lamps ? request.light_kinds & ~rt::path::kLightKindEmitters
                                                              : request.light_kinds);
         own.blended_open = !checking && request.blended_open;
-        own.sky_source =
-            !lighting.table ? SkySource::kEven : (lighting.clouds ? SkySource::kTableClouds : SkySource::kTable);
+        own.sky_source = sky_grid_source(lighting);
         own.cloud_map = map_now;
         own.phase = ListPhase::kGather;
         own.list_count = 0;
@@ -1759,9 +1676,9 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
     block.across = {core::at(own.rays.across, 0), core::at(own.rays.across, 1), core::at(own.rays.across, 2), 0.0F};
     block.down = {core::at(own.rays.down, 0), core::at(own.rays.down, 1), core::at(own.rays.down, 2), 0.0F};
     (void)disc_of(lit, &block.sun, &block.sun_radiance);
-    block.sky = {core::at(lit.sky, 0), core::at(lit.sky, 1), core::at(lit.sky, 2), lit.table ? 1.0F : 0.0F};
-    block.sky_table = {core::at(lit.table_input.sun, 0), core::at(lit.table_input.sun, 1),
-                       core::at(lit.table_input.sun, 2), lit.table_factor};
+    const SkyGridInputs sky_inputs = sky_grid_inputs(lit);
+    block.sky = sky_inputs.sky;
+    block.sky_table = sky_inputs.sky_table;
     if (checking && own.overrides.force_material) {
         block.force = {own.overrides.roughness, own.overrides.f0, own.overrides.albedo_scale, 1.0F};
     }
@@ -1785,13 +1702,9 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
         block.cloud_place = cloud_map.place;
         block.cloud_light = cloud_map.light;
     }
-    const RtSkyFrame& clouds = lit.cloud_frame;
-    block.cloud_ray = {static_cast<float>(core::at(clouds.offset, 0)), static_cast<float>(core::at(clouds.offset, 1)),
-                       static_cast<float>(clouds.camera_altitude), clouds.coverage};
-    block.cloud_sun = {core::at(clouds.sun_light, 0), core::at(clouds.sun_light, 1), core::at(clouds.sun_light, 2),
-                       static_cast<float>(std::max(clouds.steps, 1U))};
-    block.cloud_toward = {core::at(clouds.cloud_toward, 0), core::at(clouds.cloud_toward, 1),
-                          core::at(clouds.cloud_toward, 2), 1.0F};
+    block.cloud_ray = sky_inputs.cloud_ray;
+    block.cloud_sun = sky_inputs.cloud_sun;
+    block.cloud_toward = sky_inputs.cloud_toward;
     std::array<uint8_t, sizeof(PathBlock)> block_bytes{};
     std::memcpy(block_bytes.data(), &block, sizeof(block));
     const std::optional<RingSpan> block_span = state.ring.copy(block_bytes, kUniformAlignment);

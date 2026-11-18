@@ -44,6 +44,7 @@ const CHECKS = new Set([
     "tests/vulkan_rt_lights_check.cpp",
     "tests/vulkan_path_check.cpp",
     "tests/vulkan_restir_check.cpp",
+    "tests/vulkan_restir_gi_check.cpp",
     "tests/vulkan_framegen_check.cpp",
     "tests/ff_shader_check.cpp",
     "tests/ff_shader_check_gpu.cpp",

@@ -28,6 +28,7 @@
 #ifdef THUG2_VULKAN
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_restir_di.h"
+#include "gpu_vulkan/vulkan_restir_gi.h"
 #endif
 
 namespace app {
@@ -230,6 +231,14 @@ void add_running(Fields* out)
                                                static_cast<unsigned long long>(restir.passes), restir.lamps,
                                                restir.listed, restir.gpu_ms, restir.gpu_width, restir.gpu_height)
                                 : std::string("the lamps pass"));
+        // (path tracing, stage 5) who lit the indirect light: ReSTIR GI's passes so far, its list
+        const render::vulkan::RestirGiStats gi = render::vulkan::restir_gi_stats();
+        add("indirect light", gi.passes > 0
+                                  ? text::format("ReSTIR GI (%llu passes; %u lights listed, %llu sky grids; %.3f ms at %ux%u)",
+                                                 static_cast<unsigned long long>(gi.passes), gi.lights,
+                                                 static_cast<unsigned long long>(gi.sky_grids), gi.gpu_ms, gi.gpu_width,
+                                                 gi.gpu_height)
+                                  : std::string("the light store's sky and bounce, the occlusion and reflections passes"));
     }
 #endif
     if (scale.on && gpu.device_made()) {

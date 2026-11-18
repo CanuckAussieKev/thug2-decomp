@@ -829,6 +829,7 @@ struct RestirState {
     uint32_t lamp_count = 0;
     double power = 0.0; // (the table's total: 0 - every lamp off, nothing emitting - nothing to light)
     uint64_t layout_key = 0; // which light an entry is (the list's triangles, the lamps' count): history across it only
+    std::vector<rt::Emitter> local_lamps; // (the lamps the records were made from - restir_local_lights)
     // per pixel
     uint32_t width = 0;
     uint32_t height = 0;
@@ -924,7 +925,8 @@ VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::str
     return pipeline;
 }
 
-bool ensure_pipelines(Backend& state, bool check, std::string* error)
+// The layouts and the emitters' scan (the local lights' upkeep - restir_local_lights - needs no more).
+bool ensure_scan(Backend& state, std::string* error)
 {
     RestirState& own = restir_state();
     const VkDevice device = state.context.device();
@@ -972,9 +974,16 @@ bool ensure_pipelines(Backend& state, bool check, std::string* error)
     }
     if (own.scan == VK_NULL_HANDLE) {
         own.scan = make_compute(device, own.layout, shader_source(Shader::kScan, false), error);
-        if (own.scan == VK_NULL_HANDLE) {
-            return false;
-        }
+    }
+    return own.scan != VK_NULL_HANDLE;
+}
+
+bool ensure_pipelines(Backend& state, bool check, std::string* error)
+{
+    RestirState& own = restir_state();
+    const VkDevice device = state.context.device();
+    if (!ensure_scan(state, error)) {
+        return false;
     }
     const std::size_t variant = check ? 1U : 0U;
     if (core::at(own.temporal, variant) == VK_NULL_HANDLE) {
@@ -1262,7 +1271,94 @@ bool wanted(Backend& state)
     return restir && surface_inputs(state) != nullptr;
 }
 
+// The local lights kept up for this frame (see restir_local_lights): a finished scan taken into use, a new one recorded when
+// the world or its lamps' own surfaces changed, the alias table and the lamps' records made again when their power
+// changed. False: the scan's pipeline or the table couldn't be made.
+bool keep_local_lights(Backend& state, RestirState& own, VkCommandBuffer commands, const SceneView& scene,
+                       const SceneLighting& lighting)
+{
+    std::string error;
+    if (own.failed || !ensure_scan(state, &error)) {
+        if (!own.failed) {
+            own.failed = true;
+            if (first_report(state, kReportPipeline)) {
+                get_log("restir: the emitters' scan couldn't be made (%s) - the lamps pass lights the lamps",
+                        error.c_str());
+            }
+        }
+        return false;
+    }
+    if (own.material_layout != state.materials.layout()) {
+        return false;
+    }
+    const rt::FrameRecord& record = rt::frame_record();
+    const uint64_t world_key = world_key_of(record, lighting);
+    // the emitters' list: a finished scan taken into use; a new one when the world or its lamps' surfaces changed
+    if (own.scan_serial != 0 && state.frames.completed() >= own.scan_serial) {
+        if (own.scan_key == world_key) {
+            adopt_scan(state, own);
+        } else {
+            own.scan_serial = 0; // (the world changed while it ran: scanned again)
+        }
+    }
+    if (own.list_now >= 0 && own.list_key != world_key) {
+        own.list_now = -1; // (its places name another world's triangles: none until the new scan is in)
+        own.triangle_powers.clear();
+        own.table_key = 0;
+    }
+    if (own.scan_serial == 0 && own.list_key != world_key) {
+        barrier(commands, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+                VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT);
+        if (!record_scan(state, own, commands, scene, world_key)) {
+            if (first_report(state, kReportBuffers)) {
+                get_log("restir: the emitters' list couldn't be made - the lamps alone");
+            }
+            own.list_key = world_key; // (not again every frame)
+        }
+    }
+    if (!update_table(state, own, lighting.lamps)) {
+        return false;
+    }
+    const std::array<uint32_t, 4> empty_list{};
+    if (own.list_now < 0 && core::at(own.emitters, 0).buffer == VK_NULL_HANDLE &&
+        !upload_buffer(state, &core::at(own.emitters, 0), empty_list.data(), sizeof(empty_list))) {
+        return false;
+    }
+    if (own.membership.buffer == VK_NULL_HANDLE &&
+        !upload_buffer(state, &own.membership, empty_list.data(), sizeof(empty_list))) {
+        return false;
+    }
+    if (own.slots.buffer == VK_NULL_HANDLE && !upload_buffer(state, &own.slots, empty_list.data(), sizeof(empty_list))) {
+        return false;
+    }
+    own.local_lamps = lighting.lamps;
+    return true;
+}
+
 } // namespace
+
+bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLighting& lighting, RestirLocalLights* out)
+{
+    RestirState& own = restir_state();
+    const SceneView scene = current_scene(state);
+    if (scene.tlas == VK_NULL_HANDLE || scene.geometry == VK_NULL_HANDLE || scene.instances_address == 0 ||
+        !state.materials.ready() || state.materials.descriptor_set() == VK_NULL_HANDLE ||
+        !keep_local_lights(state, own, commands, scene, lighting)) {
+        return false;
+    }
+    const DeviceBuffer& list = core::at(own.emitters, static_cast<std::size_t>(std::max(own.list_now, 0)));
+    out->emitters = list.buffer;
+    out->lamps = own.lamps.buffer;
+    out->membership = own.membership.buffer;
+    out->slots = own.slots.buffer;
+    out->triangle_powers = own.list_now >= 0 ? own.triangle_powers : std::vector<float>{};
+    out->lamp_list = own.local_lamps;
+    out->key = own.table_key;
+    out->layout_key = own.layout_key;
+    return true;
+}
 
 void set_restir_overrides(const RestirOverrides& overrides)
 {
@@ -1396,36 +1492,8 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     } else {
         lighting = scene_lighting(false, true);
     }
-    const rt::FrameRecord& record = rt::frame_record();
-    const uint64_t world_key = world_key_of(record, lighting);
-
     VkCommandBuffer commands = outside_pass(state);
-    // the emitters' list: a finished scan taken into use; a new one when the world or its lamps' surfaces changed
-    if (own.scan_serial != 0 && state.frames.completed() >= own.scan_serial) {
-        if (own.scan_key == world_key) {
-            adopt_scan(state, own);
-        } else {
-            own.scan_serial = 0; // (the world changed while it ran: scanned again)
-        }
-    }
-    if (own.list_now >= 0 && own.list_key != world_key) {
-        own.list_now = -1; // (its places name another world's triangles: none until the new scan is in)
-        own.triangle_powers.clear();
-        own.table_key = 0;
-    }
-    if (own.scan_serial == 0 && own.list_key != world_key) {
-        barrier(commands, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_SHADER_WRITE_BIT,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT);
-        if (!record_scan(state, own, commands, scene, world_key)) {
-            if (first_report(state, kReportBuffers)) {
-                get_log("restir: the emitters' list couldn't be made - the lamps alone");
-            }
-            own.list_key = world_key; // (not again every frame)
-        }
-    }
-    if (!update_table(state, own, lighting.lamps)) {
+    if (!keep_local_lights(state, own, commands, scene, lighting)) {
         return false;
     }
     if (!(own.power > 0.0) && !check) {
@@ -1443,11 +1511,6 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         own.width = width;
         own.height = height;
         own.restart = true;
-    }
-    const std::array<uint32_t, 4> empty_list{};
-    if (own.list_now < 0 && core::at(own.emitters, 0).buffer == VK_NULL_HANDLE &&
-        !upload_buffer(state, &core::at(own.emitters, 0), empty_list.data(), sizeof(empty_list))) {
-        return false;
     }
     bool made = ensure_buffer(state, &own.reservoirs_a, pixels * 16, storage, BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.reservoirs_b, pixels * 16, storage, BufferPlace::kDevice) &&

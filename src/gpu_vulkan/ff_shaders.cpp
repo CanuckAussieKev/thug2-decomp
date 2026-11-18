@@ -461,6 +461,7 @@ layout(set = 0, binding = 25) uniform sampler2D light_lamps_map;
 layout(set = 0, binding = 26) uniform sampler2D light_lamps_on_map;
 layout(set = 0, binding = 27) uniform sampler2D light_depth_map;
 layout(set = 0, binding = 28) uniform sampler2D light_decals_map;
+layout(set = 0, binding = 30) uniform sampler2D light_specular_map;
 bool light_here()
 {
     float z = texelFetch(light_depth_map, ivec2(gl_FragCoord.xy), 0).r;
@@ -477,6 +478,9 @@ vec3 light_lamps_on_now()
 {
     return light_here() ? texelFetch(light_lamps_on_map, ivec2(gl_FragCoord.xy), 0).rgb : vec3(0.0);
 }
+// (path tracing, stage 5 - ReSTIR GI) the environment's specular light over the specular albedo, where it was traced (its
+// indirect visibility then 0: the store's environment - diffuse and specular - has no weight there); 0 elsewhere
+vec3 light_specular_now() { return light_here() ? texelFetch(light_specular_map, ivec2(gl_FragCoord.xy), 0).rgb : vec3(0.0); }
 )";
 // (round V - Ray Reconstruction's guides, kLightGuides) The surface's material where it is the one the inputs were made
 // for, written once the fragment is kept (after its alpha test): its albedo and specular albedo (display-encoded 8 bits,
@@ -1153,8 +1157,10 @@ void surface_finish(std::string& out, const FragmentKey& key)
     // (NOT ORIGINAL - round V: the surface's light inputs at its pixel - kLightInputsGlsl; without them the vertex's own:
     // the sun's visibility as the store has it, nothing occluded, no lamps beyond the store's)
     const bool inputs = (key.light & kLightInputs) != 0U;
-    add(out, {inputs ? "    vec4 surface_li = light_in_now();\n    vec3 surface_lamps = light_lamps_now();"
-                     : "    vec4 surface_li = vec4(-1.0, 0.0, 1.0, 0.0);\n    vec3 surface_lamps = vec3(0.0);"});
+    add(out, {inputs ? "    vec4 surface_li = light_in_now();\n    vec3 surface_lamps = light_lamps_now();\n"
+                       "    vec3 surface_specular_in = light_specular_now();"
+                     : "    vec4 surface_li = vec4(-1.0, 0.0, 1.0, 0.0);\n    vec3 surface_lamps = vec3(0.0);\n"
+                       "    vec3 surface_specular_in = vec3(0.0);"});
     if ((key.surface & kSurfaceLit) != 0U) {
         const bool hair = (key.detail & kDetailHair) != 0U;
         if (hair) {
@@ -1213,6 +1219,11 @@ void surface_finish(std::string& out, const FragmentKey& key)
         add(out, {"    vec3 surface_bake = linear_from_display(v_diffuse.rgb * 2.0);\n"
                   "    surface_out = brdf_ambient(surface_m, surface_nv, surface_bake * surface_hemi, surface_bake * surface_env) "
                   "* light_share(surface_li) + surface_m.albedo * surface_lamps;"});
+    }
+    if (inputs) {
+        // (path tracing, stage 5 - ReSTIR GI: the environment's specular traced, on the material's specular albedo - in
+        // place of the store's estimate, whose weight, the indirect visibility, is 0 where this was made)
+        add(out, {"    surface_out += brdf_specular_albedo(surface_m.f0, surface_nv, surface_m.roughness) * surface_specular_in;"});
     }
     if ((key.light & kLightGuides) != 0U && (key.light & kLightInputs) != 0U) {
         // (round V: Ray Reconstruction's guides - the material the light model was given)
@@ -1299,7 +1310,7 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
     }
     if ((key.light & (kLightInputs | kLightShare)) != 0U) {
         static_assert(kLightVisibilityBinding == 24 && kLightLampsBinding == 25 && kLightLampsOnBinding == 26 &&
-                          kLightDepthBinding == 27 && kLightDecalsBinding == 28,
+                          kLightDepthBinding == 27 && kLightDecalsBinding == 28 && kLightSpecularBinding == 30,
                       "kLightInputsGlsl names them");
         add(out, {kLightInputsGlsl}); // (NOT ORIGINAL - round V: the surface's light inputs)
     }

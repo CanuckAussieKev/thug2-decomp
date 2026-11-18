@@ -427,6 +427,16 @@ std::vector<Decl> declarations()
             .pick({c("auto", t::kAuto), c("restir", "ReSTIR"), c("passes", t::kOptDirectLightPasses)})
             .need(is_not("rt_lights", {"0"}))
             .live(E::kLights),
+        // (path tracing, stage 5 - gpu_vulkan/vulkan_restir_gi.h) how the indirect light and the environment's reflections
+        // are made: ReSTIR GI (the sky and one bounce of every light traced, noisy - Ray Reconstruction's to clean), or the
+        // relit store's sky and bounce with the occlusion and reflections passes; auto: ReSTIR where Ray Reconstruction
+        // denoises the frame
+        gfx("indirect_light", K::kChoice, "auto")
+            .tab(G::kLighting, t::kOptIndirectLight, t::kOptIndirectLightHelp)
+            .pick({c("auto", t::kAuto), c("restir", "ReSTIR"), c("passes", t::kOptDirectLightPasses)})
+            .need(ray_tracing())
+            .need(on("rt_relit"))
+            .live(E::kGi),
         gfx("rt_lights_max", K::kNumber, "64").need(is_not("rt_lights", {"0"})).live(E::kLights),
         gfx("rt_lights_emissive", K::kNumber, "1").need(is_not("rt_lights", {"0"})).live(E::kLights),
         gfx("rt_lights_level", K::kNumber, "1").need(is_not("rt_lights", {"0"})).live(E::kLights),

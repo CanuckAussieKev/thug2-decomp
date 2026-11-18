@@ -1,6 +1,7 @@
 // NOT ORIGINAL - upscaling (vulkan_upscale.h; docs/design/vulkan.md "Upscaling"): the settings, the view listener, the
 // jitter, the preparation pass and the provider's frame.
 #include "gpu_vulkan/vulkan_upscale.h"
+#include "gpu_vulkan/vulkan_restir_gi.h"
 #include "gpu_vulkan/vulkan_surface_light.h"
 
 #include <algorithm>
@@ -992,6 +993,12 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         frame.albedo = &own.albedo;
         frame.specular_albedo = &own.specular;
         frame.normal_roughness = &own.normals;
+        // (path tracing, stage 5) the specular hit distance ReSTIR GI traced for this view
+        frame.specular_hit = restir_gi_specular_hit(state);
+        if (frame.specular_hit != nullptr) {
+            Memory::transition(commands, frame.specular_hit, VK_IMAGE_LAYOUT_GENERAL, true);
+            frame.specular_hit_at = {core::at(drawn, 0), core::at(drawn, 1)};
+        }
     }
     frame.render = render;
     frame.output_size = output;

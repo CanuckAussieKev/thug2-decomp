@@ -69,6 +69,10 @@ struct UpscaleFrame {
     Image* albedo = nullptr;
     Image* specular_albedo = nullptr;
     Image* normal_roughness = nullptr;
+    // (path tracing, stage 5) the specular rays' hit distance (R16F, world units - ReSTIR GI's,
+    // vulkan_restir_gi.h restir_gi_specular_hit; null without it), the view at specular_hit_at (its top-left texel)
+    Image* specular_hit = nullptr;
+    std::array<uint32_t, 2> specular_hit_at{};
 };
 
 // How the offset a provider is told (UpscaleFrame::jitter) is made from the projection's jitter j (pixels) and the

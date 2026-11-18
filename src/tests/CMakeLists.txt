@@ -467,6 +467,17 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_restir_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_restir_gi_check.exe: the indirect light by ReSTIR GI (gpu_vulkan/vulkan_restir_gi.h; path
+# tracing, stage 5) on this machine - the reference path tracer's indirect light (two bounces less the direct light) on a
+# still scene within 2 % (glossy and smooth materials), colour bleeding, a room lit through a window, a white floor under
+# an even sky (energy), a camera swapped between views, no NaN (src/tests/vulkan_restir_gi_check.cpp). Exit 2 on a device
+# without ray queries.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_restir_gi_check vulkan_restir_gi_check.cpp)
+    target_link_libraries(thug2_vulkan_restir_gi_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_restir_gi_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_vulkan_rt_lights_check.exe: the night lighting (gpu_vulkan/vulkan_rt_lights.h, rt_lights) on this
 # machine - the light sources' clustering and selection on the processor, then a lamp beside a box on a dark floor: each
 # pixel's lamp light and the box's shadow against the processor's, four samples, a red-textured glow, two lamps with one

@@ -577,10 +577,19 @@ public:
         sl::Resource albedo = frame.albedo != nullptr ? streamline_resource(*frame.albedo) : sl::Resource{};
         sl::Resource specular = frame.specular_albedo != nullptr ? streamline_resource(*frame.specular_albedo) : sl::Resource{};
         sl::Resource normals = frame.normal_roughness != nullptr ? streamline_resource(*frame.normal_roughness) : sl::Resource{};
+        // (path tracing, stage 5) the specular rays' hit distance (ReSTIR GI's; world units, the view at its rect)
+        sl::Resource specular_hit = frame.specular_hit != nullptr ? streamline_resource(*frame.specular_hit) : sl::Resource{};
+        const sl::Extent hit_extent{.top = core::at(frame.specular_hit_at, 1),
+                                    .left = core::at(frame.specular_hit_at, 0),
+                                    .width = frame.render.width,
+                                    .height = frame.render.height};
         if (ray_reconstruction_) {
             tags.emplace_back(&albedo, sl::kBufferTypeAlbedo, kKept, &render);
             tags.emplace_back(&specular, sl::kBufferTypeSpecularAlbedo, kKept, &render);
             tags.emplace_back(&normals, sl::kBufferTypeNormalRoughness, kKept, &render);
+            if (frame.specular_hit != nullptr) {
+                tags.emplace_back(&specular_hit, sl::kBufferTypeSpecularHitDistance, kKept, &hit_extent);
+            }
         }
         auto* commands = same_address<sl::CommandBuffer*>(frame.commands);
         if (calls.tag(*token, viewport, tags.data(), static_cast<uint32_t>(tags.size()), commands) != sl::Result::eOk) {
