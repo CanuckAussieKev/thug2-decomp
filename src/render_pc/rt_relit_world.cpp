@@ -809,7 +809,10 @@ uint64_t switch_lamps(const rt::DayLight& day)
     std::vector<float> on(lamps.size(), 0.0F);
     uint64_t hash = fnv_value(kFnvBasis, static_cast<uint64_t>(lamps.size()));
     for (std::size_t li = 0; li < lamps.size(); ++li) {
-        core::at(on, li) = std::round(rt::lamp_on(core::at(lamps, li).switch_sky, sky_now, open) * kLampSteps) / kLampSteps;
+        core::at(on, li) = std::round(rt::lamp_switch(core::at(lamps, li).game_light, core::at(lamps, li).switch_sky, sky_now,
+                                                       open) *
+                                       kLampSteps) /
+                            kLampSteps;
         hash = fnv_value(hash, core::at(on, li));
     }
     hash = hash == 0 ? 1 : hash;
@@ -2010,7 +2013,8 @@ bool data_emitters(std::vector<rt::Emitter>* out, std::vector<uint8_t>* surfaced
                         .shape = lamp.shape,
                         .axis = lamp.axis,
                         .half_length = lamp.half_length,
-                        .switch_sky = lamp.switch_sky}); // (round A3: on by its own daylight - rt_lights.h lamp_on)
+                        .switch_sky = lamp.switch_sky, // (round A3: on by its own daylight - rt_lights.h lamp_on)
+                        .game_light = lamp.game_light}); // (round SL: or the game's light it is, by the game)
     }
     return true;
 }

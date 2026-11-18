@@ -2849,6 +2849,68 @@ void trace_relit_lamps(std::span<const RelitMesh> meshes, std::span<const uint8_
     }
 }
 
+std::size_t relit_adopt_game_lights(std::vector<RelitLamp>* lamps)
+{
+    std::vector<RelitLamp>& list = *lamps;
+    std::vector<uint8_t> taken(list.size(), 0);   // (an emitter that is a light's head)
+    std::vector<uint8_t> absorbed(list.size(), 0); // (a light carried by its head)
+    const auto head_kind = [](const RelitLamp& lamp) {
+        return lamp.game_light == 0U &&
+               (lamp.kind == EmitterKind::kGlow || lamp.kind == EmitterKind::kSelfLit || lamp.kind == EmitterKind::kTextured);
+    };
+    std::size_t adopted = 0;
+    for (std::size_t gi = 0; gi < list.size(); ++gi) {
+        const RelitLamp& light = core::at(list, gi);
+        if (light.kind != EmitterKind::kPoint || light.game_light == 0U) {
+            continue;
+        }
+        const bool off_in_bake = !(light.game_on > 0.0F);
+        const float light_core = point_core(light.reach);
+        std::size_t best = list.size();
+        float best_distance = 0.0F;
+        bool best_preferred = false;
+        for (std::size_t hi = 0; hi < list.size(); ++hi) {
+            const RelitLamp& head = core::at(list, hi);
+            if (core::at(taken, hi) != 0 || !head_kind(head)) {
+                continue;
+            }
+            const Vec3 apart = minus(head.position, light.position);
+            const float distance = std::sqrt(dot(apart, apart));
+            if (!(distance <= head.core + head.half_length + light_core)) {
+                continue;
+            }
+            const bool preferred = head.other_state == off_in_bake;
+            if (best == list.size() || (preferred && !best_preferred) ||
+                (preferred == best_preferred && distance < best_distance)) {
+                best = hi;
+                best_distance = distance;
+                best_preferred = preferred;
+            }
+        }
+        if (best == list.size()) {
+            continue;
+        }
+        RelitLamp& head = core::at(list, best);
+        head.game_light = light.game_light;
+        head.game_on = head.other_state ? 0.0F : light.game_on;
+        head.reach = std::max(head.reach, light.reach);
+        if (!(head.game_on > 0.0F)) {
+            head.light = light.light; // (unseen in the bake: its colour the light's, at full brightness)
+        }
+        core::at(taken, best) = 1;
+        core::at(absorbed, gi) = 1;
+        ++adopted;
+    }
+    std::size_t kept = 0;
+    for (std::size_t li = 0; li < list.size(); ++li) {
+        if (core::at(absorbed, li) == 0) {
+            core::at(list, kept++) = core::at(list, li);
+        }
+    }
+    list.resize(kept);
+    return adopted;
+}
+
 LampShape lamp_shape(const RelitLamp& lamp)
 {
     return {.position = lamp.position,
@@ -3396,6 +3458,15 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
     // second - the light it took from the confirmed lamps given back to them
     std::vector<uint8_t> excluded(lamps.size(), 0);
     std::vector<uint8_t> lit_in_bake(lamps.size(), 1); // (round indoor lamps) on at the bake's time by its own switch
+    // (round SL) a lamp whose light can't be in the bake's colours takes no part in the solve - it would only take the
+    // light the others don't explain: one of the game's lights off at the bake's time (the game's switch, not a guess),
+    // a surface shown only in another lighting state (hidden in the bake)
+    const auto unseen = [](const RelitLamp& lamp) {
+        return (lamp.game_light != 0U && !(lamp.game_on > 0.0F)) || lamp.other_state;
+    };
+    for (std::size_t li = 0; li < lamps.size(); ++li) {
+        core::at(excluded, li) = unseen(core::at(lamps, li)) ? 1 : 0;
+    }
     const std::vector<Rgbf> listed = [&lamps]() {
         std::vector<Rgbf> out;
         for (const RelitLamp& lamp : lamps) {
@@ -3586,8 +3657,11 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
                                  : sky_share < static_cast<double>(kRelitIndoorSky) ? kLampAlwaysOn
                                                                          : static_cast<float>(static_cast<double>(kPhotocellLux) / unit_lux / sky_share);
         // (at the bake's own time: its physical open sky and the open sky's lamps - the game's switch then)
-        const bool on_in_bake = !candidate_kind(lamp.kind) || !(unit_lux > 0.0) ||
-                                lamp_on(switch_sky, bake_time.sky, bake_time.lamps) >= 0.5F;
+        // (round SL: one of the game's lights by the game's own switch then; an unseen lamp never)
+        const bool on_in_bake = lamp.game_light != 0U ? lamp.game_on > 0.0F && !lamp.other_state
+                                : unseen(lamp)        ? false
+                                                      : !candidate_kind(lamp.kind) || !(unit_lux > 0.0) ||
+                                                     lamp_on(switch_sky, bake_time.sky, bake_time.lamps) >= 0.5F;
         bool plausible = true;
         for (std::size_t ch = 0; ch < 3; ++ch) {
             if (std::vector<float>& tints = core::at(core::at(implied, li), ch); !tints.empty()) {
@@ -3609,7 +3683,9 @@ void solve_relit_lamps(std::span<const RelitMesh> meshes, std::span<RelitVertice
         {
             // (round L) the verdict: off at the bake's time by its own switch - any kind, a glow too (the street lamp
             // the afternoon bake can't see) -, no edges, a run-off, or dark
-            const bool off = unit_lux > 0.0 && lamp_on(switch_sky, bake_time.sky, bake_time.lamps) < 0.5F;
+            const bool off = lamp.game_light != 0U || unseen(lamp)
+                                 ? !on_in_bake
+                                 : unit_lux > 0.0 && lamp_on(switch_sky, bake_time.sky, bake_time.lamps) < 0.5F;
             core::at(lit_in_bake, li) = off ? 0 : 1;
             core::at(verdicts, li) = lamp.solved                          ? RelitLampTold::kSolved
                                      : !told_all                           ? RelitLampTold::kNoEdges
@@ -3983,6 +4059,8 @@ const char* relit_lamp_source_name(RelitLampSource source)
         return "own surface";
     case RelitLampSource::kNotAFixture:
         return "not a fixture's size";
+    case RelitLampSource::kGameLight:
+        return "the game's light - model";
     }
     return "?";
 }
@@ -4082,6 +4160,9 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
                 continue;
             }
             RelitLamp measured = lamp;
+            if (lamp.game_light != 0U && lamp.game_on > 0.0F) {
+                measured.light = scaled(measured.light, 1.0F / lamp.game_on); // (round SL: at full brightness)
+            }
             relit_lamp_photometry(&measured, unit_lux);
             const LampFixture fixture = fixture_for(lamp, lamp.light);
             const FixtureValues& values = fixture_values(fixture);
@@ -4111,6 +4192,11 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
         const bool solved_lamp = verdict == RelitLampTold::kSolved; // (a glow, a candidate or a point light the bake told)
         if (solved_lamp && counts.exposure > 0.0) {
             lamp.light = scaled(lamp.light, static_cast<float>(counts.exposure)); // (in physical units)
+        }
+        if (solved_lamp && lamp.game_light != 0U && lamp.game_on > 0.0F) {
+            // (round SL) one of the game's lights at its full brightness: the game dims it by its own brightness now
+            // (rt_lights.h lamp_switch) - the bake saw it at game_on of that
+            lamp.light = scaled(lamp.light, 1.0F / lamp.game_on);
         }
         relit_lamp_photometry(&lamp, unit_lux);
         const Rgbf evidence_colour = lamp.solved && luma(lamp.light) > 0.0F ? lamp.light : own;
@@ -4143,6 +4229,16 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
                 model = true;
                 typical = !fixtures.sized;
             }
+        } else if (lamp.game_light != 0U) {
+            // (round SL - the game's own lights, as RTX Remix converts a game's) one the game defines - a light node, or
+            // the emitter that is its head (relit_adopt_game_lights) - the bake couldn't tell: off at the bake's time (a
+            // night state's light), or on but not told. The game's own light is the evidence: it is a lamp, its fixture's
+            // model at full brightness - its kind from its own colour, shape and place (fixture_of) - and the game's
+            // brightness switches it. A head's flux is pi L A over its luminous area where that is a fixture's, else (and
+            // a light node, which has no surface) its kind's typical fixture's
+            source = RelitLampSource::kGameLight;
+            model = true;
+            typical = lamp.kind == EmitterKind::kPoint || !fixtures.sized;
         } else if (lamp.kind == EmitterKind::kPoint) {
             source = luma(lamp.light) > 0.0F ? RelitLampSource::kOwnSurface : RelitLampSource::kNone;
             if (source != RelitLampSource::kNone && flux_out) {
@@ -4150,6 +4246,11 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
                 model = true;
                 typical = true;
             }
+        } else if (lamp.other_state) {
+            // (round SL) a surface the level shows only in another lighting state that is no light's head: the game
+            // never shows it lit as a lamp of its own - no light (its own surface still shows its night colours)
+            source = RelitLampSource::kNone;
+            lamp.light = {};
         } else if (!candidate) {
             // a glow (the artists' mark of a lamp) the bake didn't tell - no edges, off in the bake by its own switch,
             // under the fit's noise (its size untold), a run-off: its kind's model over its luminous core, when that

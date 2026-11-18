@@ -522,8 +522,27 @@ struct RelitLamp {
     // (round indoor lamps; the bake's - not in the data) its height above the floors it lights (world units; 0: none
     // lit): relit_lamp_mounts - a high-bay's evidence (lamp_fixtures.h)
     float mount = 0.0F;
+    // (round SL - the game's own lights) the game's light it is (a light node's name - rt_scene.h GameLight; 0: none):
+    // the game switches it (rt_lights.h lamp_switch), its intensity above is at the game's full brightness. A found
+    // emitter takes one when it is that light's head (relit_adopt_game_lights)
+    uint32_t game_light = 0;
+    // (the bake's - not in the data) how bright the game had that light at the bake's time (0 - 1; 0: off then - its
+    // light isn't in the bake's colours, it takes no part in the solve), and whether a found emitter's surface is shown
+    // only in another of the level's lighting states (its night's geometry - hidden in the bake)
+    float game_on = 0.0F;
+    bool other_state = false;
 };
 [[nodiscard]] LampShape lamp_shape(const RelitLamp& lamp);
+// (round SL - one owner for a light that is both the game's light and a glowing surface) Each of the game's own lights
+// (RelitLamp::game_light, kind kPoint) whose head a found emitter is - a glow, self-lit or textured emitter (not a pool:
+// no surface) within the head's own extent (its core and half length) and the light's core (rt_lights.h point_core of
+// its reach) of the light - becomes that emitter: the head takes the light's switch (the game's), its reach where longer,
+// and, when the bake can't see it lit (the light off at the bake's time), the light's colour; the light itself leaves
+// the list. The head is the nearest such emitter, one shown in the same lighting state as the light first (a light off
+// in the bake - a night's - takes a surface of another state, its night geometry, before a shown one); an emitter is one
+// light's head at most (a second light at it stays a light of its own). A surface of another state no light takes is
+// no lamp (relit_lamp_models: the game never shows it lit). Returns how many lights became their heads.
+std::size_t relit_adopt_game_lights(std::vector<RelitLamp>* lamps);
 // (round L) Where a lamp's light comes from.
 enum class RelitLampSource : uint8_t {
     kNone = 0,        // no light (a candidate the bake doesn't confirm)
@@ -533,6 +552,8 @@ enum class RelitLampSource : uint8_t {
     kOwnSurface = 4,  // a point light (the level's own): its own displayed light - no surface to model
     kNotAFixture = 5, // a glow or candidate whose luminous area is no one fixture's of its kind (or none: a card with no
                       // saturated core - a halo or haze, not drawn round a lamp): no light
+    kGameLight = 6,   // (round SL) one of the game's own lights (or its head) the bake couldn't tell (off then, or
+                      // not told): its fixture's model - its kind from its own colour, shape and place
 };
 [[nodiscard]] const char* relit_lamp_source_name(RelitLampSource source);
 // (round L) What the bake knew of a lamp's light (solve_relit_lamps' verdict, before the model).
@@ -579,7 +600,7 @@ struct LampFixtures {
 };
 [[nodiscard]] LampFixtures lamp_fixtures(const RelitLamp& lamp, LampFixture fixture, float area);
 struct LampModelCounts {
-    std::array<std::size_t, 6> by_source{};
+    std::array<std::size_t, 7> by_source{};
     std::array<std::size_t, kLampFixtures> by_fixture{};
     double exposure = 0.0;         // the art's lamp exposure (physical over solved flux; 0: not told)
     std::size_t exposure_lamps = 0; // the solved lamps it was told from

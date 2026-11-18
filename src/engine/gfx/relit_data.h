@@ -75,7 +75,11 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // where it stands (keyed by its content there - its positions through its instance's transform), taken apart by the
 // level's model as its own meshes are (tints, emission, lamp links) - their lamps (a globe's) found with the level's;
 // the model fitted over the level's own meshes alone.
-inline constexpr uint32_t kRelitDataVersion = 16;
+// v17 (round SL - the game's own lights): every light node's light listed, on or off at the bake's time (a night state's
+// street lamps), each lamp that is one of them carrying its node's name (RelitLamp::game_light: the game switches it);
+// a light whose head is a found emitter one lamp with it (the head's surface emitting); the surfaces of another lighting
+// state looked at for lamp heads.
+inline constexpr uint32_t kRelitDataVersion = 17;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

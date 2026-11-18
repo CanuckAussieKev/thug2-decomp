@@ -237,13 +237,13 @@ SceneLighting scene_lighting(bool every_lamp_analytic, bool keep_dark)
         for (std::size_t i = 0; i < level->emitters.size() && i < level->surfaced.size(); ++i) {
             if (core::at(level->surfaced, i) != 0) {
                 rt::Emitter lamp = core::at(level->emitters, i);
-                const float on = rt::lamp_on(lamp.switch_sky, sky_now, open);
+                const float on = rt::lamp_switch(lamp.game_light, lamp.switch_sky, sky_now, open);
                 lamp.intensity *= on;
                 out.owned_power += rt::lights::lamp_power(lamp);
             }
         }
         for (rt::Emitter lamp : analytic) {
-            lamp.intensity *= rt::lamp_on(lamp.switch_sky, sky_now, open);
+            lamp.intensity *= rt::lamp_switch(lamp.game_light, lamp.switch_sky, sky_now, open);
             if (lamp.intensity > 0.0F || keep_dark) {
                 lamp.intensity = std::max(lamp.intensity, 0.0F);
                 out.lamps.push_back(lamp);

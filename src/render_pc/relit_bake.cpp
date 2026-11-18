@@ -152,20 +152,45 @@ std::vector<rt::RelitLamp> level_lamps()
                              .shape = emitter.shape,
                              .axis = emitter.axis,
                              .half_length = emitter.half_length,
-                             .kind = emitter.kind});
+                             .kind = emitter.kind,
+                             .other_state = emitter.other_state});
         }
     }
-    for (const rt::Light& light : rt::frame_record().lights) {
-        if (light.kind != rt::Light::Kind::kPoint || !(light.radius > 0.0F) || !(luma(light.colour) > kLeastColour)) {
+    // (round SL - the game's own lights, as RTX Remix takes a game's) every light the level's nodes define, on or off now:
+    // one off at the bake's time (a night state's street lamp, Brightness 0 until the time of day's scripts turn it on)
+    // is listed at its full colour and takes no part in the solve (its light isn't in the bake); one on is listed as the
+    // bake saw it (its colour x the game's brightness). Before, only the frame's point lights that were on - and any
+    // object's - were listed: Boston's 170 night lights were never lamps at all.
+    for (const rt::GameLight& light : rt::frame_record().game_lights) {
+        if (!(light.radius > 0.0F) || !(luma(light.colour) > kLeastColour)) {
             continue;
         }
+        const float on = std::min(light.strength, 1.0F);
         lamps.push_back({.position = light.position,
                          .size = 0.0F,
-                         .light = light.colour,
+                         .light = on > 0.0F ? rt::scaled(light.colour, on) : light.colour,
                          .core = rt::point_core(light.radius),
                          .reach = light.radius,
-                         .kind = rt::EmitterKind::kPoint});
+                         .kind = rt::EmitterKind::kPoint,
+                         .game_light = light.owner,
+                         .game_on = on});
     }
+    // (one owner: a light whose head is a found emitter is that emitter, switched by the game - before the lamps are
+    // traced, so the head's links reach as far as the light's)
+    const std::size_t lights = rt::frame_record().game_lights.size();
+    const std::size_t at_heads = rt::relit_adopt_game_lights(&lamps);
+    std::size_t night_heads = 0;
+    std::size_t unadopted = 0;
+    for (const rt::RelitLamp& lamp : lamps) {
+        night_heads += lamp.other_state && lamp.game_light != 0U ? 1 : 0;
+        unadopted += lamp.other_state && lamp.game_light == 0U ? 1 : 0;
+    }
+    get_log("relit bake: the game's own lights - %zu light nodes (%zu on now), %zu carried by their heads (%zu of them "
+            "another lighting state's surface); %zu surfaces of another state no light takes (no lamp)",
+            lights,
+            static_cast<std::size_t>(std::ranges::count_if(rt::frame_record().game_lights,
+                                                           [](const rt::GameLight& l) { return l.strength > 0.0F; })),
+            at_heads, night_heads, unadopted);
     return lamps;
 }
 
@@ -203,7 +228,9 @@ std::vector<float> own_lamps_on(std::span<const rt::RelitLamp> lamps, const rt::
     std::vector<float> on;
     on.reserve(lamps.size());
     for (const rt::RelitLamp& lamp : lamps) {
-        on.push_back(rt::lamp_on(lamp.switch_sky, light_luma(own_day.sky_light), own_day.lamps));
+        // (round SL: one of the game's lights as bright as the game had it - its switch, not a photocell)
+        on.push_back(lamp.game_light != 0U ? lamp.game_on
+                                           : rt::lamp_on(lamp.switch_sky, light_luma(own_day.sky_light), own_day.lamps));
     }
     return on;
 }
@@ -441,13 +468,14 @@ void log_lamp_models(std::span<const rt::RelitLamp> lamps, std::span<const rt::R
     }
     get_log("relit bake: lamps by physics - %zu lamps: %zu solved, %zu by their fixture's model (the bake couldn't tell), "
             "%zu implausible solves replaced by the model, %zu by their own surface, %zu not a fixture's size, %zu no "
-            "light; the bake knew: %zu told, "
+            "light, %zu of the game's lights by their fixture's model, %zu of the game's lights carried by their head; the "
+            "bake knew: %zu told, "
             "%zu no edges, %zu off in the bake, %zu dark, %zu run off; fixtures shining: %zu sodium, %zu white street, "
             "%zu tubes, %zu panels, %zu bulbs, %zu neon, %zu signs / windows, %zu high-bays, %zu unknown; lumens per shining lamp: median "
             "%.0f, 90th percentile %.0f, most %.0f; %.0f lm in all; the art's lamp exposure %.3g (from %zu solved lamps)",
             lamps.size(), core::at(counts.by_source, 1), core::at(counts.by_source, 2), core::at(counts.by_source, 3),
             core::at(counts.by_source, 4), core::at(counts.by_source, 5), core::at(counts.by_source, 0),
-            core::at(verdicts, 0), core::at(verdicts, 1),
+            core::at(counts.by_source, 6), core::at(counts.by_source, 7), core::at(verdicts, 0), core::at(verdicts, 1),
             core::at(verdicts, 2), core::at(verdicts, 3), core::at(verdicts, 4), core::at(counts.by_fixture, 1),
             core::at(counts.by_fixture, 2), core::at(counts.by_fixture, 3), core::at(counts.by_fixture, 4),
             core::at(counts.by_fixture, 5), core::at(counts.by_fixture, 6), core::at(counts.by_fixture, 7),
@@ -610,7 +638,7 @@ void log_told_lamps(std::span<const rt::RelitLamp> solved, std::span<const rt::R
     for (std::size_t li = 0; li < lamps.size() && li < told.size(); ++li) {
         const rt::RelitLamp& lamp = core::at(lamps, li);
         get_log("relit bake: list %zu kind %u shape %u axis %.2f %.2f %.2f links %zu at %.0f %.0f %.0f core %.0f half %.0f - "
-                "told %u, switch %s, %s, %s, area %.4f m^2, %.0f lm",
+                "told %u, switch %s, %s, %s, area %.4f m^2, %.0f lm%s",
                 li, static_cast<unsigned>(lamp.kind), static_cast<unsigned>(lamp.shape),
                 static_cast<double>(rt::x_of(lamp.axis)), static_cast<double>(rt::y_of(lamp.axis)),
                 static_cast<double>(rt::z_of(lamp.axis)), core::at(linked, li),
@@ -620,7 +648,13 @@ void log_told_lamps(std::span<const rt::RelitLamp> solved, std::span<const rt::R
                 lamp.switch_sky >= 0.5F * rt::kLampAlwaysOn ? "roofed" : text::format("%.4f", static_cast<double>(lamp.switch_sky)).c_str(),
                 rt::fixture_name(static_cast<rt::LampFixture>(lamp.fixture)).data(),
                 rt::relit_lamp_source_name(static_cast<rt::RelitLampSource>(lamp.source)),
-                li < areas.size() ? static_cast<double>(core::at(areas, li)) : 0.0, static_cast<double>(lamp.lumens));
+                li < areas.size() ? static_cast<double>(core::at(areas, li)) : 0.0, static_cast<double>(lamp.lumens),
+                lamp.game_light != 0U ? text::format(" - the game's light %08x (%.2f on in the bake)%s", lamp.game_light,
+                                                     static_cast<double>(lamp.game_on),
+                                                     lamp.other_state ? ", another state's surface" : "")
+                                            .c_str()
+                : lamp.other_state ? " - another state's surface"
+                                   : "");
     }
     for (std::size_t kind = 0; kind < none.size(); ++kind) {
         const std::array<std::size_t, 5>& row = core::at(none, kind);

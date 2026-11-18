@@ -1809,11 +1809,15 @@ void emitter_work()
     for (const MeshRef* mesh : st.world) {
         if (mesh_shown(mesh)) { // (the relit bake's hidden meshes: not lit, no lamp - relit_bake.h)
             scanned.push_back({.mesh = mesh});
-        } else if (bake && mesh->material() != nullptr && glow_card(mesh->material())) {
+        } else if (bake && mesh->material() != nullptr) {
             // (round P10) a light card the level shows in another of its lighting states (its night's pools under the
             // street lamps - Boston's under its globes): hidden in the state the bake is made in, but the artists' mark
             // of a lamp all the same - its lamp found as a shown card's is (a glow, switched by its own daylight); its
-            // light isn't in this state's colours, so it is no card laid on a surface
+            // light isn't in this state's colours, so it is no card laid on a surface.
+            // (round SL) Any other mesh hidden in the bake's state too - another state's geometry (Boston's night: its
+            // street lamps' lit glass, its lit windows, made by the time of day's scripts): its lamp texels and self-lit
+            // colours are candidates the bake can't see lit, a lamp only as the head of one of the game's own lights
+            // (rt_relit.h relit_adopt_game_lights)
             scanned.push_back({.mesh = mesh, .other_state = true});
         }
     }
@@ -1867,7 +1871,7 @@ void emitter_work()
         if (bake && !glow && !look.image.empty()) {
             cards->surface_colours.emplace_back(mesh_found->second.id, look.mean);
         }
-        found.other_state_cards += scan.other_state ? 1 : 0;
+        found.other_state_cards += scan.other_state && glow ? 1 : 0;
         if (bake && glow && !look.image.empty()) {
             const void* handle = core::at(material->textures(), 0)->texture;
             const auto [image, added] = card_images.try_emplace(handle, static_cast<uint32_t>(cards->images.size()));
@@ -1935,7 +1939,8 @@ void emitter_work()
                                          .kind = kind,
                                          .lit_share = lit_share,
                                          .mesh = mesh_found->second.id,
-                                         .vertices = corner};
+                                         .vertices = corner,
+                                         .other_state = scan.other_state && !glow};
             for (const uint32_t vertex : corner) {
                 const std::array<float, 3> colour = tris.colour(vertex);
                 for (std::size_t k = 0; k < 3; ++k) {
@@ -2058,6 +2063,15 @@ void record_lights()
     const auto dynamic = static_cast<std::size_t>(std::max(0, light_sets().dynamic_light_count()));
     for (std::size_t i = 0; i < dynamic && i < light_sets().dynamic_lights().size(); ++i) {
         const DynamicLightBase* light = core::at(light_sets().dynamic_lights(), i);
+        if (light != nullptr && light->owner() != 0U && light->unknown2c()) {
+            // (round SL) a light node's, on or off: the game's own lights and how bright it has them now
+            rt::frame_record().game_lights.push_back(
+                {.owner = light->owner(),
+                 .position = {core::at(light->pos(), 0), core::at(light->pos(), 1), core::at(light->pos(), 2)},
+                 .colour = colour_of(light->colour(), kPerByte),
+                 .radius = light->radius(),
+                 .strength = std::max(light->intensity(), 0.0F)});
+        }
         if (light == nullptr || !(light->intensity() > 0.0F) || light->owner() == 0U) {
             continue;
         }
@@ -2066,6 +2080,8 @@ void record_lights()
                           .position = {core::at(light->pos(), 0), core::at(light->pos(), 1), core::at(light->pos(), 2)},
                           .radius = light->radius()});
     }
+    std::ranges::sort(rt::frame_record().game_lights,
+                      [](const rt::GameLight& a, const rt::GameLight& b) { return a.owner < b.owner; });
 }
 
 std::array<std::array<float, 4>, 4> rows_of(const maths::Mat4& matrix)
@@ -2146,6 +2162,7 @@ void record_frame()
     record.frame = st.frame;
     record.instances.clear();
     record.lights.clear();
+    record.game_lights.clear();
     record.cameras.clear();
     record.object_lights.clear();
     record.poses_key = kFnvBasis;
