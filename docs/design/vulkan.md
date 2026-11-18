@@ -5154,15 +5154,30 @@ through the tone curve at that EV. `pt off` ends it.
 - One hit surface for every ray (vulkan_rt_scene.h `hit_surface_glsl`): position, triangle and shading normals, base
   colour (the relit world's texel x tint, an object's texel), the light model's material, alpha and cut-out, and the light
   store's emission in the global unit.
-- A path: camera rays jittered in the pixel; at each hit next-event estimation to one light picked evenly among the
-  kinds there are - the sun's disc (its real solid angle), the sky (cosine about the normal; the sky-view table's radiance,
-  or the lighting's even sky light without it), an emitting triangle (found on the device when the run starts: every
-  world triangle whose store emits) or an analytic lamp; the BSDF sampled (GGX visible normals + cosine Lambert);
-  MIS by the power heuristic; Russian roulette from the third bounce; cut-outs by their alpha on every ray.
+- A path: camera rays jittered in the pixel; at each hit next-event estimation to one light of the run's light list
+  (below); the BSDF sampled (GGX visible normals + cosine Lambert); MIS by the power heuristic, a BSDF ray that meets a
+  light weighed by the pdf the list gives that light and direction; Russian roulette from the third bounce; cut-outs by
+  their alpha on every ray.
+- One light list with power (engine/gfx/rt_light_list.h; path tracing stage 2), made once a run - its lighting frozen with
+  its camera, another lighting cut or a lamp switched starting it again: the sun's or the moon's disc (the lighting's
+  direct light, its real solid angle, x the clouds' shadow map where the clouds draw one), the sky (a 1024 x 512 grid
+  over the sphere - the sky-view table x the drawn clouds' transmittance + their light, the same march as the drawn
+  clouds, else x the clouds' kept share; without the table an even sky - sampled by its luminance with two alias tables,
+  the grid also what a ray that leaves the world sees), every emitting triangle (2 pi x area x its emission's mean
+  luminance at 64 points, hit_surface's own emission; measured on the device in the run's first frame) and the
+  analytic lamps (flux from the lamp model's photometry: a point 4 pi^2 I core^2, a panel 2 pi^2 I core^2, a line
+  pi^3 I core h) with the frame record's point lights where the level's lamps aren't solved. One alias table picks a
+  light: the distant group (disc and sky) and the local group evenly, each light by its power within its group (pbrt-v4's
+  split of infinite lights against local ones; one table by flux alone needs the distant lights' flux through the
+  scene's cross-section, and the level's size then decides between the sun and the lamps). `pt ref <samples> [EV100]
+  even` picks as stage 1 did (the kinds evenly, each kind's lights evenly) - for comparisons.
 - One owner per lamp: a lamp whose own surface emits (the relit data's emitting vertices - rt_lights.h
   `LevelEmitters::surfaced`) is sampled as that surface, its analytic light left out (rt_path.h `analytic_lamps`).
 - Checked by thug2_vulkan_path_check: the white furnace at every roughness, a floor under an emitting disc against its
-  integral, MIS / lights-only / BSDF-only agreeing, the processor's twin, the owner rule, no NaN.
+  integral, MIS / lights-only / BSDF-only agreeing, the processor's twin, the owner rule, no NaN; the light list on the
+  processor (the alias table's picks against its weights, the groups' shares, each lamp shape's flux against its light
+  integrated over a sphere, the sky's pdf integrating to 1 and its samples falling as luminance x solid angle says) and
+  on the device (by power against the kinds evenly: the same mean; under 32 lamps of very different power, less noise).
 
 ### Everything drawn in the acceleration structure (path tracing, stage 3)
 

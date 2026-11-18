@@ -84,13 +84,18 @@ std::string path_console_command(const std::string& arguments)
     if (verb == "ref") {
         std::string count;
         std::string ev;
-        in >> count >> ev;
+        std::string mode;
+        in >> count >> ev >> mode;
+        if (ev == "even") {
+            std::swap(ev, mode);
+        }
         const long samples = std::strtol(count.c_str(), nullptr, 10);
-        if (samples <= 0 || samples > static_cast<long>(kMostSamples)) {
-            return "pt ref <samples a pixel, 1 - 1048576> [EV100]";
+        if (samples <= 0 || samples > static_cast<long>(kMostSamples) || (!mode.empty() && mode != "even")) {
+            return "pt ref <samples a pixel, 1 - 1048576> [EV100] [even]";
         }
         PathReferenceRequest request;
         request.samples = static_cast<uint32_t>(samples);
+        request.even_lights = mode == "even";
         if (!ev.empty()) {
             char* end = nullptr;
             const float value = std::strtof(ev.c_str(), &end);
@@ -101,8 +106,9 @@ std::string path_console_command(const std::string& arguments)
             request.ev100 = value;
         }
         request_path_reference(request);
-        get_log("pt: reference asked - %u samples a pixel, EV100 %s", request.samples,
-                request.ev_given ? ev.c_str() : "the camera's metered one");
+        get_log("pt: reference asked - %u samples a pixel, EV100 %s, lights %s", request.samples,
+                request.ev_given ? ev.c_str() : "the camera's metered one",
+                request.even_lights ? "evenly by kind" : "by power");
         return text::format("pt: reference of %u samples a pixel started (pause the game; the camera must stay still)",
                             request.samples);
     }
@@ -112,7 +118,7 @@ std::string path_console_command(const std::string& arguments)
         return "pt: off";
     }
     if (!verb.empty() && verb != "status") {
-        return "pt ref <samples> [EV100] | pt off | pt status";
+        return "pt ref <samples> [EV100] [even] | pt off | pt status";
     }
     return status_text(path_reference_status(), path_reference_request());
 }

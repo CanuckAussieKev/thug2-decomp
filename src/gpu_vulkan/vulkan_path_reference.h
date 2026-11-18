@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "engine/gfx/rt_light_list.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
@@ -28,16 +29,22 @@
 //     texels, the material's roughness and F0, the light store's emission); cut-outs by their alpha everywhere (the camera's
 //     rays, the bounces, the shadow rays); the instances world, objects and alpha-tested (masks 0x07: what every light ray
 //     sees today - the transparent ones untraced, the plan's P2);
-//   - next-event estimation from each hit to one light picked uniformly among the kinds there are: the sun's disc
-//     (sampled over its real solid angle, its radiance pi x the lighting's direct light per N.L / that), the sky (cosine
-//     about the normal; its radiance the sky-view table's, the physical light x the clouds' kept share; without the table
-//     an even sky of the lighting's sky light), an emitting triangle (uniformly among them, a point uniformly on it) or an
-//     analytic lamp (uniformly; rt_lights.h's lamp model) - the lamps whose own surface emits are sampled as that surface,
-//     never also as their analytic light (rt_path.h analytic_lamps: one owner, so a lamp is never counted twice);
+//   - next-event estimation from each hit to one light of the run's light list (engine/gfx/rt_light_list.h - path
+//     tracing stage 2), picked by its power from an alias table: the sun's or the moon's disc (sampled over its real
+//     solid angle, its radiance pi x the lighting's direct light per N.L / that, x the clouds' shadow map where the
+//     clouds draw one), the sky (its grid - the sky-view table x the drawn clouds' transmittance + their light, else x the
+//     clouds' kept share; without the table an even sky - sampled by its luminance), an emitting triangle (a point
+//     uniformly on it) or an analytic lamp (rt_lights.h's lamp model; the frame record's point lights where the level's
+//     lamps aren't solved) - the lamps whose own surface emits are sampled as that surface, never also as their analytic
+//     light (rt_path.h analytic_lamps: one owner, so a lamp is never counted twice);
 //   - the BSDF sampled for the next direction; what it hits by chance (the sky, the sun's disc, an emitting triangle) is
-//     weighed against the light sampling's pdf by the power heuristic (MIS); Russian roulette from the third bounce;
-//   - the emitting triangles: found on the device when the reference starts - every triangle of a world instance whose
-//     light store emits at a corner (a bit a triangle, and the list).
+//     weighed against the light list's pdf for it (the same pick x direction pdf) by the power heuristic (MIS); Russian
+//     roulette from the third bounce;
+//   - the light list: made once a run (its lighting frozen with its camera; another cut, a lamp switched, starts it
+//     again) - in its first frame the device scans every triangle of the world (its bounds; each emitting one's power:
+//     2 pi x area x its emission's mean luminance at rt_light_list.h kTriangleLattice^2 points, the emission hit_surface
+//     gives) and fills the sky's grid; in the next the processor reads them back, builds the alias tables and uploads
+//     them; the paths start then.
 // Retires nothing: the realtime passes are untouched.
 namespace render::vulkan {
 
@@ -66,6 +73,7 @@ struct PathOverrides {
     float albedo_scale = 1.0F;
     std::vector<rt::Emitter> lamps;                 // the level's lamps (each x its intensity)
     std::vector<uint8_t> lamps_surfaced;            // per lamp: its own surface emits (rt_path.h analytic_lamps)
+    rt::lights::LightWeights light_weights = rt::lights::LightWeights::kPower; // how the list picks its lights
 };
 void set_path_overrides(const PathOverrides& overrides);
 

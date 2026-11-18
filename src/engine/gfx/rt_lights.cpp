@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rt_light_list.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
 
@@ -581,23 +582,13 @@ std::vector<Emitter> select_view_lights(const FrameRecord& record, const LevelEm
         candidates.emplace_back(light_importance(light, request.camera), light);
     };
     if (request.points) {
+        // (path tracing, stage 2) one rule for a point light - rt_light_list.h point_emitter, the path tracer's too
+        const float scale = request.point_scale * std::clamp(request.open_lamps, 0.0F, 1.0F);
         for (const Light& light : record.lights) {
-            if (light.kind != Light::Kind::kPoint || !(light.radius > 0.0F)) {
-                continue;
+            Emitter lamp;
+            if (lights::point_emitter(light, scale, &lamp)) {
+                consider(lamp);
             }
-            const float brightest = std::max({std::get<0>(light.colour), std::get<1>(light.colour),
-                                              std::get<2>(light.colour)});
-            if (!(brightest > kLeastColour) || !std::isfinite(brightest)) {
-                continue;
-            }
-            consider({.position = light.position,
-                      .size = 0.0F,
-                      .colour = scaled(light.colour, 1.0F / brightest),
-                      .intensity = brightest * request.point_scale * std::clamp(request.open_lamps, 0.0F, 1.0F),
-                      .reach = light.radius,
-                      .material = 0,
-                      .kind = EmitterKind::kPoint,
-                      .core = point_core(light.radius)});
         }
     }
     if (request.emitters && level != nullptr) {
