@@ -2185,7 +2185,31 @@ bool through_quad(int x, int y, double height, double x0, double x1, double z0, 
     return x_of(at) > x0 + 2.0 && x_of(at) < x1 - 2.0 && z_of(at) > z0 + 2.0 && z_of(at) < z1 - 2.0;
 }
 
-enum class Over : uint8_t { kNothing, kGlass, kGlow };
+enum class Over : uint8_t { kNothing, kGlass, kGlow, kLitGlow };
+
+// (round RG) A lit glow - an added quad drawn with the fixed-function light, normals and coordinates (a lit object's draw: lit per
+// pixel in such a view), kLitGlowOver over the floor: well within the 1 % of its distance at which a fragment counts as
+// the surface the inputs were made for.
+constexpr double kLitGlowOver = 0.5;
+struct NormalVertex {
+    std::array<float, 3> position{};
+    std::array<float, 3> normal{};
+    uint32_t colour = 0;
+    std::array<float, 2> uv{};
+};
+constexpr uint32_t kFvfColourNormal = 0x152; // XYZ | NORMAL | DIFFUSE | TEX1 (stage 0's coordinates: lit per pixel)
+// Its program the game's single-texture material shader (texture x vertex colour x 4 - one the per-pixel lighting
+// takes), its texture white.
+constexpr std::string_view kLitGlowShader = "ps.1.1\ntex t0\nmul r0.rgb,t0,c0\n+mul_x2 r0.a,v0.a,t0.a\nmul_x4 r0.rgb,v0,r0\n";
+struct LitGlowDraw {
+    render::GpuTexture* texture = nullptr;
+    render::GpuPixelShader* shader = nullptr;
+};
+LitGlowDraw& lit_glow_draw()
+{
+    static LitGlowDraw draw;
+    return draw;
+}
 
 // (decals) A mark over the left half of the view - as the decals' pass draws one where rt_decals places it: the decals'
 // input there x kMark (the pass's own multiplying blend over the input's 1), at kDecals between the inputs and the
@@ -2217,7 +2241,8 @@ public:
 
 // A frame of the view lit per surface: the floor (blended first pass) before or after the box, and what is over it.
 bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, bool floor_first,
-                      Over over, uint64_t frame, std::vector<uint8_t>* texels, std::vector<uint8_t>* guides = nullptr)
+                      Over over, uint64_t frame, std::vector<uint8_t>* texels, std::vector<uint8_t>* guides = nullptr,
+                      std::vector<uint8_t>* layer = nullptr)
 {
     using render::GpuRenderState;
     rt::FrameRecord& record = rt::frame_record();
@@ -2256,7 +2281,39 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
         draw_solid(core::at(kScene, 1), false);
         draw_solid(core::at(kScene, 0), true);
     }
-    if (over != Over::kNothing) {
+    if (over == Over::kLitGlow) {
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, 0);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 1);
+        gpu.set_render_state(GpuRenderState::kSrcBlend, value::kBlendOne);
+        gpu.set_render_state(GpuRenderState::kDestBlend, value::kBlendOne);
+        gpu.set_render_state(GpuRenderState::kLighting, 1);
+        gpu.set_render_state(GpuRenderState::kDiffuseMaterialSource, value::kSourceColour1);
+        gpu.set_material({.diffuse = {1, 1, 1, 1}, .ambient = {}, .specular = {}, .emissive = {}, .power = 0});
+        render::GpuLight light{};
+        light.type = value::kLightDirectional;
+        light.diffuse = {1, 1, 1, 1};
+        light.direction = {0.0F, -1.0F, 0.0F};
+        gpu.set_light(0, light);
+        gpu.enable_light(0, true);
+        gpu.set_vertex_format(kFvfColourNormal);
+        gpu.set_texture(0, lit_glow_draw().texture);
+        gpu.set_pixel_shader(lit_glow_draw().shader);
+        constexpr std::array<float, 4> kWhite{0.5F, 0.5F, 0.5F, 0.5F}; // (c0: the pass colour, x 4 with v0 - the texel)
+        gpu.set_pixel_constants(0, kWhite.data(), 1);
+        std::vector<NormalVertex> quad;
+        for (const ColourVertex& corner : quad_at(kLitGlowOver, -kFloorHalf, 0.0, 0.0, kFloorHalf, kGlowColour)) {
+            quad.push_back({.position = corner.position, .normal = {0.0F, 1.0F, 0.0F}, .colour = corner.colour});
+        }
+        gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(quad.size() / 3), quad.data(),
+                             sizeof(NormalVertex));
+        gpu.set_pixel_shader(nullptr);
+        gpu.set_texture(0, nullptr);
+        gpu.enable_light(0, false);
+        gpu.set_render_state(GpuRenderState::kLighting, 0);
+        gpu.set_vertex_format(kFvfColour);
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
+    } else if (over != Over::kNothing) {
         const bool glass = over == Over::kGlass;
         gpu.set_render_state(GpuRenderState::kZWriteEnable, 0);
         gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 1);
@@ -2281,6 +2338,18 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
         const bool copied = finished && state.memory.read_image_level(image, 0, guides);
         if (!copied) {
             text::print("  (the guides: %s)\n", image == nullptr ? "none" : (finished ? "not read back" : "work not finished"));
+        }
+        read = read && copied;
+    }
+    if (layer != nullptr) { // (round RG: Ray Reconstruction's transparency layer as the transparencies drew it)
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::Image* const image = render::vulkan::surface_light_layer(state);
+        layer->resize(static_cast<std::size_t>(kTargetWidth) * kTargetHeight * 8); // (RGBA16F)
+        const bool finished = image != nullptr && render::vulkan::finish_work(state);
+        const bool copied = finished && state.memory.read_image_level(image, 0, layer);
+        if (!copied) {
+            text::print("  (the layer: %s)\n", image == nullptr ? "none" : (finished ? "not read back" : "work not finished"));
         }
         read = read && copied;
     }
@@ -2330,6 +2399,17 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     const render::vulkan::SurfaceLightStats before = render::vulkan::surface_light_stats();
     std::array<std::vector<uint8_t>, 5> shots; // floor first, box first, glass, glow, marked
     std::vector<uint8_t> guides;
+    std::vector<uint8_t> lit_glow_shot;
+    std::vector<uint8_t> lit_glow_guides; // (round RG)
+    {
+        rt::MaterialId glow_material = 0;
+        rt::Material glow_made;
+        ok = ok &&
+             make_texture_material(gpu, 0xFFFFFFFFU, {1.0, 1.0, 1.0}, rt::Material{}, &lit_glow_draw().texture,
+                                   &glow_material, &glow_made) &&
+             gpu.create_pixel_shader(kLitGlowShader.data(), static_cast<uint32_t>(kLitGlowShader.size()),
+                                     &lit_glow_draw().shader) == value::kResultOk;
+    }
     {
         render::vulkan::Backend& state = render::vulkan::backend();
         const std::scoped_lock lock(state.mutex);
@@ -2340,7 +2420,8 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
         ok = draw_per_surface(gpu, targets, meshes, true, Over::kNothing, frame++, &core::at(shots, 0)) &&
              draw_per_surface(gpu, targets, meshes, false, Over::kNothing, frame++, &core::at(shots, 1)) &&
              draw_per_surface(gpu, targets, meshes, false, Over::kGlass, frame++, &core::at(shots, 2), &guides) &&
-             draw_per_surface(gpu, targets, meshes, false, Over::kGlow, frame++, &core::at(shots, 3));
+             draw_per_surface(gpu, targets, meshes, false, Over::kGlow, frame++, &core::at(shots, 3)) &&
+             draw_per_surface(gpu, targets, meshes, false, Over::kLitGlow, frame++, &lit_glow_shot, &lit_glow_guides);
     }
     // a decal (a mark over the whole view: the decals' input x kMark) - a material's edit, lit with its surface
     MarkListener mark;
@@ -2487,11 +2568,107 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                  text::format("Ray Reconstruction's albedo guide is the floor's own (under the glass too): %d pixels, %d "
                               "wrong (worst %.4f)",
                               guided, guide_wrong, guide_worst));
+    // (round RG) an added glow lit per pixel, at the floor's depth: the floor's guides stay as they were (NVIDIA's DLSS-RR
+    // guide 3.4.1 - the guides are the opaque surface's; the glow's light is in the colour), and its light is its own
+    // over the floor's - it reads none of the floor's inputs (the lamps, the traced specular)
+    int glow_guided = 0;
+    int glow_guide_wrong = 0;
+    for (const FloorPixel& pixel : pixels) {
+        if (!ok || lit_glow_guides.size() != guides.size() || guides.empty() ||
+            !through_quad(pixel.x, pixel.y, kLitGlowOver, -kFloorHalf, 0.0, 0.0, kFloorHalf)) {
+            continue;
+        }
+        const std::size_t at =
+            ((static_cast<std::size_t>(pixel.y) * kTargetWidth) + static_cast<std::size_t>(pixel.x)) * kGuideBytes;
+        const bool same = std::memcmp(&core::at(guides, at), &core::at(lit_glow_guides, at), kGuideBytes) == 0;
+        // (the glass shot's guides are the floor's: the glass writes none - checked above)
+        ++glow_guided;
+        glow_guide_wrong += same ? 0 : 1;
+    }
+    tally->check(ok && glow_guided > 1000 && glow_guide_wrong == 0,
+                 text::format("a lit glow added at the floor's depth leaves the floor's Ray Reconstruction guides: %d pixels, "
+                              "%d overwritten",
+                              glow_guided, glow_guide_wrong));
+    // (round RG) Ray Reconstruction's transparency layer (NVIDIA's DLSS-RR Integration Guide 3.4.10): with it, the glass
+    // (alpha-blended, no depth written) and the glow (added) are drawn into the layer, not the colour - the colour the
+    // floor's alone, the layer premultiplied light with in alpha how much it hides: the glass's alpha x its light and
+    // its alpha, the glow's light and 0; the layer over the colour (rgb + (1 - a) x the colour) the picture as drawn
+    {
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::set_surface_light_layer_forced(true);
+    }
+    std::array<std::vector<uint8_t>, 2> layered_shots;
+    std::array<std::vector<uint8_t>, 2> layers;
+    ok = ok && draw_per_surface(gpu, targets, meshes, false, Over::kGlass, frame++, &core::at(layered_shots, 0), nullptr,
+                                &core::at(layers, 0)) &&
+         draw_per_surface(gpu, targets, meshes, false, Over::kGlow, frame++, &core::at(layered_shots, 1), nullptr,
+                          &core::at(layers, 1));
+    {
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::set_surface_light_layer_forced(false);
+    }
+    for (std::size_t which = 0; which < 2; ++which) {
+        const bool glass_case = which == 0;
+        const Rgb own = glass_case ? glass : glow;
+        const double alpha = glass_case ? kGlassAlpha : 0.0;
+        const double light_share = glass_case ? kGlassAlpha : 1.0;
+        int pixels_in = 0;
+        int colour_wrong = 0;
+        int layer_wrong = 0;
+        int composed_wrong = 0;
+        double layer_worst = 0.0;
+        for (const FloorPixel& pixel : pixels) {
+            if (!ok || core::at(layers, which).size() < static_cast<std::size_t>(kTargetWidth) * kTargetHeight * 8 ||
+                !through_quad(pixel.x, pixel.y, kOverFloor, -kFloorHalf, 0.0, 0.0, kFloorHalf)) {
+                continue;
+            }
+            const Rgb floor_only = linear_pixel_at(core::at(shots, 1), pixel.x, pixel.y);
+            const Rgb colour_now = linear_pixel_at(core::at(layered_shots, which), pixel.x, pixel.y);
+            const Rgb drawn = linear_pixel_at(core::at(shots, glass_case ? 2 : 3), pixel.x, pixel.y);
+            const std::size_t at =
+                ((static_cast<std::size_t>(pixel.y) * kTargetWidth) + static_cast<std::size_t>(pixel.x)) * 8;
+            std::array<double, 4> texel{};
+            for (std::size_t c = 0; c < 4; ++c) {
+                uint16_t half = 0;
+                std::memcpy(&half, &core::at(core::at(layers, which), at + (c * 2)), sizeof(half));
+                core::at(texel, c) = half_to_double(half);
+            }
+            bool colour_bad = false;
+            bool layer_bad = std::abs(core::at(texel, 3) - alpha) > kLinearTolerance;
+            bool composed_bad = false;
+            for (std::size_t c = 0; c < 3; ++c) {
+                colour_bad = colour_bad || std::abs(core::at(colour_now, c) - core::at(floor_only, c)) > kLinearTolerance;
+                layer_bad = layer_bad || std::abs(core::at(texel, c) - (light_share * core::at(own, c))) > kLinearTolerance;
+                const double composed = core::at(texel, c) + ((1.0 - core::at(texel, 3)) * core::at(colour_now, c));
+                layer_worst = std::max(layer_worst, std::abs(composed - core::at(drawn, c)));
+                composed_bad = composed_bad || std::abs(composed - core::at(drawn, c)) > kLinearTolerance;
+            }
+            ++pixels_in;
+            colour_wrong += colour_bad ? 1 : 0;
+            layer_wrong += layer_bad ? 1 : 0;
+            composed_wrong += composed_bad ? 1 : 0;
+        }
+        tally->check(ok && pixels_in > 100 && colour_wrong == 0 && layer_wrong == 0 && composed_wrong == 0,
+                     text::format("Ray Reconstruction's transparency layer holds the %s (%d pixels: the colour the floor's "
+                                  "alone %d wrong, the layer %d wrong, the layer over the colour vs as drawn %d wrong - "
+                                  "worst %.4f)",
+                                  glass_case ? "glass" : "glow", pixels_in, colour_wrong, layer_wrong, composed_wrong,
+                                  layer_worst));
+    }
     {
         render::vulkan::Backend& state = render::vulkan::backend();
         const std::scoped_lock lock(state.mutex);
         render::vulkan::set_surface_light_guides_forced(false);
     }
+    if (lit_glow_draw().shader != nullptr) {
+        gpu.release_pixel_shader(lit_glow_draw().shader);
+    }
+    if (lit_glow_draw().texture != nullptr) {
+        gpu.release_texture(lit_glow_draw().texture);
+    }
+    lit_glow_draw() = {};
     gpu.set_render_target(0, nullptr);
     gpu.set_depth_surface(nullptr);
     for (GpuSurface* surface : {targets.colour, targets.depth}) {

@@ -43,6 +43,7 @@ constexpr uint32_t kBlendZero = 1;         // D3DBLEND_ZERO
 constexpr uint32_t kBlendOne = 2;          // D3DBLEND_ONE
 constexpr uint32_t kBlendSourceAlpha = 5;  // D3DBLEND_SRCALPHA
 constexpr uint32_t kBlendInverseAlpha = 6; // D3DBLEND_INVSRCALPHA
+constexpr uint32_t kBlendOpAdd = 1;        // D3DBLENDOP_ADD
 constexpr uint32_t kGroupSide = 8;
 constexpr uint32_t kBeginBindings = 8;
 constexpr std::size_t kMostKept = 16384; // (a view's world draws: a few hundred; past this, drawn as they come)
@@ -123,6 +124,13 @@ struct LightState {
     Image specular; // (path tracing, stage 5: the environment's specular - ReSTIR GI's; 0, a 0 where none)
     uint64_t guides_frame = 0; // the frame whose view wrote them (0: none)
     bool guides_forced = false; // (the checks': written without Ray Reconstruction)
+    // (round RG) Ray Reconstruction's transparency layer: what the view's transparent kept draws (blended without writing
+    // depth - glows, light cones and shafts, haze cards) laid over the surfaces, drawn apart from the colour (a render
+    // target of the colour's format and size): premultiplied light, its alpha how much of what is behind they hide
+    Surface layer;
+    uint64_t layer_frame = 0;  // the frame whose view drew it (0: none)
+    bool layer_forced = false; // (the checks': drawn without Ray Reconstruction)
+    bool in_layer = false;     // its draws being recorded (vulkan_draws.cpp's pipeline key: the layer's alpha blend)
     std::vector<DeviceBuffer> kept_buffers; // (kept draws' vertices and indices whose buffers were written again)
     std::unordered_set<VkBuffer> kept_reads; // the buffers the kept draws read now
     SurfaceInputs inputs;
@@ -156,6 +164,27 @@ Blend blend_of(const GpuStateBlock& block)
         return Blend::kNone;
     }
     return source == kBlendSourceAlpha && dest == kBlendInverseAlpha ? Blend::kAlpha : Blend::kOther;
+}
+
+// (round RG) Whether a draw writes depth, as the prepass takes it: the surface the light inputs are made for - every
+// draw that writes depth but an added or multiplied one (an alpha-blended one by its mostly opaque part).
+bool surface_draw(const GpuStateBlock& block)
+{
+    return block.render_state(GpuRenderState::kZEnable) != 0 && block.render_state(GpuRenderState::kZWriteEnable) != 0 &&
+           blend_of(block) != Blend::kOther;
+}
+
+// (round RG) Whether a draw is a transparency laid over the surfaces: blended by its alpha without writing depth (a
+// haze card, a light shaft), or adding light (a glow, a light cone, a flare: what is there kept whole, x one, its colour
+// added). Not a multiplied mark (a factor on what is there, left in the colour).
+bool transparency(const GpuStateBlock& block)
+{
+    const Blend blend = blend_of(block);
+    if (blend == Blend::kAlpha) {
+        return !surface_draw(block);
+    }
+    return blend == Blend::kOther && block.render_state(GpuRenderState::kDestBlend) == kBlendOne &&
+           block.render_state(GpuRenderState::kBlendOp) == kBlendOpAdd;
 }
 
 // A kept draw's prepass pipeline: its shaded pipeline's key (`shaded`) with the fragment half depth alone
@@ -432,6 +461,36 @@ void restore_sampled_layouts(Backend& state, const std::vector<KeptDraw>& kept)
     }
 }
 
+// (round RG) The view's transparency layer made (the colour target's format and size) and cleared; false when it
+// couldn't be (the transparencies then stay in the colour, as before).
+bool begin_layer(Backend& state)
+{
+    LightState& own = light_state();
+    const Image* const colour = image_of_surface(own.target);
+    if (colour == nullptr || colour->samples != VK_SAMPLE_COUNT_1_BIT) {
+        return false;
+    }
+    Image& image = own.layer.image;
+    const Extent extent{.width = colour->extent.width, .height = colour->extent.height};
+    constexpr VkImageUsageFlags kLayerUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+                                              VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                              VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    if (!ensure_image(state, &image, colour->format, extent, kLayerUsage)) {
+        return false;
+    }
+    own.layer.kind = SurfaceKind::kRenderTarget;
+    own.layer.extent = extent;
+    VkCommandBuffer commands = outside_pass(state);
+    Memory::transition(commands, &image, VK_IMAGE_LAYOUT_GENERAL);
+    const VkClearColorValue none{};
+    const VkImageSubresourceRange all{
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
+    vkCmdClearColorImage(commands, image.image, VK_IMAGE_LAYOUT_GENERAL, &none, 1, &all);
+    Memory::transition(commands, &image, VK_IMAGE_LAYOUT_GENERAL, true);
+    image.used = state.frames.serial();
+    return true;
+}
+
 // The kept draws shaded in their order with the view's light inputs: each prepared one emitted as prepared, the others
 // recorded again from their state blocks with render_pc's per-draw state named for each (and put back after).
 void draw_kept(Backend& state)
@@ -447,7 +506,19 @@ void draw_kept(Backend& state)
     if (!kept.empty()) {
         clear_depth(state);
     }
-    const bool any_recorded = std::ranges::any_of(kept, [&state](const KeptDraw& draw) { return !prepared_now(state, draw); });
+    // (round RG) Under Ray Reconstruction the transparencies are drawn last, into its transparency layer (NVIDIA's DLSS-RR
+    // Integration Guide 3.4.10, "Transparency Overlay": particles and other transparent effects rendered into a buffer
+    // of their own instead of the input colour - upscaled, not denoised, and laid over the denoised picture). A glow's
+    // or a haze card's light is no surface's lit by the guides' albedo, and denoised as one it was taken for noise
+    // (Training's far hall: black blotches with burning edges round the hanging lights and their light shafts). Drawn
+    // after every surface, against their whole depth, in their own order - the layer is laid over everything, as Ray
+    // Reconstruction composes it.
+    const bool layered = (ray_reconstruction_active() || own.layer_forced) &&
+                         std::ranges::any_of(kept, [](const KeptDraw& draw) { return transparency(draw.block); }) &&
+                         begin_layer(state);
+    const bool any_recorded = layered || std::ranges::any_of(kept, [&state](const KeptDraw& draw) {
+                                  return !prepared_now(state, draw);
+                              });
     const CelSourceNamed cel_before = any_recorded ? cel_source_now() : CelSourceNamed{};
     const bool ground_before = surface_trail::current_ground();
     const bool character_before = surface_trail::current_character();
@@ -457,12 +528,7 @@ void draw_kept(Backend& state)
     const bool waves_before = water::current_waves();
     const MotionSourceState motion_before = state.motion.source;
     own.role = SurfaceDrawRole::kShaded;
-    for (KeptDraw& draw : kept) {
-        ++own.stats.shaded;
-        if (prepared_now(state, draw)) {
-            emit_draw(state, draw.prepared);
-            continue;
-        }
+    const auto record_again = [&state, &own](const KeptDraw& draw) {
         cel_source_put(draw.cel);
         surface_trail::set_current_ground(draw.ground);
         surface_trail::set_current_character(draw.character);
@@ -472,6 +538,37 @@ void draw_kept(Backend& state)
         state.motion.source = draw.motion;
         (void)record_draw(state, draw.block, draw.call);
         ++own.stats.recorded;
+    };
+    for (KeptDraw& draw : kept) {
+        if (layered && transparency(draw.block)) {
+            continue;
+        }
+        ++own.stats.shaded;
+        if (prepared_now(state, draw)) {
+            emit_draw(state, draw.prepared);
+            continue;
+        }
+        record_again(draw);
+    }
+    if (layered) {
+        // into the layer, recorded again for its target (no motion attachment there: what they cover is the layer's
+        // alpha, not the reactive mask's) with its alpha blend (vulkan_pipelines.h PipelineKey::layer)
+        Surface* const colour = core::at(state.targets, 0);
+        core::at(state.targets, 0) = &own.layer;
+        state.bound = BoundState{};
+        own.in_layer = true;
+        for (KeptDraw& draw : kept) {
+            if (transparency(draw.block)) {
+                ++own.stats.shaded;
+                ++own.stats.layered;
+                record_again(draw);
+            }
+        }
+        own.in_layer = false;
+        (void)outside_pass(state); // (the layer's pass ended)
+        core::at(state.targets, 0) = colour;
+        state.bound = BoundState{};
+        own.layer_frame = state.frames.serial();
     }
     own.role = SurfaceDrawRole::kAsItComes;
     for (DeviceBuffer& copy : own.kept_buffers) {
@@ -713,12 +810,14 @@ void release_surface_light(Backend& state)
     own.phase = Phase::kIdle;
     own.role = SurfaceDrawRole::kAsItComes;
     own.inputs = {};
-    for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.guides, &own.specular}) {
+    for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.guides, &own.specular,
+                         &own.layer.image}) {
         if (image->image != VK_NULL_HANDLE) {
             state.memory.destroy_image(image);
         }
         *image = Image{};
     }
+    own.layer_frame = 0;
     const VkDevice device = state.context.device();
     if (device != VK_NULL_HANDLE) {
         if (own.begin != VK_NULL_HANDLE) {
@@ -847,13 +946,16 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
         fvf_pre_transformed(shaders->vertex.fvf) || (fragment.surface & (kSurfaceCel | kSurfaceCelHull)) != 0U) {
         return;
     }
+    // (round RG) A draw that adds or multiplies - a glow, a light cone, a flare, a multiplied mark - is never the surface
+    // the inputs were made for (the prepass leaves it out), even where its depth meets that surface's: it reads none of
+    // them (lit per pixel, it added the surface's lamps and traced specular a second time).
+    if (blend_of(block) == Blend::kOther) {
+        return;
+    }
     if ((fragment.surface & kSurfaceLighting) != 0U) {
         fragment.light = kLightInputs;
     } else if (fragment.surface == 0) {
-        // (a colour lit already: its light by shares - not on a draw that adds or multiplies, a glow or a decal)
-        if (blend_of(block) == Blend::kOther) {
-            return;
-        }
+        // (a colour lit already: its light by shares)
         fragment.light = kLightShare;
     } else {
         return;
@@ -861,8 +963,10 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
     out->on = true;
     const std::array<const Image*, 7> images{&own.visibility, &own.lamps,  &own.lamps_on,  &own.depth_copy,
                                              &own.decals,     &own.guides, &own.specular};
-    // (Ray Reconstruction's guides: written while it denoises the view)
-    if (ray_reconstruction_active() || own.guides_forced) {
+    // (Ray Reconstruction's guides: written while it denoises the view - by the surfaces the prepass drew alone: a
+    // transparency over one leaves its guides, its light laid over in the transparency layer - NVIDIA's DLSS-RR
+    // Integration Guide 3.4.1: the guides describe the opaque surface)
+    if ((ray_reconstruction_active() || own.guides_forced) && surface_draw(block)) {
         fragment.light = static_cast<uint8_t>(fragment.light | kLightGuides);
         out->guides = true;
     }
@@ -940,6 +1044,18 @@ void surface_light_buffer_rewritten(Backend& state, VkBuffer buffer, VkDeviceSiz
 }
 
 void set_surface_light_guides_forced(bool forced) { light_state().guides_forced = forced; }
+
+void set_surface_light_layer_forced(bool forced) { light_state().layer_forced = forced; }
+
+Image* surface_light_layer(Backend& state)
+{
+    LightState& own = light_state();
+    return own.layer_frame != 0 && own.layer_frame == state.frames.serial() && own.layer.image.image != VK_NULL_HANDLE
+               ? &own.layer.image
+               : nullptr;
+}
+
+bool surface_light_in_layer() { return light_state().in_layer; }
 
 Image* surface_light_guides(Backend& state)
 {

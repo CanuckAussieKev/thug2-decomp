@@ -834,14 +834,20 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
         const VkBlendFactor source = blend_factor(key.source_blend);
         const VkBlendFactor dest = blend_factor(key.dest_blend);
         const VkBlendOp operation = blend_op(key.blend_operation);
+        // (round RG - PipelineKey::layer) into Ray Reconstruction's transparency layer the alpha is how much of what is
+        // behind the layer hides: what the draw keeps of it (its destination factor) x the layer's, plus the rest of what
+        // it hides (1 - kept: the source's alpha x one for an alpha blend; nothing for added light)
+        const bool layer = key.layer != 0U && key.blend != 0U;
+        const VkBlendFactor alpha_source =
+            !layer ? source : (dest == VK_BLEND_FACTOR_ONE ? VK_BLEND_FACTOR_ZERO : VK_BLEND_FACTOR_ONE);
         const VkPipelineColorBlendAttachmentState blend_attachment{
             .blendEnable = key.blend != 0 ? VK_TRUE : VK_FALSE,
             .srcColorBlendFactor = source,
             .dstColorBlendFactor = dest,
             .colorBlendOp = operation,
-            .srcAlphaBlendFactor = source,
+            .srcAlphaBlendFactor = alpha_source,
             .dstAlphaBlendFactor = dest,
-            .alphaBlendOp = operation,
+            .alphaBlendOp = layer ? VK_BLEND_OP_ADD : operation,
             .colorWriteMask = key.write_mask};
         // (the upscaler's motion attachment, vulkan_motion.h: a draw that doesn't blend writes its motion (x, y) - what
         // is seen through a blended draw keeps its own -, a blended one only its share of the pixel (z, the largest);
@@ -849,12 +855,12 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
         const bool motion_shader = key.motion != 0U && key.shaders.fragment.motion != 0U;
         VkColorComponentFlags motion_mask = 0;
         if (motion_shader && key.write_mask != 0U) {
-            motion_mask = key.blend != 0U ? VkColorComponentFlags{VK_COLOR_COMPONENT_B_BIT}
+            motion_mask = key.blend != 0U && key.motion != kMotionSurface ? VkColorComponentFlags{VK_COLOR_COMPONENT_B_BIT}
                                           : VkColorComponentFlags{VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT};
         }
         const std::array<VkPipelineColorBlendAttachmentState, 2> blend_attachments{{
             blend_attachment,
-            {.blendEnable = key.blend != 0U ? VK_TRUE : VK_FALSE,
+            {.blendEnable = key.blend != 0U && key.motion != kMotionSurface ? VK_TRUE : VK_FALSE,
              .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
              .dstColorBlendFactor = VK_BLEND_FACTOR_ONE,
              .colorBlendOp = VK_BLEND_OP_MAX,

@@ -103,6 +103,17 @@ void surface_light_buffer_rewritten(Backend& state, VkBuffer buffer, VkDeviceSiz
 [[nodiscard]] Image* surface_light_guides(Backend& state);
 // (the checks) The guides written without Ray Reconstruction denoising. The caller holds the lock.
 void set_surface_light_guides_forced(bool forced);
+// (round RG) The view's transparency layer for Ray Reconstruction (vulkan_upscale.h; NVIDIA's DLSS-RR Integration Guide
+// 3.4.10): what its kept draws that are transparencies (blended without writing depth: haze cards, light shafts; or
+// adding light: glows, light cones, flares) laid over its surfaces, drawn into it instead of the colour while Ray
+// Reconstruction denoises the view - the colour target's format and size, premultiplied light x the frame's
+// pre-exposure (as the colour) and in alpha how much of what is behind they hide; null when this frame's view drew
+// none. The caller holds the lock.
+[[nodiscard]] Image* surface_light_layer(Backend& state);
+// (the checks) The layer drawn without Ray Reconstruction denoising. The caller holds the lock.
+void set_surface_light_layer_forced(bool forced);
+// (round RG) Whether the draws being recorded are the layer's (the pipeline key's alpha blend - PipelineKey::layer).
+[[nodiscard]] bool surface_light_in_layer();
 // A buffer destroyed: kept draws that name it forget it (vulkan_cel_draw.h cel_forget_buffer_locked's twin).
 void surface_light_forget_buffer(const void* buffer);
 // A texture's image destroyed: prepared draws that sample it no longer look after its layout (its view lives to the
@@ -118,6 +129,7 @@ struct SurfaceLightStats {
     uint64_t recorded = 0;  // of them recorded again from their state blocks (rt_water's; a preparation that no longer held)
     uint64_t elsewhere = 0; // world draws in a view lit per surface into another target (drawn as they came)
     uint64_t rewritten = 0; // kept draws' buffers kept before they were written again
+    uint64_t layered = 0;   // (round RG) of the shaded, drawn into Ray Reconstruction's transparency layer
 };
 [[nodiscard]] SurfaceLightStats surface_light_stats();
 

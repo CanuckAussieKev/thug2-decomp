@@ -168,6 +168,7 @@ inline constexpr uint32_t kBlendDestColour = 9;
 inline constexpr uint32_t kBlendFactor = 14;
 inline constexpr uint32_t kBlendInvFactor = 15;
 inline constexpr uint32_t kBlendOpAdd = 1;
+inline constexpr uint32_t kBlendOpSubtract = 2;
 inline constexpr uint32_t kBlendOpRevSubtract = 3;
 // comparisons (D3DCMPFUNC)
 inline constexpr uint32_t kCompareNever = 1;
