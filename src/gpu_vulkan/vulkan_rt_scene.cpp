@@ -23,6 +23,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/gpu_markers.h"
 #include "engine/gfx/light_store.h"
+#include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_material_table.h"
@@ -99,6 +100,9 @@ struct GeometryRecord {
     uvec2 light_address;
     uvec2 object_light_address;
     float light_exposure;
+    uint triangles;
+    uint vertices;
+    uint light_vertices;
 };
 layout(set = THUG2_GEOMETRY_SET, binding = THUG2_GEOMETRY_BINDING, scalar) readonly buffer GeometryRecords {
     GeometryRecord geometry_records[];
@@ -114,7 +118,8 @@ const uint GEOMETRY_OBJECT_LIGHT = 64u;
 GeometryRecord geometry_record(uint instance)
 {
     if (instance >= uint(geometry_records.length())) {
-        return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, uvec2(0u), uvec2(0u), 0.0);
+        return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, uvec2(0u), uvec2(0u), 0.0, 0u,
+                              0u, 0u);
     }
     return geometry_records[instance];
 }
@@ -139,6 +144,23 @@ float geometry_float(GeometryRecord g, uint vertex, uint offset)
 {
     return uintBitsToFloat(geometry_word(g.vertex_address, g.vertex_offset + vertex * g.stride + offset));
 }
+// (round GF - bounds) A live record's triangle: its three corners, read only where the record says they are - the
+// primitive within its triangles (the index buffer holds those), each corner within its vertex buffer's vertices.
+bool geometry_triangle(GeometryRecord g, uint primitive, out uvec3 corners)
+{
+    corners = uvec3(0u);
+    if ((g.flags & GEOMETRY_LIVE) == 0u || primitive >= g.triangles) {
+        return false;
+    }
+    corners = uvec3(geometry_corner(g, primitive, 0u), geometry_corner(g, primitive, 1u),
+                    geometry_corner(g, primitive, 2u));
+    return all(lessThan(corners, uvec3(g.vertices)));
+}
+// (round GF - bounds) Every corner within the record's light stream.
+bool geometry_light_corners(GeometryRecord g, uvec3 corners)
+{
+    return (g.flags & GEOMETRY_LIGHT) != 0u && all(lessThan(corners, uvec3(g.light_vertices)));
+}
 struct HitVertices {
     vec3 position[3];
     vec2 uv[3];
@@ -154,11 +176,12 @@ bool hit_vertices(uint instance, uint primitive, out HitVertices v)
         v.uv[k] = vec2(0.0);
         v.colour[k] = vec4(1.0);
     }
-    if ((g.flags & GEOMETRY_LIVE) == 0u) {
+    uvec3 corners;
+    if (!geometry_triangle(g, primitive, corners)) {
         return false;
     }
     for (uint k = 0u; k < 3u; ++k) {
-        uint corner = geometry_corner(g, primitive, k);
+        uint corner = corners[k];
         v.position[k] = vec3(geometry_float(g, corner, g.position_offset), geometry_float(g, corner, g.position_offset + 4u),
                              geometry_float(g, corner, g.position_offset + 8u));
         if ((g.flags & GEOMETRY_UV) != 0u) {
@@ -178,14 +201,15 @@ vec2 hit_uv(HitVertices v, vec2 barycentrics)
 vec2 hit_uv_set(uint instance, uint primitive, vec2 barycentrics, uint set)
 {
     GeometryRecord g = geometry_record(instance);
-    if ((g.flags & GEOMETRY_LIVE) == 0u || (g.flags & GEOMETRY_UV) == 0u) {
+    uvec3 corners;
+    if ((g.flags & GEOMETRY_UV) == 0u || !geometry_triangle(g, primitive, corners)) {
         return vec2(0.0);
     }
     uint offset = g.uv_offset + (set < ((g.flags >> 8) & 15u) ? set * 8u : 0u);
     float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
     vec2 uv = vec2(0.0);
     for (uint k = 0u; k < 3u; ++k) {
-        uint corner = geometry_corner(g, primitive, k);
+        uint corner = corners[k];
         uv += vec2(geometry_float(g, corner, offset), geometry_float(g, corner, offset + 4u)) * weights[k];
     }
     return uv;
@@ -194,12 +218,13 @@ bool hit_normal(uint instance, uint primitive, vec2 barycentrics, out vec3 norma
 {
     GeometryRecord g = geometry_record(instance);
     normal = vec3(0.0);
-    if ((g.flags & GEOMETRY_LIVE) == 0u || (g.flags & GEOMETRY_NORMAL) == 0u) {
+    uvec3 corners;
+    if ((g.flags & GEOMETRY_NORMAL) == 0u || !geometry_triangle(g, primitive, corners)) {
         return false;
     }
     float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
     for (uint k = 0u; k < 3u; ++k) {
-        uint corner = geometry_corner(g, primitive, k);
+        uint corner = corners[k];
         normal += vec3(geometry_float(g, corner, g.normal_offset), geometry_float(g, corner, g.normal_offset + 4u),
                        geometry_float(g, corner, g.normal_offset + 8u)) * weights[k];
     }
@@ -231,12 +256,13 @@ bool hit_world_light(uint instance, uint primitive, vec2 barycentrics, out World
 {
     GeometryRecord g = geometry_record(instance);
     w = NO_WORLD_LIGHT;
-    if ((g.flags & GEOMETRY_LIVE) == 0u || (g.flags & GEOMETRY_LIGHT) == 0u) {
+    uvec3 corners;
+    if (!geometry_triangle(g, primitive, corners) || !geometry_light_corners(g, corners)) {
         return false;
     }
     float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
     for (uint k = 0u; k < 3u; ++k) {
-        uint at = geometry_corner(g, primitive, k) * 32u; // (rt_cel.h kCelStreamBytes)
+        uint at = corners[k] * 32u; // (rt_cel.h kCelStreamBytes)
         vec4 flags = unpackUnorm4x8(geometry_word(g.light_address, at + 24u)).zyxw; // (B, G, R, A in memory)
         if (flags.a < 0.75) {
             return false; // (a vertex the game animates: its colour isn't relit's - or a hidden mesh)
@@ -345,13 +371,6 @@ struct Mesh {
     bool compacted = false;
     bool compaction_wanted = false; // built to be compacted, its size not asked for yet (every query was in use)
     VkDeviceSize built_bytes = 0; // the BLAS's size as built (before compaction)
-};
-
-// Something released while the device may still use it: destroyed once `serial` has finished.
-struct Retiring {
-    VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
-    DeviceBuffer memory;
-    uint64_t serial = 0;
 };
 
 // A frame in flight's TLAS and the instances it is built from.
@@ -513,7 +532,6 @@ struct Scene {
     DeviceBuffer scratch;
     VkDeviceAddress scratch_address = 0; // aligned
     VkDeviceSize scratch_bytes = 0;      // usable from scratch_address
-    std::vector<Retiring> retiring;
     VkQueryPool queries = VK_NULL_HANDLE;
     std::vector<uint32_t> free_queries;
     ProbePass probe;
@@ -554,43 +572,30 @@ constexpr VkPipelineStageFlags kAfterBuild = kBuildStage | VK_PIPELINE_STAGE_VER
                                              VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
                                              VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
 
-// Something destroyed once the submission being recorded has finished.
-void retire(Scene& made, VkAccelerationStructureKHR handle, DeviceBuffer* memory, uint64_t serial)
+// Something released while the device may still use it: destroyed once the frame being recorded is over (round GF -
+// vulkan_frames.h: a frame's TLAS names its BLASes, its geometry table the buffers, for every pass of the frame - also
+// after a read-back has finished it part-way, which once let them be destroyed under the frame's later passes); at once
+// when nothing is drawn (the device idle).
+void retire(Backend& state, VkAccelerationStructureKHR handle, DeviceBuffer* memory)
 {
     if (handle == VK_NULL_HANDLE && memory->buffer == VK_NULL_HANDLE) {
         return;
     }
-    made.retiring.push_back({.handle = handle, .memory = *memory, .serial = serial});
+    if (state.draws_made) {
+        state.frames.retire(handle, *memory);
+    } else {
+        if (handle != VK_NULL_HANDLE) {
+            vkDestroyAccelerationStructureKHR(state.context.device(), handle, nullptr);
+        }
+        state.memory.destroy_buffer(memory);
+    }
     *memory = DeviceBuffer{};
 }
 
-void retire_structure(Backend& state, Scene& made, Structure* structure)
+void retire_structure(Backend& state, Structure* structure)
 {
-    retire(made, structure->handle, &structure->memory, state.frames.serial());
+    retire(state, structure->handle, &structure->memory);
     *structure = Structure{};
-}
-
-void destroy_now(Backend& state, Scene& made, Retiring* gone)
-{
-    if (gone->handle != VK_NULL_HANDLE) {
-        vkDestroyAccelerationStructureKHR(made.device, gone->handle, nullptr);
-    }
-    state.memory.destroy_buffer(&gone->memory);
-}
-
-// The retired things whose submissions have finished, destroyed.
-void destroy_finished(Backend& state, Scene& made)
-{
-    const uint64_t completed = state.frames.completed();
-    auto kept = made.retiring.begin();
-    for (Retiring& each : made.retiring) {
-        if (each.serial <= completed) {
-            destroy_now(state, made, &each);
-        } else {
-            *kept++ = each;
-        }
-    }
-    made.retiring.erase(kept, made.retiring.end());
 }
 
 // A structure of `bytes` in a buffer of its own.
@@ -603,6 +608,9 @@ bool make_structure(Backend& state, VkAccelerationStructureTypeKHR type, VkDevic
                                     BufferPlace::kDevice, &made->memory)) {
         return false;
     }
+    state.memory.name_buffer(made->memory, type == VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR
+                                               ? "a frame's TLAS"
+                                               : "a mesh's BLAS"); // (round GF: the crash report's)
     const VkAccelerationStructureCreateInfoKHR info{.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
                                                     .pNext = nullptr,
                                                     .createFlags = 0,
@@ -630,7 +638,7 @@ bool ensure_scratch(Backend& state, Scene& made, VkDeviceSize bytes)
     if (made.scratch_bytes >= bytes && made.scratch.buffer != VK_NULL_HANDLE) {
         return true;
     }
-    retire(made, VK_NULL_HANDLE, &made.scratch, state.frames.serial());
+    retire(state, VK_NULL_HANDLE, &made.scratch);
     const VkDeviceSize wanted = std::max(bytes, made.scratch_bytes * 2);
     if (!state.memory.create_buffer(wanted + made.scratch_alignment,
                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
@@ -639,6 +647,7 @@ bool ensure_scratch(Backend& state, Scene& made, VkDeviceSize bytes)
         made.scratch_address = 0;
         return false;
     }
+    state.memory.name_buffer(made.scratch, "the scene's build scratch"); // (round GF)
     const VkDeviceAddress start = address_of(made.device, made.scratch.buffer);
     made.scratch_address = align_up(start, made.scratch_alignment);
     made.scratch_bytes = wanted + made.scratch_alignment - (made.scratch_address - start);
@@ -840,8 +849,8 @@ void forget_mesh(Backend& state, Scene& made, Mesh* mesh)
         --made.compactions_wanted;
     }
     release_query(made, mesh);
-    retire_structure(state, made, &mesh->blas);
-    retire(made, VK_NULL_HANDLE, &mesh->list_indices, state.frames.serial());
+    retire_structure(state, &mesh->blas);
+    retire(state, VK_NULL_HANDLE, &mesh->list_indices);
 }
 
 // One build or update recorded in a batch.
@@ -900,7 +909,7 @@ void log_scene(Scene& made, bool now)
     get_log("vulkan: ray tracing scene: %u meshes (%u built, %u compacted, %u dynamic, %u refused), BLAS %.1f MB "
             "(%.1f MB before compaction), TLAS + instances %.1f MB, scratch %.1f MB; %u instances in the last TLAS; "
             "%llu builds, %llu refits, %llu TLAS builds (asked for: %llu new meshes, %llu new geometry, %llu written; %llu "
-            "dynamic ones after their refits)",
+            "dynamic ones after their refits); buffers released before their users: %llu meshes, %llu light streams",
             stats.meshes, stats.built, stats.compacted, stats.dynamic, stats.refused,
             static_cast<double>(stats.blas_bytes) / kMegabyte, static_cast<double>(stats.built_bytes) / kMegabyte,
             static_cast<double>(stats.tlas_bytes) / kMegabyte, static_cast<double>(stats.scratch_bytes) / kMegabyte,
@@ -908,7 +917,9 @@ void log_scene(Scene& made, bool now)
             static_cast<unsigned long long>(stats.refits), static_cast<unsigned long long>(stats.tlas_builds),
             static_cast<unsigned long long>(stats.asked_new), static_cast<unsigned long long>(stats.asked_geometry),
             static_cast<unsigned long long>(stats.asked_written),
-            static_cast<unsigned long long>(stats.rebuilt_after_refits));
+            static_cast<unsigned long long>(stats.rebuilt_after_refits),
+            static_cast<unsigned long long>(stats.released_first_meshes),
+            static_cast<unsigned long long>(stats.released_first_streams));
 }
 
 void count_bytes(Scene& made)
@@ -934,7 +945,7 @@ void count_bytes(Scene& made)
         stats.tlas_bytes += frame.tlas.memory.bytes + frame.instances.bytes;
     }
     stats.scratch_bytes = made.scratch.bytes;
-    stats.retired_pending = static_cast<uint32_t>(made.retiring.size());
+    stats.retired_pending = static_cast<uint32_t>(backend().frames.retired_count()); // (round GF: the frames hold them)
 }
 
 // Why the device has no ray tracing ("" when it has it).
@@ -1148,10 +1159,10 @@ bool ensure_frame_scene(Backend& state, Scene& made, FrameScene* frame, uint32_t
         return true;
     }
     const uint32_t capacity = std::max({count, kLeastInstances, frame->capacity * 2});
-    retire_structure(state, made, &frame->tlas);
-    retire(made, VK_NULL_HANDLE, &frame->instances, state.frames.serial());
-    retire(made, VK_NULL_HANDLE, &frame->geometry, state.frames.serial());
-    retire(made, VK_NULL_HANDLE, &frame->object_lights, state.frames.serial());
+    retire_structure(state, &frame->tlas);
+    retire(state, VK_NULL_HANDLE, &frame->instances);
+    retire(state, VK_NULL_HANDLE, &frame->geometry);
+    retire(state, VK_NULL_HANDLE, &frame->object_lights);
     frame->capacity = 0;
     const VkDeviceSize instance_bytes = static_cast<VkDeviceSize>(capacity) * sizeof(VkAccelerationStructureInstanceKHR);
     if (!state.memory.create_buffer(instance_bytes + kInstanceAlignment,
@@ -1161,6 +1172,7 @@ bool ensure_frame_scene(Backend& state, Scene& made, FrameScene* frame, uint32_t
         frame->instances.mapped == nullptr) {
         return false;
     }
+    state.memory.name_buffer(frame->instances, "a frame's TLAS instances"); // (round GF: the crash report's)
     // (R5's reflections: the geometry table, a record per instance)
     if (!state.memory.create_buffer(static_cast<VkDeviceSize>(capacity) * sizeof(GeometryRecord),
                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kUpload, &frame->geometry) ||
@@ -1174,6 +1186,7 @@ bool ensure_frame_scene(Backend& state, Scene& made, FrameScene* frame, uint32_t
         frame->object_lights.mapped == nullptr) {
         return false;
     }
+    state.memory.name_buffer(frame->object_lights, "a frame's objects' lights");
     frame->instances_address = align_up(address_of(made.device, frame->instances.buffer), kInstanceAlignment);
     VkAccelerationStructureGeometryKHR geometry{};
     geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -1242,7 +1255,7 @@ VkAccelerationStructureInstanceKHR instance_of(const rt::Instance& given, const 
 // A strip's triangles as a list in a buffer of the mesh's own (processor-written); false when it can't be made.
 bool make_list_indices(Backend& state, Scene& made, Mesh* mesh, const std::vector<uint32_t>& list)
 {
-    retire(made, VK_NULL_HANDLE, &mesh->list_indices, state.frames.serial());
+    retire(state, VK_NULL_HANDLE, &mesh->list_indices);
     const VkDeviceSize bytes = list.size() * sizeof(uint32_t);
     if (!state.memory.create_buffer(bytes,
                                     VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
@@ -1251,6 +1264,7 @@ bool make_list_indices(Backend& state, Scene& made, Mesh* mesh, const std::vecto
         mesh->list_indices.mapped == nullptr) {
         return false;
     }
+    state.memory.name_buffer(mesh->list_indices, "a strip mesh's list of corners"); // (round GF)
     std::memcpy(mesh->list_indices.mapped, list.data(), bytes);
     state.memory.flush(mesh->list_indices, 0, bytes);
     return true;
@@ -1321,7 +1335,7 @@ bool plan_job(Backend& state, Scene& made, rt::MeshId id, Mesh& mesh, MeshWork w
     if (rebuild) {
         release_query(made, &mesh);
         if (mesh.blas.memory.bytes < sizes.accelerationStructureSize || mesh.compacted) {
-            retire_structure(state, made, &mesh.blas);
+            retire_structure(state, &mesh.blas);
             if (!make_structure(state, VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR, sizes.accelerationStructureSize,
                                 &mesh.blas)) {
                 get_log("vulkan: ray tracing: no memory for mesh %u's structure (%llu bytes)", id,
@@ -1382,14 +1396,27 @@ GeometryRecord geometry_record_of(Backend& state, const Scene& made, const rt::I
     if (vertices == nullptr) {
         return row;
     }
+    // (round GF) every version named here is held for the whole frame (vulkan_frames.h): its passes read it by address
+    // after a read-back has finished the frame part-way, so a discard must not hand it out again before the frame ends
     const uint64_t serial = state.frames.serial();
+    const uint64_t frame = state.frames.frame();
+    const auto hold = [serial, frame](BufferVersion& version) {
+        version.last_use = std::max(version.last_use, serial);
+        version.held_frame = std::max(version.held_frame, frame);
+    };
     BufferVersion& vertex_version = current_version(vertices);
-    vertex_version.last_use = std::max(vertex_version.last_use, serial);
+    hold(vertex_version);
     row.vertex_address = address_words(address_of(made.device, vertex_version.memory.buffer));
     row.vertex_offset = geometry.vertex_offset;
     row.stride = geometry.vertex_stride;
     row.position_offset = geometry.position_offset;
     row.flags = kGeometryLive;
+    // (round GF - bounds) the triangles and the vertices the shaders may read through the record
+    row.triangles = mesh->triangles;
+    row.vertices = vertex_version.memory.bytes > geometry.vertex_offset && geometry.vertex_stride > 0
+                       ? static_cast<uint32_t>((vertex_version.memory.bytes - geometry.vertex_offset) /
+                                               geometry.vertex_stride)
+                       : 0;
     // (the attributes are read a word at a time: one not on a 4-byte boundary is left out)
     if (geometry.uv_format == rt::kUvFloat2 && geometry.uv_offset % kFloatBytes == 0 &&
         geometry.uv_offset + (2 * kFloatBytes) <= geometry.vertex_stride) {
@@ -1420,10 +1447,16 @@ GeometryRecord geometry_record_of(Backend& state, const Scene& made, const rt::I
             return GeometryRecord{};
         }
         BufferVersion& index_version = current_version(indices);
-        index_version.last_use = std::max(index_version.last_use, serial);
+        hold(index_version);
         row.index_address = address_words(address_of(made.device, index_version.memory.buffer));
-        row.index_offset = geometry.index_offset * (geometry.indices_32bit ? kIndex32Bytes : kIndex16Bytes);
+        const uint32_t index_bytes = geometry.indices_32bit ? kIndex32Bytes : kIndex16Bytes;
+        row.index_offset = geometry.index_offset * index_bytes;
         row.flags |= geometry.indices_32bit ? kGeometryIndex32 : 0U;
+        // (round GF - bounds) a list's triangles within the index buffer as it is
+        const VkDeviceSize held = index_version.memory.bytes > row.index_offset
+                                      ? (index_version.memory.bytes - row.index_offset) / (index_bytes * kListCorners)
+                                      : 0;
+        row.triangles = static_cast<uint32_t>(std::min<VkDeviceSize>(row.triangles, held));
     }
     row.instance_flags = given.flags;
     // (added by the light energy audit) the relit world's light stream, read by the passes that light a pixel again
@@ -1432,8 +1465,9 @@ GeometryRecord geometry_record_of(Backend& state, const Scene& made, const rt::I
         Buffer* const light = live_buffer(state, object(stream->second));
         if (light != nullptr) {
             BufferVersion& light_version = current_version(light);
-            light_version.last_use = std::max(light_version.last_use, serial);
+            hold(light_version);
             row.light_address = address_words(address_of(made.device, light_version.memory.buffer));
+            row.light_vertices = static_cast<uint32_t>(light_version.memory.bytes / rt::kCelStreamBytes);
             row.flags |= kGeometryLight;
             row.light_exposure = rt::frame_pre_exposure(); // (round L: the store's physical light x it where it is read)
         }
@@ -1523,7 +1557,7 @@ void record_compactions(Backend& state, Scene& made, VkCommandBuffer commands,
                                                       .dst = mesh->blas.handle,
                                                       .mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR};
         vkCmdCopyAccelerationStructureKHR(commands, &copy);
-        retire_structure(state, made, &old);
+        retire_structure(state, &old);
     }
 }
 
@@ -1578,7 +1612,6 @@ void ask_compacted_sizes(Backend& state, Scene& made, VkCommandBuffer commands, 
 
 void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& record)
 {
-    destroy_finished(state, made);
     std::vector<std::pair<Mesh*, Structure>> copies;
     collect_compactions(state, made, &copies);
 
@@ -1892,7 +1925,6 @@ void VulkanRayTracing::settle(const rt::FrameRecord& record)
     if (!finish_work(state)) {
         return;
     }
-    destroy_finished(state, made);
     count_bytes(made);
     log_scene(made, true);
 }
@@ -2575,12 +2607,13 @@ bool hit_store(uint instance, uint primitive, vec2 barycentrics, out vec3 tint, 
     emit = vec3(0.0);
     masked = false;
     hidden = false;
-    if ((g.flags & GEOMETRY_LIVE) == 0u || (g.flags & GEOMETRY_LIGHT) == 0u) {
+    uvec3 corners;
+    if (!geometry_triangle(g, primitive, corners) || !geometry_light_corners(g, corners)) {
         return false;
     }
     float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
     for (uint k = 0u; k < 3u; ++k) {
-        uint at = geometry_corner(g, primitive, k) * 32u; // (rt_cel.h kCelStreamBytes)
+        uint at = corners[k] * 32u; // (rt_cel.h kCelStreamBytes)
         vec4 flags = unpackUnorm4x8(geometry_word(g.light_address, at + 24u)).zyxw;
         if (flags.a < 0.25) {
             return false; // (an animated vertex: the game's colour, no store)
@@ -2778,6 +2811,46 @@ void create_ray_tracing(Backend& state)
             structures.minAccelerationStructureScratchOffsetAlignment);
 }
 
+void rt_scene_buffer_released_locked(Backend& state, const Buffer* buffer)
+{
+    Scene& made = scene();
+    if (!made.installed || buffer == nullptr) {
+        return;
+    }
+    // (each is an owner that let its buffer go before telling the ray tracing - its mesh or stream would otherwise be
+    // read through whatever buffer the Gpu makes next at the same address; the first few named, all counted in the
+    // scene's line)
+    constexpr uint64_t kNamedAtMost = 3;
+    for (auto it = made.light_streams.begin(); it != made.light_streams.end();) {
+        if (object(it->second) == buffer) {
+            if (made.stats.released_first_streams++ < kNamedAtMost) {
+                get_log("vulkan: ray tracing: mesh %u's light stream was released while still given to it - taken back",
+                        it->first);
+            }
+            it = made.light_streams.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    for (auto& [id, mesh] : made.meshes) {
+        if (object(mesh.geometry.vertices) != buffer && object(mesh.geometry.indices) != buffer) {
+            continue;
+        }
+        if (made.stats.released_first_meshes++ < kNamedAtMost) {
+            get_log("vulkan: ray tracing: mesh %u's buffers were released before it was - left out (more counted in "
+                    "the scene's line)",
+                    id);
+        }
+        forget_mesh(state, made, &mesh);
+        mesh.refused = true;
+        mesh.built = false;
+        mesh.needs_build = false;
+        mesh.needs_refit = false;
+        mesh.geometry.vertices = nullptr; // (never followed again: a buffer made at the same address is another)
+        mesh.geometry.indices = nullptr;
+    }
+}
+
 void release_ray_tracing(Backend& state)
 {
     Scene& made = scene();
@@ -2810,17 +2883,13 @@ void release_ray_tracing(Backend& state)
     made.alpha_refs.clear();
     made.reflective.clear();
     for (FrameScene& frame : made.frames) {
-        retire_structure(state, made, &frame.tlas);
-        retire(made, VK_NULL_HANDLE, &frame.instances, 0);
-        retire(made, VK_NULL_HANDLE, &frame.geometry, 0);
-        retire(made, VK_NULL_HANDLE, &frame.object_lights, 0);
+        retire_structure(state, &frame.tlas);
+        retire(state, VK_NULL_HANDLE, &frame.instances);
+        retire(state, VK_NULL_HANDLE, &frame.geometry);
+        retire(state, VK_NULL_HANDLE, &frame.object_lights);
         frame = FrameScene{};
     }
-    retire(made, VK_NULL_HANDLE, &made.scratch, 0);
-    for (Retiring& each : made.retiring) {
-        destroy_now(state, made, &each);
-    }
-    made.retiring.clear();
+    retire(state, VK_NULL_HANDLE, &made.scratch);
     for (LaterProbe& each : made.later) { // (added for probe_later: the device is idle here)
         state.memory.destroy_buffer(&each.hits);
     }
@@ -2861,7 +2930,6 @@ TraceResult trace_rays_now(std::span<const TracedRay> rays, std::vector<TracedHi
     if (!finish_work(state)) {
         return TraceResult::kFailed;
     }
-    destroy_finished(state, made);
     const FrameScene& frame = core::at(made.frames, made.current);
     DeviceBuffer ray_buffer;
     DeviceBuffer hit_buffer;

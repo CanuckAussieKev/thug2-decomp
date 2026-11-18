@@ -239,8 +239,17 @@ std::vector<std::string> describe_fault(const FaultReport& report, AddressNamer 
                                         static_cast<unsigned long long>(address.reportedAddress),
                                         address_type_name(address.addressType), static_cast<unsigned long long>(low),
                                         static_cast<unsigned long long>(low + precision - 1));
+        // (round GF) an instruction pointer is a shader's code, in no buffer: not looked up among them
+        const bool instruction = address.addressType == VK_DEVICE_FAULT_ADDRESS_TYPE_INSTRUCTION_POINTER_UNKNOWN_EXT ||
+                                 address.addressType == VK_DEVICE_FAULT_ADDRESS_TYPE_INSTRUCTION_POINTER_INVALID_EXT ||
+                                 address.addressType == VK_DEVICE_FAULT_ADDRESS_TYPE_INSTRUCTION_POINTER_FAULT_EXT;
+        if (instruction) {
+            lines.push_back(line + " - a shader's code (the faulting access is the data address above or below)");
+            continue;
+        }
         const std::string held = name_address != nullptr ? name_address(user, address.reportedAddress) : std::string();
-        line += held.empty() ? std::string(" - in no live buffer with a device address (an image, or memory freed)")
+        line += held.empty() ? std::string(" - in no live buffer with a device address, nor one of the last freed "
+                                           "(an image, a library's memory, or a wild address)")
                              : " - " + held;
         lines.push_back(line);
     }
@@ -359,7 +368,7 @@ std::array<uint32_t, 2> CrashMarkers::buffer_values() const
     return values;
 }
 
-std::vector<std::string> CrashMarkers::reached(std::span<const VkQueue> queues, uint64_t near) const
+std::vector<std::string> CrashMarkers::reached(std::span<const VkQueue> queues, uint64_t near, uint64_t completed) const
 {
     std::vector<std::string> lines;
     if (checkpoints_) {
@@ -379,7 +388,14 @@ std::vector<std::string> CrashMarkers::reached(std::span<const VkQueue> queues, 
             }
             if (reached.empty()) {
                 if (index == 0) {
-                    lines.emplace_back("queue 0: no checkpoint reached (none recorded yet)");
+                    // (round GF) the driver keeps none for some losses (a page fault's reset): what is known instead -
+                    // the submissions sent with markers and the last one known finished; the loss is in one between
+                    lines.push_back(text::format(
+                        "queue 0: the driver gave no checkpoints - markers were recorded up to submission %llu, and "
+                        "submission %llu is the last known finished: the work lost is in submissions %llu - %llu "
+                        "(their passes below)",
+                        static_cast<unsigned long long>(near), static_cast<unsigned long long>(completed),
+                        static_cast<unsigned long long>(completed + 1), static_cast<unsigned long long>(near)));
                 }
                 continue; // (a library's queue that recorded no marker)
             }

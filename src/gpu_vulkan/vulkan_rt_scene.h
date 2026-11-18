@@ -25,7 +25,9 @@
 //     build fails or the scene is released.
 // Builds are recorded into the frame's stream (vulkan_frames.h) outside a rendering pass, in batches sharing one
 // scratch buffer per frame in flight, after a barrier that makes the buffers' uploads and the processor's writes
-// visible to them. Released structures are destroyed once the submissions that may use them have finished.
+// visible to them. Released structures are destroyed once the frames that may use them have finished (round GF: retired
+// to the frame - vulkan_frames.h -, as a frame's TLAS names its BLASes and its geometry table names buffers by address
+// for all of its passes, even after a read-back finished it part-way).
 // Materials (set_material / remove_material) go to the material table (Backend::materials, vulkan_rt_materials.h), whose
 // changes begin_frame makes visible first. Installed (render::rt::set_ray_tracing) when the device was made with ray
 // tracing (Context::ray_tracing_enabled), by create_device_objects; released with the device's objects.
@@ -101,8 +103,14 @@ struct GeometryRecord {
     // (round L - the physical light store) what the light stream's light is multiplied by where it is read: the frame's
     // pre-exposure (rt_daylight.h frame_pre_exposure)
     float light_exposure = 0.0F;
+    // (round GF - bounds) what may be read through the addresses: the mesh's triangles (a primitive past them is not
+    // followed), the vertices its vertex buffer holds from vertex_offset (a corner past them is not read), and the
+    // vertices its light stream holds (with kGeometryLight)
+    uint32_t triangles = 0;
+    uint32_t vertices = 0;
+    uint32_t light_vertices = 0;
 };
-inline constexpr std::size_t kGeometryRecordBytes = 72;
+inline constexpr std::size_t kGeometryRecordBytes = 84;
 static_assert(sizeof(GeometryRecord) == kGeometryRecordBytes);
 inline constexpr uint32_t kGeometryLive = 1U << 0;    // its mesh is built (else every other field is 0)
 inline constexpr uint32_t kGeometryIndex32 = 1U << 1; // 32-bit indices (else 16-bit)
@@ -123,6 +131,9 @@ inline constexpr uint32_t kGeometryUvSetsMask = 0xF;
 // bind it somewhere other than set 0, binding 7). It enables GL_EXT_buffer_reference(_uvec2) and GL_EXT_scalar_block_layout and
 // declares:
 //   struct GeometryRecord { ... };   GeometryRecord geometry_record(uint instance)  (past the end: not live)
+//   bool geometry_triangle(GeometryRecord g, uint primitive, out uvec3 corners) - (round GF) a live record's triangle's
+//        corners; false when the primitive is past its triangles or a corner past its vertices (nothing to read there)
+//   bool geometry_light_corners(GeometryRecord g, uvec3 corners) - (round GF) every corner within its light stream
 //   struct HitVertices { vec3 position[3]; vec2 uv[3]; vec4 colour[3]; uint flags; };
 //   bool hit_vertices(uint instance, uint primitive, out HitVertices v)  - false when the instance isn't live; a mesh
 //        without texture coordinates / colours gives (0, 0) / (1, 1, 1, 1) - the colour's 128 is 1.0 x 128 / 255
@@ -213,6 +224,11 @@ SceneView current_scene(const Backend& state);
 // RayTracing and logs whether ray tracing is on, on which device, or why not.
 void create_ray_tracing(Backend& state);
 void release_ray_tracing(Backend& state);
+// (round GF) One of the Gpu's buffers destroyed (vulkan_gpu.cpp destroy_buffer; the caller holds the lock): the meshes
+// built from it and the light streams given as it are forgotten now (logged - their owners release them first), so no
+// later frame takes another buffer made at the same address for it.
+struct Buffer;
+void rt_scene_buffer_released_locked(Backend& state, const Buffer* buffer);
 // The usage a buffer the Gpu draws from also needs (vulkan_gpu.cpp's make_buffer): device addresses and build input
 // when ray tracing is on, else none.
 VkBufferUsageFlags ray_tracing_buffer_usage(const Backend& state);
@@ -265,6 +281,10 @@ struct SceneStats {
     uint64_t asked_written = 0;
     uint64_t rebuilt_after_refits = 0; // a dynamic mesh built again once kRefitsBeforeRebuild refits had worn it
     uint32_t last_instances = 0;  // in the last TLAS
+    // (round GF) the Gpu's buffers destroyed while the scene still named them (their owner released the buffer first):
+    // the meshes left out and the light streams taken back then
+    uint64_t released_first_meshes = 0;
+    uint64_t released_first_streams = 0;
     uint32_t retired_pending = 0; // structures and buffers waiting for their submissions
 };
 SceneStats scene_stats(); // takes the lock

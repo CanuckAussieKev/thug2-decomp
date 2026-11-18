@@ -15,6 +15,7 @@
 #include <volk.h>
 #include <vk_mem_alloc.h>
 
+#include "base/core/checked_index.h"
 #include "base/core/format.h"
 
 #include "gpu_vulkan/vulkan_context.h"
@@ -394,8 +395,21 @@ void Memory::note_address(const DeviceBuffer& buffer, VkBufferUsageFlags usage)
         return;
     }
     const std::scoped_lock lock(addressed_mutex_);
-    addressed_[address] = Addressed{.bytes = buffer.bytes, .usage = usage};
+    addressed_[address] = Addressed{.bytes = buffer.bytes, .usage = usage, .owner = nullptr, .made = submission_};
     address_of_[buffer.buffer] = address;
+}
+
+void Memory::name_buffer(const DeviceBuffer& buffer, const char* owner)
+{
+    const std::scoped_lock lock(addressed_mutex_);
+    const auto found = address_of_.find(buffer.buffer);
+    if (found == address_of_.end()) {
+        return;
+    }
+    const auto held = addressed_.find(found->second);
+    if (held != addressed_.end()) {
+        held->second.owner = owner;
+    }
 }
 
 void Memory::forget_address(VkBuffer buffer)
@@ -405,7 +419,17 @@ void Memory::forget_address(VkBuffer buffer)
     if (found == address_of_.end()) {
         return;
     }
-    addressed_.erase(found->second);
+    // (round GF) kept in the ring of the freed: a fault at its address later is a use after free, named outright
+    if (const auto held = addressed_.find(found->second); held != addressed_.end()) {
+        const Freed gone{.start = held->first, .was = held->second, .freed = submission_};
+        if (freed_.size() < kFreedKept) {
+            freed_.push_back(gone);
+        } else {
+            core::at(freed_, freed_next_) = gone;
+        }
+        freed_next_ = (freed_next_ + 1) % kFreedKept;
+        addressed_.erase(held);
+    }
     address_of_.erase(found);
 }
 
@@ -443,17 +467,41 @@ constexpr double kBytesPerMegabyte = 1024.0 * 1024.0;
 std::string Memory::describe_address(VkDeviceAddress address) const
 {
     const std::scoped_lock lock(addressed_mutex_);
-    auto above = addressed_.upper_bound(address);
-    if (above == addressed_.begin()) {
-        return {};
+    const auto what = [](const Addressed& buffer, VkDeviceAddress start) {
+        return text::format("%s%s%.2f MB buffer at 0x%llx (%s; made in submission %llu)",
+                            buffer.owner != nullptr ? buffer.owner : "", buffer.owner != nullptr ? ": a " : "a ",
+                            static_cast<double>(buffer.bytes) / kBytesPerMegabyte,
+                            static_cast<unsigned long long>(start), usage_text(buffer.usage).c_str(),
+                            static_cast<unsigned long long>(buffer.made));
+    };
+    const auto above = addressed_.upper_bound(address);
+    const bool below = above != addressed_.begin();
+    if (below) {
+        const auto& [start, buffer] = *std::prev(above);
+        if (address - start < buffer.bytes) {
+            return text::format("in %s - at 0x%llx bytes from its start", what(buffer, start).c_str(),
+                                static_cast<unsigned long long>(address - start));
+        }
     }
-    const auto& [start, buffer] = *std::prev(above);
-    const VkDeviceAddress offset = address - start;
-    const bool inside = offset < buffer.bytes;
-    return text::format("%s a %.2f MB buffer at 0x%llx (%s) - %s 0x%llx bytes from its start", inside ? "in" : "past",
-                        static_cast<double>(buffer.bytes) / kBytesPerMegabyte, static_cast<unsigned long long>(start),
-                        usage_text(buffer.usage).c_str(), inside ? "at" : "beyond its end,",
-                        static_cast<unsigned long long>(offset));
+    // (round GF) a buffer destroyed that held it - the newest first (its memory may have gone back to the driver)
+    for (std::size_t back = 1; back <= freed_.size(); ++back) {
+        const Freed& gone = core::at(freed_, (freed_next_ + freed_.size() - back) % freed_.size());
+        if (address >= gone.start && address - gone.start < gone.was.bytes) {
+            return text::format("in a buffer FREED in submission %llu (a use after free) - %s - at 0x%llx bytes from "
+                                "its start",
+                                static_cast<unsigned long long>(gone.freed), what(gone.was, gone.start).c_str(),
+                                static_cast<unsigned long long>(address - gone.start));
+        }
+    }
+    if (below) {
+        const auto& [start, buffer] = *std::prev(above);
+        const VkDeviceAddress past = address - start - buffer.bytes;
+        if (past < kNearEnd) {
+            return text::format("just past the end of %s - 0x%llx bytes beyond it", what(buffer, start).c_str(),
+                                static_cast<unsigned long long>(past));
+        }
+    }
+    return {};
 }
 
 void Memory::flush(const DeviceBuffer& buffer, VkDeviceSize offset, VkDeviceSize bytes)

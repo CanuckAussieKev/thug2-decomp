@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 #include <volk.h>
@@ -22,12 +23,18 @@
 // once that one has finished. The frame ends with the present's submission; the next frame in flight's slot is then
 // waited for (its fence), its deleted objects destroyed, its rings used from their start. A read-back finishes everything
 // first (submitted and waited for); so does a staging ring that has grown past its limit while loading.
+// (round GF) Objects are retired for the frame, not the submission: a frame finished part-way (a read-back) goes on
+// recording after it, and what it captured at its start - the ray tracing scene's TLAS (its BLASes' addresses) and
+// geometry table (buffers' addresses) - may still name them; they are destroyed only once the frame's slot comes round
+// (its last submission waited for). Frames are numbered too (frame(), completed_frame()): a dynamic buffer's memory
+// whose address a frame captured is not handed out again until that frame is over (vulkan_gpu.cpp discard_version).
 namespace render::vulkan {
 
-// Objects released while the device may still use them: destroyed when their submission has finished.
+// Objects released while the device may still use them: destroyed when their frame has finished.
 struct Retired {
     std::vector<Image> images;
     std::vector<DeviceBuffer> buffers;
+    std::vector<VkAccelerationStructureKHR> structures; // (round GF: ray tracing's - destroyed before the buffers)
 };
 
 class Frames {
@@ -61,12 +68,22 @@ public:
     // The submission being recorded, and the last one known to have finished.
     [[nodiscard]] uint64_t serial() const { return serial_; }
     [[nodiscard]] uint64_t completed() const { return completed_; }
+    // (round GF) The frame being recorded (from 1, one more at each end_frame), and the last one whose every submission
+    // is known finished (not the one being recorded, even after finish()).
+    [[nodiscard]] uint64_t frame() const { return frame_; }
+    [[nodiscard]] uint64_t completed_frame() const { return completed_frame_; }
 
+    // Destroyed once the frame being recorded is over (its slot come round, its fence waited for).
     void retire(const Image& image);
     void retire(const DeviceBuffer& buffer);
+    // (round GF) An acceleration structure and the buffer holding it (either may be null).
+    void retire(VkAccelerationStructureKHR structure, const DeviceBuffer& memory);
+    // Objects retired, not destroyed yet (the log's, the checks').
+    [[nodiscard]] std::size_t retired_count() const;
 
-    // What is recorded submitted and waited for (the queue idle): every retired object destroyed, this slot's rings
-    // used from their start again. False on a Vulkan failure.
+    // What is recorded submitted and waited for (the queue idle): the earlier frames' retired objects destroyed (round
+    // GF: the current frame's kept - it goes on), this slot's rings used from their start again. False on a Vulkan
+    // failure.
     bool finish();
     // The frame's end: what is recorded submitted (waiting for `acquired` at the transfer stage and signalling
     // `presented`, when given), then the next slot made ready (its previous frame waited for).
@@ -113,6 +130,7 @@ private:
         bool pending = false;  // submitted, not yet waited for
         bool timed = false;    // (frame_profile) its stream's start and end timestamps written
         uint64_t submitted = 0; // its last submission's number
+        uint64_t frame = 0;     // (round GF) the frame it holds
         Retired retired;
     };
 
@@ -138,6 +156,8 @@ private:
     uint32_t current_ = 0;
     uint64_t serial_ = 1;
     uint64_t completed_ = 0;
+    uint64_t frame_ = 1;           // (round GF)
+    uint64_t completed_frame_ = 0; // (round GF)
     bool restarted_ = false;
     std::vector<VkSemaphore> waits_;
     std::vector<VkPipelineStageFlags> wait_stages_;

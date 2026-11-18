@@ -282,9 +282,8 @@ void check_report_format()
                     "address 0x7f0001234 (an invalid read; within 0x7f0001000 - 0x7f0001fff) - in a 1.00 MB "
                     "buffer at 0x7f0000000 (storage) - at 0x1234 bytes from its start"),
            "a read fault's address, its precision's range and the buffer holding it");
-    expect(contains(fault_lines, "an instruction that caused a fault") &&
-               contains(fault_lines, "in no live buffer with a device address"),
-           "an instruction address in no buffer");
+    expect(contains(fault_lines, "an instruction that caused a fault; within 0x123450 - 0x123450) - a shader's code"),
+           "an instruction address: a shader's code, not looked up among the buffers (round GF)");
     expect(contains(fault_lines, "vendor: \"MMU fault: GPC 2\" (code 0x1f, data 0xabc)"), "the vendor's codes");
     expect(contains(fault_lines, "the vendor's binary dump: 4096 bytes"), "the vendor's dump");
     vk::FaultReport unread;
@@ -409,7 +408,7 @@ int check_device(SDL_Window* window, int device, vk::CrashMarkerChoice choice)
     // (NVIDIA's checkpoints are read only from a lost device - vkGetQueueCheckpointDataNV's rule: their recording is
     // checked by the validation layer here; AMD's buffer markers are read back now, case 6)
     if (markers_expected && !has.checkpoints) {
-        const std::vector<std::string> lines = frames.markers().reached(context.all_queues(), frames.serial());
+        const std::vector<std::string> lines = frames.markers().reached(context.all_queues(), frames.serial(), frames.completed());
         print_lines("markers", lines);
         const std::string finished =
             text::format("the bottom of the pipe (finished) reached submission %llu: the end of the Gpu: stream",
@@ -440,14 +439,27 @@ int check_device(SDL_Window* window, int device, vk::CrashMarkerChoice choice)
             const VkBufferDeviceAddressInfo info{
                 .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = buffer.buffer};
             const VkDeviceAddress address = vkGetBufferDeviceAddress(context.device(), &info);
+            memory.set_submission(kLost); // (round GF: when it was made and freed)
+            memory.name_buffer(buffer, "the check's buffer");
             const std::string inside = memory.describe_address(address + 0x40);
             text::print("    a fault inside it: %s\n", inside.c_str());
-            expect(inside.starts_with("in a 0.06 MB buffer") && inside.find("(storage)") != std::string::npos &&
+            expect(inside.starts_with("in the check's buffer: a 0.06 MB buffer") &&
+                       inside.find("(storage; made in submission") != std::string::npos &&
                        inside.find("at 0x40 bytes") != std::string::npos,
-                   "a fault address named by the buffer holding it");
+                   "a fault address named by the buffer holding it - its owner, size and usage");
+            const std::string just_past = memory.describe_address(address + kBytes + 0x10);
+            expect(just_past.empty() || just_past.starts_with("just past the end of") ||
+                       just_past.starts_with("in "), // (another live buffer may sit right after it)
+                   "an address just past a buffer's end said so");
+            memory.set_submission(kNext);
             memory.destroy_buffer(&buffer);
             const std::string gone = memory.describe_address(address + 0x40);
-            expect(gone.find("in a 0.06 MB buffer at") == std::string::npos, "a destroyed buffer forgotten");
+            text::print("    after it was destroyed: %s\n", gone.c_str());
+            expect(gone.starts_with(text::format("in a buffer FREED in submission %llu (a use after free) - the check's "
+                                                 "buffer: a 0.06 MB buffer",
+                                                 static_cast<unsigned long long>(kNext))) &&
+                       gone.find("at 0x40 bytes") != std::string::npos,
+                   "a destroyed buffer named as freed - a use after free, with when it was freed (round GF)");
         }
     }
     const std::vector<std::string> heaps = vk::describe_memory(context.physical_device(), has.memory_budget);
