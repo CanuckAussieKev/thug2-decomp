@@ -2308,6 +2308,18 @@ evidence") and from the frame's point lights that were on at the bake's time - s
   43 of them one lamp with their heads. At night the street at the archway is 14 x brighter (linear). Not closed: the
   realtime estimators (ReSTIR and the classic pass alike) light the lamp-lit opaque street 0.24 - 0.5 x the `pt ref`
   (`analytic` / whole) - the realtime under-lighting found in round PT-night (0.66 there before this round).
+  Round LG took it apart (same spot, same EV, the realtime frame as `pt ref` copies it - after the upscaler): the
+  reference holds (its next-event estimation alone and its BSDF rays alone agree within 6 %; the street is lit by
+  the lamps' own emitting surfaces, `only emit`, not by analytic lamps). Without an upscaler the realtime frame is
+  0.67 x the reference on the lit ground (ReSTIR DI + GI; 0.77 with RTXDI's boiling filter off; 0.87 x the
+  reference's direct light alone); the classic lamps pass 1.0 - 1.1 x. DLSS without Ray Reconstruction keeps the
+  surfaces (0.93 - 1.0 x its input) and loses lamp heads' highlights (the courtyard 0.52 - 0.68 x). **Ray
+  Reconstruction loses 30 - 45 % of its own input's light at night** (its output 0.56 - 0.69 x the input it is given,
+  the same with the classic pass's noiseless lamps - not a noise effect), none at noon (0.99 x): unchanged by the
+  preExposure (the frame's, 1, the camera's), an exposure texture, exposureScale, the guides, the reactive mask, the
+  transparency layer or the preset (D, E); it depends on the input's level alone - the same frame scaled 16 x before
+  it (and the preExposure with it): 0.85 x, 256 x: 0.98 x. Open: the level Ray Reconstruction is given (the night's
+  lamp heads, ~10^5 x the lit ground, leave no fixed scale that lifts the ground and keeps the heads in 16-bit floats).
 
 ### Lighting round A2: one light unit, the sun by the relit fit, lamps by their light (`rt_relit`, `rt_lights`)
 
@@ -5279,7 +5291,9 @@ through the tone curve at that EV. `pt off` ends it.
 - Diagnostics (the night's light, decomposed): `pt ref <samples> ... only disc,sky,emit,lamps` counts those kinds of
   light alone (their next-event samples and what the BSDF rays meet of them; the paths unchanged - the runs of each kind
   add up to the whole); `analytic` makes every lamp its analytic light and counts no surface's emission (the other
-  owner); `open` lets the light's rays pass the blended surfaces as the realtime tier's rays do. The light list's log
+  owner); `open` lets the light's rays pass the blended surfaces as the realtime tier's rays do; (round LG) `nee` /
+  `bsdf` count the light by next-event estimation alone / by the BSDF's rays alone (MIS off) - each is the whole on its
+  own, so a light the list misses (or a sample its next-event estimation can't reach) shows as their difference. The light list's log
   line gives the owned lamps' model flux beside the listed triangles' measured power. `rt probe` prints the light store's
   terms in the unit (%g), each nearby vertex's light as drawn and its lamp links (lamp, weight, share of L).
 - What the reference showed by night in Boston (relit data v14, full moon, EV100 fixed): the frame 3.6 - 29 x the

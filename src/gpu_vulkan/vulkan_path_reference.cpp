@@ -1690,7 +1690,7 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
             ? std::min(checking ? std::max(own.overrides.samples_per_frame, 1U) : 1U, own.wanted - own.samples)
             : 0U;
     const uint32_t bounces = checking ? own.overrides.bounces : std::min(request.bounces, rt::path::kMostBounces);
-    block.frame = {own.samples, samples_now, bounces, checking ? static_cast<uint32_t>(own.overrides.strategy) : 0U};
+    block.frame = {own.samples, samples_now, bounces, checking ? static_cast<uint32_t>(own.overrides.strategy) : static_cast<uint32_t>(request.strategy)};
     block.size = {own.width, own.height, checking ? own.overrides.seed : static_cast<uint32_t>(own.request_serial),
                   kEmitterCapacity};
     block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),

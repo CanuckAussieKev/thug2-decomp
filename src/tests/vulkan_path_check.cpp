@@ -1122,6 +1122,18 @@ void check_sampling(Tally* tally)
     const std::vector<rt::Emitter> kept = path::analytic_lamps(lamps, surfaced);
     tally->check(kept.size() == 2 && core::at(kept, 0).intensity == 1.0F && core::at(kept, 1).intensity == 3.0F,
                  text::format("analytic_lamps keeps the lamps without a surface of their own (%zu of 3)", kept.size()));
+    // (round LG) `pt ref ... nee | bsdf`: the strategy asked (the lights' samples alone, the BSDF's rays alone)
+    (void)path::path_console_command("ref 4 direct nee");
+    const uint8_t nee = path::path_reference_request().strategy;
+    (void)path::path_console_command("ref 4 bsdf only emit");
+    const uint8_t bsdf = path::path_reference_request().strategy;
+    (void)path::path_console_command("ref 4");
+    const uint8_t mis = path::path_reference_request().strategy;
+    (void)path::path_console_command("off");
+    tally->check(nee == static_cast<uint8_t>(vk::PathStrategy::kLightsOnly) &&
+                     bsdf == static_cast<uint8_t>(vk::PathStrategy::kBsdfOnly) &&
+                     mis == static_cast<uint8_t>(vk::PathStrategy::kMis) && path::path_reference_request().samples == 0,
+                 text::format("`pt ref`'s nee / bsdf read as the strategies (%u, %u; none: %u)", nee, bsdf, mis));
 }
 
 void check_device(render::Gpu& gpu, Tally* tally)

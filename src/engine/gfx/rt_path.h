@@ -265,7 +265,11 @@ struct PathReferenceRequest {
     // tier's rays do (vulkan_rt_scene.h's masks: the seen-through instances are no caster) - for comparison; the paths
     // still meet them
     bool blended_open = false;
-    uint64_t serial = 0;         // (set_path_reference numbers each request)
+    // (round LG) `pt ref <samples> ... nee | bsdf`: the light found by next-event estimation alone (0 MIS - the
+    // default, 1 the lights alone, 2 the BSDF's rays alone - vulkan_path_reference.h PathStrategy): a light the list
+    // misses shows as the difference
+    uint8_t strategy = 0;
+    uint64_t serial = 0; // (set_path_reference numbers each request)
 };
 inline constexpr uint32_t kLightKindDisc = 1U;     // the sun's or the moon's disc
 inline constexpr uint32_t kLightKindSky = 2U;      // the sky (its grid)
