@@ -598,7 +598,8 @@ void step()
     const double age = std::fmod(settings.moon_age + own.days + (stepped / rt::kHoursPerDay), rt::kSynodicMonth);
     rt::DayLight light =
         rt::day_light_at(own.native, stepped, {.moon_age = age, .cloud_cover = rt::cloud_coverage()});
-    rt::pre_expose(&light);
+    // (round PX: published physical, with the frame's pre-exposure - the camera's - latched with it, applied as it is read)
+    light.pre_exposure = rt::pre_exposure_for(light);
     light.cut = cut_for(light, level, choice, settings);
     rt::set_day_light(light);
     apply_original(own, *manager, light, settings.lighting_only);
@@ -611,7 +612,7 @@ void step()
                               sun.elevation, light.moonlit ? ", moonlit" : "", static_cast<double>(light.illuminance_lux),
                               light.moonlit ? "the moon" : "the sun", light.moon_age, static_cast<double>(light.cloud_cover),
                               static_cast<double>(light.cloud_beam), static_cast<double>(light.lamps),
-                              static_cast<double>(light.pre_exposure), settings.lighting_only ? " (online: lighting only)" : "");
+                              static_cast<double>(rt::frame_pre_exposure()), settings.lighting_only ? " (online: lighting only)" : "");
 }
 
 const char* status() { return clock().status.c_str(); }

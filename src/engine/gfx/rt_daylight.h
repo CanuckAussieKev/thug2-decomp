@@ -196,18 +196,28 @@ inline constexpr DayRgb kNightSkyColour{1.05F, 1.0F, 0.85F}; // (normalised to l
 // first ones) to kLampsFullLux (all) - ANSI C136.10's turn-on levels; the clouds' dusk turns them on as the sun's does.
 inline constexpr double kLampsOnLux = 50.0;
 inline constexpr double kLampsFullLux = 10.0;
-// The frame's pre-exposure (the published state only - pre_expose): the light is scaled by 1 / the light on a level
-// surface now (the unit's, 1 under the reference day), at least 1 and at most kMostPreExposure, so a moonlit night is
-// held in the linear frame's 16-bit floats near the day's values (a moonlit wall at 1e-6 of the unit would be a few
-// denormal steps); every pass that adds light the state doesn't carry (the sky's tables, the sun's and the moon's discs,
-// the clouds' light, the lamps, the air) multiplies by it (frame_pre_exposure) and the camera's meter divides it out -
-// what is shown is the physical light (docs/design/vulkan.md round S).
+// The frame's pre-exposure (pre_exposure_for; round PX - UE5's / Frostbite's PreExposure): the camera's exposure of the
+// frame before (the meter's factor on the physical light - gpu_vulkan/vulkan_hdr.h, read back a frame or two behind:
+// set_camera_exposure), so the light every pass writes into the frame's 16-bit floats, the light store's reads and the
+// upscaler's input is already about where it is shown (middle grey near 0.18) - day or night, outdoors or in a dark hall.
+// Every pass that adds light multiplies by it (frame_pre_exposure) and the meter divides it out - what is shown is the
+// physical light (docs/design/vulkan.md round S). Before round PX it was 1 / the light on an open level surface (the
+// clock's daylight): inside Training by day the camera stood 12 stops over it and everything not lit by the dark hall's
+// physical light (emitters, display-referred colours) was shown x 4 300 - white. Until the camera has been read (a
+// level's first frames, no meter) the old rule. Histories kept in the frame's unit take a change into the new one (now /
+// then). At least kLeastPreExposure, at most kMostPreExposure.
 inline constexpr double kMostPreExposure = 65536.0;
+inline constexpr double kLeastPreExposure = 1.0 / 256.0;
+// (the meter's: physical light -> exposed; 0 none - the HDR pass not metering. Kept through a load's long frames: the
+// first frame of a level keeps the last camera, the meter restarts at its target on a lighting cut)
+void set_camera_exposure(float factor);
+[[nodiscard]] float camera_exposure();
 // (round L - lamps at their luminance) ... and at most kFrameLightMost over the brightest emission the level shows (a lamp's
 // lens, bulb or panel at its luminance - the relit world's, in the unit: set_brightest_emission): a 10^5 cd/m^2 lamp head
 // (3.8 in the unit) x 65 536 would pass the 16-bit floats' 65 504. A quarter of that range is the headroom a lit texel, a
-// specular peak and the bloom's sums keep. The pre-exposure is a number's range, not the camera's exposure (the meter
-// divides it out): what is shown doesn't change, only where the frame's floats hold it.
+// specular peak and the bloom's sums keep. (Round PX) Where this bounds the camera's pre-exposure (a night with a bright
+// lens in view) what is shown doesn't change - the meter divides the pre-exposure out - only display-referred colours
+// are then shown by the camera's exposure over it.
 inline constexpr double kFrameLightMost = 65504.0 / 4.0;
 void set_brightest_emission(float unit_radiance);
 [[nodiscard]] float brightest_emission();
@@ -294,11 +304,14 @@ struct DayWeather {
 };
 [[nodiscard]] DayLight day_light_at(const NativeDay& native, double hours, const DayWeather& weather);
 [[nodiscard]] DayLight day_light_at(const NativeDay& native, double hours);
-// The state pre-exposed (what day_clock publishes): its light (sun_light, sky_light, night_sky, moon_radiance and the
-// display-referred ratios) x its pre_exposure (1 / the light on a level surface, kMostPreExposure at most).
+// The pre-exposure a frame lit by light takes (above; 1 while the clock is off), and the state pre-exposed with it: its
+// light (sun_light, sky_light, night_sky, moon_radiance and the display-referred ratios) x it. (Round PX) The published
+// state is physical with the frame's pre-exposure in its pre_exposure (day_clock: pre_exposure_for); day_light()
+// returns it pre-exposed by that (latched by set_day_light - not part of the lighting: no new serial).
+[[nodiscard]] float pre_exposure_for(const DayLight& light);
 void pre_expose(DayLight* light);
-// The published state's pre-exposure (1 while the clock is off) - what the passes that add light of their own multiply
-// by, and the meter divides out.
+// The frame's pre-exposure (1 while the clock is off) - what the passes that add light of their own multiply by, and the
+// meter divides out.
 [[nodiscard]] float frame_pre_exposure();
 // (round S2) The world shows the cut's light: what draws the level's light from a store of its own (the relit world:
 // its colours written over frames toward a light) says so once its store holds the light of `cut` - at once when it

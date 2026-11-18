@@ -21,8 +21,6 @@ namespace render::vulkan {
 
 namespace {
 
-constexpr float kSwitchSteps = 32.0F; // (render_pc/rt_relit_world.cpp switch_lamps: the lamps' surfaces switch in 1/32s)
-
 // An instance's transform and material from its TLAS record (no hit needed), and a triangle's place in the list.
 constexpr const char* kInstancesGlsl = R"(
 layout(buffer_reference, buffer_reference_align = 4, scalar) readonly buffer ListInstanceWords { float words[]; };
@@ -206,6 +204,7 @@ SceneLighting scene_lighting(bool every_lamp_analytic, bool keep_dark)
     const rt::CelWorld world = rt::cel_world();
     const float pre = day.pre_exposure > 0.0F ? day.pre_exposure : 1.0F;
     out.cut = day.cut;
+    out.store_emission = rt::store_emission(); // (round PX)
     if (world.relit) {
         out.sun_toward = world.toward;
         out.sun_light = world.sun;
@@ -235,17 +234,14 @@ SceneLighting scene_lighting(bool every_lamp_analytic, bool keep_dark)
             every_lamp_analytic ? level->emitters : rt::path::analytic_lamps(level->emitters, level->surfaced);
         out.owned = static_cast<uint32_t>(level->emitters.size() - analytic.size());
         const float sky_now = rt::lamp_sky_now(day, level.get());
-        uint64_t switched = 1469598103934665603ULL;
         for (std::size_t i = 0; i < level->emitters.size() && i < level->surfaced.size(); ++i) {
             if (core::at(level->surfaced, i) != 0) {
                 rt::Emitter lamp = core::at(level->emitters, i);
                 const float on = rt::lamp_on(lamp.switch_sky, sky_now, open);
                 lamp.intensity *= on;
                 out.owned_power += rt::lights::lamp_power(lamp);
-                switched = (switched ^ static_cast<uint64_t>(std::lround(on * kSwitchSteps))) * 1099511628211ULL;
             }
         }
-        out.surfaces_switched = switched;
         for (rt::Emitter lamp : analytic) {
             lamp.intensity *= rt::lamp_on(lamp.switch_sky, sky_now, open);
             if (lamp.intensity > 0.0F || keep_dark) {

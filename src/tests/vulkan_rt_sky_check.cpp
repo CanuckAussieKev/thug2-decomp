@@ -905,10 +905,14 @@ void run_time_of_day(render::Gpu& gpu, Tally* tally)
     const View view = view_from(sky_pose(), kTargetWidth, kTargetHeight);
     const Point middle{.x = kTargetWidth / 2.0, .y = kTargetHeight / 4.0};
     rt::DayLight night = rt::day_light_at(day, rt::kNightHours);
-    rt::pre_expose(&night); // (round S: the frame pre-exposed as the clock publishes it)
     // (the stars are physical - mostly fainter than this small frame shows them: a long exposure, 1000 x, for the
-    // check; the sky table and the stars scale with it)
-    night.pre_exposure *= 1000.0F;
+    // check; the sky table and the stars scale with it. Round PX: the state published physical, the frame's
+    // pre-exposure with it - the clock's for the night x 1000)
+    rt::set_camera_exposure(0.0F); // (no camera read: the night's own rule, 1 / its light - not this check's earlier frames')
+    night.pre_exposure = rt::pre_exposure_for(night) * 1000.0F;
+    for (float& channel : night.night_sky) {
+        channel /= 1000.0F; // (the night sky's own light added to the drawn sky as before: by the night's rule alone)
+    }
     night.moon = floats(direction_at(view, middle));
     night.moon_disc = 1.0F;
     night.stars = 1.0F;

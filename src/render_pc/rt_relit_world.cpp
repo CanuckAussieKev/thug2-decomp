@@ -133,6 +133,7 @@ struct Entry {
     uint64_t model_content = 0; // (its content in its own space - BakeMesh::model)
     std::size_t data_mesh = SIZE_MAX; // (round A3) its mesh in the level's data (its lamp links and emitting vertices)
     uint64_t lamps_for = 0;           // ... and the lamps' switches its L was made for (State::lamps_hash)
+    uint64_t emission_written = 0;    // (round PX) ... and the lamps_for its light store's emission was written with
     rt::RelitMesh input;
     rt::RelitVertices light;
     bool analysed = false;   // its light read from the level's data
@@ -297,6 +298,9 @@ struct State {
     // lamp_on, in steps of kLampSteps) and their hash: the entries' L made again from their links when it changes
     std::vector<float> lamps_on;
     uint64_t lamps_hash = 0;
+    // (round PX) a store's emission was written differently since the stores last all held the lighting wanted
+    // (rt_lights.h note_store_emission_written: told once they all do)
+    bool emission_changed = false;
     // (round relit-misses) every world mesh of the last listing (`listing`), the mode's entry or not, and why the mode
     // can't relight those it made none for (refusal): the draws ask whether a mesh has a light of its own
     // (unlit_world_colour); the misses logged per level when they change (log_misses)
@@ -723,6 +727,7 @@ void release_stream(Entry& entry)
         entry.stream = nullptr;
     }
     entry.written = 0;
+    entry.emission_written = 0; // (round PX: its emission is gone with its store - told again when written)
 }
 void restore_all()
 {
@@ -733,6 +738,9 @@ void restore_all()
     }
     if (any || rt::cel_world().relit) {
         rt::set_cel_world({});
+    }
+    if (any) {
+        rt::note_store_emission_written(); // (round PX: the stores gone - their emission with them)
     }
     State& st = state();
     st.wanted_lighting = 0; // (no relight under way: the next light is taken at once)
@@ -1595,6 +1603,8 @@ void write_streams(uint64_t lighting, const rt::RelitLighting& light)
             }
         }
         gpu().unlock_vertex_buffer(entry.stream);
+        st.emission_changed = st.emission_changed || entry.emission_written != entry.lamps_for || entry.store_stale;
+        entry.emission_written = entry.lamps_for;
         entry.written = wanted;
         entry.store_stale = false;
         publish_stream(entry, entry.stream);
@@ -1602,6 +1612,21 @@ void write_streams(uint64_t lighting, const rt::RelitLighting& light)
     }
     if (budgeted) {
         measured(&st.write_pace, ms_since(start), paced - budget);
+    }
+    // (round PX) every store holding the lighting wanted: a changed emission is told (the emitters' scan reads it)
+    if (st.emission_changed) {
+        bool all_written = true;
+        for (const VertexBufferData* buffer : st.order) {
+            const Entry& entry = st.entries.at(buffer);
+            if (entry.analysed && !entry.originals.empty() && (entry.written != wanted || entry.store_stale)) {
+                all_written = false;
+                break;
+            }
+        }
+        if (all_written) {
+            st.emission_changed = false;
+            rt::note_store_emission_written();
+        }
     }
     rt::Rgbf sun{};
     for (std::size_t ch = 0; ch < sun.size(); ++ch) {
@@ -1619,7 +1644,7 @@ void write_streams(uint64_t lighting, const rt::RelitLighting& light)
         logged_hours = day.on ? day.hours : -1.0;
         st.lighting = wanted;
         const double vertices = static_cast<double>(std::max<std::size_t>(change.vertices, 1));
-        get_log("rt_relit: %zu meshes' light written (the sun's light %.3f %.3f %.3f, the lamps x %.2f): mean "
+        get_log("rt_relit: %zu meshes' light written (the sun's light %.3f %.3f %.3f, the lamps per vertex x %.2f - the rest the lamps pass's): mean "
                 "brightness %.1f against the bake's %.1f, %.1f%% of the vertices changed by more than %.0f",
                 written, static_cast<double>(std::get<0>(sun)), static_cast<double>(std::get<1>(sun)),
                 static_cast<double>(std::get<2>(sun)), static_cast<double>(light.lamps), change.relit / vertices,

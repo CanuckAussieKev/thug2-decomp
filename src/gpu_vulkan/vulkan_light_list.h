@@ -42,9 +42,10 @@ struct SceneLighting {
     double owned_power = 0.0; // (reported) the owned lamps' flux by their model, as switched now (rt_light_list.h lamp_power)
     uint32_t points = 0;
     uint64_t cut = 0; // (rt_daylight.h DayLight::cut)
-    // (ReSTIR DI) per emitter of the level, how much it is on now (rt_lights.h lamp_on), in the steps the relit store
-    // switches the lamps' own surfaces by: their emission changes with it - the emitters' scan is made again
-    uint64_t surfaces_switched = 0;
+    // (ReSTIR DI; round PX) the emission the world's light store holds (rt_lights.h store_emission): the emitters' scan
+    // reads the store, so it is made again when the store's emission was written - not when it was asked for (the lamps'
+    // switches, which the relit world writes over frames after)
+    uint64_t store_emission = 0;
 };
 
 // The frame's lighting state. `every_lamp_analytic`: every lamp of the level analytic, no surface owning one (`pt ref

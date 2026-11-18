@@ -957,7 +957,7 @@ void main()
                     continue;
                 }
                 weights += w;
-                values += w * imageLoad(u_history, n);
+                values += w * (imageLoad(u_history, n) * vec4(vec3(fog.shares.w), 1.0)); // (round PX: rescaled)
                 lengths += w * was.y;
             }
             if (weights > 1e-3) {
@@ -1250,6 +1250,7 @@ struct ViewSlot {
     uint64_t passes = 0; // the frame index of the jitter
     Matrix world_to_pixel{};
     std::array<float, 3> camera{};
+    float pre_exposure = 1.0F; // (round PX) the frame's pre-exposure its history was written in
     HistoryCamera shot; // (added by the first frame) the camera of the frame before as a cut is told by
     bool written = false; // a history was written (read_rt_fog_image's)
     uint64_t last_use = 0;
@@ -2553,7 +2554,10 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
     const std::array<float, 2> pick = block_pixel(slot.scale, slot.passes);
     block.offsets = {sample.front(), sample.back(), pick.front(), pick.back()};
     // (no light - indoors: the replaced fog is the game's colour whole, the lamps' light added in it)
-    block.shares = {own.have_sun ? kFogAmbientShare : 1.0F, kFogSkyShare, kFogShaftShare, 0.0F}; // (w: unused - round F)
+    // (w, round PX: the history's light into this frame's pre-exposure - the camera's moves it every frame, UE5's
+    // PreExposure correction of a history)
+    block.shares = {own.have_sun ? kFogAmbientShare : 1.0F, kFogSkyShare, kFogShaftShare,
+                    slot.pre_exposure > 0.0F ? rt::frame_pre_exposure() / slot.pre_exposure : 1.0F};
     block.rect = {static_cast<int32_t>(core::at(view.rect, 0)), static_cast<int32_t>(core::at(view.rect, 1)),
                   static_cast<int32_t>(core::at(view.rect, 2)), static_cast<int32_t>(core::at(view.rect, 3))};
     const Extent low = low_extent(view.rect, slot.scale);
@@ -2921,6 +2925,8 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
             ++slot->passes;
             slot->world_to_pixel = to_pixel;
             slot->camera = view.camera.position;
+    slot->pre_exposure = rt::frame_pre_exposure(); // (round PX)
+            slot->pre_exposure = rt::frame_pre_exposure();
             block = block_for(clipped, to_world, *slot, true, colour->samples);
             const std::optional<VkDescriptorBufferInfo> next = block_in_ring(block);
             if (!next) {
@@ -3013,6 +3019,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     }
     slot->world_to_pixel = to_pixel;
     slot->camera = view.camera.position;
+    slot->pre_exposure = rt::frame_pre_exposure(); // (round PX)
     slot->shot = history_camera(view.camera);
     slot->have_before = true;
     slot->written = true;

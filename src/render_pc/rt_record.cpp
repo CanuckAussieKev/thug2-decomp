@@ -1980,6 +1980,29 @@ void emitter_work()
             found.surfaced = std::move(surfaced); // (path tracing: the lamps whose own surface emits)
             found.triangle_emitter.clear();
             found.solved = true; // (round O: only the solved lamps shine)
+            // (round PX) who owns each shining lamp and how it switches: its own surface (sampled as emitting triangles)
+            // or analytic; always on (no sky where it lights) or by a photocell, and the photocells' range
+            std::size_t own_surface = 0;
+            std::size_t always = 0;
+            std::size_t photocell = 0;
+            float lowest = 0.0F;
+            float highest = 0.0F;
+            for (std::size_t i = 0; i < found.emitters.size(); ++i) {
+                own_surface += i < found.surfaced.size() && core::at(found.surfaced, i) != 0 ? 1 : 0;
+                const float sky = core::at(found.emitters, i).switch_sky;
+                if (sky >= rt::kLampAlwaysOn) {
+                    ++always;
+                } else if (sky > 0.0F) {
+                    lowest = photocell == 0 ? sky : std::min(lowest, sky);
+                    highest = std::max(highest, sky);
+                    ++photocell;
+                }
+            }
+            get_log("rt: lights: the relit data's %zu shining lamps - %zu with a surface of their own (emitting triangles), "
+                    "%zu analytic; %zu always on, %zu by a photocell (on under an open sky of %.4g - %.4g), %zu by the open "
+                    "sky's lamps",
+                    found.emitters.size(), own_surface, found.emitters.size() - own_surface, always, photocell,
+                    static_cast<double>(lowest), static_cast<double>(highest), found.emitters.size() - always - photocell);
         }
     }
     found.triangles = std::move(triangles); // (lighting round A2: a path tracer's emissive triangles - the relit data's)
