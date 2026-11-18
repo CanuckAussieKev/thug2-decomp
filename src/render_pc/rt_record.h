@@ -91,6 +91,10 @@ void forget_meshes();
 // sky's, hidden, not traced, or what the relit mode makes of it (rt_relit_world::census_bucket) - with its material's
 // kind (opaque, cut-out, blended, additive): meshes, vertices and example materials per bucket, a line each.
 [[nodiscard]] std::string world_census();
+// (round P10 - objects relit) The frame's objects by how they are drawn: lit by the game's lights, with their own colours
+// (animated, moving, standing still - placed once or drawn at several places) - the relit bake logs it.
+// `detail`: a line for each placed object (where, its meshes' materials, vertices and colours' brightness).
+[[nodiscard]] std::string object_census(bool detail);
 
 // While one lives, vertex buffer writes are colour-only: the positions are as they were, so no mesh's BLAS is built
 // again - the rule for every write that changes only colours (MeshRef::apply_vertex_colors' colour animations, the relit

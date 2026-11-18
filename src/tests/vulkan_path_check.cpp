@@ -210,6 +210,9 @@ struct SceneMesh {
     rt::MaterialId material = 0;
     render::GpuVertexBuffer* vertices = nullptr;
     render::GpuVertexBuffer* stream = nullptr;
+    // (round P10) its instance's flags and the height its transform moves it by (an object's mesh in its own space)
+    uint32_t flags = rt::kWorld | rt::kOpaque | rt::kCastsShadow;
+    float lift = 0.0F;
 };
 
 void put_float(std::span<uint8_t> bytes, std::size_t at, float value)
@@ -404,8 +407,10 @@ void draw_frame(render::Gpu& gpu, const Targets& targets, std::span<const SceneM
     constexpr std::array<std::array<float, 4>, 3> kIdentityRows{
         {{1.0F, 0.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F, 0.0F}}};
     for (const SceneMesh& mesh : meshes) {
+        std::array<std::array<float, 4>, 3> rows = kIdentityRows;
+        std::get<3>(std::get<1>(rows)) = mesh.lift;
         record.instances.push_back(
-            {.mesh = mesh.id, .material = mesh.material, .flags = kWorldOpaque, .object_to_world = kIdentityRows});
+            {.mesh = mesh.id, .material = mesh.material, .flags = mesh.flags, .object_to_world = rows});
     }
     gpu.begin_scene();
     rt::ray_tracing()->begin_frame(record);
@@ -1192,6 +1197,32 @@ void check_device(render::Gpu& gpu, Tally* tally)
                      text::format("the disc's direct light %.5f +- %.5f, its integral over the disc %.5f (a Lambertian "
                                   "of the albedo at the centre: %.5f)",
                                   got.mean, got.sigma, expected, lambert));
+        // (round P10 - objects relit) the same disc as an object's mesh - an object drawn with its own colours, relit:
+        // its light store at its vertices, its mesh in its own space 100 units up and its transform bringing it down -
+        // listed, sampled and hit by the paths as the world's
+        SceneMesh object_disc;
+        std::vector<Triangle> raised = disc_triangles();
+        constexpr double kRaised = 100.0;
+        for (Triangle& tri : raised) {
+            for (Vec3& corner : tri.corners) {
+                std::get<1>(corner) += kRaised;
+            }
+        }
+        if (make_mesh(gpu, raised, true, &object_disc)) {
+            object_disc.flags = rt::kObject | rt::kOpaque | rt::kCastsShadow;
+            object_disc.lift = static_cast<float>(-kRaised);
+            const std::array<SceneMesh, 2> with_object{meshes.front(), object_disc};
+            const Measured as_object = run_batches(gpu, targets, with_object, eye, overrides, 2, seed++, &read);
+            not_finite += as_object.not_finite;
+            tally->check(read && as_object.emitters == static_cast<uint32_t>(kDiscSides) &&
+                             within(as_object.mean, as_object.sigma, got.mean, got.sigma),
+                         text::format("the disc as an object's relit mesh (its own space, moved by its transform): %u "
+                                      "emitting triangles listed, its direct light %.5f +- %.5f, as the world's %.5f",
+                                      as_object.emitters, as_object.mean, as_object.sigma, got.mean));
+        } else {
+            tally->check(false, "the object's disc made");
+        }
+        release_mesh(gpu, &object_disc);
     }
 
     // 3. the strategies, every bounce

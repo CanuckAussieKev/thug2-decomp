@@ -126,6 +126,11 @@ struct Entry {
     bool glow_card = false;
     // (round light cards) the lamps pass lights it per pixel (WorldMesh::lit_per_pixel); else its store carries its lamps
     bool lit_per_pixel = true;
+    // (round P10 - objects relit) an object's mesh (WorldMesh::object - its instance) and the transform it was read with:
+    // when the instance stands elsewhere the entry is let go of (its light was for where it stood)
+    const void* object = nullptr;
+    std::array<float, 16> to_world{};
+    uint64_t model_content = 0; // (its content in its own space - BakeMesh::model)
     std::size_t data_mesh = SIZE_MAX; // (round A3) its mesh in the level's data (its lamp links and emitting vertices)
     uint64_t lamps_for = 0;           // ... and the lamps' switches its L was made for (State::lamps_hash)
     rt::RelitMesh input;
@@ -288,6 +293,10 @@ struct State {
     std::unordered_map<const MeshRef*, const char*> refused;
     std::string misses_logged;
     uint32_t misses_level = 0;
+    // (round P10 - objects relit) the listed objects' meshes' transforms (where each stands: its centre for the light
+    // field) and the objects listed (`listing` they were last listed in): their draws take their light from the store
+    std::unordered_map<const MeshRef*, std::array<float, 16>> placed_at;
+    std::unordered_map<const void*, uint64_t> objects_listed;
 };
 
 State& state()
@@ -496,6 +505,52 @@ const char* refusal(const WorldMesh& world)
 }
 
 // An entry for a world mesh read from its buffer's copy, or false: nothing the mode can relight (refusal says why).
+// (round P10 - objects relit) A mesh read in its object's space put where the object stands: its positions through the
+// transform (Direct3D's rows: p' = (x, y, z, 1) x M), its normals through the inverse transpose (renormalised); a
+// mirroring transform (negative determinant) winds its triangles the other way, so they are turned back round.
+void place_object(const std::array<float, 16>& m, rt::RelitMesh* mesh)
+{
+    const auto at = [&m](std::size_t row, std::size_t column) { return core::at(m, (row * 4) + column); };
+    for (rt::Vec3& p : mesh->positions) {
+        const rt::Vec3 was = p;
+        for (std::size_t c = 0; c < 3; ++c) {
+            core::at(p, c) = (std::get<0>(was) * at(0, c)) + (std::get<1>(was) * at(1, c)) + (std::get<2>(was) * at(2, c)) +
+                             at(3, c);
+        }
+    }
+    // the inverse transpose of the 3 x 3 part, as cofactors (its scale doesn't matter: normalised after)
+    std::array<std::array<float, 3>, 3> cofactor{};
+    for (std::size_t r = 0; r < 3; ++r) {
+        for (std::size_t c = 0; c < 3; ++c) {
+            const std::size_t r1 = (r + 1) % 3;
+            const std::size_t r2 = (r + 2) % 3;
+            const std::size_t c1 = (c + 1) % 3;
+            const std::size_t c2 = (c + 2) % 3;
+            core::at(core::at(cofactor, r), c) = (at(r1, c1) * at(r2, c2)) - (at(r1, c2) * at(r2, c1));
+        }
+    }
+    const float determinant = (at(0, 0) * cofactor[0][0]) + (at(0, 1) * cofactor[0][1]) + (at(0, 2) * cofactor[0][2]);
+    for (rt::Vec3& n : mesh->normals) {
+        const rt::Vec3 was = n;
+        rt::Vec3 turned{};
+        for (std::size_t c = 0; c < 3; ++c) {
+            core::at(turned, c) = (std::get<0>(was) * core::at(core::at(cofactor, 0), c)) +
+                                  (std::get<1>(was) * core::at(core::at(cofactor, 1), c)) +
+                                  (std::get<2>(was) * core::at(core::at(cofactor, 2), c));
+        }
+        const float length = std::sqrt(rt::dot(turned, turned));
+        n = length > 0.0F ? rt::scaled(turned, (determinant < 0.0F ? -1.0F : 1.0F) / length) : was;
+    }
+    if (determinant < 0.0F) {
+        for (std::array<uint32_t, 3>& triangle : mesh->triangles) {
+            std::swap(std::get<0>(triangle), std::get<1>(triangle));
+        }
+        for (std::array<uint32_t, 3>& triangle : mesh->baked_triangles) {
+            std::swap(std::get<0>(triangle), std::get<1>(triangle));
+        }
+    }
+}
+
 bool make_entry(const WorldMesh& world, Entry* out)
 {
     const rt::Geometry& geometry = *world.geometry;
@@ -612,6 +667,14 @@ bool make_entry(const WorldMesh& world, Entry* out)
             }
             entry.input.baked_vertices = highest + 1;
         }
+    }
+    // (round P10 - objects relit) an object's mesh read where it stands: its positions and normals through its
+    // instance's transform (rays and the data are the world's); a mirroring transform turns its triangles back round
+    if (world.object != nullptr) {
+        entry.model_content = rt::relit_mesh_content(entry.input);
+        place_object(world.to_world, &entry.input);
+        entry.object = world.object;
+        entry.to_world = world.to_world;
     }
     // (the offline relit data's key: its positions, triangles and made vertices' sources - whatever the vertex format;
     // not its colours, which the game rewrites)
@@ -887,6 +950,18 @@ void list_world(std::span<const WorldMesh> world)
             continue;
         }
         st.listed.insert_or_assign(mesh.mesh, st.listing);
+        if (mesh.object != nullptr) {
+            st.placed_at.insert_or_assign(mesh.mesh, mesh.to_world);
+            st.objects_listed.insert_or_assign(mesh.object, st.listing);
+            // (round P10) an object that stands elsewhere now: the entry made where it stood let go of (its light, its
+            // place in the data were there) - made again where it stands
+            if (const auto kept = st.entries.find(mesh.source);
+                kept != st.entries.end() && (kept->second.object != mesh.object || kept->second.to_world != mesh.to_world)) {
+                release_stream(kept->second);
+                std::erase(st.order, mesh.source);
+                st.entries.erase(kept);
+            }
+        }
         if (!st.entries.contains(mesh.source)) {
             Entry entry;
             if (!make_entry(mesh, &entry)) {
@@ -1714,6 +1789,8 @@ bool read_world_mesh(const WorldMesh& world, BakeMesh* out)
     out->content = entry.content;
     out->card = world.glow;
     out->blended = world.blended && !entry.baked_shadow;
+    out->object = world.object != nullptr;
+    out->model = entry.model_content;
     return true;
 }
 
@@ -1899,7 +1976,24 @@ bool unlit_world_colour(const MeshRef* mesh, std::array<uint8_t, 4>* out)
             return false; // (its own light: the light store)
         }
     }
-    return unlit_object_colour(mesh->centre(), out);
+    // (round P10: an object's mesh where it stands)
+    std::array<float, 3> centre = mesh->centre();
+    if (const auto placed = st.placed_at.find(mesh); placed != st.placed_at.end()) {
+        const std::array<float, 16>& m = placed->second;
+        const std::array<float, 3> was = centre;
+        for (std::size_t c = 0; c < 3; ++c) {
+            core::at(centre, c) = (std::get<0>(was) * core::at(m, c)) + (std::get<1>(was) * core::at(m, 4 + c)) +
+                                  (std::get<2>(was) * core::at(m, 8 + c)) + core::at(m, 12 + c);
+        }
+    }
+    return unlit_object_colour(centre, out);
+}
+
+bool object_listed(const void* instance)
+{
+    const State& st = state();
+    const auto found = st.objects_listed.find(instance);
+    return st.status == Status::kRelit && found != st.objects_listed.end() && found->second == st.listing;
 }
 
 namespace {

@@ -193,6 +193,7 @@ struct LevelEmitters {
     float own_sky = 0.0F;
     float own_lamps = 0.0F;
     std::size_t glow_meshes = 0; // (round A3, reported) the additive world meshes - the original's light cards
+    std::size_t other_state_cards = 0; // (round P10, reported) of them, cards hidden in the bake's lighting state
     // (lighting round A2 - a path tracer's emitters) the emissive triangles the lights were made from, and each one's
     // light among `emitters` (kNoEmitter: none - dark, or dropped)
     std::vector<EmitterTriangle> triangles;
