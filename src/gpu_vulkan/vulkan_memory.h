@@ -131,19 +131,40 @@ public:
     [[nodiscard]] VmaTotalStatistics statistics() const;
     // NOT ORIGINAL - (round GD) what holds a device address a lost device's fault report names: the live buffer with a
     // device address (ray tracing's structures, scratch, instances, the geometry the shaders read) that contains it -
-    // its size, usage and offset - or the nearest one below it ("" when there is none).
+    // its owner, size, usage and offset -; (round GF) else one of the last kFreedKept such buffers destroyed that held
+    // it (a use after free: when it was freed and what it was); else the live one just below it when the address is
+    // within kNearEnd of its end ("" when nothing known held it).
     [[nodiscard]] std::string describe_address(VkDeviceAddress address) const;
+    // (round GF) What a buffer with a device address is, for that report ("a mesh's BLAS"; a string that lives as long
+    // as the program - a literal). Named once made; a buffer not named is its usage alone.
+    void name_buffer(const DeviceBuffer& buffer, const char* owner);
+    // (round GF) The submission being recorded (vulkan_frames.h - told at each submission): what the report gives as
+    // when a buffer was made and destroyed.
+    void set_submission(uint64_t serial) { submission_ = serial; }
+    static constexpr std::size_t kFreedKept = 1024;
+    static constexpr VkDeviceSize kNearEnd = 65536;
 
 private:
     // (round GD) the live buffers with a device address, by their address (and the address by buffer, to forget it)
     struct Addressed {
         VkDeviceSize bytes = 0;
         VkBufferUsageFlags usage = 0;
+        const char* owner = nullptr; // (round GF) name_buffer's
+        uint64_t made = 0;           // (round GF) the submission being recorded when it was made
+    };
+    // (round GF) a buffer with a device address destroyed: where it was, what it was, when
+    struct Freed {
+        VkDeviceAddress start = 0;
+        Addressed was;
+        uint64_t freed = 0; // the submission being recorded when it was destroyed
     };
     void note_address(const DeviceBuffer& buffer, VkBufferUsageFlags usage);
     void forget_address(VkBuffer buffer);
     std::map<VkDeviceAddress, Addressed> addressed_;
     std::unordered_map<VkBuffer, VkDeviceAddress> address_of_;
+    std::vector<Freed> freed_;   // (round GF) a ring of the last kFreedKept, oldest overwritten
+    std::size_t freed_next_ = 0; // where the next one goes
+    uint64_t submission_ = 0;
     mutable std::mutex addressed_mutex_;
     VkDevice device_ = nullptr;
     VkQueue queue_ = nullptr;

@@ -1,5 +1,6 @@
 // NOT ORIGINAL - (round GD) the Vulkan Gpu's lost device: its report and the game's end, and the passes' markers
 // (vulkan_crash_markers.h, engine/gfx/gpu_markers.h).
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
@@ -119,14 +120,21 @@ bool check_device_lost(Backend& state)
             state.adapter.driver.data());
     // which pass: the markers each queue reached, and the lost submission's passes
     const uint64_t newest = state.frames.serial();
-    log_lines("markers", state.frames.markers().reached(context.all_queues(), newest));
-    const std::vector<uint32_t> passes = state.frames.markers().passes_of(lost.serial);
-    if (passes.empty()) {
-        get_log("vulkan: device lost: submission %llu's passes - not kept (no markers, or an older submission)",
-                static_cast<unsigned long long>(lost.serial));
-    } else {
-        log_lines(text::format("submission %llu's passes", static_cast<unsigned long long>(lost.serial)).c_str(),
-                  describe_passes(passes));
+    const uint64_t completed = state.frames.completed();
+    log_lines("markers", state.frames.markers().reached(context.all_queues(), newest, completed));
+    // (round GF) the passes of every submission not known finished - the loss may be in an earlier one still running
+    // than the submission it was seen at - the oldest first
+    const uint64_t first = std::max(completed + 1, newest >= CrashMarkers::kKept ? newest - CrashMarkers::kKept + 1 : 1);
+    for (uint64_t serial = first; serial <= newest; ++serial) {
+        const std::vector<uint32_t> passes = state.frames.markers().passes_of(serial);
+        const char* const role = serial == lost.serial ? " (the loss seen at it)" : "";
+        if (passes.empty()) {
+            get_log("vulkan: device lost: submission %llu%s's passes - none kept (no markers recorded in it)",
+                    static_cast<unsigned long long>(serial), role);
+        } else {
+            log_lines(text::format("submission %llu%s's passes", static_cast<unsigned long long>(serial), role).c_str(),
+                      describe_passes(passes));
+        }
     }
     // which resource: the driver's report, its addresses named by the buffers holding them
     const CrashDiagnostics& has = context.crash_diagnostics();

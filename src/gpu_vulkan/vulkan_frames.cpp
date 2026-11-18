@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 #include <volk.h>
@@ -111,6 +112,10 @@ bool Frames::init(const Context& context, Memory* memory, const Rings& rings)
     current_ = 0;
     serial_ = 1;
     completed_ = 0;
+    frame_ = 1;
+    completed_frame_ = 0;
+    core::at(slots_, current_).frame = frame_;
+    memory_->set_submission(serial_);
     lost_ = Lost{};
     init_timing(context);
     if (!markers_.init(context, memory)) {
@@ -278,8 +283,32 @@ void Frames::retire(const Image& image) { slot().retired.images.push_back(image)
 
 void Frames::retire(const DeviceBuffer& buffer) { slot().retired.buffers.push_back(buffer); }
 
+void Frames::retire(VkAccelerationStructureKHR structure, const DeviceBuffer& memory)
+{
+    Retired& retired = slot().retired;
+    if (structure != VK_NULL_HANDLE) {
+        retired.structures.push_back(structure);
+    }
+    if (memory.buffer != VK_NULL_HANDLE) {
+        retired.buffers.push_back(memory);
+    }
+}
+
+std::size_t Frames::retired_count() const
+{
+    std::size_t count = 0;
+    for (const Slot& each : slots_) {
+        count += each.retired.images.size() + each.retired.buffers.size() + each.retired.structures.size();
+    }
+    return count;
+}
+
 void Frames::destroy(Retired& retired)
 {
+    for (VkAccelerationStructureKHR structure : retired.structures) { // (before the buffers holding them)
+        vkDestroyAccelerationStructureKHR(device_, structure, nullptr);
+    }
+    retired.structures.clear();
     for (Image& image : retired.images) {
         memory_->destroy_image(&image);
     }
@@ -376,6 +405,7 @@ bool Frames::submit(VkSemaphore acquired, VkSemaphore presented)
     now.pending = true;
     now.submitted = serial_;
     ++serial_;
+    memory_->set_submission(serial_); // (round GF: the crash report's "made / freed in submission N")
     return true;
 }
 
@@ -403,9 +433,15 @@ bool Frames::finish()
             wait(each);
             recycle(each);
         }
-        destroy(each.retired);
+        // (round GF) the frame being recorded goes on after this: what it retired may still be named by what it captured
+        // at its start (the ray tracing scene's TLAS and geometry table hold buffers' and structures' addresses, not
+        // recorded commands) - kept until its slot comes round; the other slots' frames are over
+        if (&each != &slot()) {
+            destroy(each.retired);
+        }
     }
     completed_ = serial_ - 1;
+    completed_frame_ = frame_ - 1;
     draws_->begin_frame(current_);
     staging_->begin_frame(current_);
     return submitted && idle;
@@ -421,6 +457,10 @@ bool Frames::end_frame(VkSemaphore acquired, VkSemaphore presented)
         completed_ = std::max(completed_, next.submitted);
         recycle(next);
     }
+    // (round GF) the frame the slot held is over - its last submission waited for (or none pending)
+    completed_frame_ = std::max(completed_frame_, next.frame);
+    ++frame_;
+    next.frame = frame_;
     destroy(next.retired);
     draws_->begin_frame(current_);
     staging_->begin_frame(current_);
