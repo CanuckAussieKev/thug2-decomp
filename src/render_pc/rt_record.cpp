@@ -136,6 +136,8 @@ struct State {
     rt::BakedSun level_sun;
     uint64_t emitters_key = 0; // (added by the night lighting) the loaded scenes' key the emitters were found for
     uint64_t emitter_sets = 0;
+    std::size_t game_lights = 0;    // (round SL, reported) the level's light nodes' lights last frame
+    std::size_t game_lights_on = 0; // ... and how many of them were on
     // the first frame's time (from its record to the next frame's), logged at the next record_frame
     std::chrono::steady_clock::time_point first_frame_start;
     double first_frame_work_ms = 0.0;
@@ -1990,12 +1992,15 @@ void emitter_work()
             std::size_t own_surface = 0;
             std::size_t always = 0;
             std::size_t photocell = 0;
+            std::size_t by_game = 0;
             float lowest = 0.0F;
             float highest = 0.0F;
             for (std::size_t i = 0; i < found.emitters.size(); ++i) {
                 own_surface += i < found.surfaced.size() && core::at(found.surfaced, i) != 0 ? 1 : 0;
                 const float sky = core::at(found.emitters, i).switch_sky;
-                if (sky >= rt::kLampAlwaysOn) {
+                if (core::at(found.emitters, i).game_light != 0U) {
+                    ++by_game; // (round SL: switched by the game)
+                } else if (sky >= rt::kLampAlwaysOn) {
                     ++always;
                 } else if (sky > 0.0F) {
                     lowest = photocell == 0 ? sky : std::min(lowest, sky);
@@ -2004,10 +2009,11 @@ void emitter_work()
                 }
             }
             get_log("rt: lights: the relit data's %zu shining lamps - %zu with a surface of their own (emitting triangles), "
-                    "%zu analytic; %zu always on, %zu by a photocell (on under an open sky of %.4g - %.4g), %zu by the open "
-                    "sky's lamps",
-                    found.emitters.size(), own_surface, found.emitters.size() - own_surface, always, photocell,
-                    static_cast<double>(lowest), static_cast<double>(highest), found.emitters.size() - always - photocell);
+                    "%zu analytic; %zu the game's own lights (switched by the game), %zu always on, %zu by a photocell (on "
+                    "under an open sky of %.4g - %.4g), %zu by the open sky's lamps",
+                    found.emitters.size(), own_surface, found.emitters.size() - own_surface, by_game, always, photocell,
+                    static_cast<double>(lowest), static_cast<double>(highest),
+                    found.emitters.size() - by_game - always - photocell);
         }
     }
     found.triangles = std::move(triangles); // (lighting round A2: a path tracer's emissive triangles - the relit data's)
@@ -2082,6 +2088,19 @@ void record_lights()
     }
     std::ranges::sort(rt::frame_record().game_lights,
                       [](const rt::GameLight& a, const rt::GameLight& b) { return a.owner < b.owner; });
+    {
+        // (round SL, reported) how many of the level's light nodes the game has on - logged when that changes (the time
+        // of day's transition turning a state's lights on over its frames logs its last count once it settles)
+        const std::vector<rt::GameLight>& game = rt::frame_record().game_lights;
+        const auto on = static_cast<std::size_t>(
+            std::ranges::count_if(game, [](const rt::GameLight& light) { return light.strength > 0.0F; }));
+        State& st = state();
+        if (on != st.game_lights_on || game.size() != st.game_lights) {
+            st.game_lights_on = on;
+            st.game_lights = game.size();
+            get_log("rt: the game's own lights - %zu of the level's %zu light nodes on now", on, game.size());
+        }
+    }
 }
 
 std::array<std::array<float, 4>, 4> rows_of(const maths::Mat4& matrix)

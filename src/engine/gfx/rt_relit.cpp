@@ -4208,6 +4208,7 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
         RelitLampSource source = RelitLampSource::kNone;
         bool model = false;
         bool typical = false; // (no luminous area of a fixture's: its kind's typical fixture's flux)
+        bool by_reach = false; // (round SL: one of the game's lights with no surface - its flux from its own reach)
         const bool candidate = candidate_kind(lamp.kind);
         // (its flux against its kind's range - x its fittings' count for a row)
         const bool flux_out = static_cast<double>(lamp.lumens) < static_cast<double>(values.least_lumens) ||
@@ -4238,7 +4239,8 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
             // a light node, which has no surface) its kind's typical fixture's
             source = RelitLampSource::kGameLight;
             model = true;
-            typical = lamp.kind == EmitterKind::kPoint || !fixtures.sized;
+            typical = !fixtures.sized;
+            by_reach = lamp.kind == EmitterKind::kPoint;
         } else if (lamp.kind == EmitterKind::kPoint) {
             source = luma(lamp.light) > 0.0F ? RelitLampSource::kOwnSurface : RelitLampSource::kNone;
             if (source != RelitLampSource::kNone && flux_out) {
@@ -4289,6 +4291,17 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
             // sign's or a neon's own, a light's own where it is one, else its kind's
             double lumens = typical ? static_cast<double>(values.lumens)
                                     : kPi * static_cast<double>(values.luminance) * static_cast<double>(area);
+            if (by_reach) {
+                // (round SL) a light node has no surface to size it, but the artists gave it a reach (the game's outer
+                // radius: where its light ends on the level). One rule for every light: its light falls to
+                // kGameLightReachLux at its reach - an isotropic source of intensity I = E R^2, flux 4 pi I -, within its
+                // kind's range of fixtures (a wall light's 2.5 m reach a small fitting's flux, a street lamp's 12 m a
+                // street light's)
+                constexpr double kMetresPerUnit = 1.0 / 39.37; // (the world's units are inches)
+                const double reach = static_cast<double>(lamp.reach) * kMetresPerUnit;
+                lumens = std::clamp(4.0 * kPi * static_cast<double>(kGameLightReachLux) * reach * reach,
+                                    static_cast<double>(values.least_lumens), static_cast<double>(values.most_lumens));
+            }
             // (round indoor lamps) the model's own flux within its kind's too, x its fittings for a row: a drawn area of
             // lamp texels holds housing and glare round the tubes (Training's rows: 5.2 m^2 of texels at a tube's
             // luminance, 165 000 lm for six fittings) - outside it, its fittings' typical flux
@@ -4300,6 +4313,14 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
             const Rgbf hue = values.kelvin <= 0.0F || own_light ? hue_of(own) : blackbody_colour(values.kelvin);
             lamp.light = scaled(hue, relit_lamp_intensity_for(lamp, lumens, unit_lux));
             lamp.luminance = values.luminance;
+            if (source == RelitLampSource::kGameLight && area > 0.0F &&
+                (lamp.kind == EmitterKind::kTextured || lamp.kind == EmitterKind::kSelfLit)) {
+                // (round SL - one owner, one energy) a head shows the light's flux over its drawn luminous area - pi L A =
+                // its flux -, not its kind's luminance over an area that is no fixture's (lamp texels with their housing
+                // and glare, a row's flux held at its fittings' typical: Boston's night heads sent 12 x their lamps' flux
+                // from their surfaces)
+                lamp.luminance = static_cast<float>(lumens / (kPi * static_cast<double>(area)));
+            }
             lamp.solved = false;
         }
         lamp.source = static_cast<uint8_t>(source);

@@ -590,6 +590,13 @@ enum class RelitLampTold : uint8_t {
 // kept; it is plausible when that flux is within its kind's (x its fittings' for a row) - its flux, not its luminous
 // area's luminance: the drawn lamp texels or a card's core hold its housing and glare too (relit_lamp_models).
 inline constexpr std::size_t kLeastExposureLamps = 3;
+// (round SL) A light node's flux from its reach (the game's outer radius - the artists' statement of how far its light
+// goes on the level): the illuminance its light falls to there, an isotropic source's I = E R^2, flux 4 pi I, within its
+// kind's fixtures' range (lamp_fixtures.h). 5 lux - EN 13201-2's class P4 (a residential street's maintained average
+// illuminance, 5 lx) - where a lamp's pool meets its neighbours': a street lamp's 12.7 m reach (500 units) gives
+// 10 100 lm (a 100 W high-pressure sodium lamp's 9 500 - the fixture table's typical street light), a wall light's 2.5 m
+// 410 lm (a 40 W bulb's).
+inline constexpr float kGameLightReachLux = 5.0F;
 // A lamp's luminous area as fixtures of its kind: a line (a row of fittings - a tube's, a neon sign's tubing) is
 // sized when its luminous width (its area over its length) is a fitting's (FixtureValues::least_width - most_width),
 // any length - `count` the fittings it holds (its length over one's longest, at least 1); a point or a panel when its area

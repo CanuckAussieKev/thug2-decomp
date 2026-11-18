@@ -2842,12 +2842,45 @@ void check_game_lights(Tally* tally)
                  text::format("a night light the afternoon bake can't see: its head's fixture model, a sodium street light "
                               "%.0f lm (pi L A %.0f) - no bake evidence needed, the game's light is the evidence",
                               static_cast<double>(lamps[1].lumens), head_flux));
+    const double reach_m = 300.0 / 39.37;
+    const double reach_flux = std::clamp(4.0 * 3.14159265358979 * static_cast<double>(rt::kGameLightReachLux) * reach_m * reach_m,
+                                         static_cast<double>(hps.least_lumens), static_cast<double>(hps.most_lumens));
     tally->check(lamps[2].source == static_cast<uint8_t>(rt::RelitLampSource::kGameLight) &&
-                     close_to(lamps[2].lumens, hps.lumens),
-                 text::format("a night light with no surface: its kind's typical fixture, %.0f lm (%.0f)",
-                              static_cast<double>(lamps[2].lumens), static_cast<double>(hps.lumens)));
+                     lamps[2].fixture == static_cast<uint8_t>(rt::LampFixture::kSodiumStreet) &&
+                     close_to(lamps[2].lumens, reach_flux),
+                 text::format("a night light with no surface: a sodium street light by its colour, its flux from its own "
+                              "reach (300 units: %.0f lux there) %.0f lm (%.0f)",
+                              static_cast<double>(rt::kGameLightReachLux), static_cast<double>(lamps[2].lumens), reach_flux));
+    {
+        // a wall light's short reach: its kind's least flux, not a street light's typical
+        std::vector<rt::RelitLamp> wall{lamps[2]};
+        wall[0].reach = 100.0F;
+        wall[0].light = sodium;
+        wall[0].solved = false;
+        const std::vector<rt::RelitLampTold> off{rt::RelitLampTold::kOffInBake};
+        const std::vector<float> none{0.0F};
+        const std::vector<rt::Rgbf> wall_own{sodium};
+        (void)rt::relit_lamp_models(wall, off, none, wall_own, unit_lux);
+        tally->check(close_to(wall[0].lumens, hps.least_lumens) && wall[0].lumens < lamps[2].lumens,
+                     text::format("a 100-unit reach (2.5 m): its kind's least flux %.0f lm, under the 300-unit light's %.0f",
+                                  static_cast<double>(wall[0].lumens), static_cast<double>(lamps[2].lumens)));
+    }
     tally->check(lamps[0].source == static_cast<uint8_t>(rt::RelitLampSource::kGameLight) && lamps[0].lumens > 0.0F,
                  "the day's light at its head, on in the bake but not told: its fixture's model, at full brightness");
+    {
+        // one energy: a head whose drawn area is no fixture's (5 m^2 of lamp texels) shows its light's flux over it
+        std::vector<rt::RelitLamp> wide{lamps[1]};
+        wide[0].light = sodium;
+        const std::vector<rt::RelitLampTold> off{rt::RelitLampTold::kOffInBake};
+        const std::vector<float> big{5.0F};
+        const std::vector<rt::Rgbf> wide_own{sodium};
+        (void)rt::relit_lamp_models(wide, off, big, wide_own, unit_lux);
+        const double shown = 3.14159265358979 * static_cast<double>(wide[0].luminance) * 5.0;
+        tally->check(close_to(shown, wide[0].lumens) && wide[0].luminance < hps.luminance,
+                     text::format("a head of 5 m^2 (no fixture's): its surface sends its light's %.0f lm (pi L A %.0f, "
+                                  "%.0f cd/m^2) - not its kind's luminance over the whole area",
+                                  static_cast<double>(wide[0].lumens), shown, static_cast<double>(wide[0].luminance)));
+    }
     tally->check(!(lamps[3].lumens > 0.0F) && lamps[3].light == rt::Rgbf{} && !(lamps[4].lumens > 0.0F) &&
                      lamps[4].light == rt::Rgbf{},
                  "a night window no light takes, and a bright texture off in the bake with no light or glow at it: no lamp");
