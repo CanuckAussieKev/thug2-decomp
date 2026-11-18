@@ -73,6 +73,11 @@ struct UpscaleFrame {
     // vulkan_restir_gi.h restir_gi_specular_hit; null without it), the view at specular_hit_at (its top-left texel)
     Image* specular_hit = nullptr;
     std::array<uint32_t, 2> specular_hit_at{};
+    // (round RG) Ray Reconstruction's transparency layer (vulkan_surface_light.h surface_light_layer: what the view's
+    // transparencies laid over its surfaces, kept out of `colour`; RGBA premultiplied, alpha what they hide; null:
+    // none), the view at transparency_at (its top-left texel)
+    Image* transparency = nullptr;
+    std::array<uint32_t, 2> transparency_at{};
 };
 
 // How the offset a provider is told (UpscaleFrame::jitter) is made from the projection's jitter j (pixels) and the

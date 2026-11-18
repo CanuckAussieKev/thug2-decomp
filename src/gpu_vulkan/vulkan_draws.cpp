@@ -873,9 +873,30 @@ PipelineKey pipeline_key(const Backend& state, const GpuStateBlock& block, const
         key.source_blend = static_cast<uint8_t>(block.render_state(GpuRenderState::kSrcBlend));
         key.dest_blend = static_cast<uint8_t>(block.render_state(GpuRenderState::kDestBlend));
         key.blend_operation = static_cast<uint8_t>(block.render_state(GpuRenderState::kBlendOp));
+        // (NOT ORIGINAL - round RG) one x the source + zero x what is there (added or subtracted) is no blend: the game
+        // draws most of its opaque passes so. The same colour either way; the upscaler's motion attachment
+        // (vulkan_motion.h) takes such a draw as the opaque one it is - its motion written, no share of a blended draw
+        // in the reactive mask (before, every such pixel - the world, the skater - was "blended": motion from the
+        // camera alone, and the reactive mask 0.9 over the whole frame)
+        if (key.source_blend == gpu_value::kBlendOne && key.dest_blend == gpu_value::kBlendZero &&
+            (key.blend_operation == gpu_value::kBlendOpAdd || key.blend_operation == gpu_value::kBlendOpSubtract)) {
+            key.blend = 0;
+            key.source_blend = 0;
+            key.dest_blend = 0;
+            key.blend_operation = 0;
+        }
     }
     key.write_mask = static_cast<uint8_t>(block.render_state(GpuRenderState::kColourWriteEnable) & kWriteMaskBits);
     key.motion = state.pass.motion ? 1 : 0; // (NOT ORIGINAL: the upscaler's motion attachment)
+    // (NOT ORIGINAL - round RG) a blended draw that writes depth is the pixel's surface - what the depth the upscaler is
+    // given says: its motion written as an opaque draw's, no share in the reactive mask (the alpha-blended walls, the
+    // fences, the skater's shoes drawn so were each "0.9 the current frame's" before - Ray Reconstruction biased to the
+    // noisy frame over whole surfaces)
+    if (key.motion != 0U && key.blend != 0U && block.render_state(GpuRenderState::kZEnable) != 0 &&
+        block.render_state(GpuRenderState::kZWriteEnable) != 0) {
+        key.motion = kMotionSurface;
+    }
+    key.layer = key.blend != 0U && surface_light_in_layer() ? 1 : 0; // (round RG: Ray Reconstruction's transparency layer)
     return key;
 }
 
