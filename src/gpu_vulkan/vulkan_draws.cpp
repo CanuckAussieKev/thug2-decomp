@@ -29,6 +29,7 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_markers.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
@@ -1171,6 +1172,7 @@ bool create_draw_objects(Backend& state)
     if (state.context.ray_tracing_enabled()) {
         state.materials.init(state); // NOT ORIGINAL - ray tracing's material table (logged when it can't be made)
     }
+    install_crash_markers(state); // NOT ORIGINAL - (round GD) the passes' markers (vulkan_crash_markers.h)
     return true;
 }
 
@@ -1179,6 +1181,7 @@ void release_draw_objects(Backend& state)
     if (!state.memory.ready()) {
         return;
     }
+    remove_crash_markers(); // (NOT ORIGINAL - round GD)
     state.frames.shutdown(); // (everything waited for, the retired objects destroyed)
     state.materials.shutdown(state);
     state.pipelines.shutdown();
@@ -1296,6 +1299,7 @@ bool finish_work(Backend& state)
     const frame_profile::Scope phase("vk_finish"); // (where a frame's time goes - platform/frame_profile.h)
     const bool done = state.frames.finish();
     state.bound = BoundState{};
+    check_device_lost(state); // (NOT ORIGINAL - round GD: reported once, the game asked to quit)
     return done;
 }
 
@@ -1610,6 +1614,13 @@ long record_present(Backend& state)
         return kOk;
     }
     end_pass(state);
+    // NOT ORIGINAL - (round GD) a lost device: nothing more shown or waited for - what was recorded dropped (the game
+    // quits: check_device_lost asked it to)
+    if (check_device_lost(state)) {
+        state.frames.end_frame(VK_NULL_HANDLE, VK_NULL_HANDLE);
+        state.bound = BoundState{};
+        return kOk;
+    }
     Context& context = state.context;
     if (context.surface_changed()) {
         context.window_resized();
@@ -1637,8 +1648,11 @@ long record_present(Backend& state)
         if (result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR) {
             acquired = state.frames.acquire_semaphore();
             presented = context.present_semaphore(index);
+            state.frames.mark({.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kPresent});
             record_present_copy(state, index);
+            state.frames.mark({.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kPresent, .end = true});
         } else {
+            state.frames.note_lost("vkAcquireNextImageKHR", result); // (NOT ORIGINAL - round GD)
             context.window_resized(); // (out of date: made again before the next frame)
         }
     }
@@ -1653,9 +1667,10 @@ long record_present(Backend& state)
     if (presented != VK_NULL_HANDLE) {
         const frame_profile::Scope phase("vk_queue_present");
         frame_generation_present_marker(state, true); // (NOT ORIGINAL - Reflex's markers: vulkan_framegen.h)
-        context.queue_present(index);
+        state.frames.note_lost("vkQueuePresentKHR", context.queue_present(index)); // (round GD: a loss noted)
         frame_generation_present_marker(state, false);
     }
+    check_device_lost(state); // (NOT ORIGINAL - round GD: reported once, the game asked to quit)
     frame_generation_after_present(state); // (NOT ORIGINAL - the frames shown, the frame's token let go)
     present_ui_windows(state); // (the UI's own windows drawn this frame - vulkan_ui_windows.cpp)
     DrawStats& stats = state.stats;
@@ -1867,11 +1882,13 @@ long record_ui_draws(Backend& state, const UiBatch& batch)
         return kOk;
     }
     const OpenPass& pass = state.pass;
+    state.frames.mark({.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kUi}); // (round GD)
     draw_ui_batch(state, batch, images,
                   {.colour = pass.colour_image->format,
                    .depth = pass.depth_image != nullptr ? pass.depth_image->format : VK_FORMAT_UNDEFINED,
                    .samples = static_cast<uint32_t>(pass.colour_image->samples),
                    .area = pass.area});
+    state.frames.mark({.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kUi, .end = true});
     return kOk;
 }
 

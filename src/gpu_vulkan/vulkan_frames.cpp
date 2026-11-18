@@ -8,6 +8,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/gpu_markers.h"
 #include "gpu_vulkan/vulkan_context.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_ring.h"
@@ -23,8 +24,8 @@ constexpr double kNanosecondsPerSecond = 1e9;
 
 // A frame's fence waited for: without end, as the frame needs it, but a wait past kWatchNanoseconds is logged (the
 // device not finishing - a hung dispatch, a lost device - says so in the log instead of a silent freeze), again every
-// kWatchNanoseconds while it lasts; a failed wait (a lost device) ends it, logged.
-void wait_for_frame(VkDevice device, VkFence fence, uint64_t serial)
+// kWatchNanoseconds while it lasts; a failed wait (a lost device) ends it, logged. The wait's result.
+VkResult wait_for_frame(VkDevice device, VkFence fence, uint64_t serial)
 {
     uint64_t waited = 0;
     for (;;) {
@@ -34,14 +35,14 @@ void wait_for_frame(VkDevice device, VkFence fence, uint64_t serial)
                 get_log("vulkan: the device finished frame %llu after a wait of more than %.0f s",
                         static_cast<unsigned long long>(serial), static_cast<double>(waited) / kNanosecondsPerSecond);
             }
-            return;
+            return result;
         }
         waited += kWatchNanoseconds;
         if (result != VK_TIMEOUT) {
             get_log("vulkan: waiting for frame %llu on the device failed (VkResult %d) after %.0f s - the device lost?",
                     static_cast<unsigned long long>(serial), static_cast<int>(result),
                     static_cast<double>(waited) / kNanosecondsPerSecond);
-            return;
+            return result;
         }
         get_log("vulkan: frame %llu has waited %.0f s for the device (its work not finished) - still waiting",
                 static_cast<unsigned long long>(serial), static_cast<double>(waited) / kNanosecondsPerSecond);
@@ -110,8 +111,39 @@ bool Frames::init(const Context& context, Memory* memory, const Rings& rings)
     current_ = 0;
     serial_ = 1;
     completed_ = 0;
+    lost_ = Lost{};
     init_timing(context);
+    if (!markers_.init(context, memory)) {
+        get_log("vulkan: the GPU crash markers' buffer could not be made - no markers");
+    }
     return true;
+}
+
+void Frames::mark(const gpu_markers::Mark& mark)
+{
+    if (markers_.on() && !lost_.lost) {
+        markers_.mark(stream(), mark, serial_);
+    }
+}
+
+void Frames::note_lost(const char* where, VkResult result)
+{
+    if (result != VK_ERROR_DEVICE_LOST || lost_.lost) {
+        return;
+    }
+    lost_ = {.lost = true, .where = where, .serial = serial_ > 1 ? serial_ - 1 : serial_, .result = result};
+}
+
+bool Frames::wait(const Slot& slot)
+{
+    if (lost_.lost) {
+        return false;
+    }
+    const VkResult result = wait_for_frame(device_, slot.done, slot.submitted);
+    if (result == VK_ERROR_DEVICE_LOST) {
+        lost_ = {.lost = true, .where = "waiting for a frame's fence", .serial = slot.submitted, .result = result};
+    }
+    return result == VK_SUCCESS;
 }
 
 void Frames::init_timing(const Context& context)
@@ -164,6 +196,7 @@ void Frames::shutdown()
         return;
     }
     vkDeviceWaitIdle(device_);
+    markers_.shutdown();
     for (Slot& each : slots_) {
         destroy(each.retired);
         if (each.acquired != VK_NULL_HANDLE) {
@@ -210,6 +243,7 @@ VkCommandBuffer Frames::uploads()
         // (images have their own barriers)
         memory_barrier(now.uploads, kBufferReaders | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
                        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+        markers_.mark(now.uploads, {.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kUploads}, serial_);
     }
     return now.uploads;
 }
@@ -224,6 +258,10 @@ VkCommandBuffer Frames::stream()
             const uint32_t first = current_ * 2;
             vkCmdResetQueryPool(now.stream, timing_, first, 2);
             vkCmdWriteTimestamp(now.stream, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, timing_, first);
+        }
+        if (now.stream_begun) {
+            markers_.mark(now.stream, {.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kStream},
+                          serial_);
         }
     }
     return now.stream;
@@ -255,9 +293,26 @@ void Frames::destroy(Retired& retired)
 bool Frames::submit(VkSemaphore acquired, VkSemaphore presented)
 {
     Slot& now = slot();
+    if (lost_.lost) { // (round GD: nothing more submitted - what was recorded is dropped)
+        if (now.uploads_begun) {
+            vkEndCommandBuffer(now.uploads);
+        }
+        if (now.stream_begun) {
+            vkEndCommandBuffer(now.stream);
+        }
+        vkResetCommandPool(device_, now.pool, 0);
+        now.uploads_begun = false;
+        now.stream_begun = false;
+        waits_.clear();
+        wait_stages_.clear();
+        signals_.clear();
+        return false;
+    }
     std::array<VkCommandBuffer, 2> buffers{};
     uint32_t count = 0;
     if (now.uploads_begun) {
+        markers_.mark(now.uploads,
+                      {.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kUploads, .end = true}, serial_);
         // the transfers' writes before the stream's reads of the buffers (the images' moves back to their resting
         // layouts are their own barriers)
         memory_barrier(now.uploads, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, kBufferReaders,
@@ -273,6 +328,8 @@ bool Frames::submit(VkSemaphore acquired, VkSemaphore presented)
             vkCmdWriteTimestamp(now.stream, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, timing_, (current_ * 2) + 1);
             now.timed = true;
         }
+        markers_.mark(now.stream,
+                      {.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kStream, .end = true}, serial_);
         if (vkEndCommandBuffer(now.stream) != VK_SUCCESS) {
             return false;
         }
@@ -306,7 +363,14 @@ bool Frames::submit(VkSemaphore acquired, VkSemaphore presented)
                             .pCommandBuffers = buffers.data(),
                             .signalSemaphoreCount = static_cast<uint32_t>(signals.size()),
                             .pSignalSemaphores = signals.data()};
-    if (vkResetFences(device_, 1, &now.done) != VK_SUCCESS || vkQueueSubmit(queue_, 1, &info, now.done) != VK_SUCCESS) {
+    if (vkResetFences(device_, 1, &now.done) != VK_SUCCESS) {
+        return false;
+    }
+    if (const VkResult result = vkQueueSubmit(queue_, 1, &info, now.done); result != VK_SUCCESS) {
+        if (result == VK_ERROR_DEVICE_LOST) {
+            lost_ = {.lost = true, .where = "vkQueueSubmit", .serial = serial_, .result = result};
+            vkResetCommandPool(device_, now.pool, 0);
+        }
         return false;
     }
     now.pending = true;
@@ -326,12 +390,17 @@ bool Frames::finish()
 {
     const bool submitted = submit(VK_NULL_HANDLE, VK_NULL_HANDLE);
     if (const Slot& now = slot(); now.pending) { // (the work just sent watched first: the queue's idle after it)
-        wait_for_frame(device_, now.done, now.submitted);
+        wait(now);
     }
-    const bool idle = vkQueueWaitIdle(queue_) == VK_SUCCESS;
+    bool idle = false;
+    if (!lost_.lost) {
+        const VkResult result = vkQueueWaitIdle(queue_);
+        note_lost("vkQueueWaitIdle", result);
+        idle = result == VK_SUCCESS;
+    }
     for (Slot& each : slots_) {
         if (each.pending) {
-            wait_for_frame(device_, each.done, each.submitted);
+            wait(each);
             recycle(each);
         }
         destroy(each.retired);
@@ -348,7 +417,7 @@ bool Frames::end_frame(VkSemaphore acquired, VkSemaphore presented)
     current_ = (current_ + 1) % kSlots;
     Slot& next = slot();
     if (next.pending) {
-        wait_for_frame(device_, next.done, next.submitted);
+        wait(next);
         completed_ = std::max(completed_, next.submitted);
         recycle(next);
     }

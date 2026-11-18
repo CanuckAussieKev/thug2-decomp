@@ -237,6 +237,7 @@ struct Backend {
     std::vector<std::unique_ptr<UiWindow>> ui_windows; // the UI's own windows (vulkan_ui_windows.cpp)
     MaterialTable materials; // NOT ORIGINAL - ray tracing's material table (vulkan_rt_materials.h), when it is enabled
     MotionVectors motion;    // NOT ORIGINAL - the upscaler's motion vectors (vulkan_motion.h)
+    bool lost_reported = false; // NOT ORIGINAL - (round GD) the lost device's report written (vulkan_device_lost.cpp)
 };
 
 // The one backend (made on first use, never destroyed).
@@ -255,6 +256,17 @@ void release_device_objects(Backend& state);
 // and its depth surface made again when the settings' size or samples changed, render target 0 the back buffer and the
 // others none, the depth surface the device's own, no vertex streams or indices. The caller holds the lock.
 bool reset_device_bindings(Backend& state);
+
+// --- (round GD) a lost device (vulkan_device_lost.cpp; vulkan_crash_markers.h); the caller holds the lock ----------
+
+// The passes' markers recorded from now (the engine's marks - engine/gfx/gpu_markers.h - go into the stream when the
+// device records markers), and what the device offers logged; and no longer (before the frames are released).
+void install_crash_markers(Backend& state);
+void remove_crash_markers();
+// Whether the device is lost (Frames::lost). The first time: the report logged - the markers each queue reached, the
+// lost submission's passes, the driver's fault report and its vendor dump, the heaps, the settings in effect -, the log
+// flushed to the disk, and the game asked to quit.
+bool check_device_lost(Backend& state);
 
 // --- the draws, the frame, the transfers (vulkan_draws.cpp); the caller holds the lock ------------------------------
 

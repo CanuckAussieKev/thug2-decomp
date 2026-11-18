@@ -1078,6 +1078,7 @@ std::vector<Decl> declarations()
         debug("collision_events", K::kSwitch, "0"),
         debug("collision_event_screenshots", K::kSwitch, "1").need(on("collision_events")),
         debug("frame_profile", K::kSwitch, "0"),
+        debug("gpu_crash_markers", K::kSwitch, "1"),
         debug("latency_probe", K::kSwitch, "0"),
         debug("load_test", K::kNumber, "0"),
         debug("rt_contract_check", K::kSwitch, "0").need(ray_tracing()),

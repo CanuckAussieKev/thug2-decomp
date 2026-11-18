@@ -3,6 +3,7 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/gpu_markers.h"
 #include "platform/frame_profile.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_sun.h"
@@ -59,6 +60,21 @@ std::vector<ViewListener*>& view_listeners()
     static std::vector<ViewListener*> listeners;
     return listeners;
 }
+
+// (round GD - GPU crash markers, gpu_markers.h) Each listener's call marked as a pass of its own, at its order.
+template <typename Call>
+void tell_listeners(gpu_markers::Phase phase, Call call)
+{
+    const bool marking = gpu_markers::marking();
+    for (ViewListener* listener : view_listeners()) {
+        if (!marking) {
+            call(listener);
+            continue;
+        }
+        const gpu_markers::Scope pass(phase, static_cast<uint16_t>(listener->order()));
+        call(listener);
+    }
+}
 } // namespace
 
 void add_view_listener(ViewListener* listener)
@@ -77,17 +93,13 @@ void remove_view_listener(ViewListener* listener) { std::erase(view_listeners(),
 void opaque_view_drawn(const ViewDrawn& view)
 {
     const frame_profile::Scope phase("fx_opaque"); // (where a frame's time goes - platform/frame_profile.h)
-    for (ViewListener* listener : view_listeners()) {
-        listener->opaque_drawn(view);
-    }
+    tell_listeners(gpu_markers::Phase::kOpaque, [&view](ViewListener* listener) { listener->opaque_drawn(view); });
 }
 
 void world_view_drawn(const ViewDrawn& view)
 {
     const frame_profile::Scope phase("fx_world");
-    for (ViewListener* listener : view_listeners()) {
-        listener->world_drawn(view);
-    }
+    tell_listeners(gpu_markers::Phase::kWorld, [&view](ViewListener* listener) { listener->world_drawn(view); });
 }
 
 bool view_listened() { return !view_listeners().empty(); }
@@ -100,7 +112,15 @@ std::atomic<bool>& world_surfaces_slot()
 }
 } // namespace
 
-void set_world_surfaces_drawing(bool inside) { world_surfaces_slot().store(inside, std::memory_order_relaxed); }
+void set_world_surfaces_drawing(bool inside)
+{
+    // (round GD: the world's surfaces marked as a pass of their own for the GPU crash markers - gpu_markers.h)
+    if (inside != world_surfaces_slot().load(std::memory_order_relaxed)) {
+        gpu_markers::mark(
+            {.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kWorldSurfaces, .end = !inside});
+    }
+    world_surfaces_slot().store(inside, std::memory_order_relaxed);
+}
 bool world_surfaces_drawing() { return world_surfaces_slot().load(std::memory_order_relaxed); }
 
 namespace {
@@ -138,9 +158,7 @@ bool focus_point(std::array<float, 3>* point)
 void view_begins(const ViewDrawn& view)
 {
     const frame_profile::Scope phase("fx_view_begins");
-    for (ViewListener* listener : view_listeners()) {
-        listener->view_begins(view);
-    }
+    tell_listeners(gpu_markers::Phase::kViewBegins, [&view](ViewListener* listener) { listener->view_begins(view); });
 }
 
 namespace {
@@ -521,9 +539,7 @@ SkyReplacement sky_replacement()
 void sky_view_drawn(const ViewDrawn& view)
 {
     const frame_profile::Scope phase("fx_sky");
-    for (ViewListener* listener : view_listeners()) {
-        listener->sky_drawn(view);
-    }
+    tell_listeners(gpu_markers::Phase::kSky, [&view](ViewListener* listener) { listener->sky_drawn(view); });
 }
 
 void set_sky_capture_wanted(bool wanted)

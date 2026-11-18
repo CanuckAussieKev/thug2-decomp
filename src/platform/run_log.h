@@ -17,6 +17,10 @@ THUG2_API void log_line(const char* line);
 // Every line given so far written to the file (and flushed). The lines go to the file from a thread of its own (the
 // drawing thread never waits on the disk); this one waits for it - the end of the process, a crash report's end.
 void log_flush();
+// NOT ORIGINAL - (round GD) log_flush, then the file's bytes pushed from the system's cache to the disk: what was
+// logged survives the machine itself going down after it (a lost GPU device whose driver reset fails ends in a stop
+// error). Slow: only for such a report.
+void log_flush_to_disk();
 // NOT ORIGINAL - after a crash's report (crash_end_process): the whole log, the report at its end, copied to
 // <log name>-crash-<date>_<time>.txt beside it (thug2-decomp-crash-2026-11-17_14-05-09.txt), a file no later run
 // overwrites (the log itself is kept for 3 runs only: thug2-decomp.prev.log, .prev2, .prev3 - log_open). The copy's
