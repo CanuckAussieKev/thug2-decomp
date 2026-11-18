@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <optional>
 #include <random>
 #include <span>
 #include <string>
@@ -40,6 +41,7 @@
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
+#include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
 
@@ -91,7 +93,8 @@ constexpr uint32_t kMaskWorld = 0x01; // the instance masks (vulkan_rt_scene.h)
 constexpr uint32_t kMaskObjects = 0x02;
 constexpr uint32_t kMaskTested = 0x04;
 constexpr uint32_t kMaskNever = 0x80;
-constexpr std::array<uint32_t, 6> kCullMasks{0xFF, 0x01, 0x02, 0x04, 0x80, 0x03}; // the rays' (one each, in turn)
+constexpr uint32_t kMaskAddsLight = 0x40; // (round PT-B: a glow - kAddsLight)
+constexpr std::array<uint32_t, 7> kCullMasks{0xFF, 0x01, 0x02, 0x04, 0x80, 0x03, 0x40}; // the rays' (one each, in turn)
 constexpr float kByteRange = 255.0F;
 constexpr float kAlphaSlack = 1.0e-3F;
 constexpr float kNoRejectAlphaRef = 1.0F / 255.0F; // the game's usual reference: rejects nothing drawn
@@ -415,6 +418,9 @@ struct SceneInstance {
 uint32_t expected_mask(const SceneInstance& each)
 {
     const uint32_t flags = each.instance.flags;
+    if ((flags & rt::kAddsLight) != 0) {
+        return kMaskAddsLight; // (round PT-B)
+    }
     if ((flags & rt::kTransparent) != 0 || (flags & rt::kCastsShadow) == 0) {
         return kMaskNever;
     }
@@ -826,8 +832,81 @@ void check_poses(render::Gpu& gpu, Tally* tally, std::mt19937& random, uint64_t*
     release_mesh(gpu, &source);
 }
 
+// (round PT-B - the surfaces' classes, engine/gfx/rt_surface_class.h) Whether a level's texels are all drawn opaque
+// (vulkan_formats.h level_alpha_opaque), on hand-made levels of each format the game's textures use.
+void check_texel_alpha(Tally* tally)
+{
+    namespace vk = render::vulkan;
+    using Bytes = std::vector<uint8_t>;
+    const vk::Extent four{.width = 4, .height = 4};
+    const auto opaque = [](uint32_t format, vk::Extent extent, const Bytes& bytes) {
+        const std::optional<bool> got = vk::level_alpha_opaque(format, extent, bytes);
+        return got.has_value() && *got;
+    };
+    const auto see_through = [](uint32_t format, vk::Extent extent, const Bytes& bytes) {
+        const std::optional<bool> got = vk::level_alpha_opaque(format, extent, bytes);
+        return got.has_value() && !*got;
+    };
+    constexpr uint8_t kFull = 0xFF;
+    constexpr std::size_t kTexels = 16;
+    constexpr std::size_t kArgbBytes = 4;
+    Bytes argb(kTexels * kArgbBytes, kFull);
+    bool ok = opaque(render::gpu_value::kFormatA8R8G8B8, four, argb);
+    core::at(argb, (5 * kArgbBytes) + 3) = 0xFE; // (one texel's alpha 254)
+    ok = ok && see_through(render::gpu_value::kFormatA8R8G8B8, four, argb);
+    tally->check(ok, "A8R8G8B8: every alpha 255 opaque; one 254 not");
+    // DXT1: four-colour mode (colour0 > colour1) has no transparent index; three-colour mode's index 3 is transparent
+    const Bytes dxt1_four{0x00, 0xF8, 0x1F, 0x00, 0xFF, 0xFF, 0xFF, 0xFF};
+    const Bytes dxt1_three_hole{0x1F, 0x00, 0x00, 0xF8, 0x00, 0x00, 0x00, 0xC0}; // (the last texel index 3)
+    const Bytes dxt1_three_solid{0x1F, 0x00, 0x00, 0xF8, 0x55, 0x55, 0x55, 0x55}; // (every index 1)
+    tally->check(opaque(render::gpu_value::kFormatDxt1, four, dxt1_four) &&
+                     see_through(render::gpu_value::kFormatDxt1, four, dxt1_three_hole) &&
+                     opaque(render::gpu_value::kFormatDxt1, four, dxt1_three_solid) &&
+                     opaque(render::gpu_value::kFormatDxt1, {.width = 2, .height = 2}, dxt1_three_hole),
+                 "DXT1: four-colour blocks opaque; a three-colour block with index 3 not, without it opaque; index 3 "
+                 "outside a 2x2 level's texels doesn't count");
+    // DXT3: sixteen 4-bit alphas, then a colour block
+    Bytes dxt3(16, kFull);
+    bool dxt3_ok = opaque(render::gpu_value::kFormatDxt3, four, dxt3);
+    core::at(dxt3, 3) = 0xEF; // (texel 7's alpha 14)
+    dxt3_ok = dxt3_ok && see_through(render::gpu_value::kFormatDxt3, four, dxt3);
+    tally->check(dxt3_ok, "DXT3: every alpha 15 opaque; one 14 not");
+    // DXT5: the two alphas, 48 bits of 3-bit indices, then a colour block
+    const auto dxt5 = [](uint8_t alpha0, uint8_t alpha1, uint8_t every_index) {
+        Bytes block(16, 0);
+        core::at(block, 0) = alpha0;
+        core::at(block, 1) = alpha1;
+        uint64_t indices = 0;
+        for (uint32_t texel = 0; texel < kTexels; ++texel) {
+            indices |= uint64_t{every_index} << (3U * texel);
+        }
+        for (std::size_t k = 0; k < 6; ++k) {
+            core::at(block, 2 + k) = static_cast<uint8_t>(indices >> (8U * k));
+        }
+        return block;
+    };
+    constexpr uint8_t kSeven = 7;
+    constexpr uint8_t kSix = 6;
+    constexpr uint8_t kHalfAlpha = 0x80;
+    tally->check(opaque(render::gpu_value::kFormatDxt5, four, dxt5(kFull, kFull, 3)) &&
+                     opaque(render::gpu_value::kFormatDxt5, four, dxt5(kFull, 0, 0)) &&
+                     see_through(render::gpu_value::kFormatDxt5, four, dxt5(kFull, 0, 1)) &&
+                     see_through(render::gpu_value::kFormatDxt5, four, dxt5(kFull, kHalfAlpha, 2)) &&
+                     opaque(render::gpu_value::kFormatDxt5, four, dxt5(0, kHalfAlpha, kSeven)) &&
+                     see_through(render::gpu_value::kFormatDxt5, four, dxt5(0, kHalfAlpha, kSix)),
+                 "DXT5: 255 / 255 opaque at any index; index 0 of 255 opaque, index 1 of 0 not, an interpolation "
+                 "below 255 not; the six-step mode's index 7 (255) opaque, 6 (0) not");
+    const Bytes words(kTexels * 2, 0);
+    tally->check(opaque(render::gpu_value::kFormatR5G6B5, four, words) &&
+                     see_through(render::gpu_value::kFormatA1R5G5B5, four, words) &&
+                     !vk::level_alpha_opaque(render::gpu_value::kFormatD16, four, words).has_value() &&
+                     !vk::level_alpha_opaque(render::gpu_value::kFormatA8R8G8B8, four, words).has_value(),
+                 "R5G6B5 opaque, A1R5G5B5 with its alpha bits clear not; a depth format or too few bytes: not known");
+}
+
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
+    check_texel_alpha(tally); // (round PT-B)
     std::mt19937 random(options.seed);
     rt::RayTracing* const backend = rt::ray_tracing();
     tally->check(backend != nullptr && backend->available(), "the ray tracing backend is installed");
@@ -954,6 +1033,8 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
     }
     place(meshes.size(), rt::kOpaque | rt::kCastsShadow, -1.0F);
     place(meshes.size() + 1, rt::kTransparent, -1.0F);
+    // (round PT-B) a glow - adds light: its own mask, 0x40
+    place(small_first, rt::kTransparent | rt::kAddsLight | rt::kWorld, -1.0F);
 
     uint64_t frame = 1;
     draw_frame(gpu, meshes, instances, frame++, false);

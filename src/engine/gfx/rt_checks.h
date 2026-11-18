@@ -159,7 +159,8 @@ inline std::string geometry_problem(const Geometry& geometry)
 }
 
 // What is wrong with an instance's flags ("" when nothing): world or object (one of them), opaque / alpha-tested /
-// transparent (opaque alone; alpha-tested or transparent, not both with opaque), skinned only on an object.
+// transparent (opaque alone; alpha-tested or transparent, not both with opaque), skinned only on an object, adds light
+// only blended and not cut out.
 inline std::string flags_problem(uint32_t flags)
 {
     const bool world = (flags & kWorld) != 0U;
@@ -175,6 +176,9 @@ inline std::string flags_problem(uint32_t flags)
     }
     if ((flags & kSkinned) != 0U && world) {
         return "a skinned world mesh";
+    }
+    if ((flags & kAddsLight) != 0U && (!blended || tested)) {
+        return "adds light but not transparent (or alpha-tested)"; // (round PT-B: rt_surface_class.h kAddsLight)
     }
     return "";
 }

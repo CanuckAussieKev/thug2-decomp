@@ -220,6 +220,9 @@ bool upload_image(Backend& state, Image* image, uint32_t level, std::span<const 
 bool upload_level(Backend& state, Texture* texture, uint32_t level)
 {
     const auto start = std::chrono::steady_clock::now();
+    if (level == 0) {
+        texture->alpha_read = false; // (round PT-B: read again when next asked - texture_alpha)
+    }
     const Extent extent = level_extent(texture_extent(*texture), level);
     const LevelLayout layout = d3d_level_layout(texture->desc.format, extent);
     const LevelLayout image_layout = image_level_layout(texture->plan, texture->desc.format, extent);
@@ -1749,6 +1752,22 @@ void release_device_objects(Backend& state)
 }
 
 const Texture* texture_of(GpuTexture* texture) { return object(texture); }
+
+std::optional<LevelAlpha> texture_alpha(GpuTexture* texture)
+{
+    if (texture == nullptr) {
+        return std::nullopt;
+    }
+    Texture* const kept = object(texture);
+    if (!kept->alpha_read) {
+        kept->alpha_read = true;
+        const bool drawn_into = (kept->desc.usage & (gpu_value::kUsageRenderTarget | kUsageDepthStencil)) != 0U;
+        kept->alpha = drawn_into || kept->levels.empty()
+                          ? std::nullopt
+                          : level_alpha(kept->desc.format, texture_extent(*kept), kept->levels.front());
+    }
+    return kept->alpha;
+}
 
 bool read_texture_level(GpuTexture* texture, uint32_t level, std::vector<uint8_t>* texels)
 {

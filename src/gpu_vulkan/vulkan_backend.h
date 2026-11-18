@@ -358,6 +358,11 @@ long record_ui_window_draws(Backend& state, UiWindow* window, const UiBatch& bat
 // After the frame's submission: every window drawn this frame presented.
 void present_ui_windows(Backend& state);
 
+// (round PT-B - engine/gfx/rt_surface_class.h) The alpha the texels of the texture's level 0 are drawn with
+// (vulkan_formats.h level_alpha, read once after each upload of level 0): none for a render target, a level never
+// written, a format it doesn't read. The caller holds the lock.
+std::optional<LevelAlpha> texture_alpha(GpuTexture* texture);
+
 // The checks' views (src/tests/vulkan_gpu_check.cpp): an object's image, a level read back in the image's format, a
 // buffer's device memory read back.
 const Texture* texture_of(GpuTexture* texture);

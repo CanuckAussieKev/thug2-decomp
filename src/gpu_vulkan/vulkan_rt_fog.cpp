@@ -221,7 +221,8 @@ layout(set = 0, binding = 13, r32f) uniform readonly image2D u_air_map;
 float visible(vec3 at, vec3 toward, float reach)
 {
 #ifdef CUTOUTS
-    return ray_blocked(uint(fog.flags.y) & 0xFFu, at, toward, reach) ? 0.0 : 1.0;
+    // (round PT-B: the seen-through surfaces by their share - the one light ray, vulkan_rt_scene.h ray_light)
+    return ray_light_share(uint(fog.flags.y) & 0xFFu, at, toward, reach);
 #else
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT,

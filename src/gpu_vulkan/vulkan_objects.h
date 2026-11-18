@@ -36,6 +36,10 @@ struct Texture {
     std::vector<std::vector<uint8_t>> levels; // (empty until the level is first locked)
     std::vector<LockState> locks;
     std::vector<std::unique_ptr<Surface>> surfaces; // texture_surface's, made on first ask
+    // (round PT-B) level 0's texels' alpha (vulkan_formats.h level_alpha), read when first asked after level 0 was last
+    // uploaded (alpha_read false until then; none: not known)
+    bool alpha_read = false;
+    std::optional<LevelAlpha> alpha;
 };
 
 // What a surface is.

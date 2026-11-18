@@ -68,7 +68,10 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // v14 (round bounce unit 2): the measure a fit of the bounce and the bake's floor (its ambient: taken out of the tints,
 // not lit), the sky's leak taken out, unexplained vertices left out; colours at the bake's clamp a bound, not a measure
 // (no edge, evidence or facing median told by them - Proving Ground's sun).
-inline constexpr uint32_t kRelitDataVersion = 14;
+// v15 (round PT-B): one class of each surface for every ray (rt_surface_class.h) - a blended surface drawn opaque (its
+// drawn alpha 1 everywhere: Boston's brick facades, road markings) blocks the bake's sun, sky, lamp and bounce rays and
+// is a solid lamp candidate; the seen-through surfaces let each ray's light through by their share (seen_through).
+inline constexpr uint32_t kRelitDataVersion = 15;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

@@ -23,6 +23,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/light_store.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_volume_light.h"
@@ -392,7 +393,7 @@ struct PackedHit {
     uint32_t primitive = 0;
     std::array<float, 2> barycentrics{};
     uint32_t flags = 0; // 1: hit, 2: front face
-    uint32_t pad = 0;
+    float seen_through = 1.0F; // (round PT-B: rt::ProbeResult::seen_through)
 };
 constexpr uint32_t kProbeHitFlag = 1;
 constexpr uint32_t kProbeFrontFlag = 2;
@@ -446,6 +447,15 @@ void main()
         hit.barycentrics = rayQueryGetIntersectionBarycentricsEXT(query, true);
         hit.flags = 1u | (rayQueryGetIntersectionFrontFaceEXT(query, true) ? 2u : 0u);
     }
+    // (round PT-B) with the cut-outs - the one lighting path's test - the light the seen-through surfaces before the hit
+    // (or the ray's end) let through: ray_light's share (the mean of its three channels)
+    float through = 1.0;
+    if (cutouts) {
+        float reach = (hit.flags & 1u) != 0u ? hit.t : ray.direction_t_max.w;
+        vec3 seen = seen_through(ray.cull_mask.x & 0xFFu, ray.origin_t_min.xyz, ray.direction_t_max.xyz, reach);
+        through = (seen.r + seen.g + seen.b) * (1.0 / 3.0);
+    }
+    hit.pad = floatBitsToUint(through);
     hits[i] = hit;
 }
 )";
@@ -460,6 +470,7 @@ public:
     // (the material table: vulkan_rt_materials.h - any thread)
     void set_material(rt::MaterialId material, const rt::Material& surface) override;
     void remove_material(rt::MaterialId material) override;
+    [[nodiscard]] rt::TexelAlpha texture_alpha(GpuTexture* texture) const override; // (round PT-B)
     void update_mesh(rt::MeshId mesh, const rt::Geometry& geometry) override;
     void begin_frame(const rt::FrameRecord& record) override;
     void settle(const rt::FrameRecord& record) override;
@@ -1202,7 +1213,9 @@ VkAccelerationStructureInstanceKHR instance_of(const rt::Instance& given, const 
     // (a transparent instance casts only when it is also alpha tested - render_pc's cut-out blended materials - and its
     // alpha test can reject texels)
     const bool cut_out = (given.flags & rt::kTransparent) != 0 && alpha_tested;
-    if (((given.flags & rt::kTransparent) != 0 && !cut_out) || (given.flags & rt::kCastsShadow) == 0) {
+    if ((given.flags & rt::kAddsLight) != 0) {
+        mask = kMaskAddsLight; // (round PT-B: light passes it whole - rt_surface_class.h)
+    } else if (((given.flags & rt::kTransparent) != 0 && !cut_out) || (given.flags & rt::kCastsShadow) == 0) {
         mask = kMaskNoShadow;
     } else if (alpha_tested) {
         mask = kMaskAlphaTested;
@@ -1757,6 +1770,17 @@ void VulkanRayTracing::remove_material(rt::MaterialId material)
     backend().materials.remove(material);
 }
 
+rt::TexelAlpha VulkanRayTracing::texture_alpha(GpuTexture* texture) const
+{
+    const std::scoped_lock lock(backend().mutex);
+    const std::optional<LevelAlpha> alpha = vulkan::texture_alpha(texture);
+    if (!alpha) {
+        return {};
+    }
+    return {.known = true, .least = alpha->least, .below = alpha->below, .texels = alpha->texels,
+            .below_half = alpha->below_half};
+}
+
 void VulkanRayTracing::remove_mesh(rt::MeshId mesh)
 {
     Backend& state = backend();
@@ -2080,7 +2104,8 @@ void read_hits(Backend& state, const DeviceBuffer& hit_buffer, std::size_t count
                          .custom_index = each.custom_index,
                          .primitive = each.primitive,
                          .barycentrics = each.barycentrics,
-                         .front_face = (each.flags & kProbeFrontFlag) != 0});
+                         .front_face = (each.flags & kProbeFrontFlag) != 0,
+                         .seen_through = each.seen_through});
     }
 }
 
@@ -2107,6 +2132,7 @@ rt::ProbeResult result_of(const TracedHit& hit, std::span<const rt::MeshId> mesh
     rt::ProbeResult result;
     result.traced = true;
     result.hit = hit.hit;
+    result.seen_through = hit.seen_through;
     if (hit.hit) {
         result.distance = hit.t;
         result.instance = hit.instance;
@@ -2263,7 +2289,13 @@ std::string_view scene_geometry_glsl()
 
 std::string_view cutout_rays_glsl()
 {
-    static constexpr const char* kCutoutRays = R"(
+    // (round PT-B) the glass's F0 (the material table's) and the display's gamma (rt_display.h - a filter's colour
+    // decoded to linear light, as the display transfer's linear_from_display) written in as constants
+    static const std::string made = [] {
+        std::string text = "const float HIT_GLASS_F0 = " +
+                           std::to_string(std::get<0>(rt::material_f0(rt::MaterialKind::kGlass))) +
+                           ";\nconst float HIT_BLEND_GAMMA = " + std::to_string(rt::kDisplayGamma) + ";\n";
+        text += R"(
 bool cutout_kept(uint instance, uint primitive, uint id, vec2 barycentrics)
 {
     HitVertices v;
@@ -2292,8 +2324,158 @@ bool ray_blocked(uint mask, vec3 origin, vec3 direction, float reach)
     }
     return rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionNoneEXT;
 }
+// (path tracing, stage 3 - P2: the blended surfaces traced) How a ray meets a surface, from its material's first pass
+// as the game draws it (its blend mode, alpha and class) - never from what the object is:
+const uint HIT_SOLID = 0u;    // not blended: a surface wherever its alpha test passes (cutout_kept)
+const uint HIT_COVERAGE = 1u; // blended over what is behind by an alpha (blend modes 5 / 6, and a blended pass that
+                              // replaces it - 0, 11 - 13): a surface over `coverage` of it, seen through the rest
+const uint HIT_GLASS = 2u;    // seen through, of the glass class: `coverage` its painted part, the rest a thin pane of
+                              // glass - Fresnel reflection (HIT_GLASS_F0), the rest straight through
+const uint HIT_FILTER = 3u;   // multiplies what is behind (7 / 8 by an alpha, 15 by its colour): no surface; the light
+                              // through it x `tint`
+const uint HIT_ADDED = 4u;    // adds to or takes from what is behind (1 - 4, 9, 10: glows, light cards, grime): no
+                              // surface; light passes unchanged, its own emission (the light store's) added
+const uint HIT_INSTANCE_TRANSPARENT = 64u; // (rt::kTransparent)
+const uint HIT_CLASS_GLASS = 2u;              // (rt::kReflectGlass)
+struct HitBlend {
+    uint kind;
+    float coverage;
+    vec3 tint;
+};
+HitBlend hit_blend(uint instance, uint primitive, uint id, vec2 barycentrics)
+{
+    HitBlend b;
+    b.kind = HIT_SOLID;
+    b.coverage = 1.0;
+    b.tint = vec3(1.0);
+    if ((geometry_record(instance).instance_flags & HIT_INSTANCE_TRANSPARENT) == 0u) {
+        return b;
+    }
+    HitVertices v;
+    if (!hit_vertices(instance, primitive, v)) {
+        return b;
+    }
+    Material m = material(id);
+    vec2 uv = hit_uv_set(instance, primitive, barycentrics, m.uv_set);
+    vec4 texel = material_texel_lod(id, uv, 0.0);
+    float a = material_drawn_alpha(id, uv, hit_colour(v, barycentrics).a); // (the pass's alpha as the game draws it)
+    bool kept = material_alpha_passes(id, a);
+    uint mode = m.blend & 0xFFFFFFu;
+    if (mode == 1u || mode == 2u || mode == 3u || mode == 4u || mode == 9u || mode == 10u) {
+        b.kind = HIT_ADDED;
+        b.coverage = 0.0;
+        return b;
+    }
+    if (mode == 7u || mode == 8u || mode == 15u) {
+        b.kind = HIT_FILTER;
+        b.coverage = 0.0;
+        if (mode == 7u) {
+            b.tint = vec3(kept ? a : 1.0);
+        } else if (mode == 8u) {
+            b.tint = vec3(clamp(m.colour.a, 0.0, 1.0));
+        } else {
+            b.tint = kept ? clamp(pow(clamp(texel.rgb * m.colour.rgb, 0.0, 1.0), vec3(HIT_BLEND_GAMMA)), 0.0, 1.0) : vec3(1.0);
+        }
+        return b;
+    }
+    float covered = mode == 5u ? a : (mode == 6u ? clamp(m.colour.a, 0.0, 1.0) : 1.0);
+    b.coverage = kept ? covered : 0.0;
+    b.kind = m.reflection_class == HIT_CLASS_GLASS ? HIT_GLASS : HIT_COVERAGE;
+    return b;
+}
+// The share of light a thin pane of glass reflects at `cos_theta` (Schlick, HIT_GLASS_F0).
+float hit_glass_reflectance(float cos_theta)
+{
+    float c = clamp(1.0 - abs(cos_theta), 0.0, 1.0);
+    float c2 = c * c;
+    return HIT_GLASS_F0 + (1.0 - HIT_GLASS_F0) * c2 * c2 * c;
+}
+// The light a ray takes through a blended surface it crosses (shadow rays: its expected share - a covered part blocks
+// it, glass reflects some of it, a filter tints it, an added surface lets it all through).
+vec3 hit_blend_transmittance(HitBlend b, float cos_theta)
+{
+    if (b.kind == HIT_ADDED) {
+        return vec3(1.0);
+    }
+    if (b.kind == HIT_FILTER) {
+        return b.tint;
+    }
+    float open = 1.0 - b.coverage;
+    if (b.kind == HIT_GLASS) {
+        open *= 1.0 - hit_glass_reflectance(cos_theta);
+    }
+    return vec3(open);
+}
+
+// (round PT-B - the one light through the seen-through surfaces) The light that gets through the seen-through instances
+// (mask 0x80: rt_surface_class.h kSeenThrough) between `origin` and `reach` - each one's expected share
+// (hit_blend_transmittance) multiplied in, whatever their order -, of the kinds `mask` asks for: the world's (0x01 /
+// 0x04) and the objects' (0x02). The caller has found nothing solid there (ray_light).
+const uint RAY_SEEN_THROUGH = 0x80u;  // (kMaskNoShadow)
+const uint RAY_WORLD_KINDS = 0x05u;   // (kMaskWorld, kMaskAlphaTested)
+const uint RAY_OBJECT_KINDS = 0x02u;  // (kMaskObjects)
+const uint RAY_INSTANCE_OBJECT = 32u; // (rt::kObject)
+vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach)
+{
+    vec3 through = vec3(1.0);
+    bool world = (mask & RAY_WORLD_KINDS) != 0u;
+    bool objects = (mask & RAY_OBJECT_KINDS) != 0u;
+    if (reach <= 0.0 || !(world || objects)) {
+        return through;
+    }
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, RAY_SEEN_THROUGH, origin, 0.0, dir, reach);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) != gl_RayQueryCandidateIntersectionTriangleEXT) {
+            continue;
+        }
+        uint i = rayQueryGetIntersectionInstanceIdEXT(query, false);
+        bool object = (geometry_record(i).instance_flags & RAY_INSTANCE_OBJECT) != 0u;
+        if (object ? !objects : !world) {
+            continue;
+        }
+        uint p = rayQueryGetIntersectionPrimitiveIndexEXT(query, false);
+        uint m = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
+        vec2 bc = rayQueryGetIntersectionBarycentricsEXT(query, false);
+        HitBlend b = hit_blend(i, p, m, bc);
+        float cos_theta = 1.0;
+        HitVertices v;
+        if (b.kind == HIT_GLASS && hit_vertices(i, p, v)) {
+            mat4x3 w = rayQueryGetIntersectionObjectToWorldEXT(query, false);
+            vec3 n = cross(w * vec4(v.position[1] - v.position[0], 0.0), w * vec4(v.position[2] - v.position[0], 0.0));
+            float l = length(n);
+            cos_theta = l > 0.0 ? dot(n / l, dir) : 1.0;
+        }
+        through *= b.kind == HIT_SOLID ? (cutout_kept(i, p, m, bc) ? vec3(0.0) : vec3(1.0))
+                                       : hit_blend_transmittance(b, cos_theta);
+        if (max(through.r, max(through.g, through.b)) <= 0.0) {
+            rayQueryTerminateEXT(query);
+        }
+    }
+    return through;
+}
+
+// (round PT-B) The light that gets from `origin` to `reach` along `direction`: none past anything solid `mask` picks
+// (ray_blocked), else what the seen-through surfaces of its kinds let through (seen_through). Every light ray - the
+// sun's shadows, the lamps', the occlusion's, the bounce light's sun rays, the fog's, the relit bake's, the path
+// tracer's - takes this one visibility.
+vec3 ray_light(uint mask, vec3 origin, vec3 direction, float reach)
+{
+    if (ray_blocked(mask & ~RAY_SEEN_THROUGH, origin, direction, reach)) {
+        return vec3(0.0);
+    }
+    return seen_through(mask, origin, direction, reach);
+}
+// The same as one share (a pass that keeps one visibility a ray: the mean of the three channels).
+float ray_light_share(uint mask, vec3 origin, vec3 direction, float reach)
+{
+    vec3 t = ray_light(mask, origin, direction, reach);
+    return (t.r + t.g + t.b) * (1.0 / 3.0);
+}
 )";
-    return kCutoutRays;
+        return text;
+    }();
+    return made;
 }
 
 std::string_view hit_surface_glsl()
@@ -2305,9 +2487,7 @@ std::string_view hit_surface_glsl()
                            std::to_string(std::get<0>(rt::material_f0(rt::MaterialKind::kPainted))) +
                            ";\nconst float HIT_SURFACE_ROUGHNESS = " +
                            std::to_string(rt::material_values(rt::MaterialKind::kPainted).roughness) +
-                           ";\nconst float HIT_SURFACE_METAL_F0 = " + std::to_string(kHitMetalF0) +
-                           ";\nconst float HIT_GLASS_F0 = " +
-                           std::to_string(std::get<0>(rt::material_f0(rt::MaterialKind::kGlass))) + ";\n";
+                           ";\nconst float HIT_SURFACE_METAL_F0 = " + std::to_string(kHitMetalF0) + ";\n";
         text += R"(
 const uint HIT_RELIT_WORLD = 0u;
 const uint HIT_BAKED_WORLD = 1u;
@@ -2438,88 +2618,6 @@ bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4
     return true;
 }
 
-// (path tracing, stage 3 - P2: the blended surfaces traced) How a ray meets a surface, from its material's first pass
-// as the game draws it (its blend mode, alpha and class) - never from what the object is:
-const uint HIT_SOLID = 0u;    // not blended: a surface wherever its alpha test passes (cutout_kept)
-const uint HIT_COVERAGE = 1u; // blended over what is behind by an alpha (blend modes 5 / 6, and a blended pass that
-                              // replaces it - 0, 11 - 13): a surface over `coverage` of it, seen through the rest
-const uint HIT_GLASS = 2u;    // seen through, of the glass class: `coverage` its painted part, the rest a thin pane of
-                              // glass - Fresnel reflection (HIT_GLASS_F0), the rest straight through
-const uint HIT_FILTER = 3u;   // multiplies what is behind (7 / 8 by an alpha, 15 by its colour): no surface; the light
-                              // through it x `tint`
-const uint HIT_ADDED = 4u;    // adds to or takes from what is behind (1 - 4, 9, 10: glows, light cards, grime): no
-                              // surface; light passes unchanged, its own emission (the light store's) added
-const uint HIT_INSTANCE_TRANSPARENT = 64u; // (rt::kTransparent)
-const uint HIT_CLASS_GLASS = 2u;              // (rt::kReflectGlass)
-struct HitBlend {
-    uint kind;
-    float coverage;
-    vec3 tint;
-};
-HitBlend hit_blend(uint instance, uint primitive, uint id, vec2 barycentrics)
-{
-    HitBlend b;
-    b.kind = HIT_SOLID;
-    b.coverage = 1.0;
-    b.tint = vec3(1.0);
-    if ((geometry_record(instance).instance_flags & HIT_INSTANCE_TRANSPARENT) == 0u) {
-        return b;
-    }
-    HitVertices v;
-    if (!hit_vertices(instance, primitive, v)) {
-        return b;
-    }
-    Material m = material(id);
-    vec2 uv = hit_uv_set(instance, primitive, barycentrics, m.uv_set);
-    vec4 texel = material_texel_lod(id, uv, 0.0);
-    float a = material_drawn_alpha(id, uv, hit_colour(v, barycentrics).a); // (the pass's alpha as the game draws it)
-    bool kept = material_alpha_passes(id, a);
-    uint mode = m.blend & 0xFFFFFFu;
-    if (mode == 1u || mode == 2u || mode == 3u || mode == 4u || mode == 9u || mode == 10u) {
-        b.kind = HIT_ADDED;
-        b.coverage = 0.0;
-        return b;
-    }
-    if (mode == 7u || mode == 8u || mode == 15u) {
-        b.kind = HIT_FILTER;
-        b.coverage = 0.0;
-        if (mode == 7u) {
-            b.tint = vec3(kept ? a : 1.0);
-        } else if (mode == 8u) {
-            b.tint = vec3(clamp(m.colour.a, 0.0, 1.0));
-        } else {
-            b.tint = kept ? clamp(linear_from_display(clamp(texel.rgb * m.colour.rgb, 0.0, 1.0)), 0.0, 1.0) : vec3(1.0);
-        }
-        return b;
-    }
-    float covered = mode == 5u ? a : (mode == 6u ? clamp(m.colour.a, 0.0, 1.0) : 1.0);
-    b.coverage = kept ? covered : 0.0;
-    b.kind = m.reflection_class == HIT_CLASS_GLASS ? HIT_GLASS : HIT_COVERAGE;
-    return b;
-}
-// The share of light a thin pane of glass reflects at `cos_theta` (Schlick, HIT_GLASS_F0).
-float hit_glass_reflectance(float cos_theta)
-{
-    float c = clamp(1.0 - abs(cos_theta), 0.0, 1.0);
-    float c2 = c * c;
-    return HIT_GLASS_F0 + (1.0 - HIT_GLASS_F0) * c2 * c2 * c;
-}
-// The light a ray takes through a blended surface it crosses (shadow rays: its expected share - a covered part blocks
-// it, glass reflects some of it, a filter tints it, an added surface lets it all through).
-vec3 hit_blend_transmittance(HitBlend b, float cos_theta)
-{
-    if (b.kind == HIT_ADDED) {
-        return vec3(1.0);
-    }
-    if (b.kind == HIT_FILTER) {
-        return b.tint;
-    }
-    float open = 1.0 - b.coverage;
-    if (b.kind == HIT_GLASS) {
-        open *= 1.0 - hit_glass_reflectance(cos_theta);
-    }
-    return vec3(open);
-}
 )";
         return text;
     }();

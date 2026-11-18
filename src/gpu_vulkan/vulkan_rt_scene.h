@@ -37,7 +37,11 @@ struct Backend;
 // pick by (a ray query's cull mask; 0xFF: everything): kMaskWorld (0x01, vulkan_rt_shadows.h) casts a shadow, opaque,
 // not an object; kMaskObjects (0x02) the same for kObject (the skater, peds, vehicles); and:
 inline constexpr uint32_t kMaskAlphaTested = 0x04; // casts a shadow, kAlphaTested (also a cut-out kTransparent one)
-inline constexpr uint32_t kMaskNoShadow = 0x80;    // kTransparent (not cut out), or no kCastsShadow: never casts
+inline constexpr uint32_t kMaskNoShadow = 0x80;    // kTransparent (not cut out), or no kCastsShadow: no solid caster -
+                                                   // the seen-through surfaces every light ray takes its share through
+                                                   // (round PT-B: ray_light, rt_surface_class.h kSeenThrough)
+inline constexpr uint32_t kMaskAddsLight = 0x40;   // (round PT-B) kAddsLight: no surface for a light ray (light passes it
+                                                   // whole); only a path's rays and the camera's probes ask for it
 // An instance's custom index is its material id (rayQueryGetIntersectionInstanceCustomIndexEXT), 24 bits; its
 // instance index (rayQueryGetIntersectionInstanceIdEXT) its place in the frame record's instances. Instances flagged
 // kOpaque are forced opaque, the others forced non-opaque (a query sees them as candidates: alpha, R3); back faces are
@@ -153,6 +157,20 @@ std::string_view scene_geometry_glsl();
 //   bool ray_blocked(uint mask, vec3 origin, vec3 direction, float reach) - blocked before `reach` by an instance `mask`
 //        picks: an opaque one wherever it is hit, an alpha-tested one only where its material's alpha test passes at the
 //        hit (a hit whose vertices can't be read counts as solid)
+// (path tracing, stage 3) How a ray meets a blended surface, from its material's first pass (never per object):
+//   struct HitBlend { uint kind; float coverage; vec3 tint; };
+//   HitBlend hit_blend(uint instance, uint primitive, uint id, vec2 barycentrics) - HIT_SOLID (not kTransparent),
+//        HIT_COVERAGE (an alpha blend: a surface over `coverage` - the drawn alpha), HIT_GLASS (seen through, glass
+//        class: `coverage` painted, the rest a thin pane), HIT_FILTER (a multiply: the light behind x `tint`), HIT_ADDED
+//        (add / subtract / brighten: light passes, its emission added)
+//   float hit_glass_reflectance(float cos_theta) - a thin pane's Fresnel share (Schlick, the material table's glass F0)
+//   vec3 hit_blend_transmittance(HitBlend b, float cos_theta) - the expected light a shadow ray takes through it.
+// (round PT-B - one light ray: engine/gfx/rt_surface_class.h) Every light ray's visibility:
+//   vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach) - what the seen-through instances (0x80) of the
+//        kinds `mask` picks (world 0x01 / 0x04, objects 0x02) let through before `reach`: their hit_blend_transmittance
+//        multiplied, whatever their order (the caller has found nothing solid there)
+//   vec3 ray_light(uint mask, vec3 origin, vec3 direction, float reach) - 0 when ray_blocked, else seen_through
+//   float ray_light_share(...) - the same as one share (the mean of the three channels), for a pass that keeps one
 std::string_view cutout_rays_glsl();
 // (path tracing, stage 1 - P1: one hit surface) What every ray that shades its hit reads there, from one function: after
 // material_glsl (vulkan_rt_materials.h), scene_geometry_glsl, rt_display.h's kDisplayTransferGlsl and rt_brdf.h's
@@ -177,14 +195,7 @@ std::string_view cutout_rays_glsl();
 //     emit word x the texel (the lamp's texture) - on a lamp drawn in a texture only its lamp texels (their brightest
 //     channel past rt_lights.h kTexelBright, as the world's draws show it); 0 elsewhere;
 //   - hidden: the light store hides the mesh (the bake's shadows drawn as geometry, the original's light cards).
-// (path tracing, stage 3) And how a ray meets a blended surface, from its material's first pass (never per object):
-//   struct HitBlend { uint kind; float coverage; vec3 tint; };
-//   HitBlend hit_blend(uint instance, uint primitive, uint id, vec2 barycentrics) - HIT_SOLID (not kTransparent),
-//        HIT_COVERAGE (an alpha blend: a surface over `coverage` - the drawn alpha), HIT_GLASS (seen through, glass
-//        class: `coverage` painted, the rest a thin pane), HIT_FILTER (a multiply: the light behind x `tint`), HIT_ADDED
-//        (add / subtract / brighten: light passes, its emission added)
-//   float hit_glass_reflectance(float cos_theta) - a thin pane's Fresnel share (Schlick, the material table's glass F0)
-//   vec3 hit_blend_transmittance(HitBlend b, float cos_theta) - the expected light a shadow ray takes through it.
+// How a ray meets a blended surface (hit_blend) is cutout_rays_glsl's: it goes before this.
 std::string_view hit_surface_glsl();
 inline constexpr float kHitMetalF0 = 0.2F; // (a surface map's F0 at least this: a metal - the reflections' HIT_METAL_F0)
 // The caller holds the backend's lock.
@@ -220,6 +231,7 @@ struct TracedHit {
     uint32_t primitive = 0;    // the triangle in the mesh
     std::array<float, 2> barycentrics{};
     bool front_face = false;
+    float seen_through = 1.0F; // (round PT-B) a ray with the cut-outs: rt::ProbeResult::seen_through
 };
 enum class TraceResult : uint8_t { kTraced, kNoRayTracing, kNoScene, kFailed };
 TraceResult trace_rays_now(std::span<const TracedRay> rays, std::vector<TracedHit>* hits);

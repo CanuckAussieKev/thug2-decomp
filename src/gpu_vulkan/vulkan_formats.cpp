@@ -259,6 +259,154 @@ void convert_level(TexelConversion conversion, Extent extent, LevelLayout layout
     }
 }
 
+namespace {
+
+constexpr uint32_t kTexelsPerBlock = kBlockSide * kBlockSide;
+constexpr uint32_t kNibble = 0xF;
+constexpr uint32_t kNibbleScale = 17;      // (a 4-bit alpha widened: 15 is 255)
+constexpr uint32_t kBc1Transparent = 3;    // (a three-colour block's index 3: transparent black)
+constexpr uint32_t kBc3IndexBits = 3;
+constexpr uint32_t kBc3IndexMask = 0x7;
+constexpr uint32_t kBc3EightSteps = 7;     // (alpha0 > alpha1: six values between, sevenths)
+constexpr uint32_t kBc3SixSteps = 5;       // (alpha0 <= alpha1: four between, fifths; then 0 and 255)
+constexpr uint32_t kBc3Zero = 6;
+constexpr uint32_t kBc3Full = 7;
+constexpr std::size_t kBc3IndexBytes = 6;  // (48 bits of indices after the two alphas)
+constexpr std::size_t kBc1IndexAt = 4;     // (a colour block's indices after its two colours)
+
+// The alpha a DXT5 block's index stands for (alpha0 / alpha1 the block's two).
+uint32_t bc3_alpha(uint32_t alpha0, uint32_t alpha1, uint32_t index)
+{
+    if (index == 0) {
+        return alpha0;
+    }
+    if (index == 1) {
+        return alpha1;
+    }
+    if (alpha0 > alpha1) {
+        return ((alpha0 * (kBc3EightSteps + 1 - index)) + (alpha1 * (index - 1))) / kBc3EightSteps;
+    }
+    if (index == kBc3Zero) {
+        return 0;
+    }
+    if (index == kBc3Full) {
+        return kFull;
+    }
+    return ((alpha0 * (kBc3SixSteps + 1 - index)) + (alpha1 * (index - 1))) / kBc3SixSteps;
+}
+
+// Each texel's alpha (0 - 255) of a block, its 16 in rows of 4.
+std::array<uint32_t, kTexelsPerBlock> block_alphas(uint32_t d3d_format, std::span<const uint8_t> block)
+{
+    const auto byte = [&block](std::size_t at) { return uint32_t{core::at(block, at)}; };
+    std::array<uint32_t, kTexelsPerBlock> alphas{};
+    alphas.fill(kFull);
+    if (d3d_format == gpu_value::kFormatDxt1) {
+        const uint32_t colour0 = byte(0) | (byte(1) << kByteBits);
+        const uint32_t colour1 = byte(2) | (byte(3) << kByteBits);
+        if (colour0 > colour1) {
+            return alphas; // (the four-colour mode: no transparent index)
+        }
+        const uint32_t indices = byte(kBc1IndexAt) | (byte(kBc1IndexAt + 1) << kByteBits) |
+                                 (byte(kBc1IndexAt + 2) << (2 * kByteBits)) | (byte(kBc1IndexAt + 3) << (3 * kByteBits));
+        for (uint32_t texel = 0; texel < kTexelsPerBlock; ++texel) {
+            core::at(alphas, texel) = ((indices >> (2 * texel)) & 3U) == kBc1Transparent ? 0U : kFull;
+        }
+        return alphas;
+    }
+    if (d3d_format == gpu_value::kFormatDxt3) {
+        for (uint32_t texel = 0; texel < kTexelsPerBlock; ++texel) {
+            core::at(alphas, texel) = ((byte(texel / 2) >> ((texel % 2) * 4)) & kNibble) * kNibbleScale;
+        }
+        return alphas;
+    }
+    const uint32_t alpha0 = byte(0);
+    const uint32_t alpha1 = byte(1);
+    uint64_t indices = 0;
+    for (std::size_t k = 0; k < kBc3IndexBytes; ++k) {
+        indices |= uint64_t{byte(2 + k)} << (kByteBits * k);
+    }
+    for (uint32_t texel = 0; texel < kTexelsPerBlock; ++texel) {
+        const auto index = static_cast<uint32_t>((indices >> (kBc3IndexBits * texel)) & kBc3IndexMask);
+        core::at(alphas, texel) = bc3_alpha(alpha0, alpha1, index);
+    }
+    return alphas;
+}
+
+void count_alpha(LevelAlpha* out, uint32_t alpha)
+{
+    out->least = std::min(out->least, alpha);
+    out->texels += 1;
+    out->below += alpha < kFull ? 1U : 0U;
+    out->below_half += alpha < kHalf ? 1U : 0U;
+}
+
+} // namespace
+
+std::optional<LevelAlpha> level_alpha(uint32_t d3d_format, Extent extent, std::span<const uint8_t> source)
+{
+    LevelAlpha out;
+    switch (d3d_format) {
+    case gpu_value::kFormatX8R8G8B8:
+    case gpu_value::kFormatR5G6B5:
+    case gpu_value::kFormatX1R5G5B5:
+    case gpu_value::kFormatP8:
+        out.texels = extent.width * extent.height;
+        return out;
+    default:
+        break;
+    }
+    const LevelLayout layout = d3d_level_layout(d3d_format, extent);
+    if (layout.bytes() == 0 || source.size() < layout.bytes()) {
+        return std::nullopt;
+    }
+    if (is_block_compressed(d3d_format)) {
+        const uint32_t block_bytes = d3d_block_bytes(d3d_format);
+        for (uint32_t row = 0; row < layout.rows; ++row) {
+            for (uint32_t column = 0; column * kBlockSide < extent.width; ++column) {
+                const std::array<uint32_t, kTexelsPerBlock> alphas = block_alphas(
+                    d3d_format,
+                    source.subspan((static_cast<std::size_t>(row) * layout.pitch) + (std::size_t{column} * block_bytes),
+                                   block_bytes));
+                // (only the block's texels inside the level)
+                const uint32_t wide = std::min(kBlockSide, extent.width - (column * kBlockSide));
+                const uint32_t tall = std::min(kBlockSide, extent.height - (row * kBlockSide));
+                for (uint32_t texel = 0; texel < kTexelsPerBlock; ++texel) {
+                    if ((texel % kBlockSide) < wide && (texel / kBlockSide) < tall) {
+                        count_alpha(&out, core::at(alphas, texel));
+                    }
+                }
+            }
+        }
+        return out;
+    }
+    if (d3d_format != gpu_value::kFormatA8R8G8B8 && d3d_format != gpu_value::kFormatA1R5G5B5) {
+        return std::nullopt;
+    }
+    const uint32_t texel_bytes = d3d_pixel_bytes(d3d_format);
+    for (uint32_t line = 0; line < extent.height; ++line) {
+        const std::span<const uint8_t> row =
+            source.subspan(static_cast<std::size_t>(line) * layout.pitch, std::size_t{extent.width} * texel_bytes);
+        for (uint32_t column = 0; column < extent.width; ++column) {
+            const uint32_t alpha =
+                d3d_format == gpu_value::kFormatA8R8G8B8
+                    ? uint32_t{core::at(row, (std::size_t{column} * kTexelBytes32) + 3)}
+                    : ((core::at(row, (std::size_t{column} * kTexelBytes16) + 1) & kHalf) != 0U ? kFull : 0U); // (A1)
+            count_alpha(&out, alpha);
+        }
+    }
+    return out;
+}
+
+std::optional<bool> level_alpha_opaque(uint32_t d3d_format, Extent extent, std::span<const uint8_t> source)
+{
+    const std::optional<LevelAlpha> alpha = level_alpha(d3d_format, extent, source);
+    if (!alpha) {
+        return std::nullopt;
+    }
+    return alpha->below == 0;
+}
+
 VkFilter filter_of(uint32_t d3d_filter)
 {
     return d3d_filter >= gpu_value::kFilterLinear ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;

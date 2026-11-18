@@ -78,6 +78,22 @@ const std::array<uint32_t, kPaletteEntries>& p8_palette();
 void convert_level(TexelConversion conversion, Extent extent, LevelLayout layout, std::span<const uint8_t> source,
                    std::span<uint8_t> texels);
 
+// (round PT-B - the surfaces' classes for rays, engine/gfx/rt_surface_class.h) Whether every texel of a level in
+// Direct3D 9's bytes (`source`, d3d_level_layout's) is drawn with alpha 1: the X formats, R5G6B5 and P8 (its palette is
+// opaque) always; A8R8G8B8 every alpha byte 255; A1R5G5B5 every alpha bit set; DXT1 no block in its three-colour mode
+// with a texel on index 3 (transparent black); DXT3 every 4-bit alpha 15; DXT5 every texel's alpha from its block's
+// eight 255 (each index used read through the block's own table). None: a format this doesn't read, or too few bytes.
+std::optional<bool> level_alpha_opaque(uint32_t d3d_format, Extent extent, std::span<const uint8_t> source);
+// The same counted (each texel's alpha decoded the way the device samples it): the least alpha (0 - 255), how many
+// texels are below 255, of how many (the level's).
+struct LevelAlpha {
+    uint32_t least = 255;
+    uint32_t below = 0;
+    uint32_t texels = 0;
+    uint32_t below_half = 0; // (below 128)
+};
+std::optional<LevelAlpha> level_alpha(uint32_t d3d_format, Extent extent, std::span<const uint8_t> source);
+
 // Direct3D 9's sampler values as Vulkan's.
 VkFilter filter_of(uint32_t d3d_filter);               // POINT / NONE: nearest; LINEAR, ANISOTROPIC: linear
 VkSamplerMipmapMode mip_mode_of(uint32_t d3d_filter);  // POINT / NONE: nearest; LINEAR: linear

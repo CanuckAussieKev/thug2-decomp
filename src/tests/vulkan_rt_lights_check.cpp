@@ -65,6 +65,7 @@
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_surface_class.h"
 #include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -719,15 +720,17 @@ double falloff(double d, double core, double reach)
     return window * window * core * core / ((core * core) + (d * d));
 }
 
-// (added for the cut-outs) Whether the box blocks the lamps' rays in the reference: false while its material is cut out
-// everywhere (its texels' alpha under the test's reference - the rays go through it).
-bool& box_blocks()
+// (added for the cut-outs) The share of the lamps' light the box lets through in the reference: 0 solid, 1 while its
+// material is cut out everywhere (its texels' alpha under the test's reference - the rays go through it); (round PT-B)
+// between for a seen-through box (its coverage's complement).
+double& box_through()
 {
-    static bool blocks = true;
-    return blocks;
+    static double through = 0.0;
+    return through;
 }
 
-bool lamp_blocked(const Seen& seen, const Lamp& lamp)
+// The share of the lamp's light that reaches the surface (0: blocked).
+double lamp_seen(const Seen& seen, const Lamp& lamp)
 {
     const double offset = kOffsetScale * (1.0 + (seen.distance * 0.0005) + (seen.distance * seen.distance * 6e-8));
     const Vec3 origin = step(seen.point, seen.normal, offset);
@@ -735,19 +738,18 @@ bool lamp_blocked(const Seen& seen, const Lamp& lamp)
     const double dist = length_of(to);
     const double stop = dist - lamp.size;
     if (stop <= 0.0) {
-        return false;
+        return 1.0;
     }
     const Vec3 direction = normalised(to);
+    double through = 1.0;
     for (std::size_t i = 0; i < kScene.size(); ++i) {
-        if (i == 1 && !box_blocks()) {
-            continue;
-        }
         const Hit hit = intersect(core::at(kScene, i), origin, direction);
         if (hit.distance <= stop) {
-            return true;
+            // (a ray that meets the box crosses two of its sides, each letting its share through)
+            through *= i == 1 ? box_through() * box_through() : 0.0;
         }
     }
-    return false;
+    return through;
 }
 
 struct Answer {
@@ -764,6 +766,7 @@ Answer answer_at(const Seen& seen, std::span<const Lamp> lamps, unsigned traced)
         Rgb light{};
         double weight = 0.0;
         bool blocked = false;
+        double seen = 1.0; // (round PT-B: the share that gets through)
     };
     std::vector<Each> each;
     for (const Lamp& lamp : lamps) {
@@ -771,7 +774,8 @@ Answer answer_at(const Seen& seen, std::span<const Lamp> lamps, unsigned traced)
         const double dist = length_of(to);
         const double facing = dot(seen.normal, normalised(to));
         Each item;
-        item.blocked = lamp_blocked(seen, lamp);
+        item.seen = lamp_seen(seen, lamp);
+        item.blocked = item.seen < 1.0;
         answer.blocked.push_back(item.blocked);
         if (dist < lamp.reach && facing > 0.0) {
             const double scale = falloff(dist, lamp.core, lamp.reach) * facing;
@@ -802,7 +806,7 @@ Answer answer_at(const Seen& seen, std::span<const Lamp> lamps, unsigned traced)
     for (std::size_t k = 0; k < order.size(); ++k) {
         const Each& item = core::at(each, core::at(order, k));
         if (k < traced) {
-            const double seen_share = item.blocked ? 0.0 : 1.0;
+            const double seen_share = item.seen;
             for (std::size_t c = 0; c < 3; ++c) {
                 core::at(lit, c) += core::at(item.light, c) * seen_share;
             }
@@ -1237,7 +1241,10 @@ Compared compare(const std::vector<uint8_t>& texels, const View& view, std::span
             const Rgb got = pixel_at(texels, x, y);
             bool bad = false;
             for (std::size_t c = 0; c < 3; ++c) {
-                const double added = std::max(0.0, core::at(answer.added, c));
+                // (round PT-B: a seen-through box is no surface the pass's camera ray finds - its lamps' light is its
+                // light store's, rt_relit_world lit_per_pixel: nothing added here)
+                const bool unowned = here.solid == 2 && box_through() > 0.0 && box_through() < 1.0;
+                const double added = unowned ? 0.0 : std::max(0.0, core::at(answer.added, c));
                 const double expected = std::min(1.0, core::at(drawn, c) + added); // (round F: light added, no screen)
                 const double error = std::abs(core::at(got, c) - expected) * kByteRange;
                 out.worst = std::max(out.worst, error);
@@ -1356,8 +1363,11 @@ void run_two(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
 // (added for the cut-outs - the one lighting path's ray test, vulkan_rt_scene.h cutout_rays_glsl) The box made a cut-out
 // caster (alpha tested, its texels white x its albedo): with every texel's alpha 0 the lamp's light goes through it - the
 // floor it shadowed lit, as a scene without it -, with every texel's alpha 255 it shadows as the solid box did.
-bool make_cutout_material(render::Gpu& gpu, uint32_t texel, const Rgb& albedo, render::GpuTexture** texture,
-                          rt::MaterialId* material)
+// A material of one texel colour (A8R8G8B8 `texel` everywhere) x `albedo`, its flags, blend and alpha reference from
+// `given` - its texels' least alpha as the backend reads them (as render_pc's material_of sets it); `made`: the material
+// set.
+bool make_texture_material(render::Gpu& gpu, uint32_t texel, const Rgb& albedo, const rt::Material& given,
+                           render::GpuTexture** texture, rt::MaterialId* material, rt::Material* made)
 {
     if (gpu.create_texture({.width = kTextureSide,
                             .height = kTextureSide,
@@ -1382,14 +1392,25 @@ bool make_cutout_material(render::Gpu& gpu, uint32_t texel, const Rgb& albedo, r
     }
     gpu.unlock_texture(*texture, 0);
     *material = rt::next_material_id();
-    rt::Material surface;
+    rt::Material surface = given;
     surface.texture = *texture;
     surface.colour = {static_cast<float>(core::at(albedo, 0)), static_cast<float>(core::at(albedo, 1)),
                       static_cast<float>(core::at(albedo, 2)), 1.0F};
-    surface.flags = rt::kAlphaTested;
-    surface.alpha_ref = 0.5F;
+    const rt::TexelAlpha texels = rt::ray_tracing()->texture_alpha(*texture);
+    surface.least_texel_alpha = texels.known ? static_cast<float>(texels.least) / 255.0F : 0.0F;
     rt::ray_tracing()->set_material(*material, surface);
+    *made = surface;
     return true;
+}
+
+bool make_cutout_material(render::Gpu& gpu, uint32_t texel, const Rgb& albedo, render::GpuTexture** texture,
+                          rt::MaterialId* material)
+{
+    rt::Material given;
+    given.flags = rt::kAlphaTested;
+    given.alpha_ref = 0.5F;
+    rt::Material made;
+    return make_texture_material(gpu, texel, albedo, given, texture, material, &made);
 }
 
 void run_cutout(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
@@ -1415,11 +1436,11 @@ void run_cutout(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tall
         core::at(cut, 1).material = material;
         core::at(cut, 1).flags = rt::kWorld | rt::kAlphaTested | rt::kCastsShadow;
         const bool hole = texel == kHole;
-        box_blocks() = !hole;
+        box_through() = hole ? 1.0 : 0.0;
         uint64_t passes = 0;
         std::vector<uint8_t> texels;
         const Compared got = run_case(gpu, cut, 0, points, lamps, 4, &passes, &texels);
-        box_blocks() = true;
+        box_through() = 0.0;
         // (added by lighting round 4) the relit level's probe rays (RayTracing::probe_many): through the cut-out's holes
         // when they ask for the cut-outs (ProbeRequest::cutouts - the same test), solid without; a ray at the box's side
         const std::array<rt::ProbeRequest, 2> probes{{
@@ -1435,8 +1456,8 @@ void run_cutout(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tall
             return probed.size() == probes.size() && core::at(probed, index).hit &&
                    std::abs(core::at(probed, index).distance - kBoxSide) < 0.5F;
         };
-        const bool through = probed.size() == probes.size() && core::at(probed, 0).traced && !core::at(probed, 0).hit;
-        tally->check(hole ? (through && at_box(1)) : (at_box(0) && at_box(1)),
+        const bool passed = probed.size() == probes.size() && core::at(probed, 0).traced && !core::at(probed, 0).hit;
+        tally->check(hole ? (passed && at_box(1)) : (at_box(0) && at_box(1)),
                      hole ? "the probe's rays: through the cut-out's holes when they ask for the cut-outs, solid without"
                           : "the probe's rays: the solid texels stop them either way");
         if (hole) {
@@ -1450,6 +1471,83 @@ void run_cutout(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tall
                                       "wrong (worst %.2f of 255), %d floor pixels shadowed",
                                       got.clear_cut, got.wrong, got.worst, got.shadowed_floor));
         }
+        rt::ray_tracing()->remove_material(material);
+        gpu.release_texture(texture);
+    }
+}
+
+// (round PT-B - one class of each surface for every ray, rt_surface_class.h) The box drawn alpha-blended (blend mode 5,
+// its alpha the texel's): with every texel's alpha 255 it is opaque in effect - its instance an opaque one, shadowing
+// the lamp's light as the solid box in the lamps pass and stopping the relit bake's probe rays; with every texel's alpha
+// 128 it is seen through - the lamps pass's shadow rays and the bake's rays take what it lets through, 1 - 128/255.
+void run_blended(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    text::print("the box drawn alpha-blended (round PT-B):\n");
+    render::vulkan::set_rt_light_settings(settings_for(true, 4));
+    rt::set_level_emitters({});
+    const std::array<rt::Light, 1> points{{{.kind = rt::Light::Kind::kPoint,
+                                            .colour = {1.0F, 0.9F, 0.7F},
+                                            .position = floats(kLampAt),
+                                            .radius = static_cast<float>(kLampReach)}}};
+    const std::array<Lamp, 1> lamps{point_lamp(kLampAt, {1.0, 0.9, 0.7}, kLampReach)};
+    constexpr uint32_t kOpaqueWhite = 0xFFFFFFFFU; // alpha 255: drawn opaque
+    constexpr uint32_t kHalfWhite = 0x80FFFFFFU;   // alpha 128: half seen through
+    constexpr uint32_t kBlendAlpha = 5;
+    constexpr double kHalfAlpha = 128.0 / 255.0;
+    for (const uint32_t texel : {kOpaqueWhite, kHalfWhite}) {
+        const bool opaque = texel == kOpaqueWhite;
+        render::GpuTexture* texture = nullptr;
+        rt::MaterialId material = 0;
+        rt::Material surface;
+        surface.blend = kBlendAlpha;
+        surface.flags = rt::kTransparent | rt::kTextureAlpha;
+        surface.alpha_ref = 1.0F / 255.0F;
+        if (!make_texture_material(gpu, texel, core::at(kScene, 1).albedo, surface, &texture, &material, &surface)) {
+            tally->check(false, "the blended material made");
+            return;
+        }
+        const rt::SurfaceClass kind = rt::surface_class(surface, 1.0F);
+        tally->check(opaque ? kind == rt::SurfaceClass::kBlendedOpaque : kind == rt::SurfaceClass::kSeenThrough,
+                     text::format("its texels' alpha %s: the backend reads their least %.3f, class \"%s\"",
+                                  opaque ? "255" : "128", static_cast<double>(surface.least_texel_alpha),
+                                  rt::surface_class_name(kind)));
+        std::vector<SceneMesh> cut(meshes.begin(), meshes.end());
+        core::at(cut, 1).material = material;
+        core::at(cut, 1).flags = rt::kWorld | rt::surface_instance_flags(kind, surface);
+        const double through = opaque ? 0.0 : 1.0 - kHalfAlpha;
+        box_through() = through;
+        uint64_t passes = 0;
+        std::vector<uint8_t> texels;
+        const Compared got = run_case(gpu, cut, 0, points, lamps, 4, &passes, &texels);
+        box_through() = 0.0;
+        // the relit bake's probe rays (the one lighting path's test): the opaque box stops them; through the seen-through
+        // one they go on, with its share
+        const std::array<rt::ProbeRequest, 1> probes{{
+            {.origin = {-45.0F, 15.0F, 0.0F}, .direction = {1.0F, 0.0F, 0.0F}, .max_distance = 200.0F,
+             .cull_mask = rt::kRelitWorldMask, .cutouts = true},
+        }};
+        std::vector<rt::ProbeResult> probed;
+        rt::ray_tracing()->probe_many(probes, &probed);
+        constexpr float kBoxSide = 35.0F; // (from x -45 to the box's side at -10)
+        const bool answered = probed.size() == probes.size() && core::at(probed, 0).traced;
+        const rt::ProbeResult first = answered ? core::at(probed, 0) : rt::ProbeResult{};
+        if (opaque) {
+            tally->check(answered && first.hit && std::abs(first.distance - kBoxSide) < 0.5F,
+                         text::format("the bake's probe ray stops at the opaque-in-effect box (%s at %.2f)",
+                                      first.hit ? "hit" : "no hit", static_cast<double>(first.distance)));
+        } else {
+            // (the box's two sides each pass 1 - a: the ray crosses both)
+            const double expected = through * through;
+            tally->check(answered && !first.hit && std::abs(first.seen_through - expected) < 0.01,
+                         text::format("the bake's probe ray through the seen-through box: share %.4f (expected %.4f, "
+                                      "two sides of 1 - 128/255)",
+                                      static_cast<double>(first.seen_through), expected));
+        }
+        tally->check(passes == 1 && got.clear_cut > 5000 && got.wrong == 0 && got.shadowed_floor >= kMinShadowed,
+                     text::format("its texels' alpha %s: the lamps pass's shadow rays take %.3f of the light through it "
+                                  "- %d clear-cut pixels, %d wrong (worst %.2f of 255), %d floor pixels in its shadow",
+                                  opaque ? "255" : "128", through, got.clear_cut, got.wrong, got.worst,
+                                  got.shadowed_floor));
         rt::ray_tracing()->remove_material(material);
         gpu.release_texture(texture);
     }
@@ -2683,6 +2781,7 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         run_emitter(gpu, meshes, red, tally);
         run_two(gpu, meshes, tally);
         run_cutout(gpu, meshes, tally); // (added for the cut-outs)
+        run_blended(gpu, meshes, tally); // (round PT-B: blended surfaces in every ray)
         run_off(gpu, meshes, tally);
         run_time_of_day(gpu, meshes, tally); // (added by the time of day)
         run_many(gpu, meshes, tally);        // (added for the washed-out streets)
