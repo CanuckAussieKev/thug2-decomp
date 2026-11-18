@@ -13,6 +13,9 @@
 //     within 2 % of the exact light the processor works out for each frame (the lamp model and the light model);
 //   - many lights of very different power: the per-frame error against the converged answer with the reuse and without it
 //     (one light from the list a pixel, no reuse - the light list alone): much lower;
+//   - (round PT4b) a lamp drawn in a texture (the disc's emission on 1 in 64 texels): every emitting triangle listed,
+//     though the scan's points miss the lamp texels of some (none lost); the mean within 2 % of the reference's; the
+//     per-frame error low (the target the sample's own emission - not its triangle's mean);
 //   - no estimate NaN or infinite; the validation layer silent; the passes' device time printed.
 //   thug2_vulkan_restir_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
@@ -95,6 +98,14 @@ constexpr float kF0 = 0.04F;
 constexpr float kAlbedo = 0.7F;
 constexpr double kPi = 3.14159265358979323846;
 constexpr uint32_t kFirstRow = 40; // the region compared: these rows down to the bottom, every column
+constexpr uint32_t kCelLampTexels = 0x000000FFU; // (rt_cel.h word 6's blue: the emission on the lamp texels alone)
+// (round PT4b) the lamp texture: kLampTextureSide^2 texels, white on every kLampTexelEvery-th row and column, black
+// elsewhere - 1 in 64 texels lit, each triangle of the disc holding a few of them or none at the scan's points
+constexpr uint32_t kLampTextureSide = 32;
+constexpr uint32_t kLampTexelEvery = 8;
+// (its per-frame relative RMS error at most: 0.86 measured - the reference's own pixels part of it; with the triangle's
+// mean radiance as the target, before round PT4b, 5.5)
+constexpr double kTexturedLampRms = 1.5;
 
 struct Options {
     int display = 0;
@@ -213,9 +224,11 @@ void put_word(std::span<uint8_t> bytes, std::size_t at, uint32_t value)
     std::memcpy(bytes.subspan(at, sizeof(value)).data(), &value, sizeof(value));
 }
 
-// A mesh of `triangles` (white, untextured) registered; `emitting`: with a light store whose every vertex emits
-// kDiscRadiance and has no tint.
-bool make_mesh(render::Gpu& gpu, const std::vector<Triangle>& triangles, bool emitting, SceneMesh* mesh)
+// A mesh of `triangles` (white; untextured, or `lamp_texture`'s texels at uv = x, z over the disc's square) registered;
+// `emitting`: with a light store whose every vertex emits kDiscRadiance and has no tint - with `lamp_texture`, a lamp
+// drawn in a texture (the store's flag: the emission shown on its lamp texels alone - rt_cel.h word 6's blue).
+bool make_mesh(render::Gpu& gpu, const std::vector<Triangle>& triangles, bool emitting, SceneMesh* mesh,
+               render::GpuTexture* lamp_texture = nullptr)
 {
     const std::size_t vertices = triangles.size() * 3;
     std::vector<uint8_t> bytes(vertices * kStride);
@@ -227,8 +240,8 @@ bool make_mesh(render::Gpu& gpu, const std::vector<Triangle>& triangles, bool em
                 put_float(bytes, base + (axis * sizeof(float)), static_cast<float>(core::at(corner, axis)));
             }
             put_word(bytes, base + kColourAt, kGrey);
-            put_float(bytes, base + kUvAt, 0.0F);
-            put_float(bytes, base + kUvAt + sizeof(float), 0.0F);
+            put_float(bytes, base + kUvAt, static_cast<float>(0.5 + (x_of(corner) / (2.0 * kDiscRadius))));
+            put_float(bytes, base + kUvAt + sizeof(float), static_cast<float>(0.5 + (z_of(corner) / (2.0 * kDiscRadius))));
         }
     }
     void* data = nullptr;
@@ -262,10 +275,13 @@ bool make_mesh(render::Gpu& gpu, const std::vector<Triangle>& triangles, bool em
     rt::Material surface;
     surface.colour = {1.0F, 1.0F, 1.0F, 1.0F};
     surface.flags = rt::kOpaque;
+    surface.texture = lamp_texture;
+    surface.filter = value::kFilterPoint;
     rt::ray_tracing()->set_material(mesh->material, surface);
     if (emitting) {
         rt::CelWords words = rt::kCelNoStream;
-        core::at(words, rt::kCelFlagsWord) = rt::kCelHasStream; // (a vertex with the store: no tint, its emission)
+        // (a vertex with the store: no tint, its emission; a lamp drawn in a texture: blue 255)
+        core::at(words, rt::kCelFlagsWord) = rt::kCelHasStream | (lamp_texture != nullptr ? kCelLampTexels : 0U);
         core::at(words, rt::kCelEmitWord) = rt::store_light({kDiscRadiance, kDiscRadiance, kDiscRadiance});
         const std::vector<rt::CelWords> stream(vertices, words);
         const auto stream_bytes = static_cast<uint32_t>(stream.size() * rt::kCelStreamBytes);
@@ -280,6 +296,38 @@ bool make_mesh(render::Gpu& gpu, const std::vector<Triangle>& triangles, bool em
         rt::ray_tracing()->set_light_stream(mesh->id, mesh->stream);
     }
     return true;
+}
+
+// (round PT4b) The lamp texture (kLampTextureSide^2 A8R8G8B8, a white texel every kLampTexelEvery rows and columns).
+render::GpuTexture* make_lamp_texture(render::Gpu& gpu)
+{
+    render::GpuTexture* texture = nullptr;
+    if (gpu.create_texture({.width = kLampTextureSide,
+                            .height = kLampTextureSide,
+                            .levels = 1,
+                            .usage = 0,
+                            .format = value::kFormatA8R8G8B8,
+                            .pool = value::kPoolManaged},
+                           &texture) != value::kResultOk) {
+        return nullptr;
+    }
+    render::GpuLockedRect locked;
+    if (gpu.lock_texture(texture, 0, &locked, nullptr, 0) != value::kResultOk) {
+        gpu.release_texture(texture);
+        return nullptr;
+    }
+    const std::span<uint8_t> into(static_cast<uint8_t*>(locked.bits),
+                                  (static_cast<std::size_t>(kLampTextureSide - 1) * static_cast<uint32_t>(locked.pitch)) +
+                                      (kLampTextureSide * 4U));
+    for (uint32_t row = 0; row < kLampTextureSide; ++row) {
+        for (uint32_t column = 0; column < kLampTextureSide; ++column) {
+            const bool lit = row % kLampTexelEvery == kLampTexelEvery / 2 && column % kLampTexelEvery == kLampTexelEvery / 2;
+            const uint32_t texel = lit ? 0xFFFFFFFFU : 0xFF000000U;
+            put_word(into, (static_cast<std::size_t>(row) * static_cast<uint32_t>(locked.pitch)) + (column * 4U), texel);
+        }
+    }
+    gpu.unlock_texture(texture, 0);
+    return texture;
 }
 
 void release_mesh(render::Gpu& gpu, SceneMesh* mesh)
@@ -876,6 +924,86 @@ void check_device(render::Gpu& gpu, Tally* tally)
     tally->check(read && agrees(mean_reuse, truth_mean) && agrees(mean_alone, truth_mean),
                  text::format("32 lamps still: ReSTIR %.5f, the light list alone %.5f, exact %.5f", mean_reuse,
                               mean_alone, truth_mean));
+    // 5. (round PT4b) a lamp drawn in a texture: the disc's emission on 1 in 64 texels (the store's lamp-texel flag), no
+    // lamps - its triangles' light is the texels', not their mean: the target the exact emission (a sample's weight what
+    // it brings), every triangle listed though the scan's points miss its few lamp texels (none lost)
+    text::print("a lamp drawn in a texture (the disc emitting on 1 in %u texels), no lamps:\n",
+                kLampTexelEvery * kLampTexelEvery);
+    {
+        render::GpuTexture* const texture = make_lamp_texture(gpu);
+        std::array<SceneMesh, 3> textured{};
+        const bool built = texture != nullptr && make_mesh(gpu, floor_triangles(), false, &textured.at(0)) &&
+                           make_mesh(gpu, disc_triangles(), true, &textured.at(1), texture) &&
+                           make_mesh(gpu, wall_triangles(), false, &textured.at(2));
+        tally->check(built, "the textured lamp's scene made");
+        if (built) {
+            const std::span<const SceneMesh> scene(textured);
+            const std::vector<rt::Emitter> none;
+            const Answer ref_t = reference(gpu, targets, scene, kEyeA, none, &read);
+            not_finite += ref_t.not_finite;
+            RunPlan lamp_plan = plan;
+            lamp_plan.lamps_at = [&none](int /*frame*/) { return none; };
+            const Answer got = restir(gpu, targets, scene, lamp_plan, region_a, &read);
+            not_finite += got.not_finite;
+            const vk::RestirStats listed = vk::restir_stats();
+            tally->check(read && listed.listed == static_cast<uint32_t>(kDiscSides),
+                         text::format("every emitting triangle listed (%u of the disc's %d; %u emitting at a corner) - "
+                                      "none lost for want of a lamp texel at the scan's points",
+                                      listed.listed, kDiscSides, listed.candidates));
+            tally->check(read && agrees(got.mean, ref_t.mean),
+                         text::format("textured lamp: ReSTIR %.5f +- %.5f, the reference %.5f +- %.5f (%+.2f %%)", got.mean,
+                                      got.sigma, ref_t.mean, ref_t.sigma,
+                                      100.0 * (got.mean - ref_t.mean) / std::max(ref_t.mean, 1e-12)));
+            // the per-frame error against the reference's pixels: a sample's weight what it brings - no reservoir
+            // keeping a point between the lamp texels (black) or one on them at the triangle's mean's weight (white)
+            RunPlan p = lamp_plan;
+            p.batches = 1;
+            p.frames = 48;
+            p.settle = 16;
+            double error = 0.0;
+            double lamp_sum = 0.0;
+            std::size_t lamp_count = 0;
+            for (std::size_t i = 0; i < region_a.size(); ++i) {
+                if (core::at(region_a, i) != 0) {
+                    const std::array<float, 3>& c = core::at(ref_t.pixels, i);
+                    lamp_sum += luma({core::at(c, 0), core::at(c, 1), core::at(c, 2)});
+                    ++lamp_count;
+                }
+            }
+            const double lamp_mean = lamp_sum / static_cast<double>(std::max<std::size_t>(lamp_count, 1));
+            int frames = 0;
+            p.each_frame = [&](int /*frame*/, const vk::RestirAccumulation& image) {
+                double sum = 0.0;
+                std::size_t count = 0;
+                for (std::size_t i = 0; i < image.last.size() && i < region_a.size(); ++i) {
+                    if (core::at(region_a, i) == 0) {
+                        continue;
+                    }
+                    const std::array<float, 3>& c = core::at(image.last, i);
+                    const std::array<float, 3>& r = core::at(ref_t.pixels, i);
+                    const double d = luma({core::at(c, 0), core::at(c, 1), core::at(c, 2)}) -
+                                     luma({core::at(r, 0), core::at(r, 1), core::at(r, 2)});
+                    sum += d * d;
+                    ++count;
+                }
+                error += count > 0 ? sum / static_cast<double>(count) : 0.0;
+                ++frames;
+            };
+            const Answer per_frame = restir(gpu, targets, scene, p, region_a, &read);
+            not_finite += per_frame.not_finite;
+            const double rms = frames > 0 ? std::sqrt(error / frames) / std::max(lamp_mean, 1e-12) : 0.0;
+            tally->check(read && frames > 0 && rms < kTexturedLampRms,
+                         text::format("textured lamp: per-frame relative RMS error %.3f of the mean %.5f (under %.2f)", rms,
+                                      lamp_mean, kTexturedLampRms));
+        }
+        for (SceneMesh& mesh : textured) {
+            release_mesh(gpu, &mesh);
+        }
+        if (texture != nullptr) {
+            gpu.release_texture(texture);
+        }
+    }
+
     tally->check(read && not_finite == 0, text::format("estimates not finite: %u", not_finite));
     tally->check(read, "every run read back");
     const vk::RestirStats after = vk::restir_stats();

@@ -327,10 +327,16 @@ Surface primary(ivec2 p)
 }
 
 // A light sample - the list's entry `e` and a point on it (`uv`: uniform on an emitting triangle; an analytic lamp's own
-// point) - seen from a surface: the light a white diffuser there would get from it unshadowed (`light`: its exact
-// emission only when `exact` - a triangle's otherwise its mean), the target (luminance of the same at the triangle's mean
-// radiance), the way to it and how far to trace, and its pdf in the list's measure (a lamp: its pick; a triangle: its
-// pick / its area - a density over its area, as `light` is).
+// point) - seen from a surface: the light a white diffuser there would get from it unshadowed (`light`: the emission at
+// that point - a triangle's lamp texels, its store's emission there), the target (its luminance: what the sample brings,
+// visibility aside), the way to it and how far to trace, and its pdf in the list's measure (a lamp: its pick; a triangle:
+// its pick / its area - a density over its area, as `light` is).
+// (round PT4b) The target was a triangle's mean radiance (its listed power / 2 pi A) x the geometry, the exact emission
+// only for the shading: on a lamp drawn in a texture (light on its lamp texels alone - often 1 texel in 10 or 100) a
+// sample between the texels kept its weight and brought nothing, one on them brought 1 / their share of the mean - and
+// the reuse kept and spread both for frames (M up to 20 x the candidates): black and white blotches with hard edges
+// that Ray Reconstruction takes for the picture (Boston's walls blown white, the speckled pools). The target is now the
+// sample's own emission: RIS resamples toward what a sample brings, a sample's weight is what it is worth.
 struct LightPoint {
     vec3 light;
     float target;
@@ -338,7 +344,7 @@ struct LightPoint {
     float reach;
     float pdf;
 };
-bool light_point(uint e, vec2 uv, Surface s, bool exact, out LightPoint lp)
+bool light_point(uint e, vec2 uv, Surface s, out LightPoint lp)
 {
     lp = LightPoint(vec3(0.0), 0.0, vec3(0.0, 1.0, 0.0), 0.0, 0.0);
     if (e >= pass.counts.x) {
@@ -378,15 +384,12 @@ bool light_point(uint e, vec2 uv, Surface s, bool exact, out LightPoint lp)
             return false;
         }
         float g = cos_here * cos_there / (PATH_PI * d2);
-        float mean = uintBitsToFloat(listed.z) / (2.0 * PATH_PI * area);
-        lp.target = mean * g;
-        if (exact) {
-            HitSurface h;
-            if (hit_surface(listed.x, listed.y, instance_material(listed.x), bc.yz, to_world, dir, h) && !h.cut_out &&
-                !h.hidden) {
-                lp.light = max(h.emitted, vec3(0.0)) * g;
-            }
+        vec3 emitted;
+        if (!hit_emission(listed.x, listed.y, instance_material(listed.x), bc.yz, emitted)) {
+            return false;
         }
+        lp.light = max(emitted, vec3(0.0)) * g;
+        lp.target = path_luma(lp.light);
         lp.dir = dir;
         lp.reach = max(d * 0.999 - ray_offset(y), 0.0);
         lp.pdf = entry.pdf / area;
@@ -467,7 +470,7 @@ void main()
         }
         LightPoint lp;
         uint e = light_pick(u, count);
-        if (!light_point(e, uv, s, false, lp) || !(lp.pdf > 0.0)) {
+        if (!light_point(e, uv, s, lp) || !(lp.pdf > 0.0)) {
             continue;
         }
         float w = good(lp.target / lp.pdf);
@@ -496,7 +499,7 @@ void main()
                     Reservoir h = reservoir_of(res_b[j]);
                     h.M = min(h.M, cap);
                     LightPoint hp;
-                    float t_h = h.entry > 0u && h.W > 0.0 && light_point(h.entry - 1u, h.uv, s, false, hp) ? hp.target : 0.0;
+                    float t_h = h.entry > 0u && h.W > 0.0 && light_point(h.entry - 1u, h.uv, s, hp) ? hp.target : 0.0;
                     float w_r = chosen * r.W * r.M;
                     float w_h = good(t_h * h.W * h.M);
                     float total = w_r + w_h;
@@ -519,7 +522,7 @@ void main()
                             z = r.M;
                             // could last frame's reservoir have made it: its surface's target and a ray from there
                             LightPoint tp;
-                            if (light_point(r.entry - 1u, r.uv, then, false, tp) && seen_at_all(seen(then, tp))) {
+                            if (light_point(r.entry - 1u, r.uv, then, tp) && seen_at_all(seen(then, tp))) {
                                 z += h.M;
                             }
                         }
@@ -597,7 +600,7 @@ void main()
     for (uint k = 0u; k < n; ++k) {
         m_sum += taken[k].M;
         LightPoint lp;
-        if (taken[k].entry == 0u || !(taken[k].W > 0.0) || !light_point(taken[k].entry - 1u, taken[k].uv, s, false, lp)) {
+        if (taken[k].entry == 0u || !(taken[k].W > 0.0) || !light_point(taken[k].entry - 1u, taken[k].uv, s, lp)) {
             continue;
         }
         float w = good(lp.target * taken[k].W * taken[k].M);
@@ -622,7 +625,7 @@ void main()
                     continue;
                 }
                 LightPoint other;
-                if (light_point(taken[chosen].entry - 1u, taken[chosen].uv, where[k], false, other) &&
+                if (light_point(taken[chosen].entry - 1u, taken[chosen].uv, where[k], other) &&
                     seen_at_all(seen(where[k], other))) {
                     z += taken[k].M;
                 }
@@ -630,8 +633,8 @@ void main()
             r.entry = taken[chosen].entry;
             r.uv = taken[chosen].uv;
             r.W = z > 0.0 && target > 0.0 ? good(total / (z * target)) : 0.0;
-            LightPoint exact;
-            if (r.W > 0.0 && light_point(r.entry - 1u, r.uv, s, true, exact)) {
+            if (r.W > 0.0) {
+                LightPoint exact = chosen_point;
                 lamps = exact.light * through * r.W;
 #ifdef CHECK
                 BrdfMaterial m = brdf_material(s.albedo * pass.force.z, vec3(pass.force.y), pass.force.x);
