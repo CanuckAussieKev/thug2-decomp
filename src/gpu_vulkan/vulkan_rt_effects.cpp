@@ -29,6 +29,7 @@
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_restir_gi.h"
 #include "gpu_vulkan/vulkan_rt_history.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_upscale.h"
@@ -1992,6 +1993,11 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
     if (rgb && surface != nullptr) {
         return false;
     }
+    // (path tracing, stage 5) ReSTIR GI lights this view's indirect light (vulkan_restir_gi.h): its samples see the sky and
+    // the surfaces with their own visibility - no occlusion over the light store's environment, which it replaces
+    if (surface != nullptr && restir_gi_wanted(state)) {
+        return false;
+    }
     Image* const colour = surface != nullptr ? surface->visibility : image_of_surface(core::at(state.targets, 0));
     Image* const depth = image_of_surface(state.depth);
     if (colour == nullptr || depth == nullptr || colour->attachment_view == VK_NULL_HANDLE ||
@@ -2328,6 +2334,8 @@ RtGiSettings rt_gi_settings()
     const std::scoped_lock lock(backend().mutex);
     return indirect().gi;
 }
+
+const RtGiSettings& rt_gi_settings_locked() { return indirect().gi; }
 
 void rt_effects_set_scene(VkAccelerationStructureKHR tlas)
 {

@@ -85,14 +85,24 @@ void set_rt_ao_settings(const RtAoSettings& settings);
 // only where the light store doesn't light: while the level has a light field the world's and the objects' bounce is
 // the store's - one owner.)
 inline constexpr float kRtGiDistance = 600.0F; // (rt_gi_distance's default: world units)
+// (path tracing, stage 5) How the indirect light - the sky's and what bounces off the surfaces - and the environment's
+// specular are made in a view lit per surface ([Graphics] indirect_light): kRestir by ReSTIR GI (vulkan_restir_gi.h - the
+// sky sampled with its visibility, one bounce with every light, glossy reflections from the BSDF; noisy: for Ray
+// Reconstruction to denoise), kPasses by the light store's environment term (its sky and bounce) with the occlusion and
+// the reflections passes (the tier without a denoiser); kAuto ReSTIR GI where Ray Reconstruction denoises the frame.
+// Independent of `on` (rt_gi's own pass).
+enum class RtIndirectLight : uint8_t { kAuto = 0, kRestir = 1, kPasses = 2 };
 struct RtGiSettings {
     bool on = false;
     float distance = kRtGiDistance; // how far a ray looks for a surface to bounce from (1 - 5000 world units)
     unsigned rays = 2;              // rays per pixel each frame (1 - 16)
     bool denoise = true;            // the temporal and spatial filters (off: each frame's rays as they are)
+    RtIndirectLight indirect = RtIndirectLight::kAuto; // (path tracing, stage 5) indirect_light
 };
 void set_rt_gi_settings(const RtGiSettings& settings);
 [[nodiscard]] RtGiSettings rt_gi_settings();
+// (the passes') The settings while the backend's lock is held.
+[[nodiscard]] const RtGiSettings& rt_gi_settings_locked();
 
 // NOT ORIGINAL - the night lighting: lamps, glows and lit windows as ray-traced lights (vulkan_rt_lights.h): [Graphics]
 // rt_lights, rt_lights_strength, rt_lights_shadowed, rt_lights_max, rt_lights_emissive, rt_lights_level. Nothing is

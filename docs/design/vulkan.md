@@ -5321,7 +5321,7 @@ the fog scatters them). The shading is unchanged: it stays the one consumer.
   disc is one light whose only unknown is its visibility - the shadows pass's ray(s) toward it are already its estimator
   and resampling has nothing to choose; in a reservoir it would take nearly every sample by day and leave the lamps
   noisier. The sky is the light store's environment term (K x the sky, the occlusion per pixel) in the shading's
-  ambient slot together with the bounce; splitting it out is stage 5's (ReSTIR GI) work.
+  ambient slot together with the bounce - in a ReSTIR GI view (stage 5, below) sampled with its visibility instead.
 - **Per pixel** (two compute passes with ray queries, after the inputs are begun - ViewOrder::kLights - 1):
   1. The surface: the prepass's depth gives the point, a camera ray its triangle (hit_surface: the point on the
      triangle, its normal and the shading normal, the albedo); where the ray doesn't end at the depth's point (a
@@ -5362,3 +5362,61 @@ the fog scatters them). The shading is unchanged: it stays the one consumer.
   between two views every frame; a moving lamp against the exact light; the per-frame error against the light list
   alone; round PT4b: a lamp drawn in a texture - every triangle listed, the mean within 2 %, the per-frame error low;
   no NaN).
+
+### ReSTIR GI: the indirect light in real time (path tracing, stage 5)
+
+The second real-time stage of the path tracer (gpu_vulkan/vulkan_restir_gi.h; `[Graphics] indirect_light`). In a view
+lit per surface, with `indirect_light` `restir` - or `auto` while DLSS Ray Reconstruction denoises the frame - ReSTIR GI
+(Ouyang et al. 2021; the reuse with Lin et al. 2022's reconnection shift) makes the light that reaches a surface from the
+sky and off the surfaces around it, and its environment's specular, in place of the light store's environment term (its
+traced sky K and bounce B) and of the occlusion and reflections passes. The shading stays the one consumer.
+
+- **One sample a pixel** (pass 1, ViewOrder::kLights + 1 - after the lamps' inputs): the surface as ReSTIR DI finds it
+  (the prepass's depth, a camera ray's triangle - its normals, albedo, F0, roughness kept for the next frame), a direction
+  drawn from a mix of the sky's distribution (a quarter: the light list's sky grid by its luminance) and the BSDF (the
+  cosine lobe; GGX's visible normals too where the surface is glossy - perceptual roughness from kGlossyReuse 0.3), its pdf
+  the mix's, traced:
+  - nothing hit: the sky that way - the grid's radiance (the disc is not in it: the shadows pass owns the sun's and the
+    moon's direct light) - a sample at infinity;
+  - a surface hit: its reflected light toward the pixel by next-event estimation through the **full light list** - the
+    disc (its cone, the clouds' shadow map), the sky (its grid), the emitting triangles and the analytic lamps, one picked
+    by power, one ray (the reference's light sampling without its MIS - nothing continues from there); its emission kept
+    apart (the emitters' light on a diffuser is ReSTIR DI's - one owner; only their specular is this pass's).
+  The list's local group is ReSTIR DI's (vulkan_light_list.h `restir_local_lights`: one scan, one set of lamp records);
+  the sky's grid is the reference's (`sky_grid_*`, made on the device when the sun or the sky changes, read back without a
+  wait and taken into use with its alias tables - the grid in use and the tables always one pair: the clouds' drift since
+  is not in it).
+- **The target** p^ = the luminance of what a white diffuser's lobe takes of the sample's reflected light (the lamps
+  input's unit), plus, where glossy, what the material's specular lobe takes of its reflected and emitted light.
+- **Reuse**: temporal (the point taken back through last frame's camera, ReSTIR DI's surface tests, M at most 20) and
+  spatial (2 neighbours within 24 pixels); a reused sample reconnected to this surface - its weight x the Jacobian
+  (cos at the sample / d^2 here over the same at its own pixel; 1 for the sky), Bitterli et al.'s unbiased combination
+  (Z the M of every reservoir whose surface could have made the chosen sample: its target there and a ray from there).
+  A pixel's next-frame history is its temporal reservoir, not the spatial one: fed back, the neighbours' samples return
+  through their own histories into their spatial reuse - the inputs no longer independent and the combination's weights
+  no longer unbiased (the check's white floor under an even sky lost 1.5 % so; 0.4 % with the chains apart).
+- **Out** (pass 2): the chosen sample traced from the pixel (`ray_light`: cut-outs, seen-through surfaces' transmittance);
+  - the diffuse - its reflected light x cos / pi x W x what gets through - added into the lamps input (and on the traced
+    albedo into lamps_on): the shading puts it on the surface's albedo as it puts the lamps;
+  - the visibility input's indirect visibility set to 0: the store's environment - diffuse and specular, its sky and its
+    bounce - has no weight where this pass lit the surface;
+  - the specular, over the surface's specular albedo E (demodulated), into a new input (binding 30,
+    kLightSpecularBinding): the shading adds brdf_specular_albedo x it (ff_shaders.cpp) - the glossy surfaces' from the
+    reservoir's sample through the specular lobe; the smooth ones' from one ray along a GGX visible normal of their lobe
+    (pass 1: weight F G2/G1, what it meets - its reflected light and its emission - or the sky);
+  - the specular ray's hit distance (R16F) - Ray Reconstruction's specular hit distance guide
+    (kBufferTypeSpecularHitDistance, the view at its rect).
+- **The fallback tier** (`passes`, or `auto` without Ray Reconstruction): the store's sky and bounce with `rt_ao`; the
+  reflections pass's surfaces shaded through their maps (`kReflectSurface`'s added reflection) are this pass's in a ReSTIR
+  GI view (their specular is the input's), its in-place reflections - water, glass, the game's own shine - stay its own.
+- **Glass and water**: seen-through surfaces aren't in the prepass - they keep their own light and reflections (water its
+  rt_water path, glass the reflections pass's base layer); the bounce rays and the light rays pass them by their
+  transmittance (ray_light), as every light ray.
+- **Bias, stated**: none for a world that stands still beyond the 0.4 % above. Where the world or its light changes,
+  reused samples carry their stored light for up to their M cap (20 frames' worth); a secondary surface's glossy
+  reflection toward a neighbour is taken as toward the pixel that found it (its light is stored, ReSTIR GI's
+  approximation). One bounce: the secondary vertex has its direct light only (multi-bounce light not there).
+- Check: thug2_vulkan_restir_gi_check - the reference's indirect light (its two-bounce image less its one-bounce image of
+  the disc, the emitters and the lamps) within 2 % on a still scene (glossy; smooth within 3 %), a camera swapped
+  between two views, a red wall's bleeding (red and green within 2 %), a room lit through a window in its roof, a white
+  floor under an even sky (energy), no NaN.

@@ -185,6 +185,15 @@ render::vulkan::RtAoSettings make_rt_ao(const Resolution& in_effect)
         .denoise = in_effect.on("rt_ao_denoise")};
 }
 
+// NOT ORIGINAL - (path tracing, stage 5) indirect_light: restir, passes, else auto
+render::vulkan::RtIndirectLight indirect_light_of(const std::string& value)
+{
+    if (value == "restir") {
+        return render::vulkan::RtIndirectLight::kRestir;
+    }
+    return value == "passes" ? render::vulkan::RtIndirectLight::kPasses : render::vulkan::RtIndirectLight::kAuto;
+}
+
 // NOT ORIGINAL - one-bounce ray-traced indirect light (gpu_vulkan/vulkan_rt_effects.h)
 render::vulkan::RtGiSettings make_rt_gi(const Resolution& in_effect)
 {
@@ -192,7 +201,8 @@ render::vulkan::RtGiSettings make_rt_gi(const Resolution& in_effect)
     return render::vulkan::RtGiSettings{.on = in_effect.on("rt_gi"),
                                         .distance = in_effect.number("rt_gi_distance", defaults.distance),
                                         .rays = at_least_one(in_effect, "rt_gi_rays", defaults.rays),
-                                        .denoise = in_effect.on("rt_gi_denoise")};
+                                        .denoise = in_effect.on("rt_gi_denoise"),
+                                        .indirect = indirect_light_of(in_effect.value("indirect_light"))};
 }
 
 // NOT ORIGINAL - (path tracing, stage 4) direct_light: restir, passes, else auto

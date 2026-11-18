@@ -44,7 +44,7 @@ constexpr uint32_t kBlendOne = 2;          // D3DBLEND_ONE
 constexpr uint32_t kBlendSourceAlpha = 5;  // D3DBLEND_SRCALPHA
 constexpr uint32_t kBlendInverseAlpha = 6; // D3DBLEND_INVSRCALPHA
 constexpr uint32_t kGroupSide = 8;
-constexpr uint32_t kBeginBindings = 7;
+constexpr uint32_t kBeginBindings = 8;
 constexpr std::size_t kMostKept = 16384; // (a view's world draws: a few hundred; past this, drawn as they come)
 
 // The inputs begun: the prepass's depth copied (read as the depth surface's), the visibility "not traced", nothing
@@ -58,6 +58,7 @@ layout(set = 0, binding = 3, rgba16f) uniform writeonly image2D o_lamps;
 layout(set = 0, binding = 4, rgba16f) uniform writeonly image2D o_lamps_on;
 layout(set = 0, binding = 5, rgba16f) uniform writeonly image2D o_decals;
 layout(set = 0, binding = 6, rgba32ui) uniform writeonly uimage2D o_guides;
+layout(set = 0, binding = 7, rgba16f) uniform writeonly image2D o_specular;
 layout(push_constant) uniform Pass { ivec4 rect; } pc;
 void main()
 {
@@ -72,6 +73,7 @@ void main()
     imageStore(o_lamps_on, p, vec4(0.0));
     imageStore(o_decals, p, vec4(1.0));
     imageStore(o_guides, p, uvec4(0u));
+    imageStore(o_specular, p, vec4(0.0));
 }
 )";
 
@@ -118,6 +120,7 @@ struct LightState {
     Image lamps_on;
     Image decals;
     Image guides;
+    Image specular; // (path tracing, stage 5: the environment's specular - ReSTIR GI's; 0, a 0 where none)
     uint64_t guides_frame = 0; // the frame whose view wrote them (0: none)
     bool guides_forced = false; // (the checks': written without Ray Reconstruction)
     std::vector<DeviceBuffer> kept_buffers; // (kept draws' vertices and indices whose buffers were written again)
@@ -323,6 +326,7 @@ bool make_inputs(Backend& state)
         !ensure_image(state, &own.visibility, kHdrFormat, extent, kUsage) ||
         !ensure_image(state, &own.lamps, kHdrFormat, extent, kUsage) ||
         !ensure_image(state, &own.lamps_on, kHdrFormat, extent, kUsage) ||
+        !ensure_image(state, &own.specular, kHdrFormat, extent, kUsage) ||
         !ensure_image(state, &own.decals, kHdrFormat, extent,
                       kUsage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT) ||
         !ensure_image(state, &own.guides, VK_FORMAT_R32G32B32A32_UINT, extent,
@@ -505,7 +509,7 @@ void flush(Backend& state)
             (void)begin_inputs(state);
         }
         VkCommandBuffer commands = outside_pass(state);
-        for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.guides}) {
+        for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.guides, &own.specular}) {
             Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
         }
         state.bound = BoundState{};
@@ -533,7 +537,7 @@ bool begin_inputs(Backend& state)
     const uint32_t height = std::min(core::at(own.view.rect, 3), extent.height - top);
     VkCommandBuffer commands = outside_pass(state);
     Memory::transition(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-    for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.guides}) {
+    for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.guides, &own.specular}) {
         Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
     }
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.begin);
@@ -546,6 +550,7 @@ bool begin_inputs(Backend& state)
         {.sampler = VK_NULL_HANDLE, .imageView = own.lamps_on.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
         {.sampler = VK_NULL_HANDLE, .imageView = own.decals.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
         {.sampler = VK_NULL_HANDLE, .imageView = own.guides.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
+        {.sampler = VK_NULL_HANDLE, .imageView = own.specular.view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
     }};
     std::array<VkWriteDescriptorSet, kBeginBindings> writes{};
     for (uint32_t binding = 0; binding < kBeginBindings; ++binding) {
@@ -569,7 +574,7 @@ bool begin_inputs(Backend& state)
                          0, nullptr, 0, nullptr);
     state.bound = BoundState{};
     const uint64_t serial = state.frames.serial();
-    for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.guides, depth}) {
+    for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.guides, &own.specular, depth}) {
         image->used = serial;
     }
     own.inputs = {.visibility = &own.visibility,
@@ -577,7 +582,8 @@ bool begin_inputs(Backend& state)
                   .lamps_on = &own.lamps_on,
                   .depth = &own.depth_copy,
                   .decals = &own.decals,
-                  .guides = &own.guides};
+                  .guides = &own.guides,
+                  .specular = &own.specular};
     return true;
 }
 
@@ -633,7 +639,7 @@ public:
         }
         // the passes' writes read by the draws
         VkCommandBuffer commands = outside_pass(state);
-        for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.guides}) {
+        for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.guides, &own.specular}) {
             Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
         }
         own.guides_frame = ray_reconstruction_active() || own.guides_forced ? state.frames.serial() : 0;
@@ -707,7 +713,7 @@ void release_surface_light(Backend& state)
     own.phase = Phase::kIdle;
     own.role = SurfaceDrawRole::kAsItComes;
     own.inputs = {};
-    for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.guides}) {
+    for (Image* image : {&own.depth_copy, &own.visibility, &own.lamps, &own.lamps_on, &own.decals, &own.guides, &own.specular}) {
         if (image->image != VK_NULL_HANDLE) {
             state.memory.destroy_image(image);
         }
@@ -853,8 +859,8 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
         return;
     }
     out->on = true;
-    const std::array<const Image*, 6> images{&own.visibility, &own.lamps,  &own.lamps_on,
-                                             &own.depth_copy, &own.decals, &own.guides};
+    const std::array<const Image*, 7> images{&own.visibility, &own.lamps,  &own.lamps_on,  &own.depth_copy,
+                                             &own.decals,     &own.guides, &own.specular};
     // (Ray Reconstruction's guides: written while it denoises the view)
     if (ray_reconstruction_active() || own.guides_forced) {
         fragment.light = static_cast<uint8_t>(fragment.light | kLightGuides);

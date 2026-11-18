@@ -136,7 +136,7 @@ bool make_layouts(Shared& shared)
                         .descriptorCount = 1,
                         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
     // (NOT ORIGINAL - round V) the surface's light inputs (vulkan_surface_light.h)
-    for (uint32_t input = 0; input < 6; ++input) {
+    for (uint32_t input = 0; input < 7; ++input) { // (path tracing, stage 5: the specular input too)
         bindings.push_back({.binding = render::vulkan::kLightVisibilityBinding + input,
                             .descriptorType = render::vulkan::kLightVisibilityBinding + input == render::vulkan::kLightGuidesBinding
                                                   ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE

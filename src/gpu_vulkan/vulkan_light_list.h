@@ -3,10 +3,13 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <vector>
+#include <volk.h>
 
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_light_list.h"
 #include "engine/gfx/rt_lights.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
@@ -61,6 +64,61 @@ inline constexpr std::size_t kLampRecordFloats = 16;
 inline constexpr uint32_t kEmitterCapacity = 1U << 20U;
 inline constexpr uint32_t kEmitterHeaderWords = 4;
 inline constexpr uint32_t kEmitterEntryWords = 4;
+
+// The disc of the lighting's direct light as the shaders take it: toward it + the cosine of its radius, and its radiance +
+// its solid angle (rt_path.h disc_radiance). False: none (no light, or no direction) - `sun` then holds kNoDisc as its
+// cosine, a value no direction reaches.
+inline constexpr float kNoDisc = 2.0F;
+bool disc_of(const SceneLighting& lighting, std::array<float, 4>* sun, std::array<float, 4>* radiance);
+
+// (path tracing, stage 5: shared by the reference and ReSTIR GI) The sky's grid (engine/gfx/rt_light_list.h
+// SkyDistribution's cells): each cell's radiance toward its centre in the global unit - the sky-view table x the drawn
+// clouds' transmittance + their light (the same march, noise and light as the drawn clouds, faded with distance as the
+// composite fades them) over the table's exposure; without drawn clouds the table x the lighting state's kept share of the
+// sky; without the table an even sky above the horizon. One function for what a ray that leaves the world sees and what
+// the lights sample.
+enum class SkyGridSource : uint8_t { kEven = 0, kTable = 1, kTableClouds = 2 };
+inline constexpr std::size_t kSkyGridSources = 3;
+[[nodiscard]] SkyGridSource sky_grid_source(const SceneLighting& lighting);
+// The values its shader reads from the caller's block (`pass.sky`, `.sky_table`, `.cloud_ray`, `.cloud_sun`,
+// `.cloud_toward` - vec4s).
+struct SkyGridInputs {
+    std::array<float, 4> sky{};          // rgb an even sky's radiance above the horizon; w 1: the table's
+    std::array<float, 4> sky_table{};    // xyz the table's sun; w the factor on its values
+    std::array<float, 4> cloud_ray{};    // xy the clouds' offset (metres), z the camera's altitude, w coverage
+    std::array<float, 4> cloud_sun{};    // rgb the light on the clouds, w the march's steps
+    std::array<float, 4> cloud_toward{}; // xyz toward that light, w the density's scale
+};
+[[nodiscard]] SkyGridInputs sky_grid_inputs(const SceneLighting& lighting);
+// The GLSL that goes before the libraries of the grid's shader: the source's defines with the atmosphere's and the clouds'
+// functions at those bindings (nothing for kEven).
+[[nodiscard]] std::string sky_grid_prelude(SkyGridSource source, uint32_t transmittance_binding, uint32_t sky_view_binding,
+                                           uint32_t cloud_noise_binding);
+// The grid's body (local_size 8 x 8, one invocation a cell; after rt_light_list.h kLightListGlsl, SKY_WIDTH / SKY_HEIGHT,
+// the block and `vec4 sky_cells[]`).
+[[nodiscard]] std::string_view sky_grid_glsl();
+// The sky's alias tables as the shaders read them (`uvec2 sky_alias[]`: threshold bits, alias - the rows, then each row's
+// cells).
+[[nodiscard]] std::vector<std::array<uint32_t, 2>> sky_alias_words(const rt::lights::SkyDistribution& sky);
+
+// (path tracing, stage 5) The light list's local group as ReSTIR DI keeps it (vulkan_restir_di.cpp) - the emitting
+// triangles its scan listed (their power), the lamps' records - shared with ReSTIR GI's next-event estimation at its
+// secondary hits (vulkan_restir_gi.h): one scan, one table of the same lights with the same power. Kept up for
+// `lighting`'s lamps (the frame's, or a check's) whether or not the DI passes run this frame: a finished scan taken into
+// use, a new one recorded into `commands` when the world or its lamps' own surfaces changed. The caller holds the lock.
+// False: none (no scene, no material table, the scan can't be made).
+struct RestirLocalLights {
+    VkBuffer emitters = VK_NULL_HANDLE;   // the list (the header + entries above)
+    VkBuffer lamps = VK_NULL_HANDLE;      // a LightRecord per lamp
+    VkBuffer membership = VK_NULL_HANDLE; // the instances' first triangles (the scan's)
+    VkBuffer slots = VK_NULL_HANDLE;      // per triangle its place in the list + 1
+    std::vector<float> triangle_powers;   // per listed triangle (the list's order)
+    std::vector<rt::Emitter> lamp_list;   // the lamps the records hold (the list's order)
+    uint64_t key = 0;                     // changes with the powers or the lamps
+    uint64_t layout_key = 0;              // changes when an entry's light does (the list's triangles, the lamps' count)
+};
+struct Backend;
+bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLighting& lighting, RestirLocalLights* out);
 
 // GLSL (after scene_geometry_glsl and hit_surface_glsl; the caller defines LIST_INSTANCE_ADDRESS - the TLAS instances'
 // device address as a uvec2 expression - and LIST_INSTANCES, the instances' count, and declares `uint membership[]` (the

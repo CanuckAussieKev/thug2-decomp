@@ -21,7 +21,7 @@
 //      drawn behind; its vertex half the shaded draw's own, so both put every vertex at the same depth).
 //      Water render_pc marks is left to rt_water (kept back until the opaque world is drawn, as before).
 //   2. At opaque_drawn (ViewOrder::kSurfaceInputs, before the shadows) the view's light inputs are begun from that depth -
-//      four images of the target's size: the depth (R32F), the visibility (RGBA16F: the sun's visibility - -1 not
+//      images of the target's size: the depth (R32F), the visibility (RGBA16F: the sun's visibility - -1 not
 //      traced -, the direct light's share, the indirect light's visibility, 1 where made), the lamps' light and the
 //      lamps' light on the traced albedo (RGBA16F), the decals (RGBA16F, 1: none) - and the passes write into them instead
 //      of over the colour: the sun shadows (vulkan_rt_shadows.h) the visibility and the share, the occlusion
@@ -57,12 +57,15 @@ struct SurfaceInputs {
     Image* depth = nullptr;
     Image* decals = nullptr; // (RGBA16F, 1 where none: the decals' pass multiplies their marks in - the albedo's factor)
     Image* guides = nullptr; // (RGBA32UI storage, 0 where none: Ray Reconstruction's guides, written by the surfaces)
+    // (path tracing, stage 5 - vulkan_restir_gi.h) the environment's specular light over the surface's specular albedo
+    // (RGBA16F, pre-exposed; a 1 where made, 0 where none): the shading takes E x it in place of its own estimate
+    Image* specular = nullptr;
 };
 
-// The pushed descriptors of a draw that reads the inputs (kLightVisibilityBinding - kLightDepthBinding).
+// The pushed descriptors of a draw that reads the inputs (kLightVisibilityBinding - kLightSpecularBinding).
 struct SurfaceInputDescriptors {
     bool on = false;
-    std::array<VkDescriptorImageInfo, 6> images{};
+    std::array<VkDescriptorImageInfo, 7> images{};
     bool guides = false; // (the last, a storage image: pushed with kLightGuides)
 };
 

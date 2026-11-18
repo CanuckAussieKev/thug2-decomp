@@ -2,11 +2,15 @@
 #include "gpu_vulkan/vulkan_light_list.h"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <memory>
 #include <span>
+#include <string>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/rt_brdf.h"
+#include "gpu_vulkan/vulkan_rt_clouds.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_light_list.h"
@@ -147,6 +151,52 @@ void main()
 }
 )";
 
+// The sky's grid (sky_grid_glsl; moved here from the reference by path tracing, stage 5 - ReSTIR GI fills it too).
+constexpr const char* kSkyGridGlsl = R"(
+layout(local_size_x = 8, local_size_y = 8) in;
+void main()
+{
+    uvec2 c = gl_GlobalInvocationID.xy;
+    if (c.x >= SKY_WIDTH || c.y >= SKY_HEIGHT) {
+        return;
+    }
+    vec3 dir = sky_cell_centre(c);
+    vec3 radiance;
+#ifdef SKY_TABLE
+    vec3 table = max(sky_view_linear(dir, pass.sky_table.xyz), vec3(0.0));
+#ifdef CLOUDS
+    CloudRay ray;
+    ray.camera_altitude = pass.cloud_ray.z;
+    ray.offset = pass.cloud_ray.xy;
+    ray.direction = dir;
+    ray.to_sun = pass.cloud_toward.xyz;
+    ray.coverage = pass.cloud_ray.w;
+    ray.density_scale = pass.cloud_toward.w;
+    ray.steps = int(pass.cloud_sun.w);
+    ray.jitter = 0.5;
+    ray.sun_light = pass.cloud_sun.rgb;
+    vec3 bottom;
+    vec3 top;
+    cloud_sky_light(bottom, top);
+    ray.ambient_bottom = bottom;
+    ray.ambient_top = top;
+    CloudResult r = march_clouds(ray);
+    float fade = exp(-max(r.distance, 0.0) / CLOUD_AERIAL_DISTANCE);
+    float kept = mix(1.0, clamp(r.transmittance, 0.0, 1.0), fade);
+    radiance = (table * kept + max(r.light, vec3(0.0)) * fade) * pass.sky_table.w;
+#else
+    radiance = table * pass.sky_table.w;
+#endif
+#else
+    radiance = dir.y > 0.0 ? pass.sky.rgb : vec3(0.0);
+#endif
+    if (any(isnan(radiance)) || any(isinf(radiance))) {
+        radiance = vec3(0.0);
+    }
+    sky_cells[c.y * SKY_WIDTH + c.x] = vec4(radiance, 0.0);
+}
+)";
+
 } // namespace
 
 SceneLighting scene_lighting(bool every_lamp_analytic, bool keep_dark)
@@ -258,6 +308,81 @@ std::array<float, kLampRecordFloats> lamp_record(const rt::Emitter& lamp)
             core::at(lamp.axis, 1),
             core::at(lamp.axis, 2),
             lamp.half_length};
+}
+
+bool disc_of(const SceneLighting& lighting, std::array<float, 4>* sun, std::array<float, 4>* radiance)
+{
+    constexpr double kDegreesToRadians = 0.017453292519943295;
+    const float most =
+        std::max({core::at(lighting.sun_light, 0), core::at(lighting.sun_light, 1), core::at(lighting.sun_light, 2)});
+    const auto cos_radius =
+        static_cast<float>(std::cos(static_cast<double>(lighting.sun_radius_degrees) * kDegreesToRadians));
+    const std::array<float, 3>& toward = lighting.sun_toward;
+    const float toward_length = std::sqrt((core::at(toward, 0) * core::at(toward, 0)) +
+                                          (core::at(toward, 1) * core::at(toward, 1)) +
+                                          (core::at(toward, 2) * core::at(toward, 2)));
+    if (!(most > 0.0F) || !(toward_length > 0.0F) || !(cos_radius < 1.0F)) {
+        *sun = {0.0F, 1.0F, 0.0F, kNoDisc};
+        *radiance = {0.0F, 0.0F, 0.0F, 1.0F};
+        return false;
+    }
+    *sun = {core::at(toward, 0) / toward_length, core::at(toward, 1) / toward_length, core::at(toward, 2) / toward_length,
+            cos_radius};
+    const rt::brdf::Rgb disc = rt::path::disc_radiance(lighting.sun_light, cos_radius);
+    *radiance = {core::at(disc, 0), core::at(disc, 1), core::at(disc, 2), rt::path::cone_solid_angle(cos_radius)};
+    return true;
+}
+
+SkyGridSource sky_grid_source(const SceneLighting& lighting)
+{
+    if (!lighting.table) {
+        return SkyGridSource::kEven;
+    }
+    return lighting.clouds ? SkyGridSource::kTableClouds : SkyGridSource::kTable;
+}
+
+SkyGridInputs sky_grid_inputs(const SceneLighting& lighting)
+{
+    SkyGridInputs out;
+    out.sky = {core::at(lighting.sky, 0), core::at(lighting.sky, 1), core::at(lighting.sky, 2), lighting.table ? 1.0F : 0.0F};
+    out.sky_table = {core::at(lighting.table_input.sun, 0), core::at(lighting.table_input.sun, 1),
+                     core::at(lighting.table_input.sun, 2), lighting.table_factor};
+    const RtSkyFrame& clouds = lighting.cloud_frame;
+    out.cloud_ray = {static_cast<float>(core::at(clouds.offset, 0)), static_cast<float>(core::at(clouds.offset, 1)),
+                     static_cast<float>(clouds.camera_altitude), clouds.coverage};
+    out.cloud_sun = {core::at(clouds.sun_light, 0), core::at(clouds.sun_light, 1), core::at(clouds.sun_light, 2),
+                     static_cast<float>(std::max(clouds.steps, 1U))};
+    out.cloud_toward = {core::at(clouds.cloud_toward, 0), core::at(clouds.cloud_toward, 1), core::at(clouds.cloud_toward, 2),
+                        1.0F};
+    return out;
+}
+
+std::string sky_grid_prelude(SkyGridSource source, uint32_t transmittance_binding, uint32_t sky_view_binding,
+                             uint32_t cloud_noise_binding)
+{
+    std::string out;
+    if (source != SkyGridSource::kEven) {
+        out += "#define SKY_TABLE\n" + atmosphere_glsl(transmittance_binding, sky_view_binding);
+        if (source == SkyGridSource::kTableClouds) {
+            out += "#define CLOUDS\n" + cloud_glsl(cloud_noise_binding) + rt_sky_cloud_light_glsl();
+            out += "const float CLOUD_AERIAL_DISTANCE = " + std::to_string(kCloudAerialDistance) + ";\n";
+        }
+    }
+    return out;
+}
+
+std::string_view sky_grid_glsl() { return kSkyGridGlsl; }
+
+std::vector<std::array<uint32_t, 2>> sky_alias_words(const rt::lights::SkyDistribution& sky)
+{
+    std::vector<std::array<uint32_t, 2>> alias;
+    alias.reserve(sky.rows.size() + sky.cells.size());
+    for (const std::vector<rt::lights::AliasEntry>* table : {&sky.rows, &sky.cells}) {
+        for (const rt::lights::AliasEntry& entry : *table) {
+            alias.push_back({std::bit_cast<uint32_t>(entry.threshold), entry.alias});
+        }
+    }
+    return alias;
 }
 
 std::string_view light_instances_glsl() { return kInstancesGlsl; }

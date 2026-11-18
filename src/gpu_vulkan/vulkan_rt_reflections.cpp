@@ -29,6 +29,7 @@
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_restir_gi.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_lights.h"
 #include "gpu_vulkan/vulkan_rt_materials.h"
@@ -504,6 +505,9 @@ void main()
                         f0 = surface.f0 >= HIT_METAL_F0 ? albedo : vec3(surface.f0);
                         adds = true;
                         left_out = 1.0 - smoothstep(0.75 * pass.surface.y, pass.surface.y, r);
+                        if (pass.surface.w > 0.5) {
+                            left_out = 0.0; // (ReSTIR GI's: its shading took the traced environment's specular)
+                        }
                         mask = 1.0; // (the whole surface is the map's material: its shading left the estimate out everywhere)
                     } else if (kind == CLASS_WATER) {
                         f0 = vec3(WATER_F0);
@@ -1642,7 +1646,9 @@ TraceBlock trace_block(const Matrix& to_world, const rt::ViewDrawn& view, const 
     // (round W2: yzw and surface.x the rain's rings on standing water - vulkan_rain.h rain_ripples_now, the wet trace's)
     const std::array<float, 4> rings = rain_ripples_now();
     block.rays = {static_cast<float>(kRoughRays), core::at(rings, 0), core::at(rings, 1), core::at(rings, 2)};
-    block.surface = {core::at(rings, 3), kSurfaceRoughest, kSurfaceConePerAlpha, 0.0F};
+    // (path tracing, stage 5: w 1 - ReSTIR GI traced this view's environment specular for the light model's surfaces -
+    // vulkan_restir_gi.h; the surfaces shaded through their maps then take theirs from it, one owner)
+    block.surface = {core::at(rings, 3), kSurfaceRoughest, kSurfaceConePerAlpha, restir_gi_lit_view(backend()) ? 1.0F : 0.0F};
     // (round O) the sun every effect lights by (rt_scene.h scene_sun): the hits' direct light is traced toward it
     const rt::SceneSun sun = rt::scene_sun();
     if (sun.found()) {

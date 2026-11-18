@@ -37,6 +37,7 @@
 #include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_path_reference.h"
 #include "gpu_vulkan/vulkan_restir_di.h"
+#include "gpu_vulkan/vulkan_restir_gi.h"
 #include "gpu_vulkan/vulkan_cel_draw.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
@@ -2716,6 +2717,7 @@ void create_ray_tracing(Backend& state)
     install_surface_light(); // (round V: the world lit per surface - vulkan_surface_light.h)
     install_path_reference(); // (path tracing, stage 1: the reference - vulkan_path_reference.h)
     install_restir_di();      // (path tracing, stage 4: the lamps by ReSTIR DI - vulkan_restir_di.h)
+    install_restir_gi();      // (path tracing, stage 5: the indirect light by ReSTIR GI - vulkan_restir_gi.h)
     rt::set_ray_tracing(&made.backend);
     get_log("vulkan: ray tracing on (%s): acceleration structures and ray queries; at most %llu instances, scratch "
             "aligned to %u",
@@ -2738,6 +2740,8 @@ void release_ray_tracing(Backend& state)
     release_path_reference(state);
     uninstall_restir_di(); // (path tracing, stage 4)
     release_restir_di(state);
+    uninstall_restir_gi(); // (path tracing, stage 5)
+    release_restir_gi(state);
     rt_shadows_set_scene_locked(VK_NULL_HANDLE);
     cel_set_scene_locked(VK_NULL_HANDLE); // (added by cel shading)
     rt_effects_set_scene_locked(VK_NULL_HANDLE);
