@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the path tracer's reference request and the console's `pt` (rt_path.h).
 #include "engine/gfx/rt_path.h"
 
+#include <atomic>
 #include <cstdlib>
 #include <mutex>
 #include <sstream>
@@ -91,6 +92,18 @@ std::string light_kinds_text(uint32_t kinds)
     }
     return text.empty() ? "none" : text;
 }
+
+namespace {
+std::atomic<uint32_t>& upscaler_probe_asked()
+{
+    static std::atomic<uint32_t> asked{0};
+    return asked;
+}
+} // namespace
+
+void request_upscaler_probe(uint32_t frames) { upscaler_probe_asked().store(frames); }
+
+uint32_t take_upscaler_probe() { return upscaler_probe_asked().exchange(0); }
 
 void request_path_reference(PathReferenceRequest request)
 {
@@ -185,13 +198,24 @@ std::string path_console_command(const std::string& arguments)
         return text::format("pt: reference of %u samples a pixel started (pause the game; the camera must stay still)",
                             request.samples);
     }
+    if (verb == "upscaler") {
+        std::string count;
+        in >> count;
+        const long frames = count.empty() ? static_cast<long>(kUpscalerProbeFrames) : std::strtol(count.c_str(), nullptr, 10);
+        if (frames <= 0 || frames > static_cast<long>(kUpscalerProbeMostFrames)) {
+            return "pt upscaler [frames, 1 - 1024]";
+        }
+        request_upscaler_probe(static_cast<uint32_t>(frames));
+        return text::format("pt: the upscaler's input and output compared over %ld frames (the log's \"upscaler probe\")",
+                            frames);
+    }
     if (verb == "off") {
         request_path_reference({});
         get_log("pt: reference off");
         return "pt: off";
     }
     if (!verb.empty() && verb != "status") {
-        return "pt ref <samples> [EV100] [even] [analytic] [open] [only <kinds>] | pt off | pt status";
+        return "pt ref <samples> [EV100] [even] [analytic] [open] [only <kinds>] | pt off | pt status | pt upscaler";
     }
     return status_text(path_reference_status(), path_reference_request());
 }

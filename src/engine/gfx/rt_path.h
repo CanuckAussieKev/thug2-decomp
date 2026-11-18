@@ -297,6 +297,17 @@ void set_path_reference_status(PathReferenceStatus status);
 [[nodiscard]] PathReferenceStatus path_reference_status();
 // The console's `pt` command: its output.
 [[nodiscard]] std::string path_console_command(const std::string& arguments);
+// (round AE) `pt upscaler [frames]`: the upscaler's input (the drawn frame it is given) and its output (DLSS / Ray
+// Reconstruction's or FSR's) compared - each a kUpscalerProbeCells x kUpscalerProbeCells grid of mean luma in the frame's
+// physical unit (divided by that frame's pre-exposure), averaged over `frames` sampled frames (a noisy input - ReSTIR's
+// one sample a pixel, fireflies - is compared by its mean, as the denoiser's output is its mean), out / in per cell and
+// the frame's, logged with the camera's EV100 and pre-exposure at the first and last ("vulkan: upscaler probe: ...").
+// The backend takes the request (once): the frames it asks for, 0 none.
+inline constexpr uint32_t kUpscalerProbeCells = 8;
+inline constexpr uint32_t kUpscalerProbeFrames = 32;   // (the default)
+inline constexpr uint32_t kUpscalerProbeMostFrames = 1024;
+void request_upscaler_probe(uint32_t frames);
+[[nodiscard]] uint32_t take_upscaler_probe();
 
 // The GLSL twin (names path_*; after rt_brdf.h's brdf_glsl()).
 inline constexpr const char* kPathGlsl = R"(const float PATH_PI = 3.14159265358979;

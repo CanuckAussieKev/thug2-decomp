@@ -21,7 +21,10 @@
 //   - (round EX) the camera: the histogram's meter on a uniform day view (middle grey) and a night street with lamp-lit
 //     patches (the window leaves them out; with the local exposure and ACES they stay below white), adaptation
 //     monotonic, the local exposure against its processor twin (a uniform view unchanged, a log mean kept, an edge
-//     not crossed).
+//     not crossed);
+//   - (round AE) the meter's source: a view darkened after it at kUpscale metered as drawn; one noisy sample a pixel
+//     metered as its light; a still night street pre-exposed by the camera each pass - the reading steady; the camera set
+//     by hand - the frame's pre-exposure its exposure.
 //   thug2_vulkan_hdr_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan for this process.
 #include <SDL3/SDL.h>
@@ -456,15 +459,24 @@ float processor_mean(const std::vector<uint16_t>& values, std::array<uint32_t, 4
     for (uint32_t j = 0; j < vk::kMeterGrid; ++j) {
         for (uint32_t i = 0; i < vk::kMeterGrid; ++i) {
             const std::array<float, 2> place = vk::meter_place(i, j);
-            const auto x = core::at(rect, 0) + static_cast<uint32_t>(core::at(place, 0) * static_cast<float>(core::at(rect, 2)));
-            const auto y = core::at(rect, 1) + static_cast<uint32_t>(core::at(place, 1) * static_cast<float>(core::at(rect, 3)));
-            const std::array<uint16_t, 3> in = pixel_inputs(values, (static_cast<std::size_t>(y) * kWidth) + x);
-            std::array<float, 3> colour{};
-            for (std::size_t channel = 0; channel < kChannels; ++channel) {
-                const float value = from_half(core::at(in, channel));
-                core::at(colour, channel) = std::isfinite(value) ? value : (value > 0.0F ? 65504.0F : 0.0F);
+            // (round AE) the sample: its taps' light averaged
+            float light = 0.0F;
+            for (uint32_t b = 0; b < vk::kMeterTaps; ++b) {
+                for (uint32_t a = 0; a < vk::kMeterTaps; ++a) {
+                    const std::array<float, 2> tap = vk::meter_tap_place(i, j, a, b);
+                    const auto x = core::at(rect, 0) + static_cast<uint32_t>(core::at(tap, 0) * static_cast<float>(core::at(rect, 2)));
+                    const auto y = core::at(rect, 1) + static_cast<uint32_t>(core::at(tap, 1) * static_cast<float>(core::at(rect, 3)));
+                    const std::array<uint16_t, 3> in = pixel_inputs(values, (static_cast<std::size_t>(y) * kWidth) + x);
+                    std::array<float, 3> colour{};
+                    for (std::size_t channel = 0; channel < kChannels; ++channel) {
+                        const float value = from_half(core::at(in, channel));
+                        core::at(colour, channel) = std::isfinite(value) ? value : (value > 0.0F ? 65504.0F : 0.0F);
+                    }
+                    light += vk::meter_light(colour);
+                }
             }
-            vk::meter_count(&histogram, vk::meter_light(colour) / pre * white, vk::meter_weight(place));
+            light /= static_cast<float>(vk::kMeterTaps * vk::kMeterTaps);
+            vk::meter_count(&histogram, light / pre * white, vk::meter_weight(place));
         }
     }
     return vk::meter_window_mean(histogram) / white;
@@ -827,10 +839,18 @@ float picture_mean(const std::vector<float>& grey, float pre)
     for (uint32_t j = 0; j < vk::kMeterGrid; ++j) {
         for (uint32_t i = 0; i < vk::kMeterGrid; ++i) {
             const std::array<float, 2> place = vk::meter_place(i, j);
-            const auto x = static_cast<uint32_t>(core::at(place, 0) * static_cast<float>(kWidth));
-            const auto y = static_cast<uint32_t>(core::at(place, 1) * static_cast<float>(kHeight));
-            const float g = core::at(grey, (static_cast<std::size_t>(y) * kWidth) + x);
-            vk::meter_count(&histogram, vk::meter_light({g, g, g}) / pre * white, vk::meter_weight(place));
+            float light = 0.0F; // (round AE: the sample's taps averaged)
+            for (uint32_t b = 0; b < vk::kMeterTaps; ++b) {
+                for (uint32_t a = 0; a < vk::kMeterTaps; ++a) {
+                    const std::array<float, 2> tap = vk::meter_tap_place(i, j, a, b);
+                    const auto x = static_cast<uint32_t>(core::at(tap, 0) * static_cast<float>(kWidth));
+                    const auto y = static_cast<uint32_t>(core::at(tap, 1) * static_cast<float>(kHeight));
+                    const float g = core::at(grey, (static_cast<std::size_t>(y) * kWidth) + x);
+                    light += vk::meter_light({g, g, g});
+                }
+            }
+            light /= static_cast<float>(vk::kMeterTaps * vk::kMeterTaps);
+            vk::meter_count(&histogram, light / pre * white, vk::meter_weight(place));
         }
     }
     return vk::meter_window_mean(histogram) / white;
@@ -886,6 +906,167 @@ Agreement compare_picture(const std::vector<float>& grey, const std::vector<floa
 
 // A shown value at white: what would be written as 255.
 constexpr float kClipped = 254.5F / 255.0F;
+
+// (round AE) What stands in for an upscaler / denoiser that loses light (rt::ViewOrder::kUpscale): the view's target
+// cleared darker after the world is drawn.
+class DarkeningListener final : public render::rt::ViewListener {
+public:
+    explicit DarkeningListener(render::Gpu* gpu) : gpu_(gpu) {}
+    [[nodiscard]] int order() const override { return render::rt::ViewOrder::kUpscale; }
+    void opaque_drawn(const render::rt::ViewDrawn& /*view*/) override {}
+    void world_drawn(const render::rt::ViewDrawn& /*view*/) override
+    {
+        constexpr uint32_t kDarkGrey = 0xFF101010U;
+        gpu_->clear(0, nullptr, value::kClearTarget, kDarkGrey, 1.0F, 0);
+    }
+
+private:
+    render::Gpu* gpu_;
+};
+
+// (round AE) The meter reads the scene's light as drawn - before the upscaler / denoiser (rt::ViewOrder::kMeter), so a
+// denoiser losing light can't move the exposure; and on a still view whose frame is pre-exposed by the camera's own
+// exposure each frame (rt_daylight.h pre_exposure_for - the loop the game runs), the reading stays where it is.
+void check_meter_source(render::Gpu& gpu, Tally* tally)
+{
+    text::print("the meter's source (round AE):\n");
+    GpuSurface* target = make_target(gpu, value::kFormatA16B16G16R16F, 0, true);
+    if (target == nullptr) {
+        tally->check(false, "a float target for the meter's source");
+        return;
+    }
+    vk::set_hdr_lut({});
+    const std::array<uint32_t, 4> whole{0, 0, kWidth, kHeight};
+    constexpr float kTolerance = 2.0e-3F;
+    constexpr auto kGap = std::chrono::milliseconds(600);
+    render::rt::set_day_light({});
+    vk::set_hdr_settings({.on = true, .local_exposure = false});
+    // 1. a mid-grey view, the "upscaler" after it darkening the target: metered as drawn
+    {
+        std::this_thread::sleep_for(kGap);
+        DarkeningListener darkening(&gpu);
+        render::rt::add_view_listener(&darkening);
+        constexpr uint16_t kHalfGrey = 0x3800; // 0.5
+        const bool filled = fill_grey(gpu, target, kHalfGrey);
+        const Metered grey = meter_pass(gpu, target, whole);
+        render::rt::remove_view_listener(&darkening);
+        const float mean = vk::meter_light({0.5F, 0.5F, 0.5F});
+        tally->check(filled && grey.ran && std::abs(grey.reading.mean - mean) < kTolerance * mean,
+                     text::format("metered before the upscaler: a mid-grey view darkened after it (at kUpscale) is "
+                                  "metered %.4f (drawn: %.4f)",
+                                  static_cast<double>(grey.reading.mean), static_cast<double>(mean)));
+    }
+    // 1b. a path tracer's one sample a pixel (the denoiser's input): each pixel 0.18 x an exponential draw of mean 1 -
+    // metered as its light (a pixel's log averages 0.83 stops under it; the samples' taps are averaged first)
+    {
+        std::this_thread::sleep_for(kGap);
+        const std::size_t pixels = static_cast<std::size_t>(kWidth) * kHeight;
+        std::vector<float> noisy(pixels);
+        uint32_t seed = 4242U;
+        for (float& value : noisy) {
+            seed = (seed * 1664525U) + 1013904223U;
+            const double unit = (static_cast<double>(seed >> 8U) + 0.5) / 16777216.0;
+            value = static_cast<float>(-std::log(unit) * 0.18);
+        }
+        const std::vector<float> grey = grey_picture(noisy);
+        const bool filled = fill_picture(gpu, target, grey);
+        const Metered metered = meter_pass(gpu, target, whole);
+        const float twin = picture_mean(grey, 1.0F);
+        const float light = vk::meter_light({0.18F, 0.18F, 0.18F});
+        tally->check(filled && metered.ran && std::abs(metered.reading.mean - twin) < kTolerance * twin &&
+                         std::abs(std::log2(metered.reading.mean / light)) < 0.1F,
+                     text::format("one noisy sample a pixel (exponential, mean %.3f): metered %.4f (the processor's %.4f), "
+                                  "%+.3f stops from the light",
+                                  static_cast<double>(light), static_cast<double>(metered.reading.mean),
+                                  static_cast<double>(twin), static_cast<double>(std::log2(metered.reading.mean / light))));
+    }
+    // 2. a still night street with lamp-lit patches, the frame pre-exposed every pass by the camera's exposure read back
+    // from the meter (the game's loop): the reading and the camera steady
+    {
+        const std::size_t pixels = static_cast<std::size_t>(kWidth) * kHeight;
+        constexpr float kStreet = 0.005F; // cd/m^2
+        constexpr float kLamplit = 24.0F;
+        constexpr uint32_t kPatch = 40;
+        const float white = meter_white_cd();
+        std::vector<float> physical(pixels);
+        for (uint32_t y = 0; y < kHeight; ++y) {
+            for (uint32_t x = 0; x < kWidth; ++x) {
+                const bool patch = (x >= 16 && x < 16 + kPatch && y >= 16 && y < 16 + kPatch) ||
+                                   (x >= 200 && x < 200 + kPatch && y >= 72 && y < 72 + kPatch);
+                core::at(physical, (static_cast<std::size_t>(y) * kWidth) + x) = (patch ? kLamplit : kStreet) / white;
+            }
+        }
+        render::rt::DayLight night;
+        night.on = true;
+        constexpr uint64_t kCut = 21;
+        night.cut = kCut;
+        render::rt::set_camera_exposure(65536.0F); // (a camera already near the street's exposure: the steady state looked at)
+        render::rt::set_day_light(night);
+        render::rt::note_cut_shown(kCut);
+        std::this_thread::sleep_for(kGap);
+        constexpr int kPasses = 150;
+        constexpr int kSettled = 30; // (the camera read back and followed by then)
+        constexpr auto kFrame = std::chrono::milliseconds(8);
+        float least = std::numeric_limits<float>::max();
+        float most = 0.0F;
+        float least_stops = std::numeric_limits<float>::max();
+        float most_stops = -std::numeric_limits<float>::max();
+        float last_pre = 0.0F;
+        float last_factor = 0.0F;
+        bool ran = true;
+        for (int pass = 0; pass < kPasses && ran; ++pass) {
+            night.pre_exposure = render::rt::pre_exposure_for(night);
+            render::rt::set_day_light(night);
+            std::vector<float> wanted(pixels);
+            for (std::size_t i = 0; i < pixels; ++i) {
+                core::at(wanted, i) = core::at(physical, i) * night.pre_exposure;
+            }
+            ran = fill_picture(gpu, target, grey_picture(wanted));
+            const Metered metered = meter_pass(gpu, target, whole);
+            ran = ran && metered.ran;
+            if (pass >= kSettled) {
+                least = std::min(least, metered.reading.mean);
+                most = std::max(most, metered.reading.mean);
+                least_stops = std::min(least_stops, metered.reading.stops);
+                most_stops = std::max(most_stops, metered.reading.stops);
+            }
+            last_pre = night.pre_exposure;
+            last_factor = metered.reading.factor;
+            std::this_thread::sleep_for(kFrame);
+        }
+        render::rt::set_day_light({});
+        render::rt::set_camera_exposure(0.0F);
+        const float camera = std::exp2(0.5F * (least_stops + most_stops));
+        tally->check(ran && most > 0.0F && (most - least) < 0.005F * most && (most_stops - least_stops) < 0.01F &&
+                         std::abs(last_pre / camera - 1.0F) < 0.01F && std::abs(last_factor * last_pre / camera - 1.0F) < 0.01F,
+                     text::format("a still night street pre-exposed by the camera each pass (%d passes): metered %.4g - "
+                                  "%.4g cd/m^2, the camera %.3f - %.3f stops; the pre-exposure %.5g = the camera's %.5g, "
+                                  "the factor on the frame %.4f",
+                                  kPasses - kSettled, static_cast<double>(least * white), static_cast<double>(most * white),
+                                  static_cast<double>(least_stops), static_cast<double>(most_stops),
+                                  static_cast<double>(last_pre), static_cast<double>(camera),
+                                  static_cast<double>(last_factor * last_pre / camera)));
+    }
+    // 3. the camera set by hand: the frame's pre-exposure is its exposure (not the daylight's rule)
+    {
+        constexpr float kEv = 2.0F;
+        vk::set_manual_ev100(true, kEv);
+        render::rt::DayLight night;
+        night.on = true;
+        night.illuminance_lux = 0.1F;
+        render::rt::set_day_light(night);
+        const bool ran = run_pass(gpu, target, whole) == 1;
+        const float pre = render::rt::pre_exposure_for(night);
+        vk::set_manual_ev100(false, 0.0F);
+        render::rt::set_day_light({});
+        render::rt::set_camera_exposure(0.0F);
+        const float wanted = vk::exposure_at_ev100(kEv);
+        tally->check(ran && std::abs(pre / wanted - 1.0F) < 1e-4F,
+                     text::format("the camera set by hand (EV100 %.1f): the frame's pre-exposure %.6g = its exposure %.6g",
+                                  static_cast<double>(kEv), static_cast<double>(pre), static_cast<double>(wanted)));
+    }
+    gpu.release_surface(target);
+}
 
 void check_camera(render::Gpu& gpu, Tally* tally)
 {
@@ -1733,6 +1914,7 @@ int run(const Options& options, SDL_Window* window)
     check_skips(gpu, values, &tally);
     check_meter(gpu, values, &tally);
     check_camera(gpu, &tally);
+    check_meter_source(gpu, &tally);
     check_multisampled(gpu, &tally);
     check_back_buffer(gpu, &tally);
     check_linear_blend(gpu, &tally);
