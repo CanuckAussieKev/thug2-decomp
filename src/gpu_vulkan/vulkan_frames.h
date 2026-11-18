@@ -5,7 +5,9 @@
 #include <vector>
 #include <volk.h>
 
+#include "engine/gfx/gpu_markers.h"
 #include "gpu_vulkan/vulkan_context.h"
+#include "gpu_vulkan/vulkan_crash_markers.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_ring.h"
 
@@ -83,6 +85,22 @@ public:
     void add_wait(const Wait& wait);
     void add_signal(VkSemaphore semaphore);
 
+    // NOT ORIGINAL - (round GD: GPU crash diagnostics, vulkan_crash_markers.h) a pass's beginning or end marked in the
+    // stream (begun for it), in the submission being recorded; the markers for a lost device's report.
+    void mark(const gpu_markers::Mark& mark);
+    [[nodiscard]] const CrashMarkers& markers() const { return markers_; }
+    // The device lost (VK_ERROR_DEVICE_LOST from a submission or a wait): nothing is submitted or waited for after it.
+    // Where it was seen and the submission it was seen on (the one submitted, or waited for).
+    struct Lost {
+        bool lost = false;
+        const char* where = "";
+        uint64_t serial = 0;
+        VkResult result = VK_SUCCESS;
+    };
+    [[nodiscard]] const Lost& lost() const { return lost_; }
+    // Told by the Gpu when another call saw the device lost (the swapchain's acquire or present, a library's call).
+    void note_lost(const char* where, VkResult result);
+
 private:
     struct Slot {
         VkCommandPool pool = VK_NULL_HANDLE;
@@ -124,6 +142,10 @@ private:
     std::vector<VkSemaphore> waits_;
     std::vector<VkPipelineStageFlags> wait_stages_;
     std::vector<VkSemaphore> signals_;
+    CrashMarkers markers_; // (round GD)
+    Lost lost_;
+    // A frame's fence waited for (wait_for_frame), a loss noted; true when it finished.
+    bool wait(const Slot& slot);
 };
 
 } // namespace render::vulkan

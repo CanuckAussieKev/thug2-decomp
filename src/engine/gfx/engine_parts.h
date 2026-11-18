@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <memory>
 
@@ -41,8 +42,8 @@ public:
     int& movie_dump_count() { return movie_dump_count_; }
     [[nodiscard]] bool device_lost() const { return device_lost_; }
     void set_device_lost(bool value) { device_lost_ = value; }
-    [[nodiscard]] bool quit_requested() const { return quit_requested_; }
-    void set_quit_requested(bool value) { quit_requested_ = value; }
+    [[nodiscard]] bool quit_requested() const { return quit_requested_.load(std::memory_order_relaxed); }
+    void set_quit_requested(bool value) { quit_requested_.store(value, std::memory_order_relaxed); }
     [[nodiscard]] media::MovieHeader* current_movie() const { return current_movie_; }
     void set_current_movie(media::MovieHeader* value) { current_movie_ = value; }
     [[nodiscard]] TextureSet* game_texture_dict() const { return game_texture_dict_; }
@@ -72,7 +73,7 @@ private:
     bool movie_playing_{};
     int movie_dump_count_{};
     bool device_lost_{};
-    bool quit_requested_{};
+    std::atomic<bool> quit_requested_; // (atomic: a lost GPU device asks from the thread that drew - round GD)
     media::MovieHeader* current_movie_{}; // a Bink movie playing (media::Movie)
 
     // The game's texture dictionaries (texture_dict.cpp).

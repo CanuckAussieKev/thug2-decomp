@@ -210,6 +210,17 @@ if(TARGET thug2_gpu_vulkan)
     target_compile_definitions(thug2_vulkan_context_check PRIVATE SDL_MAIN_HANDLED)
 endif()
 
+# NOT ORIGINAL - thug2_vulkan_crash_check.exe: the GPU crash diagnostics (round GD - gpu_vulkan/vulkan_crash_markers.h,
+# engine/gfx/gpu_markers.h) without hanging the GPU: the passes' names, the markers' values, every view listener's call
+# marked, a lost device's report formatted from a simulated one, then on the device the frames' checkpoints (or AMD's
+# buffer markers) read back, a fault address found in its buffer, the heaps' budget and a simulated loss returning at
+# once (src/tests/vulkan_crash_check.cpp). Exit 2 without Vulkan.
+if(TARGET thug2_gpu_vulkan)
+    add_executable(thug2_vulkan_crash_check vulkan_crash_check.cpp)
+    target_link_libraries(thug2_vulkan_crash_check PRIVATE thug2_gpu_vulkan sdl3)
+    target_compile_definitions(thug2_vulkan_crash_check PRIVATE SDL_MAIN_HANDLED)
+endif()
+
 # NOT ORIGINAL - thug2_ff_shader_check.exe: the Vulkan backend's fixed-function emulation checked - every shader key the
 # Direct3D 9 backend's draws can make (a model of src/render_pc's draws), its GLSL generated and compiled, the SPIR-V
 # validated by SPIRV-Tools (when built: THUG2_SPIRV_VALIDATOR, cmake/vulkan_libraries.cmake) and handed to the Vulkan

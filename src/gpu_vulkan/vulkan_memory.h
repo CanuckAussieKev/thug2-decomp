@@ -3,7 +3,11 @@
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <map>
+#include <mutex>
 #include <span>
+#include <string>
+#include <unordered_map>
 #include <vector>
 #include <volk.h>
 #include <vk_mem_alloc.h>
@@ -95,6 +99,9 @@ public:
     void destroy_buffer(DeviceBuffer* buffer);
     // The processor's writes into a mapped buffer made visible to the device (a no-op in coherent memory).
     void flush(const DeviceBuffer& buffer, VkDeviceSize offset, VkDeviceSize bytes);
+    // (round GD) The device's writes into a mapped read-back buffer made visible to the processor (a no-op in coherent
+    // memory) - the crash markers' buffer read without a submission.
+    void invalidate(const DeviceBuffer& buffer);
 
     // A level's texels read back (tightly packed, the image's format; as many bytes as `texels` holds) and a device
     // buffer's bytes read back: each recorded and run at once, waited for (the caller has finished the frame's work
@@ -122,8 +129,22 @@ public:
     [[nodiscard]] VmaAllocator allocator() const { return allocator_; }
     // Bytes and allocations live now (VMA's statistics), for the checks.
     [[nodiscard]] VmaTotalStatistics statistics() const;
+    // NOT ORIGINAL - (round GD) what holds a device address a lost device's fault report names: the live buffer with a
+    // device address (ray tracing's structures, scratch, instances, the geometry the shaders read) that contains it -
+    // its size, usage and offset - or the nearest one below it ("" when there is none).
+    [[nodiscard]] std::string describe_address(VkDeviceAddress address) const;
 
 private:
+    // (round GD) the live buffers with a device address, by their address (and the address by buffer, to forget it)
+    struct Addressed {
+        VkDeviceSize bytes = 0;
+        VkBufferUsageFlags usage = 0;
+    };
+    void note_address(const DeviceBuffer& buffer, VkBufferUsageFlags usage);
+    void forget_address(VkBuffer buffer);
+    std::map<VkDeviceAddress, Addressed> addressed_;
+    std::unordered_map<VkBuffer, VkDeviceAddress> address_of_;
+    mutable std::mutex addressed_mutex_;
     VkDevice device_ = nullptr;
     VkQueue queue_ = nullptr;
     VmaAllocator allocator_ = nullptr;

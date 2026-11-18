@@ -308,6 +308,14 @@ void log_flush()
     }
 }
 
+void log_flush_to_disk()
+{
+    log_flush();
+    if (void* const handle = log_file_handle(); handle != INVALID_HANDLE_VALUE) {
+        FlushFileBuffers(static_cast<HANDLE>(handle));
+    }
+}
+
 void log_keep_crash_copy()
 {
     RunLogState& state = run_log_state();

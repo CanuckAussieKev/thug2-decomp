@@ -393,6 +393,7 @@ bool Context::open(SDL_Window* window, const ContextOptions& options)
     on_message_ = options.on_message;
     ray_tracing_wanted_ = options.ray_tracing;
     additions_ = options.additions;
+    crash_markers_wanted_ = options.crash_markers;
     window_ = window;
     if (!open_loader()) {
         return fail("opening vulkan-1.dll", VK_ERROR_INITIALIZATION_FAILED);
@@ -589,6 +590,10 @@ bool Context::create_device()
             ray_tracing_ = true;
         }
     }
+    // NOT ORIGINAL - (round GD) the GPU crash diagnostics the device has (vulkan_crash_markers.h)
+    VkPhysicalDeviceFaultFeaturesEXT fault{};
+    fault.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FAULT_FEATURES_EXT;
+    add_crash_diagnostics(&extensions, &fault);
     // NOT ORIGINAL - a library's additions (ContextAdditions): its extensions, features and extra queues
     std::array<float, kMostQueues> priorities{};
     priorities.fill(priority);
@@ -628,9 +633,14 @@ bool Context::create_device()
             }
         }
     }
+    void* features = dynamic_rendering_ ? &features13 : nullptr;
+    if (crash_.device_fault) { // (round GD: the fault features first in the chain)
+        fault.pNext = features;
+        features = &fault;
+    }
     const VkDeviceCreateInfo info{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = dynamic_rendering_ ? &features13 : nullptr,
+        .pNext = features,
         .flags = 0,
         .queueCreateInfoCount = queue_infos,
         .pQueueCreateInfos = queues.data(),
@@ -646,6 +656,22 @@ bool Context::create_device()
     }
     volkLoadDevice(device_);
     vkGetDeviceQueue(device_, queue_family_, 0, &queue_);
+    // (NOT ORIGINAL - round GD: every queue made, for a lost device's markers)
+    all_queues_.assign(1, queue_);
+    for (uint32_t index = 0; index < queues[0].queueCount; ++index) {
+        VkQueue made = nullptr;
+        vkGetDeviceQueue(device_, queues[0].queueFamilyIndex, index, &made);
+        if (made != nullptr && made != queue_) {
+            all_queues_.push_back(made);
+        }
+    }
+    for (uint32_t index = 0; queue_infos > 1 && index < queues[1].queueCount; ++index) {
+        VkQueue made = nullptr;
+        vkGetDeviceQueue(device_, queues[1].queueFamilyIndex, index, &made);
+        if (made != nullptr) {
+            all_queues_.push_back(made);
+        }
+    }
     if (additions_ != nullptr) {
         additions_->device_made({.instance = instance_,
                                  .physical = physical_device_,
@@ -701,6 +727,45 @@ uint32_t Context::add_requested(std::vector<const char*>* extensions, VkPhysical
         }
     }
     return std::min({wants.extra_queues, family_queues - 1, static_cast<uint32_t>(kMostQueues) - 1});
+}
+
+// NOT ORIGINAL - (round GD) the GPU crash diagnostics (vulkan_crash_markers.h) where the device has them: the fault
+// report and the memory budget always (they cost nothing until asked), the markers' extension when they are wanted -
+// NVIDIA's checkpoints, else AMD's buffer markers.
+void Context::add_crash_diagnostics(std::vector<const char*>* extensions, VkPhysicalDeviceFaultFeaturesEXT* fault)
+{
+    crash_ = CrashDiagnostics{};
+    const std::vector<VkExtensionProperties> offered = device_extensions(physical_device_);
+    if (has_extension(offered, VK_EXT_DEVICE_FAULT_EXTENSION_NAME)) {
+        VkPhysicalDeviceFaultFeaturesEXT has{};
+        has.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FAULT_FEATURES_EXT;
+        VkPhysicalDeviceFeatures2 features{};
+        features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        features.pNext = &has;
+        vkGetPhysicalDeviceFeatures2(physical_device_, &features);
+        if (has.deviceFault == VK_TRUE) {
+            extensions->push_back(VK_EXT_DEVICE_FAULT_EXTENSION_NAME);
+            fault->deviceFault = VK_TRUE;
+            fault->deviceFaultVendorBinary = has.deviceFaultVendorBinary;
+            crash_.device_fault = true;
+            crash_.fault_vendor_binary = has.deviceFaultVendorBinary == VK_TRUE;
+        }
+    }
+    if (has_extension(offered, VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
+        extensions->push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+        crash_.memory_budget = true;
+    }
+    if (crash_markers_wanted_ == CrashMarkerChoice::kOff) {
+        return;
+    }
+    if (crash_markers_wanted_ == CrashMarkerChoice::kBest &&
+        has_extension(offered, VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME)) {
+        extensions->push_back(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME);
+        crash_.checkpoints = true;
+    } else if (has_extension(offered, VK_AMD_BUFFER_MARKER_EXTENSION_NAME)) {
+        extensions->push_back(VK_AMD_BUFFER_MARKER_EXTENSION_NAME);
+        crash_.buffer_markers = true;
+    }
 }
 
 bool Context::create_frames()
