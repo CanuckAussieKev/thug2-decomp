@@ -2542,6 +2542,19 @@ implement TOD, we need TOD"). `engine/gfx/rt_daylight.h`, `rt_clouds.h`, `gpu_vu
   least 1, at most 65536), and every pass that adds light the state doesn't carry multiplies by the same factor (the sky
   tables, the sun's and the moon's discs, the stars, the clouds' light, the air, the lamps); the meter divides it out,
   so what is shown is the physical light. Bakes and checks use the unscaled light.
+  **(Round PX - UE5's / Frostbite's PreExposure) The pre-exposure is the camera's**: the meter's exposure of the frame
+  before (its slot's stops, read back a frame or two behind - `follow_camera` -> `set_camera_exposure`), within
+  1/256 .. 65536 and under the brightest emission's bound; the old rule (1 / the light on an open surface) only until
+  the camera has been read. So everything a pass writes into the 16-bit frame, the light store's reads and the
+  upscaler's input stand about where they are shown, indoors or out: inside Training by day the camera is 12 stops
+  over the outdoor daylight, and with the daylight's pre-exposure everything not lit by the hall's physical light
+  (emitters, glows, display-referred colours) was shown x 4 300 - white blobs, blown copings. The published state is
+  physical and carries the frame's pre-exposure apart (`DayLight::pre_exposure`, chosen by day_clock with
+  `pre_exposure_for`, latched by `set_day_light` - not part of the lighting: no serial, no relight); `day_light()`
+  returns it pre-exposed by that. The histories kept in the frame's unit take a change into the new one (now / then,
+  as UE5 corrects a history by PreExposure): the volumetric fog's, the drawn clouds', the one-bounce light's (by its
+  sun's unit); DLSS / FSR are told the frame's pre-exposure; ReSTIR's reservoirs hold physical light. The meter's
+  readout opens its window when the pre-exposure has moved a stop.
 - **The eye** (`rt_exposure_adapt` on / off; `vulkan_hdr.h`): the meter adapts to the physical luminance with
   Krawczyk's key (it falls in the dark: a full moon's night ~4 stops darker than day), down to the scotopic floor
   (0.001 cd/m^2) and no further; then rod vision (`rod_vision`, Krawczyk, Myszkowski and Seidel 2005 after Jensen et al.
@@ -5319,7 +5332,9 @@ specular input against the reference's direct light, -0.30 %.
   solved), picked by power from an alias table. No view cap, no "most important N": the lamps pass's 64-of-103 cut is
   gone. The analytic lamps are uploaded as they are each frame (a moving or switching lamp keeps its place: dark lamps
   stay in the list at intensity 0); the triangles are scanned again when the world's instances, the lighting cut or the
-  lamps' own surfaces' switches change - the scan's list is copied to host memory in the frame and read once that frame
+  emission the light store holds change (round PX - `rt_lights.h` store_emission: told by the relit world once every
+  mesh's store holds a changed emission, not when the lamps' switches are asked for: keyed by those, Training's list was
+  scanned before any store was written and stayed empty - its 34 surface-owned lamps lit nothing) - the scan's list is copied to host memory in the frame and read once that frame
   has run (no wait; the old list meanwhile, none across a world change). The alias table is rebuilt on the processor
   when the powers change.
 - **The sun's or the moon's disc and the sky are not in the reservoir** (separate terms, their owners unchanged): the

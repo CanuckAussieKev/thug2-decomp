@@ -83,7 +83,7 @@ layout(set = 0, binding = 6) uniform SkyBlock {
     vec4 ambient_bottom;  // rgb added to the sky's light on the clouds' base (the moon's glow - rt::CloudLight); w the
                           // clouds' aerial distance (metres)
     vec4 ambient_top;     // rgb added on their top; w the frame's jitter offset
-    vec4 offset;          // xy the clouds' offset (metres); z this frame's share in the history
+    vec4 offset;          // xy the clouds' offset (metres); z this frame's share in the history; w (round PX) its rescale
     ivec4 rect;           // the viewport in the target's pixels
     ivec4 low;            // xy the clouds' images' size, z pixels per texel, w steps
     ivec4 flags;          // x the depth's samples, y clouds, z a history, w unused (round F)
@@ -190,7 +190,7 @@ void main()
             vec2 uv = (low + 0.5) / vec2(sky.low.xy);
             if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0))) &&
                 textureLod(u_hist_b, uv, 0.0).y > 0.99) {
-                vec4 history = textureLod(u_hist_a, uv, 0.0);
+                vec4 history = textureLod(u_hist_a, uv, 0.0) * vec4(vec3(sky.offset.w), 1.0); // (round PX: rescaled)
                 vec4 least = current;
                 vec4 most = current;
                 for (int dy = -1; dy <= 1; ++dy) {
@@ -524,6 +524,7 @@ struct SkySlot {
     uint32_t current = 0; // the history written last
     bool fresh = true;
     bool has_history = false;
+    float pre_exposure = 1.0F; // (round PX) the frame's pre-exposure its history was written in
     Matrix last_to_pixel{};
     uint64_t drawn = 0; // the frame serial its clouds were last drawn in (the reflections' misses read them that frame)
     uint64_t frames = 0;
@@ -1567,8 +1568,11 @@ SkyBlock block_for(const rt::ViewDrawn& view, const Recording& recording, const 
     block.ambient_bottom = {core::at(glow, 0), core::at(glow, 1), core::at(glow, 2),
                             static_cast<float>(kCloudAerialDistance)};
     block.ambient_top = {core::at(glow, 0), core::at(glow, 1), core::at(glow, 2), jitter_offset};
+    // (w, round PX: the history's light into this frame's pre-exposure - UE5's PreExposure correction of a history)
     block.offset = {static_cast<float>(core::at(offset, 0)), static_cast<float>(core::at(offset, 1)), kSkyHistoryBlend,
-                    0.0F};
+                    recording.slot != nullptr && recording.slot->pre_exposure > 0.0F
+                        ? rt::frame_pre_exposure() / recording.slot->pre_exposure
+                        : 1.0F};
     block.rect = {static_cast<int32_t>(core::at(recording.rect, 0)), static_cast<int32_t>(core::at(recording.rect, 1)),
                   static_cast<int32_t>(core::at(recording.rect, 2)), static_cast<int32_t>(core::at(recording.rect, 3))};
     const uint32_t scale = scale_for(settings.quality);
@@ -1955,6 +1959,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         if (recording.slot != nullptr) {
             recording.slot->last_to_pixel = to_pixel;
             recording.slot->has_history = true;
+            recording.slot->pre_exposure = rt::frame_pre_exposure(); // (round PX)
             recording.slot->drawn = state.frames.serial();
             ++recording.slot->frames;
         }

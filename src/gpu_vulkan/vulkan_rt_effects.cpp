@@ -572,7 +572,7 @@ void main()
 )";
 
 // Step 2: the history. matrix: world -> the previous frame's pixel (the target's, homogeneous); camera: the camera's
-// position; params: x the longest history, y whether there is one (1), z rays, w the most one ray can bring (the
+// position (w, round PX: the history's unit over this frame's - x it); params: x the longest history, y whether there is one (1), z rays, w the most one ray can bring (the
 // occlusion's 1; the indirect light's brightest).
 constexpr const char* kTemporalBody = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
@@ -645,7 +645,7 @@ void main()
                 }
                 vec4 kept = imageLoad(u_history, q);
                 weights += w;
-                values += w * value_of(kept);
+                values += w * value_of(kept) * pc.camera.w; // (round PX: into this frame's unit)
                 lengths += w * length_of(kept);
             }
             if (weights > 1e-3) {
@@ -832,6 +832,10 @@ struct ViewSlot {
     HistoryCamera camera;           // (added by the first frame) ... as a cut is told by (vulkan_rt_history.h)
     Image* applied = nullptr;       // what the last apply read
     Image* history_written = nullptr;
+    // (round PX) the most one ray could bring when its history was written (the indirect light's sun, in the frame's
+    // pre-exposure): the history is in that light's unit - taken into this frame's by now / then (UE5's PreExposure
+    // correction; a light that changed, the time of day's, with it)
+    float history_unit = 0.0F;
     uint64_t last_use = 0;
 };
 
@@ -2129,7 +2133,9 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
         if (denoise) {
             DenoiseInputs step = inputs;
             step.have_before = have_before || seed > 0;
-            result = record_temporal(commands, own, slot, constants, step);
+            PassConstants temporal = constants;
+            core::at(temporal.camera, 3) = seed == 0 && slot->history_unit > 0.0F ? unit / slot->history_unit : 1.0F;
+            result = record_temporal(commands, own, slot, temporal, step);
         }
     }
     // 3. the spatial filter
@@ -2164,6 +2170,7 @@ bool record_effect(Backend& state, EffectsState& own, const rt::ViewDrawn& view)
     slot->world_to_pixel = to_pixel;
     slot->camera = history_camera(view.camera);
     slot->have_before = denoise;
+    slot->history_unit = unit;
     slot->frame_drawn = state.frame;
     slot->current ^= 1U;
     ++slot->passes;

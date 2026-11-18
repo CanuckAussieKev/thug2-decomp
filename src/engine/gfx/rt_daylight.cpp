@@ -222,6 +222,7 @@ struct Published {
     uint64_t settings_serial = 0;
     DayLight light;
     uint64_t cut_shown = 0;                        // (round S2) note_cut_shown's
+    float frame_pre = 1.0F;                        // (round PX) the frame's pre-exposure (set_day_light's latch)
     std::chrono::steady_clock::time_point cut_came; // when the light's cut changed
 };
 Published& published()
@@ -240,7 +241,8 @@ bool same_light(const DayLight& a, const DayLight& b)
            a.stars_pole == b.stars_pole && a.blend == b.blend && a.sun_light == b.sun_light &&
            a.sky_light == b.sky_light && a.moon_age == b.moon_age && a.moon_radiance == b.moon_radiance &&
            a.cloud_cover == b.cloud_cover && a.cloud_beam == b.cloud_beam && a.cloud_sky == b.cloud_sky &&
-           a.illuminance_lux == b.illuminance_lux && a.pre_exposure == b.pre_exposure && a.cut == b.cut;
+           a.illuminance_lux == b.illuminance_lux && a.cut == b.cut; // (round PX: not the
+    // pre-exposure - the frame's, latched apart)
 }
 
 } // namespace
@@ -778,27 +780,32 @@ void set_brightest_emission(float unit_radiance)
 
 float brightest_emission() { return brightest_slot().load(std::memory_order_relaxed); }
 
-void pre_expose(DayLight* light)
+namespace {
+// (round PX) the camera's exposure (set_camera_exposure) and when it was read
+struct CameraReading {
+    std::mutex mutex;
+    float factor = 0.0F;
+    std::chrono::steady_clock::time_point when;
+};
+CameraReading& camera_reading()
 {
-    if (!light->on) {
-        light->pre_exposure = 1.0F;
-        return;
-    }
-    const double ground = static_cast<double>(light->illuminance_lux) / unit_illuminance();
-    // (round L: and the brightest emission held in the 16-bit floats - kFrameLightMost)
-    const double emission = static_cast<double>(brightest_emission());
-    const double most = std::max(1.0, emission > 0.0 ? std::min(kMostPreExposure, kFrameLightMost / emission) : kMostPreExposure);
-    const double scale = ground > 0.0 ? std::clamp(1.0 / ground, 1.0, most) : most;
-    const auto by = static_cast<float>(scale);
-    light->pre_exposure = by;
+    static CameraReading reading;
+    return reading;
+}
+
+// The pre-exposure taken with `by`: the light x it, the display-referred ratios x by^(1 / 2.2).
+void expose_by(DayLight* light, double by)
+{
+    const auto scale = static_cast<float>(by);
+    light->pre_exposure = scale;
     for (std::size_t ch = 0; ch < 3; ++ch) {
-        core::at(light->sun_light, ch) *= by;
-        core::at(light->sky_light, ch) *= by;
-        core::at(light->night_sky, ch) *= by;
-        core::at(light->moon_radiance, ch) *= by;
+        core::at(light->sun_light, ch) *= scale;
+        core::at(light->sky_light, ch) *= scale;
+        core::at(light->night_sky, ch) *= scale;
+        core::at(light->moon_radiance, ch) *= scale;
     }
     // (the display-referred ratios: r^(1 / 2.2), so x scale^(1 / 2.2))
-    const auto display = static_cast<float>(std::pow(scale, kDisplay));
+    const auto display = static_cast<float>(std::pow(by, kDisplay));
     light->direct *= display;
     for (std::size_t ch = 0; ch < 3; ++ch) {
         core::at(light->light_colour, ch) *= display;
@@ -806,13 +813,50 @@ void pre_expose(DayLight* light)
     }
     finish_light(light);
 }
+} // namespace
 
-float frame_pre_exposure()
+void set_camera_exposure(float factor)
 {
-    const DayLight day = day_light();
-    return day.on && day.pre_exposure > 0.0F ? day.pre_exposure : 1.0F;
+    CameraReading& reading = camera_reading();
+    const std::scoped_lock lock(reading.mutex);
+    reading.factor = std::isfinite(factor) && factor > 0.0F ? factor : 0.0F;
+    reading.when = std::chrono::steady_clock::now();
 }
 
+float camera_exposure()
+{
+    CameraReading& reading = camera_reading();
+    const std::scoped_lock lock(reading.mutex);
+    const double age = std::chrono::duration<double>(std::chrono::steady_clock::now() - reading.when).count();
+    return reading.factor > 0.0F && age <= kCameraReadingSeconds ? reading.factor : 0.0F;
+}
+
+float pre_exposure_for(const DayLight& light)
+{
+    if (!light.on) {
+        return 1.0F;
+    }
+    // (round L: and the brightest emission held in the 16-bit floats - kFrameLightMost)
+    const double emission = static_cast<double>(brightest_emission());
+    const double most = std::max(kLeastPreExposure,
+                                 emission > 0.0 ? std::min(kMostPreExposure, kFrameLightMost / emission) : kMostPreExposure);
+    const double camera = static_cast<double>(camera_exposure());
+    if (camera > 0.0) {
+        return static_cast<float>(std::clamp(camera, kLeastPreExposure, most));
+    }
+    // (no reading yet: the light on a level surface now - the first frames of a lighting, no meter)
+    const double ground = static_cast<double>(light.illuminance_lux) / unit_illuminance();
+    return static_cast<float>(ground > 0.0 ? std::clamp(1.0 / ground, 1.0, std::max(1.0, most)) : std::max(1.0, most));
+}
+
+void pre_expose(DayLight* light)
+{
+    if (!light->on) {
+        light->pre_exposure = 1.0F;
+        return;
+    }
+    expose_by(light, static_cast<double>(pre_exposure_for(*light)));
+}
 CloudLight cloud_light(const DayLight& light)
 {
     CloudLight out;
@@ -830,8 +874,12 @@ CloudLight cloud_light(const DayLight& light)
 
 void set_day_light(const DayLight& light)
 {
+    // (round PX) the state's light physical and its pre_exposure the frame's (the publisher's - day_clock: the camera's,
+    // pre_exposure_for), latched for every pass of the frames that follow; a pre-exposure that moves with the camera isn't
+    // a new lighting (no serial, no relight)
     Published& slot = published();
     const std::scoped_lock lock(slot.mutex);
+    slot.frame_pre = light.on && std::isfinite(light.pre_exposure) && light.pre_exposure > 0.0F ? light.pre_exposure : 1.0F;
     if (same_light(light, slot.light)) {
         return;
     }
@@ -864,7 +912,19 @@ DayLight day_light()
 {
     Published& slot = published();
     const std::scoped_lock lock(slot.mutex);
-    return slot.light;
+    DayLight out = slot.light;
+    out.pre_exposure = 1.0F;
+    if (out.on && slot.frame_pre != 1.0F) {
+        expose_by(&out, static_cast<double>(slot.frame_pre)); // (round PX: pre-exposed as it is read)
+    }
+    return out;
+}
+
+float frame_pre_exposure()
+{
+    Published& slot = published();
+    const std::scoped_lock lock(slot.mutex);
+    return slot.light.on && slot.frame_pre > 0.0F ? slot.frame_pre : 1.0F;
 }
 
 } // namespace render::rt

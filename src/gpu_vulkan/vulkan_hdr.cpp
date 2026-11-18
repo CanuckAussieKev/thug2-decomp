@@ -1316,6 +1316,31 @@ void record_local(VkCommandBuffer commands, const std::array<VkPipeline, 2>& pip
 // finished) - and the luminance it measures (the samples' median, 95th and 99.5th percentiles and brightest in cd/m^2,
 // and the camera's EV100 - round L). Logged when the pre-exposure or the lighting's cut changes and every
 // kReadoutEvery for kReadoutSeconds after, and whenever a sample is over the range (at most every kOverEvery).
+// (round PX) The camera's exposure from the meter's readout (its slot's stops: the factor on the physical light), told to
+// the frame's pre-exposure (rt_daylight.h set_camera_exposure - UE5's PreExposure: the frame's light written about
+// where it is shown). A slot not metered yet (its factor 0) tells nothing.
+void follow_camera(Backend& state, std::size_t slot_index)
+{
+    HdrState& own = hdr();
+    if (own.meter_read.buffer == VK_NULL_HANDLE || own.meter_read.mapped == nullptr) {
+        return;
+    }
+    std::array<float, 4> values{};
+    vmaInvalidateAllocation(state.memory.allocator(), own.meter_read.allocation, 0, VK_WHOLE_SIZE);
+    const std::span<const uint8_t> mapped(static_cast<const uint8_t*>(own.meter_read.mapped),
+                                          static_cast<std::size_t>(own.meter_read.bytes));
+    const std::size_t slot_bytes = values.size() * sizeof(float);
+    if ((slot_index + 1) * slot_bytes > mapped.size()) {
+        return;
+    }
+    std::memcpy(values.data(), mapped.subspan(slot_index * slot_bytes, slot_bytes).data(), slot_bytes);
+    const float factor = core::at(values, 0);
+    const float stops = core::at(values, 1);
+    if (factor > 0.0F && std::isfinite(stops)) {
+        rt::set_camera_exposure(std::exp2(stops));
+    }
+}
+
 void log_readout(Backend& state, std::size_t slot_index, float pre)
 {
     HdrState& own = hdr();
@@ -1326,9 +1351,11 @@ void log_readout(Backend& state, std::size_t slot_index, float pre)
     }
     const auto now = std::chrono::steady_clock::now();
     const uint64_t cut = rt::day_light().cut;
-    if (pre != own.readout_pre || cut != own.readout_cut) {
+    // (round PX: the pre-exposure follows the camera - a window opens when it has moved a stop since the last one)
+    const bool moved = !(own.readout_pre > 0.0F) || std::abs(std::log2(pre / own.readout_pre)) >= 1.0F;
+    if (moved || cut != own.readout_cut) {
         own.readout_cut = cut;
-        if (own.readout_pre > 0.0F && pre != own.readout_pre) {
+        if (own.readout_pre > 0.0F && moved) {
             get_log("vulkan: rt_hdr: the pre-exposure %.6g -> %.6g", static_cast<double>(own.readout_pre),
                     static_cast<double>(pre));
         }
@@ -2273,6 +2300,7 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     if (meter != VK_NULL_HANDLE) {
         const std::size_t slot = meter_slot_of(shown, colour->extent);
         own.last_slot = static_cast<int>(slot);
+        follow_camera(state, slot);
         log_readout(state, slot, core::at(constants.night, 0));
         record_meter(commands, meter, slot, &constants);
     }
