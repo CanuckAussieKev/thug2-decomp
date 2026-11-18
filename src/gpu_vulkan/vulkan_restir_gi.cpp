@@ -80,7 +80,9 @@ constexpr uint32_t kBindingSkyView = 26;
 constexpr uint32_t kBindingCloudMap = 27;   // (the clouds' shadow map on the disc's light)
 constexpr uint32_t kBindingCloudNoise = 28; // .. 30 (the sky's grid's march)
 constexpr uint32_t kCloudNoiseTextures = 3;
-constexpr uint32_t kBindingCount = 31;
+constexpr uint32_t kBindingCache = 31; // (round MB) the radiance cache (one buffer: a pushed set has 32 descriptors at most)
+constexpr uint32_t kBindingCount = 32;
+constexpr VkDeviceSize kCacheEntryBytes = 64; // its key, its sums' low and high words, its light
 constexpr uint32_t kMaterialSet = 1;
 
 constexpr uint32_t kGroupSide = 8;
@@ -106,8 +108,32 @@ constexpr uint32_t kFlagAccumulate = 4U;
 constexpr uint32_t kFlagForced = 8U;
 constexpr uint32_t kFlagPermute = 16U; // (round PT4d) vulkan_light_list.h restir_denoiser_glsl
 constexpr uint32_t kFlagBoiling = 32U;
+constexpr uint32_t kFlagCache = 64U; // (round MB) the secondary's bounce from the radiance cache
+
+// (round MB) The radiance cache (NVIDIA's SHaRC - spatially hashed radiance cache, the one Cyberpunk 2077's path tracing
+// reads at its secondary vertices; the hash grid of Binder et al. 2019 / Gautron 2020): fixed, no per-level values.
+// Its entries at most (a power of 2), the probes a key takes (linear), a cell's least side (world units - the game's
+// inch: a few inches near the camera) and the pixels a cell spans where it is seen beyond that (its side grows in powers
+// of 2 with the distance - SHaRC's levels; in pixels, not a fixed angle: the update paths are one a block of pixels, so
+// every cell seen gets ~(12 / 4)^2 = 9 samples a frame at any resolution - the room check at 160x120 with cells of a fixed
+// 1/48 radian was 10 % dark, its cells reached too seldom to keep their entries), the fixed point of the frame's sums (exposed light x this), the samples an
+// entry's light averages at most (its history), the frames an entry not updated is kept, the update paths (one a
+// CACHE_BLOCK x CACHE_BLOCK block of pixels a frame - SHaRC's 4 - 6 % of the pixels) and the rays a path traces (its
+// vertices after the pixel's; the last one's bounce read from the cache - the further bounces over the frames).
+constexpr uint32_t kCacheCapacity = 1U << 19U;
+constexpr uint32_t kCacheProbes = 8;
+constexpr float kCacheCellLeast = 4.0F;
+constexpr double kCacheCellPixels = 12.0;
+constexpr float kCacheScale = 65536.0F;
+constexpr float kCacheSamples = 64.0F;
+constexpr float kCacheFrames = 16.0F;
+constexpr uint32_t kCacheStale = 64;
+constexpr uint32_t kCacheBlock = 4;
+constexpr uint32_t kCachePath = 3;
+constexpr uint32_t kResolveGroup = 64;
 
 constexpr uint32_t kTimingSlots = 16;
+constexpr uint32_t kTimingStamps = 3; // a pass's start, its radiance cache's end, its end
 constexpr uint32_t kTimingReport = 600;
 constexpr uint32_t kCheckTimingReport = 64;
 
@@ -135,8 +161,9 @@ struct GiBlock {
     std::array<float, 4> sky_dist{};       // x 1 / the grid in use's luminance integral (0: no sky)
     std::array<float, 4> cloud_place{};    // (the clouds' shadow map: vulkan_rt_sky_pass.h CloudShadowMap)
     std::array<float, 4> cloud_light{};
+    std::array<float, 4> cache_cells{};    // (round MB) x the angle a radiance cache cell spans from the camera (its least)
 };
-static_assert(sizeof(GiBlock) == (2 * 64) + (18 * 16));
+static_assert(sizeof(GiBlock) == (2 * 64) + (19 * 16));
 
 // --- the shaders -------------------------------------------------------------------------------------------------------
 
@@ -162,6 +189,7 @@ layout(std140, set = 0, binding = 2) uniform GiBlock {
     vec4 sky_dist;
     vec4 cloud_place;
     vec4 cloud_light;
+    vec4 cache_cells;
 } pass;
 struct LightEntry {
     float threshold;
@@ -209,6 +237,14 @@ layout(set = 0, binding = 21, rgba16f) uniform image2D io_specular;
 layout(set = 0, binding = 22, r16f) uniform writeonly image2D o_specular_hit;
 #endif
 layout(std430, set = 0, binding = 24) buffer Counters { uint bad_samples; uint counter_spare[3]; };
+// (round MB) the radiance cache: 4 words an entry - its key (x the check word, 0: free; y the frame it was updated), this
+// frame's sums (low words rgb + the samples; high words rgb), its light (float bits: rgb the bounce in the global unit,
+// w its samples)
+layout(std430, set = 0, binding = 31) buffer Cache { uvec4 cache[]; };
+#define CACHE_KEY(e) cache[(e) * 4u]
+#define CACHE_LOW(e) cache[(e) * 4u + 1u]
+#define CACHE_HIGH(e) cache[(e) * 4u + 2u]
+#define CACHE_LIGHT(e) cache[(e) * 4u + 3u]
 
 const uint FLAG_TEMPORAL = 1u;
 const uint FLAG_SPATIAL = 2u;
@@ -216,6 +252,7 @@ const uint FLAG_ACCUMULATE = 4u;
 const uint FLAG_FORCED = 8u;
 const uint FLAG_PERMUTE = 16u;
 const uint FLAG_BOILING = 32u;
+const uint FLAG_CACHE = 64u;
 const uint MOST_SPATIAL = 4u;
 const uint LIGHT_RAYS = 7u;           // world, objects, alpha-tested (the reference's rays)
 const uint LIGHT_RAYS_ON_OBJECT = 5u; // (an object's pixel: the world's alone - its low-poly body doesn't shadow itself)
@@ -561,16 +598,21 @@ vec3 next_event(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rng)
 // origin - next_event -, how far) or nothing (the sky that way). Meshes the light store hides (the bake's shadows drawn
 // as geometry) are passed. (Round BR) Not its emission: the light straight from an emitter - on a diffuser and in a
 // specular lobe - is ReSTIR DI's, sampled on the emitter (one owner; a path's first vertex on a light is direct light).
+// (Round MB) Also its shading normal and its reflectance toward the ray's origin (the share of an even light it sends
+// back - the light model's directional albedo, diffuse and specular): what it makes of the light that comes to it off
+// other surfaces (the radiance cache's - with_bounces below).
 struct Secondary {
     bool hit;
     vec3 at;
     vec3 n;
+    vec3 shading;
     vec3 bounce;
+    vec3 reflectance;
     float t;
 };
 Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, inout uint rng)
 {
-    Secondary out_s = Secondary(false, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), GI_REACH);
+    Secondary out_s = Secondary(false, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), vec3(0.0), GI_REACH);
     float travelled = 0.0;
     for (uint skipped = 0u; skipped < 4u; ++skipped) {
         uint instance;
@@ -598,12 +640,74 @@ Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, inout uint rng)
         out_s.hit = true;
         out_s.at = h.position;
         out_s.n = ng;
+        out_s.shading = n;
         out_s.t = travelled + t;
         out_s.bounce = good3(next_event(h.position + ng * ray_offset(h.position), n, ng, v, m, rng));
+        out_s.reflectance = good3(brdf_ambient(m, dot(n, v), vec3(1.0), vec3(1.0)));
         return out_s;
     }
     return out_s;
 }
+
+// --- (round MB) the radiance cache: the light further bounces bring --------------------------------------------------
+// NVIDIA's SHaRC (spatially hashed radiance cache - Cyberpunk 2077's path tracing reads it where its paths end; Binder
+// et al. 2019's hash grid without its jitter): a hash table of cells of the world, each a point's position
+// quantised by a side that grows with its distance from the camera (powers of 2 - SHaRC's levels) and the axis its
+// surface faces (the two sides of a wall apart). An entry holds the bounce a white diffuser there gets - the light off
+// other surfaces (E / pi; the lights' own direct light - the disc, the sky, the emitters, the lamps - is not in it: next-
+// event estimation owns it at every vertex). Written by sparse update paths (below), read at ReSTIR GI's secondary
+// vertices: there the light they reflect is their direct light (next_event) + their reflectance x the cache's bounce -
+// every further bounce. The cache's own update paths end in it too: each frame adds a bounce, the sum converges (the
+// reflectances < 1) - the light of every bounce, as the reference's path of unbounded length (Russian roulette) has.
+uint cache_hash(uint x)
+{
+    // (the "lowbias32" integer hash - Chris Wellons 2018)
+    x ^= x >> 16;
+    x *= 0x7FEB352Du;
+    x ^= x >> 15;
+    x *= 0x846CA68Bu;
+    x ^= x >> 16;
+    return x;
+}
+// The table's slot a point's cell starts its probes at and its check word (another hash of the cell - never 0).
+void cache_key(vec3 at, vec3 ng, out uint slot, out uint check)
+{
+    float distance = length(at - pass.eye.xyz);
+    float level = max(floor(log2(max(distance * pass.cache_cells.x / CACHE_CELL_LEAST, 1.0))), 0.0);
+    ivec3 c = ivec3(floor(at / (CACHE_CELL_LEAST * exp2(level))));
+    vec3 a = abs(ng);
+    uint axis = a.x >= a.y && a.x >= a.z ? 0u : (a.y >= a.z ? 1u : 2u);
+    float along = axis == 0u ? ng.x : (axis == 1u ? ng.y : ng.z);
+    uint w = uint(level) | ((axis * 2u + (along < 0.0 ? 1u : 0u)) << 8);
+    uvec3 u = uvec3(c);
+    slot = cache_hash(u.x ^ cache_hash(u.y ^ cache_hash(u.z ^ cache_hash(w)))) & (CACHE_CAPACITY - 1u);
+    check = cache_hash(u.z ^ cache_hash(u.y + cache_hash(u.x ^ cache_hash(w ^ 0x9E3779B9u))));
+    check = check == 0u ? 1u : check;
+}
+// The bounce at a point (0 where the cache has no entry yet, or isn't used).
+vec3 cache_bounce(vec3 at, vec3 ng)
+{
+    if ((pass.counts.w & FLAG_CACHE) == 0u) {
+        return vec3(0.0);
+    }
+    uint slot;
+    uint check;
+    cache_key(at, ng, slot, check);
+    for (uint k = 0u; k < CACHE_PROBES; ++k) {
+        uint i = (slot + k) & (CACHE_CAPACITY - 1u);
+        uint there = CACHE_KEY(i).x;
+        if (there == check) {
+            vec4 l = uintBitsToFloat(CACHE_LIGHT(i));
+            return l.w > 0.0 ? good3(max(l.rgb, vec3(0.0))) : vec3(0.0);
+        }
+        if (there == 0u) {
+            break;
+        }
+    }
+    return vec3(0.0);
+}
+// The light a secondary vertex sends toward the ray's origin: its direct light + its reflectance x its bounce.
+vec3 with_bounces(Secondary sec) { return sec.hit ? good3(sec.bounce + sec.reflectance * cache_bounce(sec.at, sec.n)) : vec3(0.0); }
 
 // A white diffuser's lobe and the material's specular lobe toward `dir` (x the cosine).
 float white_lobe(Surface s, vec3 dir) { return max(dot(s.n, dir), 0.0) / PATH_PI; }
@@ -716,6 +820,159 @@ float target_at(Surface s, vec3 eye, Reservoir r, out vec3 dir, out float reach,
 vec3 seen(Surface s, vec3 dir, float reach) { return ray_light(rays_of(s), s.at + s.ng * ray_offset(s.at), dir, reach); }
 bool seen_at_all(vec3 through) { return max(through.r, max(through.g, through.b)) > 0.0; }
 
+#ifdef PASS_CACHE
+// (round MB) The cache's entry for a point (claimed if it has none yet: the probes' first free slot); false when the
+// probes are all taken by other cells (the sample is dropped).
+bool cache_claim(vec3 at, vec3 ng, out uint entry)
+{
+    uint slot;
+    uint check;
+    cache_key(at, ng, slot, check);
+    for (uint k = 0u; k < CACHE_PROBES; ++k) {
+        uint i = (slot + k) & (CACHE_CAPACITY - 1u);
+        uint there = atomicCompSwap(CACHE_KEY(i).x, 0u, check);
+        if (there == 0u || there == check) {
+            CACHE_KEY(i).y = pass.counts.z;
+            entry = i;
+            return true;
+        }
+    }
+    entry = 0u;
+    return false;
+}
+// One word of a 64-bit sum: the low word added, its carry into the high word (32-bit atomics alone).
+void cache_add_word(uint entry, uint channel, uint value)
+{
+    if (value == 0u) {
+        return;
+    }
+    uint before = channel == 0u ? atomicAdd(CACHE_LOW(entry).x, value)
+                                : (channel == 1u ? atomicAdd(CACHE_LOW(entry).y, value) : atomicAdd(CACHE_LOW(entry).z, value));
+    if (before + value < before) {
+        if (channel == 0u) {
+            atomicAdd(CACHE_HIGH(entry).x, 1u);
+        } else if (channel == 1u) {
+            atomicAdd(CACHE_HIGH(entry).y, 1u);
+        } else {
+            atomicAdd(CACHE_HIGH(entry).z, 1u);
+        }
+    }
+}
+// A sample of a point's bounce added to its entry's sums: the frame's exposed light in fixed point, rounded at random
+// (unbiased however small the light).
+void cache_add(vec3 at, vec3 ng, vec3 light, inout uint rng)
+{
+    uint entry;
+    if (!cache_claim(at, ng, entry)) {
+        return;
+    }
+    vec3 fixed_point = clamp(good3(light) * pass.eye.w * CACHE_SCALE, vec3(0.0), vec3(4.0e9));
+    uvec3 words = uvec3(fixed_point + vec3(path_next(rng), path_next(rng), path_next(rng)));
+    cache_add_word(entry, 0u, words.r);
+    cache_add_word(entry, 1u, words.g);
+    cache_add_word(entry, 2u, words.b);
+    atomicAdd(CACHE_LOW(entry).w, 1u);
+}
+// The update paths (SHaRC's): one pixel of each CACHE_BLOCK x CACHE_BLOCK block a frame (at random), its surface the
+// first vertex; CACHE_PATH rays, each along the cosine lobe of the vertex it leaves; at every surface met its direct
+// light by next-event estimation and its reflectance. Back from the last: the light coming into a vertex along its ray
+// is what the next vertex sends - its direct light + its reflectance x its own bounce (the next ray's light; past the
+// last ray, the cache's) - and with a cosine-distributed ray that light is a one-sample estimate of the vertex's bounce
+// (E / pi): added to the vertex's entry. A ray that meets nothing gives 0 (the sky's light is a vertex's direct light).
+void main()
+{
+    ivec2 block = ivec2(gl_GlobalInvocationID.xy);
+    uint rng = path_sequence_start(uint(block.x), uint(block.y), pass.counts.z ^ 0x2545F491u, pass.params.w + 7u);
+    uint pick = min(uint(path_next(rng) * float(CACHE_BLOCK * CACHE_BLOCK)), CACHE_BLOCK * CACHE_BLOCK - 1u);
+    ivec2 local = block * int(CACHE_BLOCK) + ivec2(int(pick % CACHE_BLOCK), int(pick / CACHE_BLOCK));
+    if (any(greaterThanEqual(local, pass.rect.zw))) {
+        return;
+    }
+    Surface s = primary(pass.rect.xy + local);
+    if (!s.valid) {
+        return;
+    }
+    vec3 at[CACHE_PATH + 1u];
+    vec3 facing[CACHE_PATH + 1u];
+    vec3 direct[CACHE_PATH];
+    vec3 reflectance[CACHE_PATH];
+    bool met[CACHE_PATH];
+    at[0] = s.at;
+    facing[0] = s.ng;
+    vec3 n = s.n;
+    uint mask = rays_of(s);
+    uint traced = 0u;
+    for (uint k = 0u; k < CACHE_PATH; ++k) {
+        met[k] = false;
+        direct[k] = vec3(0.0);
+        reflectance[k] = vec3(0.0);
+        traced = k + 1u;
+        vec3 dir = path_to_world(n, path_cosine_direction(path_next(rng), path_next(rng)));
+        if (dot(dir, facing[k]) <= 0.0) {
+            break;
+        }
+        Secondary sec = trace_secondary(mask, at[k] + facing[k] * ray_offset(at[k]), dir, rng);
+        if (!sec.hit) {
+            break;
+        }
+        met[k] = true;
+        direct[k] = sec.bounce;
+        reflectance[k] = sec.reflectance;
+        at[k + 1u] = sec.at;
+        facing[k + 1u] = sec.n;
+        n = sec.shading;
+        mask = LIGHT_RAYS;
+    }
+    vec3 incoming = vec3(0.0);
+    for (int k = int(traced) - 1; k >= 0; --k) {
+        uint j = uint(k);
+        if (met[j]) {
+            vec3 beyond = j + 1u < traced ? incoming : cache_bounce(at[j + 1u], facing[j + 1u]);
+            incoming = good3(direct[j] + reflectance[j] * beyond);
+        } else {
+            incoming = vec3(0.0);
+        }
+        cache_add(at[j], facing[j], incoming, rng);
+    }
+}
+#endif
+
+#ifdef PASS_RESOLVE
+// (round MB) Each entry's frame: its samples' mean folded into its light, the sums cleared; an entry not updated for
+// CACHE_STALE frames freed. The history is a number of frames, not of samples (SHaRC's accumulated frames): the weight
+// the light kept has (its samples, CACHE_SAMPLES at most) fades by 1 - 1 / CACHE_FRAMES every frame - an entry few paths
+// reach still takes its new samples within that many frames, and the bounces the cache feeds back into itself (the
+// update paths' last vertices) settle in a few times that.
+void main()
+{
+    uint i = gl_WorkGroupID.x * RESOLVE_GROUP + gl_LocalInvocationIndex;
+    if (i >= CACHE_CAPACITY) {
+        return;
+    }
+    uvec2 key = CACHE_KEY(i).xy;
+    if (key.x == 0u) {
+        return;
+    }
+    uvec4 low = CACHE_LOW(i);
+    vec4 l = uintBitsToFloat(CACHE_LIGHT(i));
+    float kept = min(l.w, CACHE_SAMPLES) * (1.0 - 1.0 / CACHE_FRAMES);
+    if (low.w > 0u) {
+        uvec4 high = CACHE_HIGH(i);
+        vec3 sum = (vec3(high.xyz) * 4294967296.0 + vec3(low.xyz)) / (CACHE_SCALE * max(pass.eye.w, 1.0e-30));
+        float k = float(low.w);
+        vec3 mean = (l.rgb * kept + sum) / (kept + k);
+        CACHE_LIGHT(i) = floatBitsToUint(vec4(good3(mean), kept + k));
+        CACHE_LOW(i) = uvec4(0u);
+        CACHE_HIGH(i) = uvec4(0u);
+    } else if (pass.counts.z - key.y <= CACHE_STALE) {
+        CACHE_LIGHT(i) = floatBitsToUint(vec4(l.rgb, kept));
+    } else {
+        CACHE_KEY(i) = uvec4(0u);
+        CACHE_LIGHT(i) = uvec4(0u);
+    }
+}
+#endif
+
 #ifdef PASS_TEMPORAL
 // The pixel's reservoir after its sample and the temporal reuse (stored by main, after the boiling filter); `weight` its
 // sample's contribution (target x W - what the filter compares). Also the surface's specular ray.
@@ -764,7 +1021,7 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
             c.kind = KIND_SURFACE;
             c.y = sec.at;
             c.ny = sec.n;
-            c.bounce = sec.bounce;
+            c.bounce = with_bounces(sec);
         } else {
             c.kind = KIND_SKY;
             c.y = dir;
@@ -854,7 +1111,7 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
             vec3 lobe_weight = pdf > 0.0 ? good3(specular_lobe(s, v, l) / pdf) : vec3(0.0);
             Secondary sec = trace_secondary(mask, origin, l, rng);
             vec3 through = seen_through(mask, origin, l, sec.hit ? sec.t : GI_REACH);
-            vec3 reflected = sec.hit ? sec.bounce : sky_radiance(l);
+            vec3 reflected = sec.hit ? with_bounces(sec) : sky_radiance(l);
             specular_rays[i * 2u] = vec4(good3(lobe_weight * reflected * through / max(e, vec3(1.0e-4))),
                                          sec.hit ? sec.t : GI_MISS_DISTANCE);
             specular_rays[i * 2u + 1u] = vec4(good3(lobe_weight * reflected * through), 0.0);
@@ -1041,7 +1298,9 @@ void main()
 #endif
 )";
 
-enum class Shader : uint8_t { kSky, kTemporal, kSpatial };
+enum class Shader : uint8_t { kSky, kTemporal, kSpatial, kCache, kResolve };
+
+std::string float_text(float value) { return text::format("%.9g", static_cast<double>(value)); }
 
 std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSource sky)
 {
@@ -1052,7 +1311,23 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
     if (which == Shader::kSky) {
         source += sky_grid_prelude(sky, kBindingTransmittance, kBindingSkyView, kBindingCloudNoise);
     }
-    source += which == Shader::kTemporal ? "#define PASS_TEMPORAL\n" : (which == Shader::kSpatial ? "#define PASS_SPATIAL\n" : "");
+    switch (which) {
+    case Shader::kTemporal: source += "#define PASS_TEMPORAL\n"; break;
+    case Shader::kSpatial: source += "#define PASS_SPATIAL\n"; break;
+    case Shader::kCache: source += "#define PASS_CACHE\n"; break;
+    case Shader::kResolve: source += "#define PASS_RESOLVE\n"; break;
+    case Shader::kSky: break;
+    }
+    source += "const uint CACHE_CAPACITY = " + std::to_string(kCacheCapacity) + "u;\n";
+    source += "const uint CACHE_PROBES = " + std::to_string(kCacheProbes) + "u;\n";
+    source += "const uint CACHE_STALE = " + std::to_string(kCacheStale) + "u;\n";
+    source += "const uint CACHE_BLOCK = " + std::to_string(kCacheBlock) + "u;\n";
+    source += "const uint CACHE_PATH = " + std::to_string(kCachePath) + "u;\n";
+    source += "const uint RESOLVE_GROUP = " + std::to_string(kResolveGroup) + "u;\n";
+    source += "const float CACHE_CELL_LEAST = " + float_text(kCacheCellLeast) + ";\n";
+    source += "const float CACHE_SCALE = " + float_text(kCacheScale) + ";\n";
+    source += "const float CACHE_SAMPLES = " + float_text(kCacheSamples) + ";\n";
+    source += "const float CACHE_FRAMES = " + float_text(kCacheFrames) + ";\n";
     source += "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
     source += "#define THUG2_MATERIAL_SET 1\n";
     source += material_glsl();
@@ -1067,7 +1342,7 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
         source += restir_denoiser_glsl();
     }
     source += rt_lamp_glsl();
-    if (which == Shader::kTemporal && cloud_map) {
+    if ((which == Shader::kTemporal || which == Shader::kCache) && cloud_map) {
         source += "#define CLOUD_MAP\n" + cloud_map_glsl(kBindingCloudMap);
     }
     source += "const uint SKY_WIDTH = " + std::to_string(rt::lights::kSkyGridWidth) + "u;\n";
@@ -1180,6 +1455,35 @@ std::array<float, 16> column_major(const Matrix& m)
     return out;
 }
 
+// (round MB) The angle one pixel spans at the view's centre (radians): the radiance cache's cells are this many pixels
+// wide where they are seen, whatever the resolution - so its update paths (one a block of pixels) reach each about as often.
+double pixel_angle(const Matrix& to_world, const rt::ViewDrawn& view)
+{
+    const auto apply = [&to_world](double x, double y) {
+        std::array<double, kMatrixSide> out{};
+        const std::array<double, kMatrixSide> in{x, y, 0.5, 1.0};
+        for (std::size_t row = 0; row < kMatrixSide; ++row) {
+            for (std::size_t column = 0; column < kMatrixSide; ++column) {
+                core::at(out, row) += core::at(core::at(to_world, row), column) * core::at(in, column);
+            }
+        }
+        const double w = std::abs(core::at(out, 3)) > kSingular ? core::at(out, 3) : 1.0;
+        return std::array<double, 3>{core::at(out, 0) / w, core::at(out, 1) / w, core::at(out, 2) / w};
+    };
+    const double cx = core::at(view.rect, 0) + (0.5 * core::at(view.rect, 2));
+    const double cy = core::at(view.rect, 1) + (0.5 * core::at(view.rect, 3));
+    const std::array<double, 3> a = apply(cx, cy);
+    const std::array<double, 3> b = apply(cx + 1.0, cy);
+    double apart = 0.0;
+    double away = 0.0;
+    for (std::size_t k = 0; k < 3; ++k) {
+        const double eye = core::at(view.camera.position, k);
+        apart += (core::at(b, k) - core::at(a, k)) * (core::at(b, k) - core::at(a, k));
+        away += (core::at(a, k) - eye) * (core::at(a, k) - eye);
+    }
+    return away > 0.0 ? std::sqrt(apart / away) : 0.0;
+}
+
 // --- the state ---------------------------------------------------------------------------------------------------------
 
 struct Timing {
@@ -1188,6 +1492,7 @@ struct Timing {
     double period_ns = 1.0;
     std::array<uint64_t, kTimingSlots> pending{};
     double sum_ms = 0.0;
+    double cache_sum_ms = 0.0;
     uint32_t measured = 0;
 };
 
@@ -1198,7 +1503,12 @@ struct GiState {
     std::array<VkPipeline, kSkyGridSources> sky{};
     std::array<VkPipeline, 4> temporal{}; // [check x 2 + cloud map]
     std::array<VkPipeline, 2> spatial{};  // [check]
+    std::array<VkPipeline, 4> cache_update{};    // (round MB) the radiance cache's update paths [check x 2 + cloud map]
+    VkPipeline resolve = VK_NULL_HANDLE;  // ... and its entries' frame
     bool failed = false;
+    // (round MB) the radiance cache (cleared when the history starts again)
+    DeviceBuffer cache;
+    bool cache_clear = true;
     // the sky's grid: the one in use (its alias tables built from it) and the one being made, read back without a wait
     std::array<DeviceBuffer, 2> sky_cells{};
     int sky_now = -1;
@@ -1238,6 +1548,7 @@ struct GiState {
     uint64_t passes = 0;
     Timing timing;
     double last_ms = 0.0;
+    double last_cache_ms = 0.0;
     uint32_t timed_width = 0;
     uint32_t timed_height = 0;
     RestirGiOverrides overrides;
@@ -1392,6 +1703,19 @@ bool ensure_pipelines(Backend& state, bool check, bool cloud_map, SkyGridSource 
             return false;
         }
     }
+    VkPipeline& cache = core::at(own.cache_update, (check ? 2U : 0U) + (cloud_map ? 1U : 0U));
+    if (cache == VK_NULL_HANDLE) {
+        cache = make_compute(device, own.layout, shader_source(Shader::kCache, check, cloud_map, sky), error);
+        if (cache == VK_NULL_HANDLE) {
+            return false;
+        }
+    }
+    if (own.resolve == VK_NULL_HANDLE) {
+        own.resolve = make_compute(device, own.layout, shader_source(Shader::kResolve, false, false, sky), error);
+        if (own.resolve == VK_NULL_HANDLE) {
+            return false;
+        }
+    }
     VkPipeline& spatial = core::at(own.spatial, check ? 1U : 0U);
     if (spatial == VK_NULL_HANDLE) {
         spatial = make_compute(device, own.layout, shader_source(Shader::kSpatial, check, false, sky), error);
@@ -1530,7 +1854,7 @@ bool ensure_timing(Backend& state, GiState& own)
                                      .pNext = nullptr,
                                      .flags = 0,
                                      .queryType = VK_QUERY_TYPE_TIMESTAMP,
-                                     .queryCount = kTimingSlots * 2,
+                                     .queryCount = kTimingSlots * kTimingStamps,
                                      .pipelineStatistics = 0};
     if (properties.limits.timestampComputeAndGraphics != VK_TRUE ||
         vkCreateQueryPool(state.context.device(), &info, nullptr, &timing.pool) != VK_SUCCESS) {
@@ -1551,21 +1875,26 @@ void collect_timing(Backend& state, GiState& own, uint32_t slot, bool check)
     if (written == 0 || state.frames.completed() < written) {
         return;
     }
-    std::array<uint64_t, 2> ticks{};
-    if (vkGetQueryPoolResults(state.context.device(), timing.pool, slot * 2, 2, sizeof(ticks), ticks.data(),
-                              sizeof(uint64_t), VK_QUERY_RESULT_64_BIT) != VK_SUCCESS ||
-        ticks.back() < ticks.front()) {
+    // (the passes' start, the radiance cache's end - round MB -, the passes' end)
+    std::array<uint64_t, kTimingStamps> ticks{};
+    if (vkGetQueryPoolResults(state.context.device(), timing.pool, slot * kTimingStamps, kTimingStamps, sizeof(ticks),
+                              ticks.data(), sizeof(uint64_t), VK_QUERY_RESULT_64_BIT) != VK_SUCCESS ||
+        ticks.back() < ticks.front() || ticks.at(1) < ticks.front()) {
         return;
     }
     constexpr double kNsPerMs = 1e6;
     timing.sum_ms += static_cast<double>(ticks.back() - ticks.front()) * timing.period_ns / kNsPerMs;
+    timing.cache_sum_ms += static_cast<double>(ticks.at(1) - ticks.front()) * timing.period_ns / kNsPerMs;
     if (++timing.measured >= (check ? kCheckTimingReport : kTimingReport)) {
         own.last_ms = timing.sum_ms / timing.measured;
+        own.last_cache_ms = timing.cache_sum_ms / timing.measured;
         if (!check) {
-            get_log("restir gi: %.3f ms a frame on the device over the last %u (%ux%u; %u lights listed)", own.last_ms,
-                    timing.measured, own.timed_width, own.timed_height, own.entries);
+            get_log("restir gi: %.3f ms a frame on the device over the last %u (%ux%u; %u lights listed; the radiance "
+                    "cache %.3f ms of it)",
+                    own.last_ms, timing.measured, own.timed_width, own.timed_height, own.entries, own.last_cache_ms);
         }
         timing.sum_ms = 0.0;
+        timing.cache_sum_ms = 0.0;
         timing.measured = 0;
     }
 }
@@ -1714,6 +2043,7 @@ void forget_restir_gi_history()
     Backend& state = backend();
     const std::scoped_lock lock(state.mutex);
     gi_state().history = false;
+    gi_state().cache_clear = true;
 }
 
 void set_restir_gi_accumulate(bool on)
@@ -1776,6 +2106,7 @@ RestirGiStats restir_gi_stats()
                          .sky_ready = own.sky_now >= 0,
                          .sky_grids = own.sky_grids,
                          .gpu_ms = own.last_ms,
+                         .cache_ms = own.last_cache_ms,
                          .gpu_width = own.timed_width,
                          .gpu_height = own.timed_height};
 }
@@ -1889,6 +2220,12 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         made = ensure_buffer(state, &core::at(own.at, k), pixels * 16, storage, BufferPlace::kDevice) &&
                ensure_buffer(state, &core::at(own.more, k), pixels * 16, storage, BufferPlace::kDevice);
     }
+    // (round MB) the radiance cache - a new one starts empty
+    if (made && own.cache.buffer == VK_NULL_HANDLE) {
+        own.cache_clear = true;
+    }
+    made = made && ensure_buffer(state, &own.cache, VkDeviceSize{kCacheCapacity} * kCacheEntryBytes, storage,
+                                 BufferPlace::kDevice);
     if (!made) {
         if (first_report(state, kReportBuffers)) {
             get_log("restir gi: the reservoirs (%ux%u) couldn't be made - the light store's environment lights the view",
@@ -1915,7 +2252,8 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
     const uint32_t flags = (history ? kFlagTemporal : 0U) | (spatial > 0 ? kFlagSpatial : 0U) |
                            (check && own.accumulate ? kFlagAccumulate : 0U) | (check ? kFlagForced : 0U) |
                            (!check || own.overrides.permutation ? kFlagPermute : 0U) |
-                           (!check || own.overrides.boiling_filter ? kFlagBoiling : 0U);
+                           (!check || own.overrides.boiling_filter ? kFlagBoiling : 0U) |
+                           (!check || own.overrides.cache ? kFlagCache : 0U);
     block.counts = {own.entries, static_cast<uint32_t>(local.lamp_list.size()), static_cast<uint32_t>(own.frames), flags};
     block.params = {0U, std::min(spatial, kMostSpatial), kHistoryCap, check ? own.overrides.seed : 0x6C8E9CF5U};
     block.tune = {kSpatialRadius, kNormalAgreement, kPlaneShare, kSkyShare};
@@ -1923,6 +2261,7 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
     block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),
                        static_cast<uint32_t>(scene.instances_address >> 32U), scene.instances, 0U};
     (void)disc_of(lighting, &block.sun, &block.sun_radiance);
+    block.cache_cells = {static_cast<float>(kCacheCellPixels * pixel_angle(to_world, view)), 0.0F, 0.0F, 0.0F};
     block.sky_dist = {own.sky_integral > 0.0 ? static_cast<float>(1.0 / own.sky_integral) : 0.0F, 0.0F, 0.0F, 0.0F};
     if (map_now) {
         block.cloud_place = cloud_map.place;
@@ -1940,8 +2279,8 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
     const auto slot = static_cast<uint32_t>(own.passes % kTimingSlots);
     if (timed) {
         collect_timing(state, own, slot, check);
-        vkCmdResetQueryPool(commands, own.timing.pool, slot * 2, 2);
-        vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, own.timing.pool, slot * 2);
+        vkCmdResetQueryPool(commands, own.timing.pool, slot * kTimingStamps, kTimingStamps);
+        vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, own.timing.pool, slot * kTimingStamps);
     }
     if (own.restart) {
         if (check) {
@@ -1949,6 +2288,10 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         }
         vkCmdFillBuffer(commands, own.counters.buffer, 0, VK_WHOLE_SIZE, 0);
         own.restart = false;
+    }
+    if (own.cache_clear) {
+        vkCmdFillBuffer(commands, own.cache.buffer, 0, VK_WHOLE_SIZE, 0);
+        own.cache_clear = false;
     }
     barrier(commands,
             VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
@@ -1972,7 +2315,7 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         .accelerationStructureCount = 1,
         .pAccelerationStructures = &scene.tlas};
     const auto whole = [](VkBuffer buffer) { return VkDescriptorBufferInfo{.buffer = buffer, .offset = 0, .range = VK_WHOLE_SIZE}; };
-    const std::array<VkDescriptorBufferInfo, 18> buffers{
+    const std::array<VkDescriptorBufferInfo, 19> buffers{
         VkDescriptorBufferInfo{.buffer = scene.geometry, .offset = 0, .range = scene.geometry_bytes},
         VkDescriptorBufferInfo{.buffer = block_span->buffer, .offset = block_span->offset, .range = sizeof(GiBlock)},
         whole(own.lights.buffer),
@@ -1990,12 +2333,13 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         whole(core::at(own.more, before).buffer),
         whole(own.specular_rays.buffer),
         whole(check ? own.sums.buffer : own.counters.buffer),
-        whole(own.counters.buffer)};
-    constexpr std::array<uint32_t, 18> kBufferBindings{
+        whole(own.counters.buffer),
+        whole(own.cache.buffer)};
+    constexpr std::array<uint32_t, 19> kBufferBindings{
         kBindingGeometry,    kBindingBlock,       kBindingLights,     kBindingEmitters,  kBindingLamps,
         kBindingMembership,  kBindingSlots,       kBindingSkyCells,   kBindingSkyAlias,  kBindingReservoirsA,
         kBindingReservoirsB, kBindingNowAt,       kBindingNowMore,    kBindingBeforeAt,  kBindingBeforeMore,
-        kBindingSpecularRays, kBindingSums,       kBindingCounters};
+        kBindingSpecularRays, kBindingSums,       kBindingCounters,   kBindingCache};
     std::array<VkDescriptorImageInfo, 6> images{};
     if (inputs != nullptr) {
         for (std::size_t k = 0; k < images.size(); ++k) {
@@ -2035,6 +2379,24 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
                               writes.data());
     const uint32_t groups_x = (width + kGroupSide - 1) / kGroupSide;
     const uint32_t groups_y = (height + kGroupSide - 1) / kGroupSide;
+    if ((flags & kFlagCache) != 0U) {
+        // (round MB) the radiance cache: its update paths (one a block of pixels), then each entry's frame - before the
+        // temporal pass reads it at its secondary vertices
+        const uint32_t blocks_x = (width + kCacheBlock - 1) / kCacheBlock;
+        const uint32_t blocks_y = (height + kCacheBlock - 1) / kCacheBlock;
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
+                          core::at(own.cache_update, (check ? 2U : 0U) + (map_now ? 1U : 0U)));
+        vkCmdDispatch(commands, (blocks_x + kGroupSide - 1) / kGroupSide, (blocks_y + kGroupSide - 1) / kGroupSide, 1);
+        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.resolve);
+        vkCmdDispatch(commands, kCacheCapacity / kResolveGroup, 1, 1);
+        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    }
+    if (timed) {
+        vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, own.timing.pool, (slot * kTimingStamps) + 1);
+    }
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
                       core::at(own.temporal, (check ? 2U : 0U) + (map_now ? 1U : 0U)));
     vkCmdDispatch(commands, groups_x, groups_y, 1);
@@ -2045,7 +2407,7 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
     barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT);
     if (timed) {
-        vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timing.pool, (slot * 2) + 1);
+        vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timing.pool, (slot * kTimingStamps) + 2);
         core::at(own.timing.pending, slot) = state.frames.serial();
         own.timed_width = width;
         own.timed_height = height;
@@ -2098,6 +2460,14 @@ void release_restir_gi(Backend& state)
             vkDestroyPipeline(device, pipeline, nullptr);
         }
     }
+    for (VkPipeline& pipeline : own.cache_update) {
+        if (pipeline != VK_NULL_HANDLE) {
+            vkDestroyPipeline(device, pipeline, nullptr);
+        }
+    }
+    if (own.resolve != VK_NULL_HANDLE) {
+        vkDestroyPipeline(device, own.resolve, nullptr);
+    }
     if (own.layout != VK_NULL_HANDLE) {
         vkDestroyPipelineLayout(device, own.layout, nullptr);
     }
@@ -2110,7 +2480,7 @@ void release_restir_gi(Backend& state)
     for (DeviceBuffer* buffer : {&core::at(own.sky_cells, 0), &core::at(own.sky_cells, 1), &own.sky_read, &own.sky_alias,
                                  &own.lights, &own.reservoirs_a, &own.reservoirs_b, &core::at(own.at, 0),
                                  &core::at(own.at, 1), &core::at(own.more, 0), &core::at(own.more, 1), &own.specular_rays,
-                                 &own.sums, &own.counters}) {
+                                 &own.sums, &own.counters, &own.cache}) {
         state.memory.destroy_buffer(buffer);
     }
     state.memory.destroy_image(&own.specular_hit);

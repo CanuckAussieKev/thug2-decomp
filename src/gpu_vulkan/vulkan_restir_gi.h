@@ -54,9 +54,13 @@
 // carry last frame's light for up to their M cap (20 frames' worth) - the stated bias of ReSTIR GI's reuse; a secondary
 // surface's glossy reflection toward a neighbour is taken as toward the pixel that found it (its light is stored).
 // Cost (round BR): every pixel traces its specular ray (+ its secondary's light ray) - Training at 853x480 0.94 -> ~1.5 ms.
+// (Round MB) Further bounces: a radiance cache (NVIDIA's SHaRC - a hash grid of world cells, each the bounce a white
+// diffuser there gets), written by sparse update paths (one pixel of each 4 x 4 block a frame, 3 cosine rays, every
+// vertex's direct light by next-event estimation, the last vertex's bounce the cache's own) and read at the secondary
+// vertices: their light toward the pixel = their direct light + their reflectance x the cache's bounce - every bounce,
+// converging over the frames (docs/design/vulkan.md "Further bounces: a radiance cache"). Run first, before pass 1.
 // Not here: the sun's and the moon's direct light (the shadows pass), the lamps' and emitting surfaces' direct light,
-// diffuse and specular (ReSTIR DI / the lamps pass), seen-through surfaces' own light (glass, water: their own paths), a
-// second bounce (the secondary vertex has its direct light only).
+// diffuse and specular (ReSTIR DI / the lamps pass), seen-through surfaces' own light (glass, water: their own paths).
 namespace render::vulkan {
 
 struct Backend;
@@ -84,6 +88,7 @@ struct RestirGiOverrides {
     // temporal reuse, the boiling filter
     bool permutation = true;
     bool boiling_filter = true;
+    bool cache = true; // (round MB) the secondary vertices' further bounces from the radiance cache (false: one bounce)
     uint32_t seed = 0;
 };
 void set_restir_gi_overrides(const RestirGiOverrides& overrides);
@@ -108,6 +113,7 @@ struct RestirGiStats {
     bool sky_ready = false;  // the sky's grid sampled by its luminance (its read-back in)
     uint64_t sky_grids = 0;  // grids made
     double gpu_ms = 0.0;     // the passes' time on the device (the mean of the last report; 0: not measured)
+    double cache_ms = 0.0;   // (round MB) ... the radiance cache's share of it (its update paths and its entries' frame)
     uint32_t gpu_width = 0;
     uint32_t gpu_height = 0;
 };
