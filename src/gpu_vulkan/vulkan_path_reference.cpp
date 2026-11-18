@@ -34,6 +34,7 @@
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_hdr.h"
+#include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_ring.h"
@@ -81,11 +82,10 @@ constexpr uint32_t kMaterialSet = 1;
 constexpr uint32_t kGroupSide = 8;  // the trace's and the output's work groups: 8 x 8 pixels
 constexpr uint32_t kScanGroup = 64; // the emitters' scan: 64 triangles a group
 constexpr uint32_t kMostGroupsX = 65535;
-constexpr uint32_t kEmitterCapacity = 1U << 20U; // emitting triangles listed at most (16 bytes each)
-constexpr uint32_t kHeaderWords = 4;             // the list's header: count, -, samples not finite, -
-constexpr uint32_t kEntryWords = 4;
+constexpr uint32_t kHeaderWords = kEmitterHeaderWords; // the list's header: count, -, samples not finite, -
+constexpr uint32_t kEntryWords = kEmitterEntryWords;
 constexpr VkDeviceSize kUniformAlignment = 256;
-constexpr std::size_t kLampFloats = 16; // a LightRecord (vulkan_rt_lights.h rt_lamp_glsl)
+constexpr std::size_t kLampFloats = kLampRecordFloats; // a LightRecord (vulkan_rt_lights.h rt_lamp_glsl)
 constexpr std::size_t kMatrixSide = 4;
 constexpr double kSingular = 1e-300;
 constexpr float kHalfFloatMost = 65504.0F;
@@ -174,7 +174,6 @@ layout(std430, set = 0, binding = 10) readonly buffer Lights { LightEntry light_
 layout(std430, set = 0, binding = 11) buffer SkyCells { vec4 sky_cells[]; };
 layout(std430, set = 0, binding = 12) readonly buffer SkyAlias { uvec2 sky_alias[]; };
 layout(std430, set = 0, binding = 14) buffer Slots { uint slots[]; };
-layout(buffer_reference, buffer_reference_align = 4, scalar) readonly buffer PathInstanceWords { float words[]; };
 const uint STRATEGY_MIS = 0u;
 const uint STRATEGY_LIGHTS = 1u;
 const uint STRATEGY_BSDF = 2u;
@@ -187,115 +186,10 @@ const uint PATH_CASTS = 4u;         // (rt::kCastsShadow)
 const uint PATH_TRANSPARENT = 64u;  // (rt::kTransparent)
 const float PATH_REACH = 1.0e6;
 const uint PATH_BLENDED_OPEN = 16u; // (pass.lists.w: `pt ref ... open` - the light's rays pass the blended surfaces)
-
-// An instance's object-to-world transform (its TLAS record's rows).
-mat4x3 instance_transform(uint i)
-{
-    PathInstanceWords w = PathInstanceWords(pass.instance_address.xy);
-    uint at = i * 16u;
-    vec4 r0 = vec4(w.words[at], w.words[at + 1u], w.words[at + 2u], w.words[at + 3u]);
-    vec4 r1 = vec4(w.words[at + 4u], w.words[at + 5u], w.words[at + 6u], w.words[at + 7u]);
-    vec4 r2 = vec4(w.words[at + 8u], w.words[at + 9u], w.words[at + 10u], w.words[at + 11u]);
-    return mat4x3(vec3(r0.x, r1.x, r2.x), vec3(r0.y, r1.y, r2.y), vec3(r0.z, r1.z, r2.z), vec3(r0.w, r1.w, r2.w));
-}
-// An instance's material id (its TLAS record's custom index).
-uint instance_material(uint i)
-{
-    PathInstanceWords w = PathInstanceWords(pass.instance_address.xy);
-    return floatBitsToUint(w.words[i * 16u + 12u]) & 0xFFFFFFu;
-}
-// The triangle `primitive` of `instance`: its place in the emitters' list + 1 (0: not listed).
-uint listed_slot(uint instance, uint primitive)
-{
-    if (instance >= pass.counts.x || primitive >= membership[instance + 1u] - membership[instance]) {
-        return 0u;
-    }
-    return slots[membership[instance] + primitive];
-}
 )";
 
-// The emitters' scan (once a run, before its first paths): one invocation a triangle of the frame's instances
-// (flattened by the instances' first triangles, membership[0 .. instances]). A triangle of a world instance that casts
-// and isn't seen through, whose light store emits at a corner (not hidden, not animated), is measured - its power,
-// 2 pi x its area x its emission's mean luminance at the centroids of its TRIANGLE_LATTICE^2 equal sub-triangles
-// (hit_surface's `emitted`: the store's emit x the lamp texels) - and listed when it sends any. (The list's header word
-// 1 counts the candidates: those emitting at a corner.)
-constexpr const char* kScanBody = R"(
-layout(local_size_x = 64) in;
-float emitter_power(uint instance, uint primitive)
-{
-    uint id = instance_material(instance);
-    mat4x3 to_world = instance_transform(instance);
-    float sum = 0.0;
-    float area = 0.0;
-    const float n = float(TRIANGLE_LATTICE);
-    for (uint i = 0u; i < TRIANGLE_LATTICE; ++i) {
-        for (uint j = 0u; i + j < TRIANGLE_LATTICE; ++j) {
-            // the upright sub-triangle (i, j) and, but on the last row, the one turned over beside it
-            for (uint turned = 0u; turned < (i + j + 1u < TRIANGLE_LATTICE ? 2u : 1u); ++turned) {
-                float c = turned == 0u ? 1.0 / 3.0 : 2.0 / 3.0;
-                HitSurface s;
-                if (hit_surface(instance, primitive, id, vec2((float(i) + c) / n, (float(j) + c) / n), to_world,
-                                vec3(0.0, -1.0, 0.0), s)) {
-                    area = s.area;
-                    if (!s.cut_out && !s.hidden) {
-                        sum += path_luma(max(s.emitted, vec3(0.0)));
-                    }
-                }
-            }
-        }
-    }
-    return 2.0 * PATH_PI * area * sum / (n * n);
-}
-void main()
-{
-    uint g = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * (gl_NumWorkGroups.x * 64u);
-    if (g >= pass.counts.z) {
-        return;
-    }
-    uint low = 0u;
-    uint high = pass.counts.x;
-    while (high - low > 1u) {
-        uint middle = (low + high) >> 1;
-        if (membership[middle] <= g) {
-            low = middle;
-        } else {
-            high = middle;
-        }
-    }
-    uint instance = low;
-    uint primitive = g - membership[instance];
-    GeometryRecord record = geometry_record(instance);
-    if ((record.flags & GEOMETRY_LIVE) == 0u || (record.flags & GEOMETRY_LIGHT) == 0u ||
-        (record.instance_flags & HIT_INSTANCE_OBJECT) != 0u || (record.instance_flags & PATH_CASTS) == 0u ||
-        (record.instance_flags & PATH_TRANSPARENT) != 0u) {
-        return;
-    }
-    float most = 0.0;
-    for (uint k = 0u; k < 3u; ++k) {
-        uint at = geometry_corner(record, primitive, k) * 32u;
-        vec4 flags = unpackUnorm4x8(geometry_word(record.light_address, at + 24u)).zyxw;
-        if (flags.a < 0.75) {
-            return; // (no store at an animated vertex; a hidden mesh)
-        }
-        vec3 e = stored_light(geometry_word(record.light_address, at + 28u));
-        most = max(most, max(e.r, max(e.g, e.b)));
-    }
-    if (!(most > 0.0)) {
-        return;
-    }
-    atomicAdd(emitter_spare, 1u);
-    float power = emitter_power(instance, primitive);
-    if (!(power > 0.0) || isinf(power)) {
-        return; // (no lamp texel at its points: not listed - a BSDF ray finds it, weighed 1)
-    }
-    uint slot = atomicAdd(emitter_count, 1u);
-    if (slot < pass.size.w) {
-        emitter_entries[slot] = uvec4(instance, primitive, floatBitsToUint(power), 0u);
-        slots[g] = slot + 1u;
-    }
-}
-)";
+// The emitters' scan (once a run, before its first paths): vulkan_light_list.h emitter_scan_glsl, on the block's counts.
+constexpr const char* kScanDefines = "#define LIST_TRIANGLES pass.counts.z\n#define LIST_CAPACITY pass.size.w\n";
 
 // The sky's grid (once a run): each cell's radiance toward its centre in the global unit - the sky-view table x the
 // clouds' transmittance + their light (the same march, noise and light as the drawn clouds, faded with distance as the
@@ -810,10 +704,13 @@ std::string shader_source(Shader which, SkySource sky, bool cloud_map)
     source += "const uint SKY_HEIGHT = " + std::to_string(rt::lights::kSkyGridHeight) + "u;\n";
     source += "const uint TRIANGLE_LATTICE = " + std::to_string(rt::lights::kTriangleLattice) + "u;\n";
     source += kCommon;
+    source += "#define LIST_INSTANCE_ADDRESS pass.instance_address.xy\n#define LIST_INSTANCES pass.counts.x\n";
+    source += light_instances_glsl();
     source += rt::lights::kLightListGlsl;
     switch (which) {
     case Shader::kScan:
-        source += kScanBody;
+        source += kScanDefines;
+        source += emitter_scan_glsl();
         break;
     case Shader::kSky:
         source += kSkyBody;
@@ -830,22 +727,7 @@ std::string shader_source(Shader which, SkySource sky, bool cloud_map)
 
 // --- the lighting --------------------------------------------------------------------------------------------------------
 
-struct Lighting {
-    std::array<float, 3> sun_toward{0.0F, 1.0F, 0.0F};
-    std::array<float, 3> sun_light{};
-    float sun_radius_degrees = rt::kSunRadiusDegrees;
-    std::array<float, 3> sky{}; // (an even sky's radiance: without the table)
-    bool table = false;
-    AtmosphereInput table_input;
-    float table_factor = 1.0F;      // x the table: 1 / its exposure (x the kept sky without drawn clouds)
-    bool clouds = false;            // the sky's grid marches the drawn clouds
-    RtSkyFrame cloud_frame;         // (their parameters - the sky pass's last)
-    std::vector<rt::Emitter> lamps; // the analytic ones (x their switches) and the frame record's point lights
-    uint32_t owned = 0;
-    double owned_power = 0.0; // (reported) the owned lamps' flux by their model, as switched now (rt_light_list.h lamp_power)
-    uint32_t points = 0;
-    uint64_t cut = 0; // (rt_daylight.h DayLight::cut)
-};
+using Lighting = SceneLighting;
 
 // The frame's lighting state (the one every pass reads): the relit world's (rt_cel.h cel_world - its sun per N.L and its
 // sky in the global unit), else the clock's (rt_daylight.h, its pre-exposure divided out); the sky-view table's sky
@@ -864,109 +746,7 @@ Lighting frame_lighting(const PathOverrides* overrides, bool every_lamp_analytic
         out.owned = static_cast<uint32_t>(overrides->lamps.size() - out.lamps.size());
         return out;
     }
-    const rt::DayLight day = rt::day_light();
-    const rt::CelWorld world = rt::cel_world();
-    const float pre = day.pre_exposure > 0.0F ? day.pre_exposure : 1.0F;
-    out.cut = day.cut;
-    if (world.relit) {
-        out.sun_toward = world.toward;
-        out.sun_light = world.sun;
-        out.sky = world.sky;
-    } else if (day.on) {
-        out.sun_toward = day.light;
-        for (std::size_t ch = 0; ch < 3; ++ch) {
-            core::at(out.sun_light, ch) = core::at(day.sun_light, ch) / pre;
-            core::at(out.sky, ch) = core::at(day.sky_light, ch) / pre;
-        }
-    }
-    if (day.on) {
-        out.sun_radius_degrees = day.light_radius;
-    }
-    AtmosphereInput input;
-    if (atmosphere_view(&input) && input.exposure > 0.0F) {
-        out.table = true;
-        out.table_input = input;
-        out.cloud_frame = rt_sky_frame();
-        out.clouds = out.cloud_frame.clouds;
-        out.table_factor = (out.clouds || !day.on ? 1.0F : day.cloud_sky) / input.exposure;
-    }
-    const std::shared_ptr<const rt::LevelEmitters> level = rt::level_emitters();
-    const float open = rt::open_sky_lamps(day, level.get());
-    if (level) {
-        const std::vector<rt::Emitter> analytic =
-            every_lamp_analytic ? level->emitters : rt::path::analytic_lamps(level->emitters, level->surfaced);
-        out.owned = static_cast<uint32_t>(level->emitters.size() - analytic.size());
-        const float sky_now = rt::lamp_sky_now(day, level.get());
-        for (std::size_t i = 0; i < level->emitters.size() && i < level->surfaced.size(); ++i) {
-            if (core::at(level->surfaced, i) != 0) {
-                rt::Emitter lamp = core::at(level->emitters, i);
-                lamp.intensity *= rt::lamp_on(lamp.switch_sky, sky_now, open);
-                out.owned_power += rt::lights::lamp_power(lamp);
-            }
-        }
-        for (rt::Emitter lamp : analytic) {
-            lamp.intensity *= rt::lamp_on(lamp.switch_sky, sky_now, open);
-            if (lamp.intensity > 0.0F) {
-                out.lamps.push_back(lamp);
-            }
-        }
-    }
-    if (!level || !level->solved) {
-        for (const rt::Light& light : rt::frame_record().lights) {
-            rt::Emitter lamp;
-            if (rt::lights::point_emitter(light, std::clamp(open, 0.0F, 1.0F), &lamp) && lamp.intensity > 0.0F) {
-                out.lamps.push_back(lamp);
-                ++out.points;
-            }
-        }
-    }
-    return out;
-}
-
-// What a run's lighting is (a change starts it again - the lighting's cut, another light switched): the cut, the direct
-// light, the sky, the lamps.
-uint64_t lighting_key_of(const Lighting& lighting)
-{
-    uint64_t key = 1469598103934665603ULL;
-    const auto mix = [&key](const void* data, std::size_t bytes) {
-        const std::span<const uint8_t> from(static_cast<const uint8_t*>(data), bytes);
-        for (const uint8_t byte : from) {
-            key = (key ^ byte) * 1099511628211ULL;
-        }
-    };
-    mix(&lighting.cut, sizeof(lighting.cut));
-    mix(lighting.sun_toward.data(), sizeof(lighting.sun_toward));
-    mix(lighting.sun_light.data(), sizeof(lighting.sun_light));
-    mix(&lighting.sun_radius_degrees, sizeof(lighting.sun_radius_degrees));
-    mix(lighting.sky.data(), sizeof(lighting.sky));
-    mix(&lighting.table, sizeof(lighting.table));
-    mix(&lighting.clouds, sizeof(lighting.clouds));
-    mix(&lighting.table_factor, sizeof(lighting.table_factor));
-    for (const rt::Emitter& lamp : lighting.lamps) {
-        mix(lamp.position.data(), sizeof(lamp.position));
-        mix(&lamp.intensity, sizeof(lamp.intensity));
-    }
-    return key;
-}
-
-std::array<float, kLampFloats> lamp_record(const rt::Emitter& lamp)
-{
-    return {core::at(lamp.position, 0),
-            core::at(lamp.position, 1),
-            core::at(lamp.position, 2),
-            lamp.size,
-            core::at(lamp.colour, 0) * lamp.intensity,
-            core::at(lamp.colour, 1) * lamp.intensity,
-            core::at(lamp.colour, 2) * lamp.intensity,
-            lamp.reach,
-            0.0F,
-            lamp.core,
-            static_cast<float>(static_cast<uint32_t>(lamp.shape)),
-            0.0F,
-            core::at(lamp.axis, 0),
-            core::at(lamp.axis, 1),
-            core::at(lamp.axis, 2),
-            lamp.half_length};
+    return scene_lighting(every_lamp_analytic, false);
 }
 
 // The scene a reference is of: every instance's mesh, material and transform, in order, and the poses the skinned meshes

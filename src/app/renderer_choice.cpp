@@ -195,6 +195,15 @@ render::vulkan::RtGiSettings make_rt_gi(const Resolution& in_effect)
                                         .denoise = in_effect.on("rt_gi_denoise")};
 }
 
+// NOT ORIGINAL - (path tracing, stage 4) direct_light: restir, passes, else auto
+render::vulkan::RtDirectLight direct_light_of(const std::string& value)
+{
+    if (value == "restir") {
+        return render::vulkan::RtDirectLight::kRestir;
+    }
+    return value == "passes" ? render::vulkan::RtDirectLight::kPasses : render::vulkan::RtDirectLight::kAuto;
+}
+
 // NOT ORIGINAL - the night lighting (gpu_vulkan/vulkan_rt_lights.h): rt_lights=auto, the default, lit only while it is
 // dark - the time of day's night, or a dark level; 1 always, 0 never
 render::vulkan::RtLightSettings make_rt_lights(const Resolution& in_effect)
@@ -208,7 +217,8 @@ render::vulkan::RtLightSettings make_rt_lights(const Resolution& in_effect)
                                            .max_lights = at_least_one(in_effect, "rt_lights_max", defaults.max_lights),
                                            .emissive = in_effect.number("rt_lights_emissive", defaults.emissive),
                                            .level = in_effect.number("rt_lights_level", defaults.level),
-                                           .log = in_effect.on("rt_lights_log")};
+                                           .log = in_effect.on("rt_lights_log"),
+                                           .direct = direct_light_of(in_effect.value("direct_light"))};
 }
 
 // NOT ORIGINAL - ray-traced reflections (gpu_vulkan/vulkan_rt_reflections.h)

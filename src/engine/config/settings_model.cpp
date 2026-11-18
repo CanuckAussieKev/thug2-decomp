@@ -419,6 +419,14 @@ std::vector<Decl> declarations()
             .pick({c("1", "1"), c("2", "2"), c("4", "4"), c("8", "8")})
             .need(is_not("rt_lights", {"0"}))
             .live(E::kLights),
+        // (path tracing, stage 4 - gpu_vulkan/vulkan_restir_di.h) how the lamps' direct light is made: ReSTIR DI (every
+        // lamp and lit surface, noisy - Ray Reconstruction's to clean), or the lamps pass (the nearest lamps); auto:
+        // ReSTIR where Ray Reconstruction denoises the frame
+        gfx("direct_light", K::kChoice, "auto")
+            .tab(G::kLighting, t::kOptDirectLight, t::kOptDirectLightHelp)
+            .pick({c("auto", t::kAuto), c("restir", "ReSTIR"), c("passes", t::kOptDirectLightPasses)})
+            .need(is_not("rt_lights", {"0"}))
+            .live(E::kLights),
         gfx("rt_lights_max", K::kNumber, "64").need(is_not("rt_lights", {"0"})).live(E::kLights),
         gfx("rt_lights_emissive", K::kNumber, "1").need(is_not("rt_lights", {"0"})).live(E::kLights),
         gfx("rt_lights_level", K::kNumber, "1").need(is_not("rt_lights", {"0"})).live(E::kLights),

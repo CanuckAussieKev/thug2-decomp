@@ -39,6 +39,8 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_rt_sun.cpp
     vulkan_rt_sky_pass.cpp
     vulkan_path_reference.cpp
+    vulkan_light_list.cpp
+    vulkan_restir_di.cpp
     vulkan_rt_clouds.cpp
     vulkan_rt_glsl.cpp
     vulkan_rt_materials.cpp
