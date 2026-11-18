@@ -42,7 +42,7 @@
 //     roulette from the third bounce;
 //   - the light list: made once a run (its lighting frozen with its camera; another cut, a lamp switched, starts it
 //     again) - in its first frame the device scans every triangle of the world (its bounds; each emitting one's power:
-//     2 pi x area x its emission's mean luminance at rt_light_list.h kTrianglePoints points, the emission hit_surface
+//     2 pi x area x its emission's mean luminance at rt_light_list.h kTriangleLattice^2 points, the emission hit_surface
 //     gives) and fills the sky's grid; in the next the processor reads them back, builds the alias tables and uploads
 //     them; the paths start then.
 // Retires nothing: the realtime passes are untouched.

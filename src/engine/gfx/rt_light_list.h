@@ -25,7 +25,7 @@
 //   local - their flux:
 //   - emitting triangles (the light store's emission x the lamp texels - vulkan_rt_scene.h hit_surface's `emitted`,
 //     the same function): a two-sided Lambertian emitter of mean radiance L over area A sends 2 pi A L
-//     (triangle_power; the device's scan measures L at kTrianglePoints points of each triangle);
+//     (triangle_power; the device's scan measures L at the centroids of kTriangleLattice^2 equal sub-triangles);
 //   - analytic lamps (rt_lights.h's lamp model, those without a surface of their own) and the frame record's point
 //     lights where the level has no solved lamps: flux from their photometry (lamp_power).
 // The pick: an alias table (Walker 1977, Vose 1991's construction - O(1) a sample), one entry a light: the two groups
@@ -84,18 +84,9 @@ inline constexpr uint32_t kIndexMask = (1U << kKindShift) - 1U;
 inline constexpr uint32_t kDiscEntry = 0;
 inline constexpr uint32_t kSkyEntry = 1;
 inline constexpr uint32_t kFirstTriangleEntry = 2;
-// The barycentric points (weights of corners 1 and 2) a triangle's mean radiance is measured at: its centroid, the
-// points half way from it to each corner and the edges' midpoints.
-inline constexpr std::size_t kTrianglePoints = 7;
-inline constexpr std::array<std::array<float, 2>, kTrianglePoints> kTrianglePointWeights{{
-    {1.0F / 3.0F, 1.0F / 3.0F},
-    {1.0F / 6.0F, 1.0F / 6.0F},
-    {2.0F / 3.0F, 1.0F / 6.0F},
-    {1.0F / 6.0F, 2.0F / 3.0F},
-    {0.5F, 0.0F},
-    {0.5F, 0.5F},
-    {0.0F, 0.5F},
-}};
+// A triangle's mean radiance is measured at the centroids of the kTriangleLattice^2 equal sub-triangles its edges cut
+// in kTriangleLattice make (a lamp drawn in a texture lights only its lamp texels - a few points miss them).
+inline constexpr uint32_t kTriangleLattice = 8;
 
 [[nodiscard]] float luma(const Rgb& c);
 // A distant disc of light per N.L `light` (its irradiance / pi): pi x its luminance (per unit of cross-section).

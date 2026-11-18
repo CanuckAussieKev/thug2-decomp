@@ -209,8 +209,9 @@ uint listed_slot(uint instance, uint primitive)
 // The emitters' scan (once a run, before its first paths): one invocation a triangle of the frame's instances
 // (flattened by the instances' first triangles, membership[0 .. instances]). A triangle of a world instance that casts
 // and isn't seen through, whose light store emits at a corner (not hidden, not animated), is measured - its power,
-// 2 pi x its area x its emission's mean luminance at TRIANGLE_POINTS points (hit_surface's `emitted`: the store's emit x
-// the lamp texels) - and listed when it sends any.
+// 2 pi x its area x its emission's mean luminance at the centroids of its TRIANGLE_LATTICE^2 equal sub-triangles
+// (hit_surface's `emitted`: the store's emit x the lamp texels) - and listed when it sends any. (The list's header word
+// 1 counts the candidates: those emitting at a corner.)
 constexpr const char* kScanBody = R"(
 layout(local_size_x = 64) in;
 float emitter_power(uint instance, uint primitive)
@@ -219,16 +220,24 @@ float emitter_power(uint instance, uint primitive)
     mat4x3 to_world = instance_transform(instance);
     float sum = 0.0;
     float area = 0.0;
-    for (uint k = 0u; k < TRIANGLE_POINTS; ++k) {
-        HitSurface s;
-        if (hit_surface(instance, primitive, id, TRIANGLE_POINT[k], to_world, vec3(0.0, -1.0, 0.0), s)) {
-            area = s.area;
-            if (!s.cut_out && !s.hidden) {
-                sum += path_luma(max(s.emitted, vec3(0.0)));
+    const float n = float(TRIANGLE_LATTICE);
+    for (uint i = 0u; i < TRIANGLE_LATTICE; ++i) {
+        for (uint j = 0u; i + j < TRIANGLE_LATTICE; ++j) {
+            // the upright sub-triangle (i, j) and, but on the last row, the one turned over beside it
+            for (uint turned = 0u; turned < (i + j + 1u < TRIANGLE_LATTICE ? 2u : 1u); ++turned) {
+                float c = turned == 0u ? 1.0 / 3.0 : 2.0 / 3.0;
+                HitSurface s;
+                if (hit_surface(instance, primitive, id, vec2((float(i) + c) / n, (float(j) + c) / n), to_world,
+                                vec3(0.0, -1.0, 0.0), s)) {
+                    area = s.area;
+                    if (!s.cut_out && !s.hidden) {
+                        sum += path_luma(max(s.emitted, vec3(0.0)));
+                    }
+                }
             }
         }
     }
-    return 2.0 * PATH_PI * area * sum / float(TRIANGLE_POINTS);
+    return 2.0 * PATH_PI * area * sum / (n * n);
 }
 void main()
 {
@@ -267,6 +276,7 @@ void main()
     if (!(most > 0.0)) {
         return;
     }
+    atomicAdd(emitter_spare, 1u);
     float power = emitter_power(instance, primitive);
     if (!(power > 0.0) || isinf(power)) {
         return; // (no lamp texel at its points: not listed - a BSDF ray finds it, weighed 1)
@@ -679,14 +689,7 @@ std::string shader_source(Shader which, SkySource sky, bool cloud_map)
     source += "const float ROULETTE_MOST = " + std::to_string(rt::path::kRouletteMost) + ";\n";
     source += "const uint SKY_WIDTH = " + std::to_string(rt::lights::kSkyGridWidth) + "u;\n";
     source += "const uint SKY_HEIGHT = " + std::to_string(rt::lights::kSkyGridHeight) + "u;\n";
-    source += "const uint TRIANGLE_POINTS = " + std::to_string(rt::lights::kTrianglePoints) + "u;\n";
-    source += "const vec2 TRIANGLE_POINT[" + std::to_string(rt::lights::kTrianglePoints) + "] = vec2[](";
-    for (std::size_t k = 0; k < rt::lights::kTrianglePoints; ++k) {
-        const std::array<float, 2>& point = core::at(rt::lights::kTrianglePointWeights, k);
-        source += text::format("%svec2(%.9g, %.9g)", k == 0 ? "" : ", ", static_cast<double>(core::at(point, 0)),
-                               static_cast<double>(core::at(point, 1)));
-    }
-    source += ");\n";
+    source += "const uint TRIANGLE_LATTICE = " + std::to_string(rt::lights::kTriangleLattice) + "u;\n";
     source += kCommon;
     source += rt::lights::kLightListGlsl;
     switch (which) {
@@ -1537,11 +1540,12 @@ bool build_run_list(Backend& state, PathState& own)
     const auto share = [&list](std::size_t kind) { return 100.0 * core::at(list.kind_pick, kind); };
     own.list_text =
         text::format("light list (%s): %u lights - the disc (power %.4g), the sky (%.4g, integral %.4g), %u emitting "
-                     "triangles%s (%.4g), "
+                     "triangles%s (of %u emitting at a corner; %.4g), "
                      "%u lamps (%u point lights; %.4g); picked %.1f / %.1f / %.1f / %.1f %%",
                      own.weights == rt::lights::LightWeights::kPower ? "by power" : "the kinds evenly", own.list_count,
                      core::at(list.kind_power, 0), core::at(list.kind_power, 1), sky.integral, listed,
-                     core::at(words, 0) > kEmitterCapacity ? " (the list full)" : "", core::at(list.kind_power, 2),
+                     core::at(words, 0) > kEmitterCapacity ? " (the list full)" : "", core::at(words, 1),
+                     core::at(list.kind_power, 2),
                      static_cast<uint32_t>(set.lamps.size()), own.lighting.points, core::at(list.kind_power, 3),
                      share(0), share(1), share(2), share(3));
     return true;

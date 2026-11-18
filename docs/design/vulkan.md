@@ -5162,7 +5162,7 @@ through the tone curve at that EV. `pt off` ends it.
   over the sphere - the sky-view table x the drawn clouds' transmittance + their light, the same march as the drawn
   clouds, else x the clouds' kept share; without the table an even sky - sampled by its luminance with two alias tables,
   the grid also what a ray that leaves the world sees), every emitting triangle (2 pi x area x its emission's mean
-  luminance at seven points, hit_surface's own emission; measured on the device in the run's first frame) and the
+  luminance at 64 points, hit_surface's own emission; measured on the device in the run's first frame) and the
   analytic lamps (flux from the lamp model's photometry: a point 4 pi^2 I core^2, a panel 2 pi^2 I core^2, a line
   pi^3 I core h) with the frame record's point lights where the level's lamps aren't solved. One alias table picks a
   light: the distant group (disc and sky) and the local group evenly, each light by its power within its group (pbrt-v4's
