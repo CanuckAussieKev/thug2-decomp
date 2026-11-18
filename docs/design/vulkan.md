@@ -5303,7 +5303,12 @@ per surface (round V: ray tracing, a relit level, the linear frame, single-sampl
 `direct_light` `restir` - or `auto` while DLSS Ray Reconstruction denoises the frame - ReSTIR DI (Bitterli et al. 2020)
 makes the lamps' inputs (`lamps`: a white diffuser's radiance in the frame's pre-exposed unit; `lamps_on`: the same on
 the traced albedo) in place of the lamps pass, which then draws nothing in the view (it still chooses the view's lamps:
-the fog scatters them). The shading is unchanged: it stays the one consumer.
+the fog scatters them). The shading is unchanged: it stays the one consumer. (Round BR) The same chosen sample through
+the surface's specular lobe (its traced F0 and roughness), over its specular albedo E, goes into the specular input
+(binding 30; ReSTIR GI adds the environment's after): the lights' specular is this pass's as their diffuse light is,
+sampled on the light - before, it was ReSTIR GI's, an emitter's face met by a reflected ray (sparkle). The depth's own
+surface (no material known) gets none. thug2_vulkan_restir_check: a glossy floor (roughness 0.2), diffuse + E x the
+specular input against the reference's direct light, -0.30 %.
 
 - **The lights** are the light list's local group (vulkan_light_list.h, shared with `pt ref`): every emitting triangle the
   shared scan lists (hit_surface's `emitted`, its power measured at 64 points; round PT4b: every triangle with an area
@@ -5383,21 +5388,22 @@ traced sky K and bounce B) and of the occlusion and reflections passes. The shad
 
 - **One sample a pixel** (pass 1, ViewOrder::kLights + 1 - after the lamps' inputs): the surface as ReSTIR DI finds it
   (the prepass's depth, a camera ray's triangle - its normals, albedo, F0, roughness kept for the next frame), a direction
-  drawn from a mix of the sky's distribution (a quarter: the light list's sky grid by its luminance) and the BSDF (the
-  cosine lobe; GGX's visible normals too where the surface is glossy - perceptual roughness from kGlossyReuse 0.3), its pdf
-  the mix's, traced:
+  drawn from a mix of the sky's distribution (a quarter: the light list's sky grid by its luminance) and the cosine lobe,
+  its pdf the mix's, traced:
   - nothing hit: the sky that way - the grid's radiance (the disc is not in it: the shadows pass owns the sun's and the
     moon's direct light) - a sample at infinity;
   - a surface hit: its reflected light toward the pixel by next-event estimation through the **full light list** - the
     disc (its cone, the clouds' shadow map), the sky (its grid), the emitting triangles and the analytic lamps, one picked
-    by power, one ray (the reference's light sampling without its MIS - nothing continues from there); its emission kept
-    apart (the emitters' light on a diffuser is ReSTIR DI's - one owner; only their specular is this pass's).
+    by power, one ray (the reference's light sampling without its MIS - nothing continues from there); not its emission
+    (round BR): the light straight from an emitter, on a diffuser and in a specular lobe, is ReSTIR DI's - one owner,
+    sampled on the light (found by a reflected ray, a small bright emitter's face made single bright pixels that changed
+    from frame to frame - Training's sparkle under Ray Reconstruction).
   The list's local group is ReSTIR DI's (vulkan_light_list.h `restir_local_lights`: one scan, one set of lamp records);
   the sky's grid is the reference's (`sky_grid_*`, made on the device when the sun or the sky changes, read back without a
   wait and taken into use with its alias tables - the grid in use and the tables always one pair: the clouds' drift since
   is not in it).
 - **The target** p^ = the luminance of what a white diffuser's lobe takes of the sample's reflected light (the lamps
-  input's unit), plus, where glossy, what the material's specular lobe takes of its reflected and emitted light.
+  input's unit): the reservoirs carry the diffuse light alone.
 - **Reuse**: temporal (the point taken back through last frame's camera, ReSTIR DI's surface tests, M at most 20) and
   spatial (2 neighbours within 24 pixels); a reused sample reconnected to this surface - its weight x the Jacobian
   (cos at the sample / d^2 here over the same at its own pixel; 1 for the sky), Bitterli et al.'s unbiased combination
@@ -5411,9 +5417,16 @@ traced sky K and bounce B) and of the occlusion and reflections passes. The shad
   - the visibility input's indirect visibility set to 0: the store's environment - diffuse and specular, its sky and its
     bounce - has no weight where this pass lit the surface;
   - the specular, over the surface's specular albedo E (demodulated), into a new input (binding 30,
-    kLightSpecularBinding): the shading adds brdf_specular_albedo x it (ff_shaders.cpp) - the glossy surfaces' from the
-    reservoir's sample through the specular lobe; the smooth ones' from one ray along a GGX visible normal of their lobe
-    (pass 1: weight F G2/G1, what it meets - its reflected light and its emission - or the sky);
+    kLightSpecularBinding): the shading adds brdf_specular_albedo x it (ff_shaders.cpp) - every surface's from one ray
+    along a GGX visible normal of its lobe (pass 1: weight F G2/G1, what it meets - its reflected light - or the sky),
+    added to the lights' own specular ReSTIR DI wrote there first. (Round BR: surfaces of roughness 0.3 and more took it
+    from the diffuse reservoir's sample through their lobe - a sample that lands in the lobe by chance: single bright
+    pixels from frame to frame on Training's walls and pillars that Ray Reconstruction passed as sparkle. Resampling for
+    the diffuse light and a ray a pixel for the reflections is Kajiya's and Lumen's split. The depth's own surface - no
+    material known, the camera ray missed the scene's copy - is a diffuser alone in both passes: its ray started inside
+    the skater's skinned copy and outlined him in white, and E of a guessed material under the shading's own made him
+    pale - green where F0 0 left E near 0.) Cost: + the specular ray and its light ray on every pixel - Training at
+    853x480: 0.94 -> 1.45 ms;
   - the specular ray's hit distance (R16F) - Ray Reconstruction's specular hit distance guide
     (kBufferTypeSpecularHitDistance, the view at its rect).
 - **The fallback tier** (`passes`, or `auto` without Ray Reconstruction): the store's sky and bounce with `rt_ao`; the
