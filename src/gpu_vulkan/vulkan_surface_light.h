@@ -23,13 +23,16 @@
 //   2. At opaque_drawn (ViewOrder::kSurfaceInputs, before the shadows) the view's light inputs are begun from that depth -
 //      images of the target's size: the depth (R32F), the visibility (RGBA16F: the sun's visibility - -1 not
 //      traced -, the direct light's share, the indirect light's visibility, 1 where made), the lamps' light and the
-//      lamps' light on the traced albedo (RGBA16F), the decals (RGBA16F, 1: none) - and the passes write into them instead
+//      lamps' light on the traced albedo (RGBA16F), the decals' material layers (two RGBA16F: round DB) - and the passes
+//      write into them instead
 //      of over the colour: the sun shadows (vulkan_rt_shadows.h) the visibility and the share, the occlusion
 //      (vulkan_rt_effects.h) the indirect light's visibility, the lamps (vulkan_rt_lights.h) their light, the decals
-//      (vulkan_scatter.h) their marks - a material's edit: the surface's albedo x them, lit with it.
+//      (vulkan_scatter.h) their marks - material layers (the deferred decal's DBuffer): the surface's albedo, roughness
+//      and F0 edited before it is lit.
 //   3. At ViewOrder::kSurfaceShading the kept draws are drawn, in their order, with the inputs bound
 //      (FragmentKey::light kLightInputs; ff_shaders.cpp kLightInputsGlsl): a fragment that is the surface the inputs were
-//      made for (its depth the prepass's) is lit by the light model with them - the sun's visibility in place of its
+//      made for (its depth the prepass's, or - round DB - a layer lying on it: within kLayerLift of it along its own
+//      normal - a crosswalk's paint over its asphalt) is lit by the light model with them - the sun's visibility in place of its
 //      vertex's, the occlusion on its indirect light alone, the lamps' light on its albedo -; a colour lit already (an
 //      unlit prop, an animated vertex: kLightShare - only on a draw that doesn't add or multiply) takes them as shares
 //      of its light. Every other fragment - glass, a glow, a particle in front - keeps its own light: no pass multiplies
@@ -55,17 +58,21 @@ struct SurfaceInputs {
     Image* lamps = nullptr;
     Image* lamps_on = nullptr;
     Image* depth = nullptr;
-    Image* decals = nullptr; // (RGBA16F, 1 where none: the decals' pass multiplies their marks in - the albedo's factor)
+    // (round DB) The decals as material layers - the deferred decal's DBuffer (UE's DBuffer decals): the surface's material
+    // before its light is albedo x decals.a + decals.rgb, roughness x layer.a + layer.r, F0 x layer.a + layer.g (RGBA16F
+    // each, (0, 0, 0, 1) where none: the decals' pass lays each mark over the last - vulkan_scatter.h)
+    Image* decals = nullptr;
+    Image* layer = nullptr;
     Image* guides = nullptr; // (RGBA32UI storage, 0 where none: Ray Reconstruction's guides, written by the surfaces)
     // (path tracing, stage 5 - vulkan_restir_gi.h) the environment's specular light over the surface's specular albedo
     // (RGBA16F, pre-exposed; a 1 where made, 0 where none): the shading takes E x it in place of its own estimate
     Image* specular = nullptr;
 };
 
-// The pushed descriptors of a draw that reads the inputs (kLightVisibilityBinding - kLightSpecularBinding).
+// The pushed descriptors of a draw that reads the inputs (kLightVisibilityBinding - kLightLayerBinding).
 struct SurfaceInputDescriptors {
     bool on = false;
-    std::array<VkDescriptorImageInfo, 7> images{};
+    std::array<VkDescriptorImageInfo, 8> images{};
     bool guides = false; // (the last, a storage image: pushed with kLightGuides)
 };
 

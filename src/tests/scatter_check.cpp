@@ -561,6 +561,34 @@ bool measure_level(const std::filesystem::path& folder, bool why)
 
 } // namespace
 
+// (round DB) The decals as material layers (scatter.h kDecalTile, decal_material): each kind's layer from the one rule -
+// oil a film of motor oil (F0 0.036, roughness 0.3: glossier than the asphalt under it), tyre and gum rubber, the wet
+// patch water (F0 0.02, still water's roughness), the rest ground; the atlas holds each mark's colour and coverage -
+// oil's core dark (its colour the art's 0.2: an albedo about 0.03 linear), a clear texel white with no coverage.
+void layer_checks()
+{
+    const sc::DecalMaterial oil = sc::decal_material(sc::DecalKind::kOil);
+    const sc::DecalMaterial wet = sc::decal_material(sc::DecalKind::kWet);
+    const sc::DecalMaterial tyre = sc::decal_material(sc::DecalKind::kTyre);
+    const sc::DecalMaterial crack = sc::decal_material(sc::DecalKind::kCrack);
+    expect(oil.layer == sc::DecalLayer::kPigment && std::abs(oil.f0 - 0.0362F) < 0.0005F && oil.roughness < 0.5F,
+           "oil is a glossy film (F0 0.036, roughness under 0.5)");
+    expect(wet.layer == sc::DecalLayer::kWater && std::abs(wet.f0 - 0.0204F) < 0.0005F && wet.roughness <= 0.05F,
+           "the wet patch is still water");
+    expect(tyre.layer == sc::DecalLayer::kPigment && tyre.roughness > oil.roughness && crack.roughness > 0.9F,
+           "rubber and grit are rougher than the oil");
+    const std::vector<uint8_t> atlas = sc::make_decal_atlas();
+    const auto texel = [&atlas](uint32_t kind, uint32_t u, uint32_t v) {
+        const std::size_t at = ((static_cast<std::size_t>((kind * sc::kDecalTile) + v) * sc::kAtlasWidth) + u) * 4;
+        return std::array<uint8_t, 4>{core::at(atlas, at), core::at(atlas, at + 1), core::at(atlas, at + 2), core::at(atlas, at + 3)};
+    };
+    const uint32_t middle = sc::kDecalTile / 2;
+    const std::array<uint8_t, 4> oil_core = texel(static_cast<uint32_t>(sc::DecalKind::kOil), middle, middle);
+    expect(core::at(oil_core, 0) < 70 && core::at(oil_core, 3) > 150, "oil's core: its own dark colour, mostly covered");
+    const std::array<uint8_t, 4> corner = texel(static_cast<uint32_t>(sc::DecalKind::kOil), 0, 0);
+    expect(core::at(corner, 3) == 0 && core::at(corner, 0) == 255, "a clear texel: white, no coverage");
+}
+
 int main(int argc, char** argv)
 {
     tests::no_error_dialogs();
@@ -579,6 +607,7 @@ int main(int argc, char** argv)
         patch_checks();
         winding_checks();
         air_checks();
+        layer_checks();
         std::printf("%s: %d failure(s)\n", failures() == 0 ? "ok" : "FAILED", failures());
         return failures() == 0 ? 0 : 1;
     }

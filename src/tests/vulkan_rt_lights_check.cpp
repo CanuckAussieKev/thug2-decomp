@@ -59,6 +59,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/light_cards.h"
+#include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
@@ -1047,12 +1048,19 @@ Matrices matrices_for(const Vec3& eye)
     return out;
 }
 
+// (round DB) The camera draw_scene and view_drawn use: kEye, but for the decal layers' grazing view.
+Vec3& scene_eye()
+{
+    static Vec3 eye = kEye;
+    return eye;
+}
+
 void draw_scene(render::Gpu& gpu, std::span<const SceneMesh> meshes)
 {
     using render::GpuRenderState;
     using render::GpuStageState;
     gpu.set_viewport({.x = 0, .y = 0, .width = kTargetWidth, .height = kTargetHeight, .min_z = 0.0F, .max_z = 1.0F});
-    const Matrices matrices = matrices_for(kEye);
+    const Matrices matrices = matrices_for(scene_eye());
     constexpr Matrix kIdentity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     gpu.set_transform(render::GpuTransform::kWorld, kIdentity.data());
     gpu.set_transform(render::GpuTransform::kView, matrices.view.data());
@@ -1081,7 +1089,7 @@ void draw_scene(render::Gpu& gpu, std::span<const SceneMesh> meshes)
 
 rt::ViewDrawn view_drawn()
 {
-    const Matrices matrices = matrices_for(kEye);
+    const Matrices matrices = matrices_for(scene_eye());
     rt::ViewDrawn view;
     constexpr std::size_t kSide = 4;
     for (std::size_t row = 0; row < kSide; ++row) {
@@ -1091,7 +1099,7 @@ rt::ViewDrawn view_drawn()
                 core::at(matrices.projection, (row * kSide) + column);
         }
     }
-    view.camera.position = floats(kEye);
+    view.camera.position = floats(scene_eye());
     view.rect = {0, 0, kTargetWidth, kTargetHeight};
     view.depth_range = {0.0F, 1.0F};
     return view;
@@ -2253,9 +2261,10 @@ LitGlowDraw& lit_glow_draw()
     return draw;
 }
 
-// (decals) A mark over the left half of the view - as the decals' pass draws one where rt_decals places it: the decals'
-// input there x kMark (the pass's own multiplying blend over the input's 1), at kDecals between the inputs and the
-// shading.
+// (decals) A mark over the whole view - as the decals' pass lays one where rt_decals places it, at kDecals between the
+// inputs and the shading: (round DB) the decals' layers (the deferred decal's DBuffer - vulkan_surface_light.h) set to
+// `albedo` (albedo x a + rgb) and `layer` (roughness x a + r, F0 x a + g). The default: a darkening by kMark (no colour
+// of its own, the material's roughness and F0 kept - a wet patch's kind).
 constexpr float kMark = 0.5F;
 class MarkListener final : public rt::ViewListener {
 public:
@@ -2265,19 +2274,23 @@ public:
         render::vulkan::Backend& state = render::vulkan::backend();
         const std::scoped_lock lock(state.mutex);
         const render::vulkan::SurfaceInputs* const inputs = render::vulkan::surface_inputs(state);
-        if (inputs == nullptr || inputs->decals == nullptr) {
+        if (inputs == nullptr || inputs->decals == nullptr || inputs->layer == nullptr) {
             return;
         }
         VkCommandBuffer commands = render::vulkan::outside_pass(state);
-        render::vulkan::Memory::transition(commands, inputs->decals, VK_IMAGE_LAYOUT_GENERAL, true);
-        const VkClearColorValue mark{.float32 = {kMark, kMark, kMark, 1.0F}};
         const VkImageSubresourceRange all{
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
-        vkCmdClearColorImage(commands, inputs->decals->image, VK_IMAGE_LAYOUT_GENERAL, &mark, 1, &all);
-        render::vulkan::Memory::transition(commands, inputs->decals, VK_IMAGE_LAYOUT_GENERAL, true);
+        for (const auto& [image, value] : {std::pair{inputs->decals, albedo}, std::pair{inputs->layer, layer}}) {
+            render::vulkan::Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
+            const VkClearColorValue clear{.float32 = {core::at(value, 0), core::at(value, 1), core::at(value, 2), core::at(value, 3)}};
+            vkCmdClearColorImage(commands, image->image, VK_IMAGE_LAYOUT_GENERAL, &clear, 1, &all);
+            render::vulkan::Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
+        }
         state.bound = render::vulkan::BoundState{};
         ++marked;
     }
+    std::array<float, 4> albedo{0.0F, 0.0F, 0.0F, kMark};
+    std::array<float, 4> layer{0.0F, 0.0F, 0.0F, 1.0F};
     int marked = 0;
 };
 
@@ -2400,6 +2413,8 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
     gpu.present();
     return read && texels->size() == static_cast<std::size_t>(kTargetWidth) * kTargetHeight * 8;
 }
+
+void run_decal_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally);
 
 void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
 {
@@ -2704,6 +2719,7 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
         const std::scoped_lock lock(state.mutex);
         render::vulkan::set_surface_light_guides_forced(false);
     }
+    run_decal_layers(gpu, meshes, tally); // (round DB: with the lit glow's texture and program)
     if (lit_glow_draw().shader != nullptr) {
         gpu.release_pixel_shader(lit_glow_draw().shader);
     }
@@ -2724,6 +2740,327 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     rt::set_hdr_colour(hdr_before);
     render::vulkan::set_rt_shadow_settings({});
     rt::set_sun_override(nullptr);
+}
+
+// --- (round DB) decals and painted layers as material layers ---------------------------------------------------------
+// The deferred decal's model (UE's DBuffer decals; vulkan_surface_light.h SurfaceInputs::decals / layer): a mark edits
+// the surface's material before it is lit, and a layer the game paints over a surface is lit as that surface. A floor
+// lit per pixel (a lit object's draw: the single-texture material shader, a white texture, the ambient light alone - an
+// even environment of 1 for its diffuse and its specular; its one directional light black), seen from kLayerEye - low
+// over it, the far floor at 3 - 7 degrees:
+//   - an oil film over the whole view (albedo layer (A, 0), material layer (roughness, F0, 0, 0)): every floor pixel is
+//     the light model's for oil alone - A (1 - E) + E, E the specular's directional albedo for oil's F0 and roughness at
+//     the pixel's N.V (rt_brdf.h ambient) -, whatever the floor's own material: the layer replaces it (a multiply of the
+//     lit colour can't give it), darker than the bare floor and with more specular than a rough layer of the same
+//     colour; Ray Reconstruction's guides carry oil's albedo and roughness;
+//   - a layer painted over the floor kPaintLift above it (alpha-blended, depth written, its alpha a checker crossing
+//     one half - the prepass keeps the paint at some pixels and the floor at the others), both white, the decals'
+//     layers a darkening by kMark: every pixel under the paint as the floor alone (the paint and the floor are one
+//     surface lit once - before round DB the paint's fragments over the floor's prepass, 0.8 / sin 5 degrees along the
+//     ray, kept their own light and showed the checker).
+constexpr Vec3 kLayerEye{0.0, 25.0, 320.0};
+constexpr double kPaintLift = 0.8;   // (Boston's crosswalk paint over its asphalt)
+constexpr double kPaintInset = 20.0; // (the paint a little inside the floor's edge)
+constexpr float kOilLinear = 0.033F; // (oil's albedo: the art's 0.2, display-encoded)
+constexpr float kRoughLayer = 0.94F; // (a rough layer of oil's colour: the table's ground)
+constexpr uint32_t kPaintLow = 0x28FFFFFFU;  // (white, alpha 40: drawn x 2 - 0.31)
+constexpr uint32_t kPaintHigh = 0x64FFFFFFU; // (white, alpha 100: drawn x 2 - 0.78)
+constexpr double kLayerTolerance = 0.006;
+constexpr double kEdgeMargin = 30.0; // (units kept off the quads' edges)
+
+// A 2 x 2 texture of two texels in a checker.
+bool make_checker(render::Gpu& gpu, uint32_t one, uint32_t other, render::GpuTexture** texture)
+{
+    if (gpu.create_texture({.width = kTextureSide,
+                            .height = kTextureSide,
+                            .levels = 1,
+                            .usage = 0,
+                            .format = value::kFormatA8R8G8B8,
+                            .pool = value::kPoolManaged},
+                           texture) != value::kResultOk) {
+        *texture = nullptr;
+        return false;
+    }
+    render::GpuLockedRect locked;
+    if (gpu.lock_texture(*texture, 0, &locked, nullptr, 0) != value::kResultOk) {
+        return false;
+    }
+    const auto pitch = static_cast<std::size_t>(locked.pitch);
+    const std::span<uint8_t> into(static_cast<uint8_t*>(locked.bits), pitch + (kTextureSide * kPixelBytes));
+    for (uint32_t row = 0; row < kTextureSide; ++row) {
+        for (uint32_t column = 0; column < kTextureSide; ++column) {
+            put_word(into, (row * pitch) + (column * kPixelBytes), ((row + column) % 2U) == 0U ? one : other);
+        }
+    }
+    gpu.unlock_texture(*texture, 0);
+    return true;
+}
+
+// The point on the floor (y = `height`) the eye's ray through the pixel's centre meets, and whether it does.
+bool floor_point(const Vec3& eye, int x, int y, double height, Vec3* at)
+{
+    const View view = view_from(eye);
+    const double ndc_x = (2.0 * (x + 0.5) / kTargetWidth) - 1.0;
+    const double ndc_y = 1.0 - (2.0 * (y + 0.5) / kTargetHeight);
+    const Vec3 direction = normalised(
+        step(step(step(Vec3{}, view.right, ndc_x * view.half_width), view.up, ndc_y * view.half_height), view.back, -1.0));
+    if (y_of(direction) >= 0.0) {
+        return false;
+    }
+    *at = step(eye, direction, (height - y_of(eye)) / y_of(direction));
+    return true;
+}
+
+// A frame of the view lit per surface (from kLayerEye): the floor lit per pixel, the paint over it or not.
+bool draw_layers(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, render::GpuTexture* white,
+                 render::GpuTexture* checker, bool paint, uint64_t frame, std::vector<uint8_t>* texels,
+                 std::vector<uint8_t>* guides)
+{
+    using render::GpuRenderState;
+    rt::FrameRecord& record = rt::frame_record();
+    record = rt::FrameRecord{};
+    record.frame = frame;
+    constexpr std::array<std::array<float, 4>, 3> kIdentityRows{
+        {{1.0F, 0.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F, 0.0F}}};
+    for (const SceneMesh& mesh : meshes) {
+        record.instances.push_back(
+            {.mesh = mesh.id, .material = mesh.material, .flags = mesh.flags, .object_to_world = kIdentityRows});
+    }
+    gpu.begin_scene();
+    rt::ray_tracing()->begin_frame(record);
+    gpu.set_render_target(0, targets.colour);
+    gpu.set_depth_surface(targets.depth);
+    gpu.set_viewport({.x = 0, .y = 0, .width = kTargetWidth, .height = kTargetHeight, .min_z = 0.0F, .max_z = 1.0F});
+    gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth | value::kClearStencil, 0xFF000000U, 1.0F, 0);
+    rt::view_begins(view_drawn());
+    rt::set_world_surfaces_drawing(true);
+    draw_scene(gpu, {}); // (the states and the camera)
+    gpu.set_render_state(GpuRenderState::kLighting, 1);
+    gpu.set_render_state(GpuRenderState::kAmbient, 0xFFFFFFFFU);
+    gpu.set_render_state(GpuRenderState::kDiffuseMaterialSource, value::kSourceColour1);
+    gpu.set_material({.diffuse = {1, 1, 1, 1}, .ambient = {1, 1, 1, 1}, .specular = {}, .emissive = {}, .power = 0});
+    render::GpuLight light{}; // (black: a lit object's draw has a light - it adds nothing)
+    light.type = value::kLightDirectional;
+    light.direction = {0.0F, -1.0F, 0.0F};
+    gpu.set_light(0, light);
+    gpu.enable_light(0, true);
+    gpu.set_vertex_format(kFvfColourNormal);
+    gpu.set_pixel_shader(lit_glow_draw().shader);
+    constexpr std::array<float, 4> kHalf{0.5F, 0.5F, 0.5F, 0.5F}; // (c0: x 4 with v0 0.5 - the texel itself)
+    gpu.set_pixel_constants(0, kHalf.data(), 1);
+    const auto quad = [&gpu](double height, double inset) {
+        std::vector<NormalVertex> corners;
+        for (const ColourVertex& corner :
+             quad_at(height, -kFloorHalf + inset, kFloorHalf - inset, -kFloorHalf + inset, kFloorHalf - inset, 0xFFFFFFFFU)) {
+            constexpr float kTiles = 0.1F; // (the checker's texels 5 units across)
+            corners.push_back({.position = corner.position,
+                               .normal = {0.0F, 1.0F, 0.0F},
+                               .colour = corner.colour,
+                               .uv = {core::at(corner.position, 0) * kTiles, core::at(corner.position, 2) * kTiles}});
+        }
+        gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(corners.size() / 3), corners.data(),
+                             sizeof(NormalVertex));
+    };
+    gpu.set_texture(0, white);
+    quad(0.0, 0.0);
+    if (paint) {
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 1);
+        gpu.set_render_state(GpuRenderState::kSrcBlend, value::kBlendSrcAlpha);
+        gpu.set_render_state(GpuRenderState::kDestBlend, value::kBlendInvSrcAlpha);
+        gpu.set_texture(0, checker);
+        quad(kPaintLift, kPaintInset);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
+    }
+    gpu.set_pixel_shader(nullptr);
+    gpu.set_texture(0, nullptr);
+    gpu.enable_light(0, false);
+    gpu.set_render_state(GpuRenderState::kLighting, 0);
+    gpu.set_vertex_format(kFvfColour);
+    rt::set_world_surfaces_drawing(false);
+    rt::opaque_view_drawn(view_drawn());
+    bool read = true;
+    if (guides != nullptr) {
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::Image* const image = render::vulkan::surface_light_guides(state);
+        guides->resize(static_cast<std::size_t>(kTargetWidth) * kTargetHeight * 16);
+        read = image != nullptr && render::vulkan::finish_work(state) && state.memory.read_image_level(image, 0, guides);
+    }
+    read = read && render::vulkan::read_surface(targets.colour, texels);
+    gpu.end_scene();
+    gpu.present();
+    return read && texels->size() == static_cast<std::size_t>(kTargetWidth) * kTargetHeight * 8;
+}
+
+void run_decal_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    text::print("round DB - decals and painted layers as material layers (the deferred decal's model):\n");
+    render::vulkan::set_rt_light_settings({});
+    render::vulkan::set_rt_shadow_settings({});
+    render::vulkan::set_hdr_settings({.on = true});
+    const bool hdr_before = rt::hdr_colour();
+    rt::set_hdr_colour(true);
+    const std::array<float, 3> up{0.0F, 1.0F, 0.0F};
+    rt::set_cel_world({.relit = true, .sun = {1.0F, 1.0F, 1.0F}, .toward = up});
+    const render::GpuSurfaceDesc colour{.width = kTargetWidth,
+                                        .height = kTargetHeight,
+                                        .format = value::kFormatA16B16G16R16F,
+                                        .samples = 0,
+                                        .quality = 0,
+                                        .lockable_or_discard = true};
+    render::GpuSurfaceDesc depth = colour;
+    depth.format = value::kFormatD24S8;
+    depth.lockable_or_discard = false;
+    Targets targets;
+    render::GpuTexture* checker = nullptr;
+    bool ok = gpu.create_render_target(colour, &targets.colour) == value::kResultOk &&
+              gpu.create_depth_surface(depth, &targets.depth) == value::kResultOk &&
+              make_checker(gpu, kPaintLow, kPaintHigh, &checker) && lit_glow_draw().texture != nullptr &&
+              lit_glow_draw().shader != nullptr;
+    {
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::set_surface_light_guides_forced(true);
+    }
+    scene_eye() = kLayerEye;
+    const float oil_f0 = rt::brdf::f0_of_index(1.47F);
+    constexpr float kOilRoughness = 0.3F;
+    std::vector<uint8_t> bare;
+    std::vector<uint8_t> oil;
+    std::vector<uint8_t> rough;
+    std::vector<uint8_t> oil_guides;
+    std::vector<uint8_t> floor_marked;
+    std::vector<uint8_t> painted_marked;
+    uint64_t frame = 1000;
+    MarkListener mark;
+    for (int pass = 0; ok && pass < 2; ++pass) { // (the second time round: the TLAS of the frame before built)
+        ok = draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &bare, nullptr);
+    }
+    rt::add_view_listener(&mark);
+    mark.albedo = {kOilLinear, kOilLinear, kOilLinear, 0.0F};
+    mark.layer = {kOilRoughness, oil_f0, 0.0F, 0.0F};
+    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &oil, &oil_guides);
+    mark.layer = {kRoughLayer, oil_f0, 0.0F, 0.0F};
+    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &rough, nullptr);
+    mark.albedo = {0.0F, 0.0F, 0.0F, kMark};
+    mark.layer = {0.0F, 0.0F, 0.0F, 1.0F};
+    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &floor_marked, nullptr) &&
+         draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, true, frame++, &painted_marked, nullptr);
+    rt::remove_view_listener(&mark);
+    scene_eye() = kEye;
+    tally->check(ok && mark.marked == 4, text::format("the layers' frames drawn and read (%d marked)", mark.marked));
+    // the oil film: the light model's for oil alone at each floor pixel
+    int oil_pixels = 0;
+    int oil_wrong = 0;
+    int darker = 0;
+    int glossier = 0;
+    int guide_wrong = 0;
+    double oil_worst = 0.0;
+    double specular_oil = 0.0;
+    double specular_rough = 0.0;
+    const rt::brdf::Material oil_material{.albedo = {kOilLinear, kOilLinear, kOilLinear},
+                                          .f0 = {oil_f0, oil_f0, oil_f0},
+                                          .roughness = kOilRoughness};
+    rt::brdf::Material rough_material = oil_material;
+    rough_material.roughness = kRoughLayer;
+    constexpr rt::brdf::Rgb kEven{1.0F, 1.0F, 1.0F};
+    for (int y = 0; ok && y < kRows; ++y) {
+        for (int x = 0; x < kColumns; ++x) {
+            Vec3 at{};
+            // (kept off the floor's far edge: a pixel row there is 12 units deep)
+            if (!floor_point(kLayerEye, x, y, 0.0, &at) || std::abs(x_of(at)) > kFloorHalf - kEdgeMargin ||
+                std::abs(z_of(at)) > kFloorHalf - kEdgeMargin) {
+                continue;
+            }
+            const Vec3 toward_eye = normalised(minus(kLayerEye, at));
+            const auto n_dot_v = static_cast<float>(y_of(toward_eye));
+            const rt::brdf::Rgb want = rt::brdf::ambient(oil_material, n_dot_v, kEven, kEven);
+            const rt::brdf::Rgb want_rough = rt::brdf::ambient(rough_material, n_dot_v, kEven, kEven);
+            const Rgb got = linear_pixel_at(oil, x, y);
+            const Rgb got_rough = linear_pixel_at(rough, x, y);
+            const Rgb was = linear_pixel_at(bare, x, y);
+            bool bad = false;
+            for (std::size_t c = 0; c < 3; ++c) {
+                const double error = std::abs(core::at(got, c) - core::at(want, c));
+                oil_worst = std::max(oil_worst, error);
+                bad = bad || error > std::max(kLayerTolerance, 0.03 * core::at(want, c)) ||
+                      std::abs(core::at(got_rough, c) - core::at(want_rough, c)) >
+                          std::max(kLayerTolerance, 0.03 * core::at(want_rough, c));
+            }
+            ++oil_pixels;
+            oil_wrong += bad ? 1 : 0;
+            darker += luma_of(got) < luma_of(was) ? 1 : 0;
+            glossier += luma_of(got) > luma_of(got_rough) ? 1 : 0;
+            const rt::brdf::Rgb e_oil = rt::brdf::specular_albedo(oil_material.f0, n_dot_v, kOilRoughness);
+            const rt::brdf::Rgb e_rough = rt::brdf::specular_albedo(rough_material.f0, n_dot_v, kRoughLayer);
+            specular_oil += core::at(e_oil, 0);
+            specular_rough += core::at(e_rough, 0);
+            // Ray Reconstruction's guides: oil's albedo (display-encoded) and roughness
+            const std::size_t g = ((static_cast<std::size_t>(y) * kTargetWidth) + static_cast<std::size_t>(x)) * 16;
+            uint32_t albedo = 0;
+            std::memcpy(&albedo, &core::at(oil_guides, g), sizeof(albedo));
+            const double guide_albedo = rt::linear_from_display(static_cast<double>(albedo & 0xFFU) / kByteRange);
+            const double guide_rough = static_cast<double>((albedo >> 24U) & 0xFFU) / kByteRange;
+            guide_wrong += std::abs(guide_albedo - kOilLinear) > 0.01 || std::abs(guide_rough - kOilRoughness) > 1.5 / kByteRange ? 1 : 0;
+        }
+    }
+    const double pixels = std::max(oil_pixels, 1);
+    tally->check(ok && oil_pixels > 1000 && oil_wrong == 0,
+                 text::format("an oil film is a layer of oil's material, not a multiply of the lit colour: %d floor pixels, %d "
+                              "off the light model for oil (and for a rough layer of its colour) - worst %.4f",
+                              oil_pixels, oil_wrong, oil_worst));
+    tally->check(ok && darker == oil_pixels && glossier == oil_pixels && specular_oil > specular_rough,
+                 text::format("... darker than the bare floor at %d of %d pixels, more light than the rough layer at %d (its "
+                              "specular's directional albedo %.4f against %.4f, the mean over the floor)",
+                              darker, oil_pixels, glossier, specular_oil / pixels, specular_rough / pixels));
+    tally->check(ok && oil_pixels > 1000 && guide_wrong == 0,
+                 text::format("Ray Reconstruction's albedo guide carries the oil's colour and roughness: %d pixels, %d wrong",
+                              oil_pixels, guide_wrong));
+    // the painted layer: as the floor alone, at a grazing view
+    int paint_pixels = 0;
+    int paint_wrong = 0;
+    double paint_worst = 0.0;
+    for (int y = 0; ok && y < kRows; ++y) {
+        for (int x = 0; x < kColumns; ++x) {
+            Vec3 at{};
+            const double inner = kFloorHalf - kPaintInset - kEdgeMargin;
+            if (!floor_point(kLayerEye, x, y, kPaintLift, &at) || std::abs(x_of(at)) > inner || std::abs(z_of(at)) > inner) {
+                continue;
+            }
+            const Rgb floor_only = linear_pixel_at(floor_marked, x, y);
+            const Rgb painted = linear_pixel_at(painted_marked, x, y);
+            bool bad = false;
+            for (std::size_t c = 0; c < 3; ++c) {
+                const double error = std::abs(core::at(painted, c) - core::at(floor_only, c));
+                paint_worst = std::max(paint_worst, error);
+                bad = bad || error > std::max(kLayerTolerance, 0.02 * core::at(floor_only, c));
+            }
+            ++paint_pixels;
+            paint_wrong += bad ? 1 : 0;
+        }
+    }
+    tally->check(ok && paint_pixels > 1000 && paint_wrong == 0,
+                 text::format("a layer painted %.1f units over the floor is lit as the floor at a grazing view (the "
+                              "checker's alpha either side of one half): %d pixels, %d off the floor alone (worst %.4f)",
+                              kPaintLift, paint_pixels, paint_wrong, paint_worst));
+    {
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::set_surface_light_guides_forced(false);
+    }
+    if (checker != nullptr) {
+        gpu.release_texture(checker);
+    }
+    gpu.set_render_target(0, nullptr);
+    gpu.set_depth_surface(nullptr);
+    for (GpuSurface* surface : {targets.colour, targets.depth}) {
+        if (surface != nullptr) {
+            gpu.release_surface(surface);
+        }
+    }
+    rt::set_cel_world({});
+    render::vulkan::set_hdr_settings({});
+    rt::set_hdr_colour(hdr_before);
 }
 
 // --- (round O - the audit's O1) the occlusion never takes the direct light --------------------------------------------

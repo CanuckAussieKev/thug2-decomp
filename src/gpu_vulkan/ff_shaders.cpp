@@ -450,30 +450,61 @@ std::string coord_of(const FragmentKey& key, std::size_t stage)
 
 // --- (NOT ORIGINAL - round V, per-surface lighting: vulkan_surface_light.h) the surface's light inputs ----------------
 // A key with FragmentKey::light's kLightInputs / kLightShare reads, at its pixel, what the view's visibility passes made
-// for the surface the prepass found there - only where this fragment is that surface (its depth the prepass's, within
-// 1% of its distance: a later pass of its material drawn over it; a glass pane, a glow or a particle in front of it is
-// not, and keeps its own light): `light_in` (r: the sun's or the moon's visibility - its world casters', the objects'
-// and the clouds' - or -1 where nothing was traced; g: the direct light's share of a colour lit already - the lighting
-// state's; b: the indirect light's visibility, 1 - the occlusion; a: 1 where the inputs were made) and the lamps'
-// light (a white diffuser's radiance; and on the surface's traced albedo for a colour lit already).
+// for the surface the prepass found there - only where this fragment is that surface (light_find, at the start of
+// main: its depth the prepass's, within 1% of its distance - a later pass of its material drawn over it; or, round DB,
+// a surface lit per pixel lying within kLayerLift of the prepass's surface along its own normal - a layer of paint over
+// its asphalt, or the asphalt under the paint the prepass kept: one surface, lit once with its composite material; a
+// glass pane, a glow or a particle in front of it is not, and keeps its own light): `light_in` (r: the sun's or the
+// moon's visibility - its world casters', the objects' and the clouds' - or -1 where nothing was traced; g: the direct
+// light's share of a colour lit already - the lighting state's; b: the indirect light's visibility, 1 - the
+// occlusion; a: 1 where the inputs were made) and the lamps' light (a white diffuser's radiance; and on the surface's
+// traced albedo for a colour lit already), and the decals' material layers (round DB - the deferred decal's DBuffer).
+// The layer's test (LIGHT_LAYERS): the depth is affine in 1 / w (gl_FragCoord.w) over the whole view - z = a + b / w -,
+// b is read off this fragment's own screen derivatives of both, the prepass surface's 1 / w then follows from its
+// depth; along the pixel's ray the distance from the eye goes as w, so the two are |w_p / w - 1| x the eye distance
+// apart, and that times |N.V| (N this fragment's face) is their distance along its normal.
 constexpr const char* kLightInputsGlsl = R"(layout(set = 0, binding = 24) uniform sampler2D light_visibility_map;
 layout(set = 0, binding = 25) uniform sampler2D light_lamps_map;
 layout(set = 0, binding = 26) uniform sampler2D light_lamps_on_map;
 layout(set = 0, binding = 27) uniform sampler2D light_depth_map;
 layout(set = 0, binding = 28) uniform sampler2D light_decals_map;
 layout(set = 0, binding = 30) uniform sampler2D light_specular_map;
-bool light_here()
+layout(set = 0, binding = 31) uniform sampler2D light_layer_map;
+bool light_at = false;    // the fragment is on the surface the inputs were made for
+bool light_exact = false; // ... at its very depth (the surface the prepass kept - Ray Reconstruction's guides)
+void light_find()
 {
     float z = texelFetch(light_depth_map, ivec2(gl_FragCoord.xy), 0).r;
-    return z < 1.0 && abs(gl_FragCoord.z - z) <= max(1.0e-6, (1.0 - z) * 0.01);
+    light_exact = z < 1.0 && abs(gl_FragCoord.z - z) <= max(1.0e-6, (1.0 - z) * 0.01);
+    light_at = light_exact;
+#ifdef LIGHT_LAYERS
+    // (the derivatives first: main's first statement, uniform control flow)
+    vec2 dz = vec2(dFdx(gl_FragCoord.z), dFdy(gl_FragCoord.z));
+    vec2 dq = vec2(dFdx(gl_FragCoord.w), dFdy(gl_FragCoord.w));
+    vec3 face = cross(dFdx(v_surface_eye), dFdy(v_surface_eye));
+    bool across = abs(dq.x) >= abs(dq.y);
+    float q_step = across ? dq.x : dq.y;
+    float z_step = across ? dz.x : dz.y;
+    float eye_distance = length(v_surface_eye);
+    if (!light_at && z < 1.0 && q_step != 0.0 && z_step != 0.0 && dot(face, face) > 0.0 && eye_distance > 0.0) {
+        float q = gl_FragCoord.w + (z - gl_FragCoord.z) * (q_step / z_step); // (the prepass surface's 1 / w)
+        if (q > 0.0) {
+            float apart = eye_distance * abs(gl_FragCoord.w / q - 1.0);
+            light_at = apart * abs(dot(normalize(face), v_surface_eye / eye_distance)) <= LIGHT_LAYER_LIFT;
+        }
+    }
+#endif
 }
+bool light_here() { return light_at; }
 vec4 light_in_now()
 {
     return light_here() ? texelFetch(light_visibility_map, ivec2(gl_FragCoord.xy), 0) : vec4(-1.0, 0.0, 1.0, 0.0);
 }
 vec3 light_lamps_now() { return light_here() ? texelFetch(light_lamps_map, ivec2(gl_FragCoord.xy), 0).rgb : vec3(0.0); }
-// the decals over the surface: its albedo's factor (a material's edit - lit with the surface; 1 where none)
-vec3 light_decals_now() { return light_here() ? texelFetch(light_decals_map, ivec2(gl_FragCoord.xy), 0).rgb : vec3(1.0); }
+// (round DB) the decals' material layers over the surface (the deferred decal's DBuffer - vulkan_surface_light.h): the
+// albedo's (albedo x a + rgb) and the roughness's and F0's (roughness x a + r, F0 x a + g); none: (0, 0, 0, 1)
+vec4 light_decals_now() { return light_here() ? texelFetch(light_decals_map, ivec2(gl_FragCoord.xy), 0) : vec4(0.0, 0.0, 0.0, 1.0); }
+vec4 light_layer_now() { return light_here() ? texelFetch(light_layer_map, ivec2(gl_FragCoord.xy), 0) : vec4(0.0, 0.0, 0.0, 1.0); }
 vec3 light_lamps_on_now()
 {
     return light_here() ? texelFetch(light_lamps_on_map, ivec2(gl_FragCoord.xy), 0).rgb : vec3(0.0);
@@ -494,7 +525,7 @@ float guide_rough = 1.0;
 float guide_has_normal = 0.0;
 void light_write_guides()
 {
-    if (guide_albedo.x < 0.0 || !light_here()) {
+    if (guide_albedo.x < 0.0 || !light_exact) {
         return;
     }
     vec3 a = display_from_linear(clamp(guide_albedo, 0.0, 1.0));
@@ -1127,6 +1158,19 @@ void surface_lighting(std::string& out, const FragmentKey& key)
               ");"});
 }
 
+// (NOT ORIGINAL - round DB) The decals' material layers laid over a material before it is lit - the deferred decal's
+// DBuffer (UE's DBuffer decals; vulkan_surface_light.h SurfaceInputs::decals / layer): its albedo x a + rgb, its
+// roughness x a + r, its F0 x a + g. `material` names a BrdfMaterial, `indent` the lines' indent. Laid where the
+// surface's albedo is final (after a relit surface's tint, an object's material colour) - the decal's colour is its own.
+std::string decal_layer_onto(std::string_view material, std::string_view indent)
+{
+    const std::string m(material);
+    const std::string in(indent);
+    return in + m + ".albedo = " + m + ".albedo * surface_decals.a + surface_decals.rgb;\n" + in + m + ".roughness = clamp(" +
+           m + ".roughness * surface_layer.a + surface_layer.r, 0.0, 1.0);\n" + in + m + ".f0 = " + m +
+           ".f0 * surface_layer.a + vec3(surface_layer.g);\n";
+}
+
 // (round M - the per-pixel lighting's comment has the model) After the program: `colour` (its albedo under white
 // light, display-referred) lit - linear light in a linear frame, else encoded for the display.
 void surface_finish(std::string& out, const FragmentKey& key)
@@ -1135,9 +1179,6 @@ void surface_finish(std::string& out, const FragmentKey& key)
               "    float surface_nv = max(dot(surface_n, surface_v), 1.0e-4);\n"
               "    float surface_hemi = 0.5 + 0.5 * dot(surface_n, surface_geo);\n"
               "    vec3 surface_out = vec3(0.0);"});
-    if ((key.light & kLightInputs) != 0U) { // (round V: the decals over it - its material edited before its light)
-        add(out, {"    surface_albedo *= light_decals_now();"});
-    }
     // a material from an albedo: a metal's F0 is its colour, its diffuse none
     add(out, {"    BrdfMaterial surface_m = brdf_material(surface_albedo * (1.0 - s.params.x), mix(vec3(s.params.w), "
               "surface_albedo, s.params.x), surface_rough);"});
@@ -1161,6 +1202,17 @@ void surface_finish(std::string& out, const FragmentKey& key)
                        "    vec3 surface_specular_in = light_specular_now();"
                      : "    vec4 surface_li = vec4(-1.0, 0.0, 1.0, 0.0);\n    vec3 surface_lamps = vec3(0.0);\n"
                        "    vec3 surface_specular_in = vec3(0.0);"});
+    // (round DB: the decals' material layers - the environment's weight above stays the surface's own roughness's: what
+    // the reflections pass, which sees the surface and not its decals, takes over; the layered material weighs the rest)
+    std::string layer_m;
+    std::string layer_lit;
+    std::string layer_m_inner;
+    if (inputs) {
+        add(out, {"    vec4 surface_decals = light_decals_now();\n    vec4 surface_layer = light_layer_now();"});
+        layer_m = decal_layer_onto("surface_m", "    ");
+        layer_lit = decal_layer_onto("surface_lit", "    ");
+        layer_m_inner = decal_layer_onto("surface_m", "        ");
+    }
     if ((key.surface & kSurfaceLit) != 0U) {
         const bool hair = (key.detail & kDetailHair) != 0U;
         if (hair) {
@@ -1172,7 +1224,8 @@ void surface_finish(std::string& out, const FragmentKey& key)
         add(out, {"    bool surface_one = v_surface_base.w < -0.5;\n"
                   "    vec3 surface_ambient = surface_one ? v_surface_base.rgb : linear_from_display(v_surface_base.rgb);\n"
                   "    BrdfMaterial surface_lit = surface_m;\n"
-                  "    surface_lit.albedo *= linear_from_display(v_surface_cd.rgb);\n"
+                  "    surface_lit.albedo *= linear_from_display(v_surface_cd.rgb);\n",
+                  layer_m, layer_lit,
                   "    surface_out = brdf_ambient(surface_m, surface_nv, surface_ambient * surface_hemi, surface_ambient * "
                   "surface_env) * surface_li.b;\n"
                   "    surface_out += surface_lit.albedo * surface_lamps;\n"
@@ -1199,7 +1252,8 @@ void surface_finish(std::string& out, const FragmentKey& key)
                   "        vec3 lamp_texel = surface_albedo;\n"
                   "        float lamp_lit = v_cel_emit.a > 0.5 ? smoothstep(0.6, 0.7, max(lamp_texel.r, max(lamp_texel.g, "
                   "lamp_texel.b))) : 1.0;\n"
-                  "        surface_m.albedo *= tint;\n        surface_m.f0 = mix(surface_m.f0, surface_m.f0 * tint, s.params.x);\n"
+                  "        surface_m.albedo *= tint;\n        surface_m.f0 = mix(surface_m.f0, surface_m.f0 * tint, s.params.x);\n",
+                  layer_m_inner,
                   "        vec3 env = v_cel_light.rgb + v_cel_residual.rgb / max(tint, vec3(1.0 / 128.0));\n"
                   "        surface_out = brdf_ambient(surface_m, surface_nv, env * surface_hemi, env * surface_env) * surface_li.b;\n"
                   "        if (s.sun.w > 0.5 && dot(surface_geo, s.sun.xyz) > 0.0) {\n"
@@ -1208,7 +1262,8 @@ void surface_finish(std::string& out, const FragmentKey& key)
                   relief ? " * relief_shadow" : "", ");\n        }\n"
                   "        surface_out += v_cel_emit.rgb * lamp_texel * lamp_lit;\n"
                   "        surface_out += surface_m.albedo * surface_lamps;\n"
-                  "    } else {\n"
+                  "    } else {\n",
+                  layer_m_inner,
                   "        vec3 light = linear_from_display(v_diffuse.rgb * surface_word);\n"
                   "        surface_out = brdf_ambient(surface_m, surface_nv, light * surface_hemi, light * surface_env) * "
                   "light_share(surface_li) + surface_m.albedo * surface_lamps;\n"
@@ -1216,7 +1271,7 @@ void surface_finish(std::string& out, const FragmentKey& key)
     } else {
         // the bake: its light (the vertex colour doubled, display-referred) as the environment's (round V: its light not
         // separated - taken by shares, light_share)
-        add(out, {"    vec3 surface_bake = linear_from_display(v_diffuse.rgb * 2.0);\n"
+        add(out, {layer_m, "    vec3 surface_bake = linear_from_display(v_diffuse.rgb * 2.0);\n"
                   "    surface_out = brdf_ambient(surface_m, surface_nv, surface_bake * surface_hemi, surface_bake * surface_env) "
                   "* light_share(surface_li) + surface_m.albedo * surface_lamps;"});
     }
@@ -1229,8 +1284,8 @@ void surface_finish(std::string& out, const FragmentKey& key)
         // (round V: Ray Reconstruction's guides - the material the light model was given)
         add(out, {(key.surface & kSurfaceLit) != 0U ? "    guide_albedo = surface_lit.albedo;\n"
                                                     : "    guide_albedo = surface_m.albedo;\n",
-                  "    guide_specular = brdf_specular_albedo(surface_m.f0, surface_nv, surface_rough);\n"
-                  "    guide_normal = surface_n;\n    guide_rough = surface_rough;\n    guide_has_normal = 1.0;"});
+                  "    guide_specular = brdf_specular_albedo(surface_m.f0, surface_nv, surface_m.roughness);\n"
+                  "    guide_normal = surface_n;\n    guide_rough = surface_m.roughness;\n    guide_has_normal = 1.0;"});
     }
     add(out, {"    colour.rgb = frame_linear() ? surface_out : clamp(display_from_linear(surface_out), 0.0, 1.0);"});
 }
@@ -1310,8 +1365,12 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
     }
     if ((key.light & (kLightInputs | kLightShare)) != 0U) {
         static_assert(kLightVisibilityBinding == 24 && kLightLampsBinding == 25 && kLightLampsOnBinding == 26 &&
-                          kLightDepthBinding == 27 && kLightDecalsBinding == 28 && kLightSpecularBinding == 30,
+                          kLightDepthBinding == 27 && kLightDecalsBinding == 28 && kLightSpecularBinding == 30 &&
+                          kLightLayerBinding == 31,
                       "kLightInputsGlsl names them");
+        if (key.surface != 0) { // (round DB: a surface lit per pixel - its eye position and face - lies on the prepass's)
+            add(out, {"#define LIGHT_LAYERS\n#define LIGHT_LAYER_LIFT ", num(kLayerLift)});
+        }
         add(out, {kLightInputsGlsl}); // (NOT ORIGINAL - round V: the surface's light inputs)
     }
     if (key.surface != 0 || (key.light & (kLightInputs | kLightShare)) != 0U) {
@@ -1829,6 +1888,9 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     }
     fragment_declarations(out, key, sampled);
     add(out, {"void main()\n{"});
+    if ((key.light & (kLightInputs | kLightShare)) != 0U) {
+        add(out, {"    light_find();"}); // (NOT ORIGINAL - round V / DB: before any branch - its derivatives)
+    }
     fragment_program(out, key, sampled);
     // (round M: a surface lit per pixel leaves the program as light - its alpha alone clamped)
     add(out, {surface_light_out(key) ? "    colour.a = clamp(colour.a, 0.0, 1.0);" : "    colour = clamp(colour, 0.0, 1.0);"});
@@ -1843,8 +1905,12 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     if ((key.light & kLightShare) != 0U && key.surface == 0 && !water) {
         // (NOT ORIGINAL - round V: a colour lit already - its light not separated - takes the surface's light inputs as
         // shares of it, and the lamps on its traced albedo; kLightInputsGlsl)
-        add(out, {"    if (frame_linear()) {\n        colour.rgb = colour.rgb * light_decals_now() * light_share(light_in_now()) + "
-                  "light_lamps_on_now() * light_decals_now();\n    }"});
+        // (round DB: such a colour has no albedo apart from its light - the decals' layer laid over it as over a white
+        // surface: x (a + rgb), the factor the layer makes of an albedo of 1)
+        add(out, {"    if (frame_linear()) {\n        vec4 share_decals = light_decals_now();\n"
+                  "        vec3 share_layer = share_decals.a + share_decals.rgb;\n"
+                  "        colour.rgb = colour.rgb * share_layer * light_share(light_in_now()) + light_lamps_on_now() * share_layer;\n"
+                  "    }"});
         if ((key.light & kLightGuides) != 0U) {
             add(out, {"    guide_albedo = colour.rgb;"}); // (its light not separated: the colour lit, as before round V)
         }
