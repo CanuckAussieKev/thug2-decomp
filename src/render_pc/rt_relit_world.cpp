@@ -328,6 +328,12 @@ float luma_of(uint32_t argb)
            (kLumaBlue * static_cast<float>(argb & kByteMask));
 }
 
+// Light's luminance (the console's probe).
+float light_luma(const rt::Rgbf& light)
+{
+    return (kLumaRed * std::get<0>(light)) + (kLumaGreen * std::get<1>(light)) + (kLumaBlue * std::get<2>(light));
+}
+
 // (round L - the log's, the console's) The light a vertex shows as the frame shows it: x the frame's pre-exposure, as a
 // display-referred colour (A8R8G8B8, 128 the game's white; held at 255) - beside the bake's own colours. The store holds
 // it physical (light_store.h); only the log compares it with bytes.
@@ -783,15 +789,14 @@ void take_from_data()
         rt::relit_normals(entry.input, data.data.facing, &entry.light);
         entry.data_mesh = found->second;
         entry.lamps_for = 0;
+        // (the night's light, decomposed) the data's bounce only while the level is lit by its own light - under the
+        // clock's a mesh met after the lighting's cut starts with none, as every mesh did at the cut (rt_relit.h
+        // relit_vertex_from_data). Before, Boston's 188 night-state meshes met after the cut kept the afternoon's bounce
+        // and the bounce passes spread it: a night's walls at 8 x 10^-5 where their lamps and sky give 3 x 10^-5, the
+        // frame 3.6 - 29 x the path-traced reference from one load to the next.
+        const bool clock_lit = rt::day_light().on;
         for (std::size_t vi = 0; vi < entry.light.size(); ++vi) {
-            rt::RelitVertex& vertex = core::at(entry.light, vi);
-            const rt::RelitVertex& stored = core::at(mesh.vertices, vi);
-            vertex.sun = stored.sun_baked;
-            vertex.sun_baked = stored.sun_baked;
-            vertex.sky = stored.sky;
-            vertex.bounce = stored.bounce;
-            vertex.tint = stored.tint;
-            vertex.lamp = stored.lamp;
+            rt::relit_vertex_from_data(core::at(mesh.vertices, vi), clock_lit, &core::at(entry.light, vi));
         }
         entry.analysed = true;
         entry.sun_for = data.data.model.toward;
@@ -2145,7 +2150,7 @@ std::string describe_mesh(rt::MeshId id)
             const rt::RelitVertex& vertex = core::at(entry.light, vi);
             const rt::Vec3& at = core::at(entry.input.positions, vi);
             out += text::format("\n    corner %.0f %.0f %.0f n %.2f %.2f %.2f: baked %06X relit %06X held %06X, sun now %.2f baked %.2f, "
-                                "sky %.2f, tint %.2f %.2f %.2f, lamps' light %.3f %.3f %.3f, emits %.3f %.3f %.3f%s",
+                                "sky %.2f, tint %.2f %.2f %.2f, lamps' light %.3g %.3g %.3g, emits %.3g %.3g %.3g%s",
                                 static_cast<double>(rt::x_of(at)), static_cast<double>(rt::y_of(at)),
                                 static_cast<double>(rt::z_of(at)), static_cast<double>(rt::x_of(vertex.normal)),
                                 static_cast<double>(rt::y_of(vertex.normal)), static_cast<double>(rt::z_of(vertex.normal)),
@@ -2211,7 +2216,7 @@ std::string describe_near(const rt::Vec3& point, float radius)
     }
     const double each = static_cast<double>(std::max<std::size_t>(count, 1));
     std::string out = text::format("relit near %.1f %.1f %.1f (%.0f units): %zu vertices, mean baked %.1f relit %.1f, "
-                                   "lamps' light %.3f, sun share %.2f; the light (global unit) sun %.3f sky %.3f, lamps %.2f",
+                                   "lamps' light %.3g, sun share %.2f; the light (global unit) sun %.3g sky %.3g, lamps %.2f",
                                    static_cast<double>(rt::x_of(point)), static_cast<double>(rt::y_of(point)),
                                    static_cast<double>(rt::z_of(point)), static_cast<double>(radius), count,
                                    baked / each, relit / each, lamps / each, sunlit / each,
@@ -2229,7 +2234,8 @@ std::string describe_near(const rt::Vec3& point, float radius)
         const uint32_t original = core::at(near.entry->originals, near.vertex);
         const rt::Vec3& at = core::at(near.entry->input.positions, near.vertex);
         out += text::format("\n  vertex %.1f %.1f %.1f (%.1f away) normal %.2f %.2f %.2f: baked %06X relit %06X held %06X, sun %.2f "
-                            "sky %.2f bounce %.3f %.3f %.3f, tint %.2f %.2f %.2f, lamps' light %.3f %.3f %.3f",
+                            "sky %.2f bounce %.3g %.3g %.3g, tint %.2f %.2f %.2f, lamps' light %.3g %.3g %.3g, drawn "
+                            "with %.3g (luma, the global unit)",
                             static_cast<double>(rt::x_of(at)), static_cast<double>(rt::y_of(at)),
                             static_cast<double>(rt::z_of(at)), static_cast<double>(near.distance),
                             static_cast<double>(rt::x_of(vertex.normal)), static_cast<double>(rt::y_of(vertex.normal)),
@@ -2241,7 +2247,33 @@ std::string describe_near(const rt::Vec3& point, float radius)
                             static_cast<double>(std::get<2>(vertex.bounce)), static_cast<double>(std::get<0>(vertex.tint)),
                             static_cast<double>(std::get<1>(vertex.tint)), static_cast<double>(std::get<2>(vertex.tint)),
                             static_cast<double>(std::get<0>(vertex.lamp)),
-                            static_cast<double>(std::get<1>(vertex.lamp)), static_cast<double>(std::get<2>(vertex.lamp)));
+                            static_cast<double>(std::get<1>(vertex.lamp)), static_cast<double>(std::get<2>(vertex.lamp)),
+                            static_cast<double>(light_luma(rt::relit_shown(st.model, vertex, st.written_light))));
+        // (the night's light, decomposed) the lamps its L is made of: each link's lamp, its weight (lamp_geometry x the
+        // bake's visibility, per unit of intensity) and its share of L now
+        const LevelData& data = level_data(st.level);
+        if (data.found && near.entry->data_mesh < data.data.meshes.size()) {
+            const rt::RelitMeshLinks& links = core::at(data.data.meshes, near.entry->data_mesh).links;
+            if (near.vertex + 1 < links.first.size()) {
+                for (uint32_t k = core::at(links.first, near.vertex); k < core::at(links.first, near.vertex + 1); ++k) {
+                    const rt::RelitLampLink& link = core::at(links.links, k);
+                    if (link.lamp >= data.data.lamp_list.size()) {
+                        continue;
+                    }
+                    const rt::RelitLamp& lamp = core::at(data.data.lamp_list, link.lamp);
+                    const float on = link.lamp < st.lamps_on.size() ? core::at(st.lamps_on, link.lamp) : 1.0F;
+                    out += text::format("\n    lamp %u at %.0f %.0f %.0f (kind %u, %s, %.0f lm): weight %.3g, its light %.3g, "
+                                        "on %.2f - %.3g of L",
+                                        link.lamp, static_cast<double>(rt::x_of(lamp.position)),
+                                        static_cast<double>(rt::y_of(lamp.position)),
+                                        static_cast<double>(rt::z_of(lamp.position)), static_cast<unsigned>(lamp.kind),
+                                        rt::relit_lamp_source_name(static_cast<rt::RelitLampSource>(lamp.source)),
+                                        static_cast<double>(lamp.lumens), static_cast<double>(link.weight),
+                                        static_cast<double>(light_luma(lamp.light)), static_cast<double>(on),
+                                        static_cast<double>(link.weight * on * light_luma(lamp.light)));
+                }
+            }
+        }
     }
     return out;
 }

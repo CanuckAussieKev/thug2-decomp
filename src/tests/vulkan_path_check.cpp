@@ -1219,6 +1219,28 @@ void check_device(render::Gpu& gpu, Tally* tally)
     tally->check(
         mis.sigma <= bsdf.sigma * 2.0,
         text::format("MIS's noise %.5f with 64 paths a pixel, the BSDF alone's %.5f with 256", mis.sigma, bsdf.sigma));
+    // (the night's light, decomposed - `pt ref ... only <kinds>`) each kind of light alone: the emitter's and the sky's
+    // runs add up to the whole, and a kind the scene hasn't counts nothing
+    full.light_kinds = path::kLightKindEmitters;
+    const Measured emit_only = run_batches(gpu, targets, both, eye, full, 2, seed++, &read);
+    full.light_kinds = path::kLightKindSky;
+    const Measured sky_only = run_batches(gpu, targets, both, eye, full, 2, seed++, &read);
+    full.light_kinds = path::kLightKindLamps | path::kLightKindDisc;
+    const Measured none_here = run_batches(gpu, targets, both, eye, full, 1, seed++, &read);
+    full.light_kinds = path::kAllLightKinds;
+    not_finite += emit_only.not_finite + sky_only.not_finite + none_here.not_finite;
+    tally->check(read && within(mis.mean, mis.sigma, emit_only.mean + sky_only.mean,
+                                std::hypot(emit_only.sigma, sky_only.sigma)) &&
+                     emit_only.mean > 0.0 && sky_only.mean > 0.0 && none_here.mean == 0.0,
+                 text::format("each kind alone: the emitter's %.5f + the sky's %.5f = %.5f, the whole %.5f +- %.5f; the "
+                              "disc's and the lamps' (none here) %.5f",
+                              emit_only.mean, sky_only.mean, emit_only.mean + sky_only.mean, mis.mean, mis.sigma,
+                              none_here.mean));
+    tally->check(path::light_kinds_of("moon,sky") == (path::kLightKindDisc | path::kLightKindSky) &&
+                     path::light_kinds_of("emit,lamps,disc,sky") == path::kAllLightKinds &&
+                     path::light_kinds_of("sky,stars") == 0 && path::light_kinds_text(path::kAllLightKinds) == "all" &&
+                     path::light_kinds_text(path::kLightKindDisc | path::kLightKindLamps) == "disc,lamps",
+                 "`only`'s words read (moon,sky - every kind - a word that isn't one refused) and written");
     // the processor's twin
     TwinSetup twin;
     twin.scene = floor_triangles();
