@@ -252,6 +252,16 @@ rt::ObjectLight lights_sent()
 
 Singleton* first_instance() { return instances(); }
 
+bool instance_drawn_lit(const Singleton* instance)
+{
+    // (Singleton::render's two ways: skinned by the vertex shader - lit unless its scene is unlit -, else lit when the
+    // constructor found every mesh asking for light (2) and its scene isn't unlit)
+    if (instance == nullptr || instance->scene() == nullptr || scene_unlit(instance->scene())) {
+        return false;
+    }
+    return skinned_by_shader(instance) || (instance->flags_ & 2) != 0U;
+}
+
 // 0x004D1030
 Singleton::Singleton(SceneRef* list, const maths::Mat4* matrix, int count, maths::Mat4* bone_matrices)
     : InstanceData({.transform = matrix, .bones = bone_matrices, .bone_count = count}), scene_(list), next_(instances())
@@ -380,7 +390,9 @@ void Singleton::render(uint32_t draw_bits)
         // (the light energy audit's census: the game's own instance colour set already - not the field's -, the field's
         // ratio there - 1 at the level's own light: drawn as baked -, or no field)
         const bool game_colour = renderer().instance_colour_on() != 0U;
-        if (!game_colour && rt_relit_world::unlit_object_colour(place, &colour)) {
+        // (round P10 - objects relit: an object the relit level lists is lit mesh by mesh - its light store, or the
+        // field's ratio where each mesh stands - pc_mesh_render.cpp UnlitWorldColour)
+        if (!game_colour && !rt_relit_world::object_listed(this) && rt_relit_world::unlit_object_colour(place, &colour)) {
             renderer().set_instance_colour_on(1);
             renderer().set_instance_colour(colour);
             darkened.on = true;

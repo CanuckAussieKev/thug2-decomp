@@ -1670,6 +1670,83 @@ void check_local_across(Tally* tally)
                               100.0 * static_cast<double>(door_night), 100.0 * static_cast<double>(wall_night)));
 }
 
+// (round P10 - objects relit) An object's model at three places, its colours the same at each (the model's own - as
+// Boston's globes, lanterns and bollards are, byte for byte, wherever they stand): decomposed at each place by the light
+// there (a quarter, half and all of the sky), the places' tints apart by the light (x4) - one tint for the model, its
+// colour over the middle place's light (the model coloured as if lit there); the same mesh not an object (model 0 - a
+// world mesh, a moving object's) keeps its own; a mesh of the model with other vertices left alone.
+void check_object_tints(Tally* tally)
+{
+    text::print("an object's model at three places (on the processor):\n");
+    constexpr Rgbf kTint{0.60F, 0.50F, 0.30F}; // (a yellow globe's paint)
+    constexpr std::array<float, 3> kShares{0.25F, 0.5F, 1.0F};
+    rt::RelitModel model;
+    model.valid = true;
+    model.toward = {0.0F, 1.0F, 0.0F};
+    model.sun = {};
+    model.sky = {1.0F, 1.0F, 1.0F};
+    model.bounce = {};
+    // the model's colour: its tint under the middle place's sky
+    Rgbf baked{};
+    for (std::size_t ch = 0; ch < baked.size(); ++ch) {
+        core::at(baked, ch) = core::at(kTint, ch) * std::get<1>(kShares);
+    }
+    const uint32_t colour = to_argb(baked);
+    // meshes 0 - 2: the model at its places; 3: the same mesh not an object at the brightest place; 4: the model's mesh
+    // with more vertices
+    std::vector<rt::RelitMesh> meshes(5);
+    std::vector<rt::RelitVertices> light(meshes.size());
+    const std::array<float, 5> share_of{std::get<0>(kShares), std::get<1>(kShares), std::get<2>(kShares),
+                                        std::get<2>(kShares), std::get<0>(kShares)};
+    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+        rt::RelitMesh& made = core::at(meshes, mi);
+        add_face(&made, {.corner = {(400.0F * static_cast<float>(mi)), 0.0F, 0.0F}, .across = {100.0F, 0.0F, 0.0F},
+                         .up = {0.0F, 100.0F, 0.0F}},
+                 mi == 4 ? 3U : 2U);
+        for (std::size_t vi = 0; vi < made.positions.size(); ++vi) {
+            rt::RelitVertex vertex;
+            vertex.used = true;
+            vertex.normal = {0.0F, 0.0F, 1.0F};
+            vertex.sky = core::at(share_of, mi);
+            core::at(light, mi).push_back(vertex);
+            made.colours.push_back(colour);
+        }
+    }
+    const rt::RelitParams params{.detail = 1.0F};
+    rt::decompose_relit(meshes, {}, params, &model, &light);
+    const auto mean_tint = [&light](std::size_t mi) {
+        Rgbf sum{};
+        for (const rt::RelitVertex& vertex : core::at(light, mi)) {
+            sum = rt::plus(sum, rt::scaled(vertex.tint, 1.0F / static_cast<float>(core::at(light, mi).size())));
+        }
+        return sum;
+    };
+    const Rgbf alone = mean_tint(3);
+    const Rgbf other = mean_tint(4);
+    const Rgbf middle = mean_tint(1);
+    constexpr uint64_t kModel = 0x51A7E;
+    const std::array<uint64_t, 5> models{kModel, kModel, kModel, 0, kModel};
+    const rt::ObjectTints shared = rt::relit_object_tints(models, light);
+    bool one = true;
+    for (std::size_t mi = 0; mi < 3; ++mi) {
+        for (const rt::RelitVertex& vertex : core::at(light, mi)) {
+            one = one && std::abs(luma(vertex.tint) - luma(middle)) < 1e-6F;
+        }
+    }
+    tally->check(one && std::abs(luma(middle) - luma(kTint)) < 0.05F * luma(kTint),
+                 text::format("the model's tint one at its three places: %.3f %.3f %.3f (painted %.3f %.3f %.3f)",
+                              static_cast<double>(std::get<0>(middle)), static_cast<double>(std::get<1>(middle)),
+                              static_cast<double>(std::get<2>(middle)), static_cast<double>(std::get<0>(kTint)),
+                              static_cast<double>(std::get<1>(kTint)), static_cast<double>(std::get<2>(kTint))));
+    tally->check(shared.models == 1 && shared.meshes == 3 && std::abs(shared.spread_median - 4.0F) < 0.4F,
+                 text::format("%zu model at %zu places shared; its places' tints apart x%.2f (the light: x4)",
+                              shared.models, shared.meshes, static_cast<double>(shared.spread_median)));
+    tally->check(std::abs(luma(mean_tint(3)) - luma(alone)) < 1e-6F && std::abs(luma(mean_tint(4)) - luma(other)) < 1e-6F &&
+                     luma(alone) < 0.75F * luma(kTint),
+                 text::format("not an object, and the model's mesh with other vertices, left alone: %.3f, %.3f",
+                              static_cast<double>(luma(mean_tint(3))), static_cast<double>(luma(mean_tint(4)))));
+}
+
 // (added by lighting round 4) The fit against a bake whose colours are uneven (each vertex's tint up to 15% off its
 // surface's - the bake's own unevenness, painted dirt): the sky and the bounce against the sun as the bake's still.
 // An edge's error measured in its light's own units made the bounce - small everywhere - the cheapest term and took the
@@ -2706,6 +2783,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
     check_data_bounce(tally);
     check_lamp_solve(tally);
     check_indoor_lamps(tally);
+    check_object_tints(tally);
     check_baked_shadow(tally);
     check_local_across(tally);
     {

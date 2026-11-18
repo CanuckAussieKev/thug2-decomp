@@ -2221,6 +2221,39 @@ traced or fitted while the game loads a level: the game reads the level's data a
   level's colours from the file the bake's within a byte); `thug2_options_check` (relit, the time of day and the
   lighting passes out of effect without data, with stale data and without sunlight, with the build step in the reason).
 
+### Objects relit (round P10, relit data v16)
+
+The level's objects (instances of models) come in two kinds, told by how the game draws them (render_pc/geom.h
+`instance_drawn_lit`, Singleton::render's own test): **lit by the game's lights** - every mesh asks for light, or skinned
+by the vertex shader: Direct3D's colour vertex makes the vertex colour the material's diffuse (Cd), so those colours are
+paint (Boston: 93 instances - cars, peds, the skater); and **drawn with their own baked colours** (lighting off: the
+colour is the light the model was given - Boston: 63 - lamp globes, lanterns, bollards, signs, props).
+- **Paint:** hit_surface's base colour for an object the game lights is the texel x the vertex colour, linear - the
+  albedo the frame's per-pixel lighting uses (ff_shaders.cpp: the albedo x linear Cd). Its environment pass stays a
+  reflection (the material's F0). Boston's car is grey-green in `pt ref` as in the frame (was near white).
+- **Own colours:** an object drawn with its own colours that stands still - its transform unchanged for
+  `kObjectStillFrames` (30) records, not animated -, each of its meshes placed once (one buffer, one place), is one of the
+  world's meshes for the relit mode (rt_relit_world.h `WorldMesh::object`: its vertices read through its transform, keyed
+  in the data by its content where it stands). The bake takes it apart with the level's model (the model is fitted over
+  the level's own meshes alone; the objects come after them), its triangles are lamp candidates as the world's (a lamp
+  whose own surface is an object's: the owner rule as for the world - `emitting`), and the game gives it a light store:
+  the raster draw, hit_surface, ReSTIR's light list (vulkan_light_list.cpp: any instance with a store) and the
+  path tracer read the same tint and emission. An object that stands elsewhere later lets its entry go (its light was
+  for its place) and is drawn as before, with the light field's ratio, mesh by mesh where it stands.
+- **One tint per model:** an object's colours are its model's, the same at every place (Boston: each model at 2 - 6
+  places byte for byte alike, whatever the sun and the walls round them) - not the bake's light at each place. So the
+  tints of a model's meshes are one: per vertex and channel the median over its places of what the decomposition made
+  there (rt_relit.h `relit_object_tints`; the bake logs how far its places' tints were apart: Boston's median model x1.09,
+  the most x3.5).
+- **Lamps in another lighting state:** a light card hidden in the state the bake is made in (a night state's) is the
+  artists' mark of a lamp too: its glow found as a shown card's (switched by its daylight), never laid on a surface.
+- **Boston's globe lamps** (the 6 objects of 64E93310 on posts at y 360) are not lamps by the data: no light of them in
+  the bake (no pool, no edge), no light card at them in any state, their colours the model's (luma 53 - 104 of 128 at
+  every place). They are relit as yellow paint - the same in the frame and `pt ref`.
+- **Checked:** `thug2_vulkan_rt_relit_check` (a model at three places: one tint, its colour over the middle place's
+  light; a mesh that isn't an object left alone), `thug2_vulkan_path_check` (the emitting disc as an object's mesh in
+  its own space moved by its transform: listed and lit as the world's).
+
 ### Lighting round A2: one light unit, the sun by the relit fit, lamps by their light (`rt_relit`, `rt_lights`)
 
 The user's standard (2026-11-17): lighting handled physically, as in modern games - no per-level or per-object tuned
@@ -5152,7 +5185,7 @@ camera as it stood (another camera or scene starts it again), shows their mean i
 through the tone curve at that EV. `pt off` ends it.
 
 - One hit surface for every ray (vulkan_rt_scene.h `hit_surface_glsl`): position, triangle and shading normals, base
-  colour (the relit world's texel x tint, an object's texel), the light model's material, alpha and cut-out, and the light
+  colour (the store's texel x tint - the relit world's and, round P10, the relit objects'; an object the game lights its texel x its vertex colour, its paint; else the texel), the light model's material, alpha and cut-out, and the light
   store's emission in the global unit.
 - A path: camera rays jittered in the pixel; at each hit next-event estimation to one light of the run's light list
   (below); the BSDF sampled (GGX visible normals + cosine Lambert); MIS by the power heuristic, a BSDF ray that meets a

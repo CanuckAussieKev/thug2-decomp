@@ -71,7 +71,11 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // v15 (round PT-B): one class of each surface for every ray (rt_surface_class.h) - a blended surface drawn opaque (its
 // drawn alpha 1 everywhere: Boston's brick facades, road markings) blocks the bake's sun, sky, lamp and bounce rays and
 // is a solid lamp candidate; the seen-through surfaces let each ray's light through by their share (seen_through).
-inline constexpr uint32_t kRelitDataVersion = 15;
+// v16 (round P10 - objects relit): the level's objects drawn with their own baked colours that stand still, each mesh
+// where it stands (keyed by its content there - its positions through its instance's transform), taken apart by the
+// level's model as its own meshes are (tints, emission, lamp links) - their lamps (a globe's) found with the level's;
+// the model fitted over the level's own meshes alone.
+inline constexpr uint32_t kRelitDataVersion = 16;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

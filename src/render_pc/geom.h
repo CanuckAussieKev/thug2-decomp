@@ -85,6 +85,10 @@ struct BatchPass {
 void draw_instance_batch(BatchPass batch_pass);
 // NOT ORIGINAL - the first on the instances' list (0x007825C0; null: none), for ray tracing's record (rt_record.h).
 Singleton* first_instance();
+// NOT ORIGINAL - (round P10, objects relit) whether Singleton::render draws the instance lit by the game's lights - its
+// vertex colours the material's diffuse (Direct3D's colour vertex: Cd the vertex colour), paint under light -, or with
+// its own baked vertex colours (lighting off: the colour is the light the bake gave it).
+[[nodiscard]] bool instance_drawn_lit(const Singleton* instance);
 // 0x004D0F40 (qsort's, over instance pointers): the vertex-shader-skinned ones first, by their bones (descending)
 // then their transparent mesh counts; the others by their transparent mesh counts, then their first transparent
 // meshes' materials' sort keys (+0x1C).

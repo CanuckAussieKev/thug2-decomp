@@ -72,6 +72,14 @@ struct WorldMesh {
     // alpha-blended mesh of three passes) never is - its light store carries its lamps' light itself, whoever owns the
     // rest (rt_lights.h lamps_drawn)
     bool lit_per_pixel = true;
+    // (round P10 - objects relit) one of the level's objects drawn with its own baked colours (rt_record.cpp
+    // object_placements: an instance the game draws unlit, standing still, its mesh placed once): its instance's
+    // transform (Direct3D's rows: world = (x, y, z, 1) x it) - the mode reads its vertices in world space, so the bake
+    // takes it apart and the game relights it as a world mesh where it stands. Null: the level's own mesh (drawn
+    // untransformed).
+    const void* object = nullptr;
+    std::array<float, 16> to_world{1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F,
+                                   0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F};
 };
 
 // (the offline relit data - engine/gfx/relit_data.h) A new world's first frame (rt_record's new_world_work, whether
@@ -88,6 +96,8 @@ struct BakeMesh {
     uint64_t content = 0;
     bool card = false; // (round light cards) one of the original's light cards (WorldMesh::glow) - no surface
     bool blended = false; // (round light cards) drawn blended over what is behind it (WorldMesh::blended), not a shadow
+    bool object = false;  // (round P10) an object's mesh where it stands (WorldMesh::object)
+    uint64_t model = 0;   // (round P10) ... and its content in its own space: the same model's mesh at every place
 };
 bool read_world_mesh(const WorldMesh& world, BakeMesh* out);
 // Each frame (rt_record's record_frame, after the new world's work): the last frame's world meshes, and whether the
@@ -137,6 +147,10 @@ struct ObjectLighting {
 // colours are drawn with, the light field's ratio at its centre (unlit_object_colour). False: it has its own light (its
 // light store), it isn't a world mesh of a relit level now, or the light there is the bake's.
 [[nodiscard]] bool unlit_world_colour(const MeshRef* mesh, std::array<uint8_t, 4>* out);
+// (round P10 - objects relit) Whether an object (a Singleton) drawn with its own colours is one of the relit level's
+// world meshes now (WorldMesh::object - listed this frame): its meshes are drawn from their light store, or each with
+// the light field's ratio where it stands when it has none (unlit_world_colour) - not the instance's ratio as a whole.
+[[nodiscard]] bool object_listed(const void* instance);
 // (added by the scene's sun) Whether every mesh's colours are written for the sun the world is relit by now (its sun
 // and bounce traced, the writes done): `sun` that sun, `lighting` a number for that lighting (another when anything
 // that changes the colours changed). rt_record makes the shadows' agreement grid for that sun from them.

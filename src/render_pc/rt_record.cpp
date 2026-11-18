@@ -105,6 +105,10 @@ constexpr uint32_t kPassCount = 4;              // a material's passes, at most
 constexpr uint32_t kPassTextureAlpha = 0x1000;  // a pass's flags: its alpha from the texture only (pixel_shaders.cpp)
 constexpr uint32_t kBlendAdd = 1;               // the blend modes (engine/gfx/mesh_formats.h has the rest): add
 constexpr uint32_t kBlendFixedAdd = 2;          // ... add by the fixed alpha
+// (round P10 - objects relit) an object drawn with its own colours is placed (relit where it stands) once its transform
+// has stayed the same this many records in a row (half a second at 60 frames): an object the game moves every few
+// frames isn't placed and let go of in turn (Boston: one alternated every frame - its emitters scanned again each time)
+constexpr uint64_t kObjectStillFrames = 30;
 
 struct MeshEntry {
     rt::MeshId id = 0;
@@ -159,6 +163,30 @@ struct State {
         uint64_t frame = 0;
     };
     std::unordered_map<const Singleton*, Lit> object_lights;
+    // (round P10 - objects relit) the frame's meshes of objects drawn with their own baked colours (instance_drawn_lit
+    // false; not skinned, not drawn a bone at a time): each with its instance and world transform - and each instance's
+    // transform with the frame it last changed in (an object standing still since the record before is placed)
+    struct Placement {
+        const Singleton* instance = nullptr;
+        const MeshRef* mesh = nullptr;
+        maths::Mat4 world;
+    };
+    std::vector<Placement> placed;
+    struct Still {
+        maths::Mat4 transform;
+        uint64_t changed = 0;
+        uint64_t seen = 0;
+    };
+    std::unordered_map<const Singleton*, Still> still;
+    // (the census - object_census) this frame's instances by how they are drawn
+    struct ObjectCounts {
+        std::size_t lit = 0;      // lit by the game's lights: vertex colours its paint
+        std::size_t own = 0;      // drawn with its own colours ...
+        std::size_t skinned = 0;  // ... of them skinned or drawn a bone at a time (animated)
+        std::size_t moving = 0;   // ... moved since the record before
+        std::size_t lit_meshes = 0;
+        std::size_t own_meshes = 0;
+    } counts;
 };
 
 State& state()
@@ -872,6 +900,36 @@ void record_object(const Singleton* instance, rt::RayTracing& rt)
         return;
     }
     const maths::Mat4& transform = instance->transform();
+    // (round P10 - objects relit) how the game draws it: lit by its lights (its vertex colours paint), or with its own
+    // baked colours - placed (object_placements) when it isn't animated and has stood still since the record before
+    const bool own_colours = !instance_drawn_lit(instance);
+    bool still = false;
+    {
+        State& st_now = state();
+        auto [kept, made] = st_now.still.try_emplace(instance);
+        if (made || !(kept->second.transform == transform)) {
+            kept->second.transform = transform;
+            kept->second.changed = st_now.frame;
+        }
+        if (!made && kept->second.seen + 1 != st_now.frame) {
+            kept->second.changed = st_now.frame; // (not drawn in between: counted again from now)
+        }
+        still = !made && kept->second.changed + kObjectStillFrames <= st_now.frame;
+        kept->second.seen = st_now.frame;
+        const bool animated = instance->bones() != nullptr && instance->bone_count_ > 0;
+        st_now.counts.lit += own_colours ? 0 : 1;
+        st_now.counts.own += own_colours ? 1 : 0;
+        st_now.counts.skinned += own_colours && animated ? 1 : 0;
+        st_now.counts.moving += own_colours && !animated && !still ? 1 : 0;
+        still = still && own_colours && !animated;
+    }
+    const auto place = [instance, own_colours, still](const MeshRef* mesh, const maths::Mat4& world) {
+        State& st_now = state();
+        (own_colours ? st_now.counts.own_meshes : st_now.counts.lit_meshes) += 1;
+        if (still) {
+            st_now.placed.push_back({.instance = instance, .mesh = mesh, .world = world});
+        }
+    };
     // (the objects' shadows) the lights its last draw was lit by - drawn since the record before (object_lit)
     uint32_t light = rt::kNoObjectLight;
     const State& st = state();
@@ -913,6 +971,7 @@ void record_object(const Singleton* instance, rt::RayTracing& rt)
             add_instance(mesh, rt::kObject, world, rt, light, skin);
         } else {
             add_instance(mesh, rt::kObject, transform, rt, light, skin);
+            place(mesh, transform);
         }
     }
 }
@@ -955,7 +1014,22 @@ public:
         rt::Vec3 out{};
         std::memcpy(out.data(), vertices_.subspan(std::size_t{vertex} * geometry_.vertex_stride, sizeof(out)).data(),
                     sizeof(out));
+        if (placed_) { // (round P10: an object's mesh where it stands - Direct3D's rows, p' = (x, y, z, 1) x M)
+            const rt::Vec3 was = out;
+            for (std::size_t c = 0; c < 3; ++c) {
+                core::at(out, c) = (std::get<0>(was) * core::at(to_world_, c)) +
+                                   (std::get<1>(was) * core::at(to_world_, 4 + c)) +
+                                   (std::get<2>(was) * core::at(to_world_, 8 + c)) + core::at(to_world_, 12 + c);
+            }
+        }
         return out;
+    }
+    // (round P10 - objects relit) its positions through an object's transform (the emitters of an object drawn with its
+    // own colours, where it stands)
+    void place(const std::array<float, 16>& to_world)
+    {
+        to_world_ = to_world;
+        placed_ = true;
     }
     // (the colour's B, G, R bytes as luma)
     [[nodiscard]] float brightness(uint32_t vertex) const
@@ -1021,6 +1095,8 @@ public:
     }
 
 private:
+    std::array<float, 16> to_world_{};
+    bool placed_ = false;
     [[nodiscard]] uint32_t index(uint32_t at) const
     {
         const std::span<const uint8_t> indices(static_cast<const uint8_t*>(geometry_.cpu_indices),
@@ -1268,7 +1344,115 @@ std::vector<rt_relit_world::WorldMesh> world_meshes()
                              .lit_per_pixel = lit_per_pixel});
         }
     }
+    // (round P10 - objects relit) the objects drawn with their own colours that stand still, each mesh where it stands -
+    // taken apart and relit as the world's meshes are (rt_relit_world.h WorldMesh::object). A mesh placed more than once
+    // (one model's mesh drawn by two instances, or twice by one) has one set of colours and buffer for several places:
+    // its light can't be one store - not placed (object_census counts them)
+    std::unordered_map<const MeshRef*, uint32_t> placings;
+    for (const State::Placement& placed : st.placed) {
+        placings[placed.mesh] += 1;
+    }
+    for (const State::Placement& placed : st.placed) {
+        const auto found = st.meshes.find(placed.mesh);
+        if (found == st.meshes.end() || placings[placed.mesh] != 1) {
+            continue;
+        }
+        const MaterialRef* material = placed.mesh->material();
+        const uint32_t first = material != nullptr ? blend_mode(material, 0) : 0U;
+        const auto surface = material != nullptr ? st.materials.find(material) : st.materials.end();
+        const rt::SurfaceClass kind = surface != st.materials.end() ? surface_class_of(placed.mesh, surface->second.material)
+                                                                    : rt::SurfaceClass::kOpaque;
+        rt_relit_world::WorldMesh mesh{.mesh = placed.mesh,
+                                       .id = found->second.id,
+                                       .geometry = &found->second.geometry,
+                                       .source = found->second.source,
+                                       .blended = first != 0U && first != kBlendAdd && first != kBlendFixedAdd,
+                                       .glow = material != nullptr && glow_card(material),
+                                       .lit_per_pixel = kind == rt::SurfaceClass::kOpaque ||
+                                                        kind == rt::SurfaceClass::kCutOut ||
+                                                        kind == rt::SurfaceClass::kBlendedOpaque,
+                                       .object = placed.instance};
+        std::ranges::copy(placed.world.floats(), mesh.to_world.begin());
+        world.push_back(mesh);
+    }
     return world;
+}
+
+// (round P10) Which objects are placed now (world_meshes' objects): their meshes and transforms hashed.
+uint64_t placed_key()
+{
+    // (an object placed or let go of changes it - kObjectStillFrames keeps one that moves now and then from flickering)
+    uint64_t key = kFnvBasis;
+    for (const State::Placement& placed : state().placed) {
+        key = (key ^ static_cast<uint64_t>(std::bit_cast<uintptr_t>(placed.mesh))) * kFnvPrime;
+        for (const float value : placed.world.floats()) {
+            key = (key ^ std::bit_cast<uint32_t>(value)) * kFnvPrime;
+        }
+    }
+    return key;
+}
+
+std::string object_census_detail()
+{
+    const State& st = state();
+    // (each placed object: where, its meshes, vertices, materials and its colours' brightness - the bytes' luma, 128 white)
+    std::string detail;
+    std::unordered_map<const Singleton*, std::vector<const MeshRef*>> by_instance;
+    for (const State::Placement& placed : st.placed) {
+        by_instance[placed.instance].push_back(placed.mesh);
+    }
+    for (const auto& [instance, meshes] : by_instance) {
+        const maths::Vec4& at = core::at(instance->transform().row, 3);
+        detail += text::format("\n  object at %.0f %.0f %.0f:", static_cast<double>(at.x), static_cast<double>(at.y),
+                               static_cast<double>(at.z));
+        for (const MeshRef* mesh : meshes) {
+            std::vector<MeshTriangles> read;
+            float least = 255.0F;
+            float most = 0.0F;
+            double sum = 0.0;
+            uint32_t n = 0;
+            if (mesh_triangles(mesh, false, false, &read)) {
+                const auto found = st.meshes.find(mesh);
+                const uint32_t count = found != st.meshes.end() ? found->second.geometry.vertex_count : 0U;
+                for (uint32_t v = 0; v < count; ++v) {
+                    const float y = read.front().brightness(v);
+                    least = std::min(least, y);
+                    most = std::max(most, y);
+                    sum += y;
+                    ++n;
+                }
+            }
+            const MaterialRef* material = mesh->material();
+            detail += text::format(" [%08X %u vertices, luma %.0f / %.0f / %.0f]", material != nullptr ? material->checksum() : 0U,
+                                   mesh->vertex_count(), static_cast<double>(n > 0 ? least : 0.0F),
+                                   n > 0 ? sum / n : 0.0, static_cast<double>(most));
+        }
+    }
+    return detail;
+}
+
+std::string object_census_text()
+{
+    const State& st = state();
+    std::unordered_map<const MeshRef*, uint32_t> placings;
+    std::unordered_set<const Singleton*> instances;
+    for (const State::Placement& placed : st.placed) {
+        placings[placed.mesh] += 1;
+        instances.insert(placed.instance);
+    }
+    std::size_t shared = 0;
+    std::size_t once = 0;
+    std::size_t vertices = 0;
+    for (const auto& [mesh, count] : placings) {
+        (count == 1 ? once : shared) += 1;
+        vertices += count == 1 ? mesh->vertex_count() : 0U;
+    }
+    return text::format("%zu instances lit by the game's lights (their vertex colours paint; %zu meshes), %zu drawn with "
+                        "their own colours (%zu meshes) - %zu of them animated (skinned or a bone at a time), %zu moved "
+                        "since the frame before, %zu standing still with %zu meshes: %zu placed once (%zu vertices - "
+                        "relit), %zu drawn at more than one place (one buffer for several: not relit)",
+                        st.counts.lit, st.counts.lit_meshes, st.counts.own, st.counts.own_meshes, st.counts.skinned,
+                        st.counts.moving, instances.size(), placings.size(), once, vertices, shared);
 }
 
 // (changed by the first frame - docs/design/vulkan.md "The first frame after a load") A new world - the loaded scenes'
@@ -1584,10 +1768,12 @@ float card_core_share(const MeshTriangles& tris, const std::array<uint32_t, 3>& 
 void emitter_work()
 {
     State& st = state();
-    if (st.world.empty() || st.settled_key != st.scene_key || st.emitters_key == st.scene_key) {
+    // (round P10: in the bake, the objects placed now are part of what was scanned - found again when they change)
+    const uint64_t key = relit_bake::requested() ? st.scene_key ^ placed_key() : st.scene_key;
+    if (st.world.empty() || st.settled_key != st.scene_key || st.emitters_key == key) {
         return;
     }
-    st.emitters_key = st.scene_key;
+    st.emitters_key = key;
     const auto start = std::chrono::steady_clock::now();
     rt::LevelEmitters found;
     found.serial = ++st.emitter_sets;
@@ -1612,10 +1798,33 @@ void emitter_work()
     // (round light cards - the bake's) the light cards' triangles with their textures, and the surfaces' colours
     auto cards = std::make_shared<rt::LightCards>();
     std::unordered_map<const void*, uint32_t> card_images;
+    // (round P10 - objects relit) in the bake, the objects drawn with their own colours where they stand too (world_meshes'
+    // objects): a lamp globe's light is in its own colours - a candidate like the level's lamp heads
+    struct Scanned {
+        const MeshRef* mesh = nullptr;
+        const std::array<float, 16>* to_world = nullptr;
+        bool other_state = false; // (a light card hidden in the bake's lighting state)
+    };
+    std::vector<Scanned> scanned;
     for (const MeshRef* mesh : st.world) {
-        if (!mesh_shown(mesh)) {
-            continue; // (the relit bake's hidden meshes: not lit, no lamp - relit_bake.h)
+        if (mesh_shown(mesh)) { // (the relit bake's hidden meshes: not lit, no lamp - relit_bake.h)
+            scanned.push_back({.mesh = mesh});
+        } else if (bake && mesh->material() != nullptr && glow_card(mesh->material())) {
+            // (round P10) a light card the level shows in another of its lighting states (its night's pools under the
+            // street lamps - Boston's under its globes): hidden in the state the bake is made in, but the artists' mark
+            // of a lamp all the same - its lamp found as a shown card's is (a glow, switched by its own daylight); its
+            // light isn't in this state's colours, so it is no card laid on a surface
+            scanned.push_back({.mesh = mesh, .other_state = true});
         }
+    }
+    const std::vector<rt_relit_world::WorldMesh> placed_objects = bake ? world_meshes() : std::vector<rt_relit_world::WorldMesh>{};
+    for (const rt_relit_world::WorldMesh& object : placed_objects) {
+        if (object.object != nullptr) {
+            scanned.push_back({.mesh = object.mesh, .to_world = &object.to_world});
+        }
+    }
+    for (const Scanned& scan : scanned) {
+        const MeshRef* mesh = scan.mesh;
         const MaterialRef* material = mesh->material();
         const auto entry = material != nullptr ? st.materials.find(material) : st.materials.end();
         if (entry == st.materials.end() || moving_material(material)) {
@@ -1646,7 +1855,10 @@ void emitter_work()
             skipped_unread += 1;
             continue;
         }
-        const MeshTriangles& tris = read.front();
+        MeshTriangles& tris = read.front();
+        if (scan.to_world != nullptr) {
+            tris.place(*scan.to_world);
+        }
         const std::array<float, 4>& pass = entry->second.material.colour; // (doubled: 1 leaves the texture as it is)
         // (round L: in the bake a light card's texture too - its saturated core is the lamp's luminous area)
         static const TextureLook kNoLook;
@@ -1655,6 +1867,7 @@ void emitter_work()
         if (bake && !glow && !look.image.empty()) {
             cards->surface_colours.emplace_back(mesh_found->second.id, look.mean);
         }
+        found.other_state_cards += scan.other_state ? 1 : 0;
         if (bake && glow && !look.image.empty()) {
             const void* handle = core::at(material->textures(), 0)->texture;
             const auto [image, added] = card_images.try_emplace(handle, static_cast<uint32_t>(cards->images.size()));
@@ -1673,7 +1886,7 @@ void emitter_work()
                 continue;
             }
             const auto [one, two, three] = corner;
-            if (bake && glow) {
+            if (bake && glow && !scan.other_state) {
                 rt::CardTriangle card{.corners = {tris.position(one), tris.position(two), tris.position(three)},
                                       .image = card_image,
                                       .texel_alpha = card_texel_alpha,
@@ -1778,10 +1991,11 @@ void emitter_work()
     const auto points = std::ranges::count_if(rt::frame_record().lights, [](const rt::Light& light) {
         return light.kind == rt::Light::Kind::kPoint;
     });
-    get_log("rt: lights: %zu emitters (%td glows from %zu additive triangles in %zu meshes; %td candidates from %zu "
+    get_log("rt: lights: %zu emitters (%td glows from %zu additive triangles in %zu meshes - %zu of them cards of another "
+            "lighting state; %td candidates from %zu "
             "self-lit and %zu textured triangles%s; the level's own open sky %.4f, its lamps %.2f) and %td point lights "
             "on now - %.0f ms",
-            found.emitters.size(), glows, found.glow_triangles, found.glow_meshes,
+            found.emitters.size(), glows, found.glow_triangles, found.glow_meshes, found.other_state_cards,
             static_cast<std::ptrdiff_t>(found.emitters.size()) - glows, found.self_lit_triangles,
             found.textured_triangles, bake ? " - the bake's" : " - looked for in the bake only",
             static_cast<double>(found.own_sky), static_cast<double>(found.own_lamps), points,
@@ -1914,6 +2128,10 @@ void record_frame()
     record.poses_key = kFnvBasis;
     // (the objects' shadows: an instance not drawn for a while forgotten - its address may be another's next)
     std::erase_if(st.object_lights, [&st](const auto& kept) { return kept.second.frame + 2 < st.frame; });
+    // (round P10: an instance not recorded for a while forgotten - its address may be another's next)
+    std::erase_if(st.still, [&st](const auto& kept) { return kept.second.seen + 2 < st.frame; });
+    st.placed.clear();
+    st.counts = {};
     record_world(*rt);
     for (const Singleton* instance = first_instance(); instance != nullptr; instance = instance->next()) {
         if (instance->active() && instance->viewports() != 0U) {
@@ -1924,6 +2142,8 @@ void record_frame()
     record_lights();
     st.written.clear();
 }
+
+std::string object_census(bool detail) { return object_census_text() + (detail ? object_census_detail() : std::string()); }
 
 std::string world_census()
 {
