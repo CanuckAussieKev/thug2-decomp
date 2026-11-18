@@ -11,15 +11,19 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/ff_uniforms.h"
@@ -28,6 +32,7 @@
 #include "gpu_vulkan/vulkan_context.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_framegen.h"
+#include "gpu_vulkan/vulkan_hdr.h"
 #include "gpu_vulkan/vulkan_pipelines.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_motion.h"
@@ -210,6 +215,26 @@ struct UpscaleState {
     std::chrono::steady_clock::time_point last_time;
     uint64_t passes = 0;
     double evaluate_seconds = 0.0; // (processor time recording the provider's work, the log's)
+    // (round AE - `pt upscaler`, rt_path.h request_upscaler_probe) the input and output copied out on a frame, read once
+    // that frame's work has finished, then the next frame's copied - `left` more; the cells' physical luma summed
+    struct Probe {
+        bool waiting = false;
+        uint32_t left = 0;
+        uint32_t taken = 0;
+        uint64_t serial = 0;
+        DeviceBuffer in;
+        DeviceBuffer out;
+        Extent render{};
+        Extent output{};
+        float pre_exposure = 1.0F; // (the frame being read's)
+        std::array<float, 2> pre_range{};
+        std::array<float, 2> ev_range{};
+        bool ev_known = false;
+        std::vector<double> in_sum;
+        std::vector<double> out_sum;
+        uint64_t in_bad = 0;
+        uint64_t out_bad = 0;
+    } probe;
 };
 
 UpscaleState& upscale()
@@ -480,6 +505,207 @@ void full_barrier(VkCommandBuffer commands)
                                   .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT};
     vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1,
                          &barrier, 0, nullptr, 0, nullptr);
+}
+
+// (round AE) A 16-bit float's value.
+float half_value(uint16_t half)
+{
+    constexpr uint32_t kExponentShift = 10;
+    constexpr uint32_t kExponentMask = 0x1FU;
+    constexpr uint32_t kMantissaMask = 0x3FFU;
+    constexpr int kBias = 15;
+    constexpr float kMantissaScale = 1024.0F;
+    const uint32_t exponent = (static_cast<uint32_t>(half) >> kExponentShift) & kExponentMask;
+    const uint32_t mantissa = static_cast<uint32_t>(half) & kMantissaMask;
+    const bool negative = (half & 0x8000U) != 0;
+    float value = 0.0F;
+    if (exponent == 0) {
+        value = std::ldexp(static_cast<float>(mantissa) / kMantissaScale, 1 - kBias);
+    } else if (exponent == kExponentMask) {
+        value = mantissa == 0 ? std::numeric_limits<float>::infinity() : std::numeric_limits<float>::quiet_NaN();
+    } else {
+        value = std::ldexp(1.0F + (static_cast<float>(mantissa) / kMantissaScale), static_cast<int>(exponent) - kBias);
+    }
+    return negative ? -value : value;
+}
+
+// (round AE) An RGBA16F picture's mean Rec. 709 luma over a cells x cells grid (each cell its pixels' mean; not a number
+// and infinities counted as 0 and noted) - from tightly packed texels.
+std::vector<double> probe_cells(const DeviceBuffer& buffer, Extent size, uint32_t cells, uint64_t* not_finite)
+{
+    std::vector<double> sums(static_cast<std::size_t>(cells) * cells, 0.0);
+    std::vector<double> counts(sums.size(), 0.0);
+    const std::span<const uint8_t> bytes(static_cast<const uint8_t*>(buffer.mapped), static_cast<std::size_t>(buffer.bytes));
+    constexpr std::size_t kTexelBytes = 8;
+    constexpr std::array<double, 3> kLuma{0.2126, 0.7152, 0.0722};
+    for (uint32_t y = 0; y < size.height; ++y) {
+        for (uint32_t x = 0; x < size.width; ++x) {
+            const std::size_t at = ((static_cast<std::size_t>(y) * size.width) + x) * kTexelBytes;
+            if (at + kTexelBytes > bytes.size()) {
+                continue;
+            }
+            double luma = 0.0;
+            bool finite = true;
+            for (std::size_t channel = 0; channel < kLuma.size(); ++channel) {
+                const auto half = static_cast<uint16_t>(core::at(bytes, at + (channel * 2)) |
+                                                        (core::at(bytes, at + (channel * 2) + 1) << 8U));
+                const float value = half_value(half);
+                finite = finite && std::isfinite(value);
+                luma += std::isfinite(value) ? core::at(kLuma, channel) * static_cast<double>(value) : 0.0;
+            }
+            *not_finite += finite ? 0U : 1U;
+            const std::size_t cell = (static_cast<std::size_t>(y * cells / size.height) * cells) + (x * cells / size.width);
+            core::at(sums, cell) += luma;
+            core::at(counts, cell) += 1.0;
+        }
+    }
+    for (std::size_t cell = 0; cell < sums.size(); ++cell) {
+        core::at(sums, cell) = core::at(counts, cell) > 0.0 ? core::at(sums, cell) / core::at(counts, cell) : 0.0;
+    }
+    return sums;
+}
+
+// (round AE) The probe's sums logged: the frame's and each cell's mean physical luma in, and out / in.
+void log_probe(const UpscaleState& own)
+{
+    const auto& probe = own.probe;
+    constexpr uint32_t kCells = rt::path::kUpscalerProbeCells;
+    const double taken = std::max(static_cast<double>(probe.taken), 1.0);
+    double in_frame = 0.0;
+    double out_frame = 0.0;
+    for (std::size_t cell = 0; cell < probe.in_sum.size(); ++cell) {
+        in_frame += core::at(probe.in_sum, cell);
+        out_frame += core::at(probe.out_sum, cell);
+    }
+    in_frame /= static_cast<double>(probe.in_sum.size()) * taken;
+    out_frame /= static_cast<double>(probe.out_sum.size()) * taken;
+    get_log("vulkan: upscaler probe: %s, %ux%u -> %ux%u, %u frames, pre-exposure %.6g - %.6g, the camera at EV100 %s; the "
+            "frame's mean physical luma in %.5g out %.5g, out / in %.3f; %llu / %llu texels not finite",
+            own.provider ? own.provider->name() : "?", probe.render.width, probe.render.height, probe.output.width,
+            probe.output.height, probe.taken, static_cast<double>(std::get<0>(probe.pre_range)),
+            static_cast<double>(std::get<1>(probe.pre_range)),
+            probe.ev_known ? text::format("%.2f - %.2f", static_cast<double>(std::get<0>(probe.ev_range)),
+                                          static_cast<double>(std::get<1>(probe.ev_range)))
+                                 .c_str()
+                           : "-",
+            in_frame, out_frame, in_frame > 0.0 ? out_frame / in_frame : 0.0,
+            static_cast<unsigned long long>(probe.in_bad), static_cast<unsigned long long>(probe.out_bad));
+    for (uint32_t row = 0; row < kCells; ++row) {
+        std::string line;
+        for (uint32_t column = 0; column < kCells; ++column) {
+            const std::size_t cell = (static_cast<std::size_t>(row) * kCells) + column;
+            const double a = core::at(probe.in_sum, cell) / taken;
+            line += text::format(" %9.4g/%5.3f", a, a > 0.0 ? core::at(probe.out_sum, cell) / taken / a : 0.0);
+        }
+        get_log("vulkan: upscaler probe row %u (in physical / out over in):%s", row, line.c_str());
+    }
+}
+
+// (round AE) A probe's copies read, once the frame they were recorded in has finished: its cells added to the sums;
+// after the last the probe logged and its memory released.
+void finish_probe(Backend& state)
+{
+    UpscaleState& own = upscale();
+    auto& probe = own.probe;
+    if (!probe.waiting || state.frames.completed() < probe.serial) {
+        return;
+    }
+    probe.waiting = false;
+    state.memory.invalidate(probe.in);
+    state.memory.invalidate(probe.out);
+    constexpr uint32_t kCells = rt::path::kUpscalerProbeCells;
+    const std::vector<double> in = probe_cells(probe.in, probe.render, kCells, &probe.in_bad);
+    const std::vector<double> out = probe_cells(probe.out, probe.output, kCells, &probe.out_bad);
+    const double pre = probe.pre_exposure > 0.0F ? static_cast<double>(probe.pre_exposure) : 1.0;
+    probe.in_sum.resize(in.size(), 0.0);
+    probe.out_sum.resize(out.size(), 0.0);
+    for (std::size_t cell = 0; cell < in.size(); ++cell) {
+        core::at(probe.in_sum, cell) += core::at(in, cell) / pre;
+        core::at(probe.out_sum, cell) += core::at(out, cell) / pre;
+    }
+    ++probe.taken;
+    if (probe.left == 0) {
+        log_probe(own);
+        state.memory.destroy_buffer(&probe.in);
+        state.memory.destroy_buffer(&probe.out);
+    }
+}
+
+// (round AE) `pt upscaler` asked, or a probe going on: this frame's input (own.colour's drawn part) and output copied into
+// memory the processor reads (the images in GENERAL, after the provider's work and a full barrier).
+void start_probe(Backend& state, VkCommandBuffer commands, Extent render, Extent output, float pre_exposure)
+{
+    UpscaleState& own = upscale();
+    auto& probe = own.probe;
+    if (probe.waiting) {
+        return;
+    }
+    if (probe.left == 0) {
+        const uint32_t asked = rt::path::take_upscaler_probe();
+        if (asked == 0) {
+            return;
+        }
+        state.memory.destroy_buffer(&probe.in);
+        state.memory.destroy_buffer(&probe.out);
+        probe = {};
+        probe.left = asked;
+        probe.pre_range = {pre_exposure, pre_exposure};
+    }
+    if (probe.render.width != render.width || probe.render.height != render.height ||
+        probe.output.width != output.width || probe.output.height != output.height) {
+        state.memory.destroy_buffer(&probe.in);
+        state.memory.destroy_buffer(&probe.out);
+        probe.in_sum.clear();
+        probe.out_sum.clear();
+        probe.taken = 0;
+    }
+    constexpr VkDeviceSize kTexelBytes = 8;
+    if (probe.in.buffer == VK_NULL_HANDLE) {
+        const VkDeviceSize in_bytes = static_cast<VkDeviceSize>(render.width) * render.height * kTexelBytes;
+        const VkDeviceSize out_bytes = static_cast<VkDeviceSize>(output.width) * output.height * kTexelBytes;
+        if (!state.memory.create_buffer(in_bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT, BufferPlace::kReadBack, &probe.in) ||
+            !state.memory.create_buffer(out_bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT, BufferPlace::kReadBack, &probe.out) ||
+            probe.in.mapped == nullptr || probe.out.mapped == nullptr) {
+            state.memory.destroy_buffer(&probe.in);
+            state.memory.destroy_buffer(&probe.out);
+            probe.left = 0;
+            get_log("vulkan: upscaler probe: no read-back memory - not taken");
+            return;
+        }
+    }
+    const VkImageSubresourceLayers layers{
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1};
+    const VkBufferImageCopy from_in{.bufferOffset = 0,
+                                    .bufferRowLength = 0,
+                                    .bufferImageHeight = 0,
+                                    .imageSubresource = layers,
+                                    .imageOffset = {.x = 0, .y = 0, .z = 0},
+                                    .imageExtent = {.width = render.width, .height = render.height, .depth = 1}};
+    VkBufferImageCopy from_out = from_in;
+    from_out.imageExtent = {.width = output.width, .height = output.height, .depth = 1};
+    vkCmdCopyImageToBuffer(commands, own.colour.image, VK_IMAGE_LAYOUT_GENERAL, probe.in.buffer, 1, &from_in);
+    vkCmdCopyImageToBuffer(commands, own.output.image, VK_IMAGE_LAYOUT_GENERAL, probe.out.buffer, 1, &from_out);
+    const VkMemoryBarrier to_host{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                                  .pNext = nullptr,
+                                  .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                                  .dstAccessMask = VK_ACCESS_HOST_READ_BIT};
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &to_host, 0, nullptr,
+                         0, nullptr);
+    probe.waiting = true;
+    --probe.left;
+    probe.serial = state.frames.serial();
+    probe.render = render;
+    probe.output = output;
+    probe.pre_exposure = pre_exposure;
+    probe.pre_range = {std::min(std::get<0>(probe.pre_range), pre_exposure),
+                       std::max(std::get<1>(probe.pre_range), pre_exposure)};
+    float ev100 = 0.0F;
+    if (last_metered_ev100(state, &ev100)) {
+        probe.ev_range = probe.ev_known ? std::array<float, 2>{std::min(std::get<0>(probe.ev_range), ev100),
+                                                               std::max(std::get<1>(probe.ev_range), ev100)}
+                                        : std::array<float, 2>{ev100, ev100};
+        probe.ev_known = true;
+    }
 }
 
 void blit(VkCommandBuffer commands, const Image& from, const std::array<int32_t, 4>& from_rect, const Image& to,
@@ -1075,6 +1301,9 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         return false;
     }
     full_barrier(commands);
+    // (round AE - `pt upscaler`) a probe's copies read once finished; a new one recorded when asked
+    finish_probe(state);
+    start_probe(state, commands, render, output, frame.pre_exposure);
     // (frame generation's inputs: this frame's depth, motion and camera - vulkan_framegen.h)
     framegen_inputs(state, frame, view);
     // 4. the output over the view
@@ -1193,6 +1422,11 @@ void release_upscale(Backend& state)
             state.memory.destroy_image(image);
         }
     }
+    if (state.memory.ready()) {
+        state.memory.destroy_buffer(&own.probe.in);
+        state.memory.destroy_buffer(&own.probe.out);
+    }
+    own.probe.waiting = false;
     state.motion = MotionVectors{};
     own.view_on = false;
     own.reset = true;

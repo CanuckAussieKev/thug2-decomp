@@ -2745,8 +2745,31 @@ six 8-bit words of pre-exposed light x 128: a lamp's head held at 2 (about 1.8 c
   captures in a game with the metered camera live: there the old build lost light everywhere (0.42 - 0.47 of the
   reference against 0.72 - 0.80 a minute later), this one keeps the lit surfaces (0.64 - 0.74, its input 0.64 - 0.67)
   and still loses ~30 % of the lamp heads' highlights (courtyard 0.35 - 0.51 against its input 0.68) until the
-  camera stops moving (the meter set by hand: 0.66 - 0.69). Open: why a metered camera (the pre-exposure following it
-  every frame) costs RR its brightest highlights - a pre-exposure drifting 1 % a frame costs only 5 % in the check.
+  camera stops moving (the meter set by hand: 0.66 - 0.69).
+  **Round AE - the meter before the denoiser; one pre-exposure rule.** Two things made "live" and "set by hand" differ:
+  1. *The meter read RR's output* (it ran at the tone mapping, after the upscaler): whatever RR lost raised the
+     exposure, which became the next frame's pre-exposure - a loop through the denoiser (the reading fell 0.108 -> 0.073
+     cd/m^2 over 40 s, the camera crept +0.4 stops). Now the meter is its own listener at `rt::ViewOrder::kMeter` (940:
+     after every lit pass, before the upscaler) and reads the frame as drawn (`ViewDrawn::rect`), the slot kept by where
+     the view is shown; the tone-mapping pass reads that slot (`record_meter_pass` -> `record_tone_map_pass`). Each of
+     the 64 x 64 samples is the linear mean of 4 x 4 taps over its cell (`kMeterTaps`, `meter_tap_place`): the input is
+     a 1-spp, firefly-laden frame, and the log of one noisy pixel averages under its light (an exponential sample's by
+     0.83 stops) - box-filtered first, as engines meter a downsample, it reads -0.07 stops (thug2_vulkan_hdr_check).
+     UE5 meters after TSR; with a denoiser in place of TSR that is the loop above, so the input is metered here.
+  2. *The camera set by hand fell back to the daylight's pre-exposure* (1 / the light on a level surface - ~100 x the
+     camera's at night), so `pt ref` captures gave RR an input at another level. Now the frame's pre-exposure is the
+     exposure in use, metered or not (UE5: PreExposure follows the exposure, manual or automatic): the manual camera's
+     `exposure_at_ev100`, and 1 for the fixed camera of `rt_exposure_adapt=0`.
+  Within a frame every consumer reads one value: day_clock latches it once a step before `draw_world`
+  (`set_day_light`), the meter divides by that value (its readout's "metered with" = the frame's), and DLSS / FSR get it
+  as `preExposure` (NVIDIA's DLSS guide: the pre-exposure the input was multiplied by, each frame; the history is
+  rescaled by it - no reset). A drifting pre-exposure costs RR almost nothing: 40 4-px emitters 12 stops over a floor,
+  x 1.0001 / 1.001 / 1.01 a frame keep 0.889 / 0.886 / 0.869 of the frame's light against 0.889 held still
+  (thug2_vulkan_upscale_check --dlss: the drift's cost within 2 %). What RR keeps of small emitters at all (~0.89 of
+  their light, at every level and drift) is its own. BO's archway at night, still (`pt upscaler 32`, the averaged
+  input vs output): camera EV100 3.03 - 3.19 over 70 s with no drift, RR's frame out / in 0.85 - 0.92 live and 0.90 set by
+  hand; the courtyard's lamp-head cells 0.55 - 0.91 / 0.66 - 1.16 (both noisy: their input is a few fireflies).
+  `pt upscaler [frames]` logs the upscaler's input and output, averaged over the frames, on an 8 x 8 grid.
 
 **Lamps by physics where the bake can't tell** (`engine/gfx/lamp_fixtures.h`, `rt_relit.h relit_lamp_models`). The
 bake measures a lamp only when it was on and outshone the rest; New Jersey's afternoon bake told 34 of 364 lamps - 300

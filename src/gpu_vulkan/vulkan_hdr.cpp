@@ -351,17 +351,32 @@ void main()
     float brightest = 0.0;
     for (int j = 0; j < METER_EACH; ++j) {
         for (int i = 0; i < METER_EACH; ++i) {
-            vec2 uv = (vec2(gl_LocalInvocationID.xy * uint(METER_EACH) + uvec2(i, j)) + 0.5) / grid;
-            ivec2 p = ivec2(pc.meter_rect.xy) + ivec2(uv * pc.meter_rect.zw);
-            vec3 c = texelFetch(u_colour, p, 0).rgb;
-            // (round S2 - the readout) a sample at the frame format's largest or beyond (an overflow to infinity) or not
-            // a number, and one with a negative channel: counted; the brightest finite one kept
-            float most = max(c.r, max(c.g, c.b));
-            over += most < kLargest ? 0.0 : 1.0;
-            negative += min(c.r, min(c.g, c.b)) < 0.0 ? 1.0 : 0.0;
-            c = finite3(c);
-            float luma = dot(c, kLuma);
-            brightest = max(brightest, luma);
+            uvec2 at = gl_LocalInvocationID.xy * uint(METER_EACH) + uvec2(i, j);
+            vec2 uv = (vec2(at) + 0.5) / grid;
+            // (round AE) the sample: the linear mean of METER_TAPS x METER_TAPS pixels spread over its cell (meter_tap_place)
+            // - the frame is metered before the denoiser, and the log of one noisy pixel (a path-traced sample) reads
+            // darker than its light (the log of a mean is not the mean of the logs); averaged first, it is the light
+            float luma = 0.0;
+            bool beyond = false;
+            float least = 0.0;
+            for (int b = 0; b < METER_TAPS; ++b) {
+                for (int a = 0; a < METER_TAPS; ++a) {
+                    vec2 tap = (vec2(at * uint(METER_TAPS) + uvec2(a, b)) + 0.5) / (grid * float(METER_TAPS));
+                    ivec2 p = ivec2(pc.meter_rect.xy) + ivec2(tap * pc.meter_rect.zw);
+                    vec3 c = texelFetch(u_colour, p, 0).rgb;
+                    beyond = beyond || !(max(c.r, max(c.g, c.b)) < kLargest);
+                    least = min(least, min(c.r, min(c.g, c.b)));
+                    c = finite3(c);
+                    float tap_luma = dot(c, kLuma);
+                    brightest = max(brightest, tap_luma);
+                    luma += tap_luma;
+                }
+            }
+            luma /= float(METER_TAPS * METER_TAPS);
+            // (round S2 - the readout) a sample with a pixel at the frame format's largest or beyond (an overflow to
+            // infinity) or not a number, and one with a negative channel: counted; the brightest finite pixel kept
+            over += beyond ? 1.0 : 0.0;
+            negative += least < 0.0 ? 1.0 : 0.0;
             // the sample's physical luminance (cd/m^2) counted in its bin with its centre weight
             float physical = luma / pc.night.x * METER_WHITE;
             float stop = physical > 0.0 ? log2(physical) : float(METER_LOWEST_STOP);
@@ -614,6 +629,9 @@ struct HdrState {
     uint64_t upscales_seen = 0; // (round F) the upscaler's passes counted at the last pass
     // (path tracing, stage 1) the last metered slot (the readout's: last_metered_ev100), -1 none
     int last_slot = -1;
+    // (round AE) the slot the view being drawn was metered into before the upscaler (record_meter_pass), taken by its
+    // tone-mapping pass; -1 none
+    int view_slot = -1;
 };
 
 // (path tracing, stage 1 - P5) The manual exposure (set_manual_ev100): any thread.
@@ -659,6 +677,31 @@ public:
         state.linear_phase = false; // (the 2D after it: the display's colours)
     }
 };
+
+// (round AE) The camera's meter, on the scene's light BEFORE the upscaler / denoiser (rt::ViewOrder::kMeter): what it
+// reads is the frame every lit pass drew - scene-referred, at the drawn size -, never DLSS / Ray Reconstruction's or
+// FSR's output, so the exposure has no loop through the denoiser (a highlight it loses can't raise the exposure, which
+// moves the pre-exposure it is given). UE5 meters its histogram on the scene colour before its post-processing chain;
+// NVIDIA's DLSS guide has the exposure given to DLSS come from the game's own, not from DLSS's output.
+class MeterListener final : public rt::ViewListener {
+public:
+    [[nodiscard]] int order() const override { return rt::ViewOrder::kMeter; }
+    void opaque_drawn(const rt::ViewDrawn& /*view*/) override {}
+    void world_drawn(const rt::ViewDrawn& view) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        if (state.device_made && state.draws_made) {
+            record_meter_pass(state, view);
+        }
+    }
+};
+
+MeterListener& meter_listener()
+{
+    static MeterListener instance;
+    return instance;
+}
 
 ToneListener& listener()
 {
@@ -1052,6 +1095,7 @@ std::string pass_defines()
     };
     define("METER_SIDE", std::to_string(kMeterSide));
     define("METER_EACH", std::to_string(kMeterEach));
+    define("METER_TAPS", std::to_string(kMeterTaps));
     define("METER_KEY", glsl_real(kMeterKey));
     define("METER_WHITE", glsl_real(static_cast<float>(meter_white())));
     define("METER_DAY_ADAPTED", glsl_real(static_cast<float>(adaptation_at(kDaylightAverage))));
@@ -1658,8 +1702,10 @@ void set_hdr_settings(const HdrSettings& settings)
             own.settings = settings;
             own.parameters = tone_parameters(settings);
             if (settings.on) {
+                rt::add_view_listener(&meter_listener());
                 rt::add_view_listener(&listener());
             } else {
+                rt::remove_view_listener(&meter_listener());
                 rt::remove_view_listener(&listener());
             }
             return;
@@ -1687,8 +1733,10 @@ void set_hdr_settings(const HdrSettings& settings)
         own.lut_changed = true;
     }
     if (settings.on) {
+        rt::add_view_listener(&meter_listener());
         rt::add_view_listener(&listener());
     } else {
+        rt::remove_view_listener(&meter_listener());
         rt::remove_view_listener(&listener());
         rt::set_camera_exposure(0.0F); // (round PX: no camera - the frame's pre-exposure by the daylight's rule)
     }
@@ -1811,6 +1859,13 @@ std::array<float, 2> meter_place(uint32_t i, uint32_t j)
 {
     const auto grid = static_cast<float>(kMeterGrid);
     return {(static_cast<float>(i) + 0.5F) / grid, (static_cast<float>(j) + 0.5F) / grid};
+}
+
+std::array<float, 2> meter_tap_place(uint32_t i, uint32_t j, uint32_t a, uint32_t b)
+{
+    const auto taps = static_cast<float>(kMeterGrid * kMeterTaps);
+    return {(static_cast<float>((i * kMeterTaps) + a) + 0.5F) / taps,
+            (static_cast<float>((j * kMeterTaps) + b) + 0.5F) / taps};
 }
 
 float meter_weight(const std::array<float, 2>& place)
@@ -2161,6 +2216,145 @@ bool hdr_wanted(const Backend& state)
     return true;
 }
 
+namespace {
+
+// The pass's descriptors (the viewport's copy, the grading table, the meter's slots, the local exposure's grid) - pushed
+// for the compute passes and the curve's. Filled in place (the writes point at its members).
+struct PassBindings {
+    VkDescriptorImageInfo source{};
+    VkDescriptorBufferInfo table{};
+    VkDescriptorBufferInfo metered{};
+    VkDescriptorBufferInfo grid{};
+    std::array<VkWriteDescriptorSet, 4> writes{};
+    PassBindings() = default;
+    PassBindings(const PassBindings&) = delete;
+    PassBindings& operator=(const PassBindings&) = delete;
+    PassBindings(PassBindings&&) = delete;
+    PassBindings& operator=(PassBindings&&) = delete;
+    ~PassBindings() = default;
+    void fill(const HdrState& own)
+    {
+        source = {.sampler = own.sampler, .imageView = own.copy.view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+        table = {.buffer = own.lut_buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
+        metered = {.buffer = own.meter_buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
+        grid = {.buffer = own.local_buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
+        for (VkWriteDescriptorSet& write : writes) {
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.descriptorCount = 1;
+        }
+        core::at(writes, 0).dstBinding = 0;
+        core::at(writes, 0).descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        core::at(writes, 0).pImageInfo = &source;
+        core::at(writes, 1).dstBinding = 1;
+        core::at(writes, 1).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        core::at(writes, 1).pBufferInfo = &table;
+        core::at(writes, 2).dstBinding = 2;
+        core::at(writes, 2).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        core::at(writes, 2).pBufferInfo = &metered;
+        core::at(writes, 3).dstBinding = 3;
+        core::at(writes, 3).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        core::at(writes, 3).pBufferInfo = &grid;
+    }
+};
+
+// The area `rect` (x, y, width, height) of the colour target copied into the pass's copy at the same place, left in
+// SHADER_READ_ONLY for the passes (the copy's barriers by hand: the meter's compute shader reads it too); the target
+// back as a colour attachment.
+void copy_view(VkCommandBuffer commands, Image* colour, const std::array<uint32_t, 4>& rect)
+{
+    HdrState& own = hdr();
+    Memory::transition(commands, colour, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    copy_barrier(commands, &own.copy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    const VkImageSubresourceLayers layers{
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1};
+    const VkOffset3D corner{.x = static_cast<int32_t>(core::at(rect, 0)), .y = static_cast<int32_t>(core::at(rect, 1)), .z = 0};
+    const VkImageCopy region{.srcSubresource = layers,
+                             .srcOffset = corner,
+                             .dstSubresource = layers,
+                             .dstOffset = corner,
+                             .extent = {.width = core::at(rect, 2), .height = core::at(rect, 3), .depth = 1}};
+    vkCmdCopyImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, own.copy.image,
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    copy_barrier(commands, &own.copy, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    Memory::transition(commands, colour, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+}
+
+} // namespace
+
+bool record_meter_pass(Backend& state, const rt::ViewDrawn& view)
+{
+    HdrState& own = hdr();
+    own.view_slot = -1;
+    if (!own.settings.on || own.failed) {
+        return false;
+    }
+    // (round AE) the camera that isn't metered is still the frame's pre-exposure (UE5: PreExposure follows the exposure in
+    // use, manual or automatic): set by hand (the path tracer's reference) - its own exposure; rt_exposure_adapt=0 - the
+    // fixed camera's 1 (the light shown as it is). Round PX had the daylight's rule here (1 / the light on a level
+    // surface): the frame - and the upscaler's input - then sat at another level than the camera put it, by ~100 x at
+    // night, whenever the camera was set by hand.
+    const ManualExposure manual = manual_exposure();
+    if (manual.on || !(own.settings.exposure_adapt > 0.0F)) {
+        rt::set_camera_exposure(manual.on ? exposure_at_ev100(manual.ev100) : 1.0F);
+        return false;
+    }
+    Image* const colour = colour_image_of(core::at(state.targets, 0));
+    if (colour == nullptr || colour->format != kHdrFormat || colour->attachment_view == VK_NULL_HANDLE) {
+        return false; // (record_tone_map_pass reports it)
+    }
+    const bool multisampled = colour->samples != VK_SAMPLE_COUNT_1_BIT;
+    std::string meter_error;
+    const VkPipeline meter = compute_pipeline(state, ComputeKind::kMeter, multisampled, &meter_error);
+    if (meter == VK_NULL_HANDLE) {
+        if (first_report(state, kReportMeter)) {
+            get_log("vulkan: rt_hdr: the meter couldn't be made (%s) - the exposure isn't adapted to bright views",
+                    meter_error.c_str());
+        }
+        rt::set_camera_exposure(1.0F); // (unmetered: the fixed camera's)
+        return false;
+    }
+    if (!ensure_image_like(state, &own.copy, *colour, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT) ||
+        !ensure_lut_buffer(state) || !ensure_meter_buffer(state) || !ensure_local_buffer(state, 1)) {
+        return false;
+    }
+    // what is metered: the world as drawn (ViewDrawn::rect - the drawn size's part when an upscaler is on); the slot kept
+    // by where the view is shown (output_rect - the same place whether it is upscaled or not)
+    const std::array<uint32_t, 4>& drawn = view.rect;
+    const bool shown_known = core::at(view.output_rect, 2) != 0 && core::at(view.output_rect, 3) != 0;
+    const std::array<uint32_t, 4>& shown = shown_known ? view.output_rect : view.rect;
+    const uint32_t left = std::min(core::at(drawn, 0), colour->extent.width);
+    const uint32_t top = std::min(core::at(drawn, 1), colour->extent.height);
+    const uint32_t width = std::min(core::at(drawn, 2), colour->extent.width - left);
+    const uint32_t height = std::min(core::at(drawn, 3), colour->extent.height - top);
+    if (width == 0 || height == 0) {
+        return false;
+    }
+    PassConstants constants{};
+    constants.meter_rect = {static_cast<float>(left), static_cast<float>(top), static_cast<float>(width),
+                            static_cast<float>(height)};
+    constants.night = {rt::frame_pre_exposure(), 0.0F, 0.0F, 0.0F};
+    VkCommandBuffer commands = outside_pass(state);
+    copy_view(commands, colour, {left, top, width, height});
+    PassBindings bindings;
+    bindings.fill(own);
+    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
+                              static_cast<uint32_t>(bindings.writes.size()), bindings.writes.data());
+    const std::size_t slot = meter_slot_of(shown, colour->extent);
+    own.last_slot = static_cast<int>(slot);
+    follow_camera(state, slot);
+    log_readout(state, slot, core::at(constants.night, 0));
+    record_meter(commands, meter, slot, &constants);
+    if (colour->layout != colour->resting) {
+        Memory::transition(commands, colour, colour->resting);
+    }
+    state.bound = BoundState{};
+    const uint64_t serial = state.frames.serial();
+    colour->used = serial;
+    own.copy.used = serial;
+    own.view_slot = static_cast<int>(slot);
+    return true;
+}
+
 bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
 {
     HdrState& own = hdr();
@@ -2215,18 +2409,12 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
             core::at(constants.lut_scale, channel) = 1.0F / (core::at(lut.domain_max, channel) - low);
         }
     }
-    // (added by the low sun's glare) the meter, when rt_exposure_adapt lets a bright view bring the exposure down
-    VkPipeline meter = VK_NULL_HANDLE;
+    // (round AE) the meter's slot - metered before the upscaler this frame by the view's meter listener (record_meter_pass)
     const ManualExposure manual = manual_exposure(); // (path tracing, stage 1: the camera set by hand - no meter)
     const bool multisampled = colour->samples != VK_SAMPLE_COUNT_1_BIT;
-    if (own.settings.exposure_adapt > 0.0F && !manual.on) {
-        std::string meter_error;
-        meter = compute_pipeline(state, ComputeKind::kMeter, multisampled, &meter_error);
-        if (meter == VK_NULL_HANDLE && first_report(state, kReportMeter)) {
-            get_log("vulkan: rt_hdr: the meter couldn't be made (%s) - the exposure isn't adapted to bright views",
-                    meter_error.c_str());
-        }
-    }
+    const int metered_slot = own.view_slot;
+    own.view_slot = -1;
+    const bool metered = metered_slot >= 0 && !manual.on;
     // (round EX) the local exposure (not while the camera is set by hand), its grid sized for the viewport
     const std::array<uint32_t, 2> tiles = local_tiles(width, height);
     const std::size_t tile_count = static_cast<std::size_t>(std::get<0>(tiles)) * std::get<1>(tiles);
@@ -2247,68 +2435,24 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     }
     constants.meter_rect = {static_cast<float>(left), static_cast<float>(top), static_cast<float>(width),
                             static_cast<float>(height)};
+    if (metered) {
+        constants.meter = {static_cast<float>(metered_slot), 1.0F, 0.0F, 0.0F};
+    }
     // (round S) the frame's pre-exposure divided out
     // (path tracing, stage 1) y: the manual exposure's factor on the physical light (0: none)
     // (round EX) z: the local exposure - about the meter's key (1) or, unmetered, the fixed key (2); w: its tiles across
-    const float local_mode = !local_on ? 0.0F : (meter != VK_NULL_HANDLE ? 1.0F : 2.0F);
+    const float local_mode = !local_on ? 0.0F : (metered ? 1.0F : 2.0F);
     constants.night = {rt::frame_pre_exposure(), manual.on ? exposure_at_ev100(manual.ev100) : 0.0F, local_mode,
                        static_cast<float>(std::get<0>(tiles))};
 
     VkCommandBuffer commands = outside_pass(state);
-    // the viewport's colour copied out (the copy's barriers by hand: the meter's compute shader reads it too)
-    Memory::transition(commands, colour, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    copy_barrier(commands, &own.copy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    const VkImageSubresourceLayers layers{
-        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1};
-    const VkOffset3D corner{.x = static_cast<int32_t>(left), .y = static_cast<int32_t>(top), .z = 0};
-    const VkImageCopy region{.srcSubresource = layers,
-                             .srcOffset = corner,
-                             .dstSubresource = layers,
-                             .dstOffset = corner,
-                             .extent = {.width = width, .height = height, .depth = 1}};
-    vkCmdCopyImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, own.copy.image,
-                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    copy_barrier(commands, &own.copy, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    Memory::transition(commands, colour, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    const VkDescriptorImageInfo source{.sampler = own.sampler,
-                                       .imageView = own.copy.view,
-                                       .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    const VkDescriptorBufferInfo table{.buffer = own.lut_buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
-    const VkDescriptorBufferInfo metered{.buffer = own.meter_buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
-    const VkDescriptorBufferInfo grid{.buffer = own.local_buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
-    std::array<VkWriteDescriptorSet, 4> writes{};
-    for (VkWriteDescriptorSet& write : writes) {
-        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.descriptorCount = 1;
-    }
-    core::at(writes, 0).dstBinding = 0;
-    core::at(writes, 0).descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    core::at(writes, 0).pImageInfo = &source;
-    core::at(writes, 1).dstBinding = 1;
-    core::at(writes, 1).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    core::at(writes, 1).pBufferInfo = &table;
-    core::at(writes, 2).dstBinding = 2;
-    core::at(writes, 2).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    core::at(writes, 2).pBufferInfo = &metered;
-    core::at(writes, 3).dstBinding = 3;
-    core::at(writes, 3).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    core::at(writes, 3).pBufferInfo = &grid;
-    if (meter != VK_NULL_HANDLE || local_on) {
-        vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
-                                  static_cast<uint32_t>(writes.size()), writes.data());
-    }
-    // (the meter first: the viewport's slot moved toward its target)
-    if (meter != VK_NULL_HANDLE) {
-        const std::size_t slot = meter_slot_of(shown, colour->extent);
-        own.last_slot = static_cast<int>(slot);
-        follow_camera(state, slot);
-        log_readout(state, slot, core::at(constants.night, 0));
-        record_meter(commands, meter, slot, &constants);
-    } else {
-        rt::set_camera_exposure(0.0F); // (round PX: not metered - no camera to follow)
-    }
-    // (round EX) then the local exposure's grid, with the meter's factor and key
+    copy_view(commands, colour, {left, top, width, height});
+    PassBindings bindings;
+    bindings.fill(own);
+    // (round EX) the local exposure's grid, with the meter's factor and key
     if (local_on) {
+        vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
+                                  static_cast<uint32_t>(bindings.writes.size()), bindings.writes.data());
         record_local(commands, local, constants, tiles);
     }
     // the pass: one triangle over the viewport
@@ -2338,7 +2482,7 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     vkCmdSetViewport(commands, 0, 1, &viewport);
     vkCmdSetScissor(commands, 0, 1, &area);
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, own.layout, 0,
-                              static_cast<uint32_t>(writes.size()), writes.data());
+                              static_cast<uint32_t>(bindings.writes.size()), bindings.writes.data());
     vkCmdPushConstants(commands, own.layout, kPassStages, 0, sizeof(PassConstants), &constants);
     vkCmdDraw(commands, 3, 1, 0, 0);
     vkCmdEndRendering(commands);
@@ -2358,7 +2502,7 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
                 static_cast<double>(own.settings.exposure), tone.curve, static_cast<double>(own.settings.white_point),
                 static_cast<double>(tone.knee), static_cast<double>(tone.saturation),
                 static_cast<double>(tone.contrast), lut.size >= kLeastLut ? ", a grading table" : "",
-                meter != VK_NULL_HANDLE ? "metered: a histogram auto exposure" : "not metered",
+                metered ? "metered before the upscaler: a histogram auto exposure" : "not metered",
                 local_on ? "on" : "off");
     }
     return true;

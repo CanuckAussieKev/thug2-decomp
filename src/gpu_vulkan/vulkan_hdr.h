@@ -116,7 +116,10 @@ void set_hdr_lut(GradeLut lut);
 // sky's unit (rt_sky.h: 1 a white diffuser under the reference day; round F). It follows Unreal Engine 5's histogram auto
 // exposure (the engine's default method) with Frostbite's physical camera units (Lagarde and de Rousiers, "Moving
 // Frostbite to PBR", 2014: EV100 and the ISO 2720 meter):
+//   - (round AE) where: on the frame as drawn, before the upscaler / denoiser (record_meter_pass, rt::ViewOrder::kMeter) -
+//     never on DLSS / Ray Reconstruction's or FSR's output, which the pre-exposure feeds: no loop through the denoiser;
 //   - the meter, on the scene's linear light before any tone mapping: kMeterGrid x kMeterGrid samples over the viewport
+//     (each the linear mean of kMeterTaps x kMeterTaps pixels over its cell - round AE: the denoiser's input is noisy)
 //     (meter_place), each its physical luminance (Rec. 709 luma of the colour / the frame's pre-exposure x the unit's
 //     cd/m^2 - rt_exposure, the player's compensation, is not metered), counted in a histogram of its log2 (kMeterBins
 //     bins of 1 / kMeterBinsPerStop stop from 2^kMeterLowestStop cd/m^2 - the floor bin takes anything darker) with a
@@ -145,6 +148,11 @@ void set_hdr_lut(GradeLut lut);
 inline constexpr uint32_t kMeterSide = 16;    // (the group's side)
 inline constexpr uint32_t kMeterEach = 4;     // (each invocation's samples a side)
 inline constexpr uint32_t kMeterGrid = kMeterSide * kMeterEach;
+// (round AE) each sample the linear mean of kMeterTaps x kMeterTaps pixels spread evenly over its cell (meter_tap_place):
+// the meter reads the frame before the denoiser, whose pixels are noisy (path-traced samples, fireflies) - the log of a
+// single noisy pixel is darker than its light on average (Jensen: the log of a mean over the mean of logs), so the
+// light is averaged in linear first, as engines meter a box-filtered downsample of the scene colour
+inline constexpr uint32_t kMeterTaps = 4;
 inline constexpr float kMeterKey = 0.18F;     // the metered average's place: middle grey (round EX - was ISO 12232's
                                               // saturation-based 0.104, made for a curve that clipped at 1)
 inline constexpr float kMeterLowPercent = 0.10F;
@@ -178,6 +186,9 @@ inline constexpr int kMeterBins = 48 * kMeterBinsPerStop;
 // A sample's place in the viewport (0 - 1 across, down) for grid index (i, j); the pixel is rect origin + floor(place x
 // size).
 [[nodiscard]] std::array<float, 2> meter_place(uint32_t i, uint32_t j);
+// (round AE) The place of tap (a, b) of sample (i, j) (0 - 1 across, down; the pixel as meter_place's): the sample is the
+// mean of its kMeterTaps x kMeterTaps taps' meter_light; its weight meter_place's.
+[[nodiscard]] std::array<float, 2> meter_tap_place(uint32_t i, uint32_t j, uint32_t a, uint32_t b);
 [[nodiscard]] float meter_weight(const std::array<float, 2>& place);
 // A colour (linear light) as the meter counts it: its Rec. 709 luminance (not a number and negatives as 0).
 [[nodiscard]] float meter_light(const std::array<float, 3>& colour);
@@ -266,6 +277,11 @@ bool last_metered_ev100(Backend& state, float* ev100);
 // The caller holds the lock. False (nothing recorded): off, the bound target isn't kHdrFormat (an 8-bit picture - the
 // UI's previews - is left alone), the pass can't be made (logged once).
 bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view);
+// (round AE) The camera's meter over the bound colour target's drawn view (ViewDrawn::rect), before the upscaler /
+// denoiser (the listener's work at rt::ViewOrder::kMeter): the view's slot moved toward its target, the frame's
+// pre-exposure told the camera's exposure (rt::set_camera_exposure - also the manual camera's, or the fixed one's when
+// rt_exposure_adapt=0); its tone-mapping pass then reads that slot. The caller holds the lock. False: not metered.
+bool record_meter_pass(Backend& state, const rt::ViewDrawn& view);
 [[nodiscard]] uint64_t tone_map_passes();
 
 // A level of a kHdrFormat image read back as B8G8R8A8 (each channel clamped to 0 - 1 and rounded to the nearest of 255

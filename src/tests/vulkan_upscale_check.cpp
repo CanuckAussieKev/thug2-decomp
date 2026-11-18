@@ -18,7 +18,9 @@
 //   - (round RX) Ray Reconstruction (--dlss, where the device has it) given a still lit floor (a checker of albedos, its
 //     guides) at the camera's middle grey, 2.8 and 6 stops under: its floor's mean within 3 % of its input's; an emitter
 //     at 65 504 beside it: finite, over white, the floor kept. --rr-probe also prints the floor's out / in over noise,
-//     emitters' sizes and values and pre-exposure steps and drifts (what moves it).
+//     emitters' sizes and values and pre-exposure steps and drifts (what moves it). (Round AE) 40 small emitters while
+//     the pre-exposure drifts 0.1 % a frame: the frame's light and the emitters' surroundings' out / in within 2 % of the
+//     same scene held still; --rr-probe prints the frame's and the emitters' out / in too.
 //   thug2_vulkan_upscale_check [--device N] [--display N] [--no-validation] [--dlss] [--rr-probe] [--quality ...]
 //                              [--save <folder>] (the round trip's pictures as .ppm)
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan or no upscaler for it.
@@ -1081,6 +1083,7 @@ constexpr float kRrHalfMost = 65504.0F;     // (rt_daylight.h kFrameHalfMost: wh
 constexpr uint32_t kRrPatch = 24;           // (the emitter's square, pixels of the drawn size)
 constexpr float kRrToneWhite = 16.0F;       // (ACES's white, about 6.5 stops over middle grey - vulkan_hdr.h)
 constexpr double kRrKeepTolerance = 0.03;
+constexpr double kRrDriftTolerance = 0.02; // (round AE: a slowly adapting camera's cost to Ray Reconstruction)
 constexpr double kRrHaloTolerance = 0.05; // (beside an emitter 10^5 x the floor Ray Reconstruction leaves a faint dark halo: -3.4 %)
 
 struct RrImages {
@@ -1140,6 +1143,12 @@ struct RrResult {
     double floor_in = 0.0;  // the floor's mean luma in (away from the patch)
     double floor_out = 0.0; // and out
     double patch_out = 0.0; // the patch's centre out (0 without one)
+    // (round AE) the whole frame's mean luma in and out, and the emitters' surroundings' (within 3 emitter sizes of one -
+    // the emitters and the light they spread)
+    double frame_in = 0.0;
+    double frame_out = 0.0;
+    double near_in = 0.0;
+    double near_out = 0.0;
 };
 
 // What Ray Reconstruction is given: a still floor - a checker of albedos lit by `level` x the albedo (its guide the
@@ -1270,11 +1279,19 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
         const std::vector<float> clear_output(static_cast<std::size_t>(kWidth) * kHeight * 4, 0.0F);
         ok = ok && rr_fill(state, &images.output, clear_output);
     }
+    double whole_in = 0.0;
+    double near_sum_in = 0.0;
+    std::size_t near_count_in = 0;
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
+            const auto value = static_cast<double>(core::at(lit, (static_cast<std::size_t>(y) * width) + x));
+            whole_in += value;
             if (!emitter_near(static_cast<double>(x) + 0.5, static_cast<double>(y) + 0.5, kept_away)) {
-                sum_in += static_cast<double>(core::at(lit, (static_cast<std::size_t>(y) * width) + x));
+                sum_in += value;
                 ++count_in;
+            } else {
+                near_sum_in += value;
+                ++near_count_in;
             }
         }
     }
@@ -1351,18 +1368,30 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
         };
         double sum_out = 0.0;
         std::size_t count_out = 0;
+        double whole_out = 0.0;
+        double near_sum_out = 0.0;
+        std::size_t near_count_out = 0;
         for (uint32_t y = 0; y < kHeight; ++y) {
             for (uint32_t x = 0; x < kWidth; ++x) {
                 const double drawn_x = (static_cast<double>(x) + 0.5) * static_cast<double>(ratio);
                 const double drawn_y = (static_cast<double>(y) + 0.5) * static_cast<double>(ratio);
+                const double value = luma(((static_cast<std::size_t>(y) * kWidth) + x) * 4);
+                whole_out += value;
                 if (!emitter_near(drawn_x, drawn_y, kept_away)) {
-                    sum_out += luma(((static_cast<std::size_t>(y) * kWidth) + x) * 4);
+                    sum_out += value;
                     ++count_out;
+                } else {
+                    near_sum_out += value;
+                    ++near_count_out;
                 }
             }
         }
         result.floor_in = count_in > 0 ? sum_in * static_cast<double>(scale) / static_cast<double>(count_in) : 0.0;
         result.floor_out = count_out > 0 ? sum_out / static_cast<double>(count_out) : 0.0;
+        result.frame_in = whole_in * static_cast<double>(scale) / static_cast<double>(pixels);
+        result.frame_out = whole_out / (static_cast<double>(kWidth) * kHeight);
+        result.near_in = near_count_in > 0 ? near_sum_in * static_cast<double>(scale) / static_cast<double>(near_count_in) : 0.0;
+        result.near_out = near_count_out > 0 ? near_sum_out / static_cast<double>(near_count_out) : 0.0;
         if (!emitters.empty()) {
             const auto& corner = emitters.front();
             const auto cx = static_cast<std::size_t>((static_cast<double>(corner[0]) + half_patch) / ratio);
@@ -1386,6 +1415,7 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
 }
 
 double rr_kept(const RrResult& result) { return result.floor_in > 0.0 ? result.floor_out / result.floor_in : 0.0; }
+double rr_ratio(double out, double in) { return in > 0.0 ? out / in : 0.0; }
 
 // (--rr-probe) Ray Reconstruction's floor out / in over the scenes' terms - finding what moves it.
 void probe_reconstruction(render::vulkan::Backend& state)
@@ -1395,7 +1425,7 @@ void probe_reconstruction(render::vulkan::Backend& state)
         RrScene scene;
     };
     const float old_grey = kRrCameraGrey * std::exp2(-2.8F);
-    const std::array<Probe, 21> probes{{
+    const std::array<Probe, 28> probes{{
         {"flat 0.18, pre-exposure x 1.01 a frame", {.level = kRrCameraGrey, .drift = 1.01F}},
         {"flat 0.18, pre-exposure x 1/1.01 a frame", {.level = kRrCameraGrey, .drift = 1.0F / 1.01F}},
         {"noisy 0.18, pre-exposure x 1.01 a frame", {.level = kRrCameraGrey, .noisy = true, .drift = 1.01F}},
@@ -1417,11 +1447,21 @@ void probe_reconstruction(render::vulkan::Backend& state)
         {"noisy 0.18, 40 4 px emitters 65504", {.level = kRrCameraGrey, .emitter = kRrHalfMost, .patch = 4, .spots = 40, .noisy = true}},
         {"noisy 0.026, 40 4 px emitters 9200", {.level = old_grey, .emitter = kRrHalfMost / 7.0F, .patch = 4, .spots = 40, .noisy = true}},
         {"noisy 0.18, 40 4 px emitters 1000", {.level = kRrCameraGrey, .emitter = 1000.0F, .patch = 4, .spots = 40, .noisy = true}},
+        // (round AE) small emitters while the camera adapts: the pre-exposure drifting (the game's live meter: ~0.01 %
+        // a frame; 0.1 %; 1 %)
+        {"flat 0.18, 40 4 px emitters 1000, x 1.0001 a frame", {.level = kRrCameraGrey, .emitter = 1000.0F, .patch = 4, .spots = 40, .drift = 1.0001F}},
+        {"flat 0.18, 40 4 px emitters 1000, x 1.001 a frame", {.level = kRrCameraGrey, .emitter = 1000.0F, .patch = 4, .spots = 40, .drift = 1.001F}},
+        {"flat 0.18, 40 4 px emitters 1000, x 1/1.001 a frame", {.level = kRrCameraGrey, .emitter = 1000.0F, .patch = 4, .spots = 40, .drift = 1.0F / 1.001F}},
+        {"flat 0.18, 40 4 px emitters 1000, x 1.01 a frame", {.level = kRrCameraGrey, .emitter = 1000.0F, .patch = 4, .spots = 40, .drift = 1.01F}},
+        {"noisy 0.18, 40 4 px emitters 1000, x 1.001 a frame", {.level = kRrCameraGrey, .emitter = 1000.0F, .patch = 4, .spots = 40, .noisy = true, .drift = 1.001F}},
+        {"flat 0.0028, 40 4 px emitters 16, x 1.001 a frame", {.level = kRrCameraGrey / 64.0F, .emitter = 16.0F, .patch = 4, .spots = 40, .drift = 1.001F}},
+        {"flat 0.0028, 40 4 px emitters 16", {.level = kRrCameraGrey / 64.0F, .emitter = 16.0F, .patch = 4, .spots = 40}},
     }};
     for (const Probe& probe : probes) {
         const RrResult result = rr_floor(state, probe.scene);
-        text::print("  probe %-40s floor in %.5f out %.5f: out / in %.3f%s\n", probe.name, result.floor_in, result.floor_out,
-                    rr_kept(result), result.finite ? "" : " (NOT FINITE)");
+        text::print("  probe %-52s floor in %.5f out %.5f: out / in %.3f; frame %.3f, near the emitters %.3f%s\n", probe.name,
+                    result.floor_in, result.floor_out, rr_kept(result), rr_ratio(result.frame_out, result.frame_in),
+                    rr_ratio(result.near_out, result.near_in), result.finite ? "" : " (NOT FINITE)");
     }
 }
 
@@ -1439,6 +1479,28 @@ void check_reconstruction_levels(render::vulkan::Backend& state, Tally* tally)
                                               "grey): out / in %.3f",
                                               static_cast<double>(level), static_cast<double>(stops_under), kept);
         tally->check(result.ran && result.finite && std::abs(kept - 1.0) <= kRrKeepTolerance, line);
+    }
+    // (round AE) small bright emitters (40 of 4 px, ~12 stops over the floor) while the camera adapts - the pre-exposure
+    // and the light x 1.001 a frame (10 x the game's live meter at night): the drift costs the frame's light, the floor's
+    // and the emitters' surroundings' at most kRrDriftTolerance against the same scene held still (what Ray
+    // Reconstruction keeps of 4 px emitters at all - ~0.89 of their light, still or drifting - is its own and printed)
+    {
+        const RrScene still{.level = kRrCameraGrey, .emitter = 1000.0F, .patch = 4, .spots = 40};
+        RrScene drifting = still;
+        drifting.drift = 1.001F;
+        const RrResult held = rr_floor(state, still);
+        const RrResult moving = rr_floor(state, drifting);
+        const double frame_held = rr_ratio(held.frame_out, held.frame_in);
+        const double frame_moving = rr_ratio(moving.frame_out, moving.frame_in);
+        const double near_held = rr_ratio(held.near_out, held.near_in);
+        const double near_moving = rr_ratio(moving.near_out, moving.near_in);
+        tally->check(held.ran && moving.ran && held.finite && moving.finite &&
+                         std::abs(rr_kept(moving) - 1.0) <= kRrKeepTolerance &&
+                         std::abs((frame_moving / frame_held) - 1.0) <= kRrDriftTolerance &&
+                         std::abs((near_moving / near_held) - 1.0) <= kRrDriftTolerance,
+                     text::format("40 small emitters while the pre-exposure drifts 0.1 %% a frame: out / in - the frame "
+                                  "%.3f (held still %.3f), near the emitters %.3f (%.3f), the floor %.3f",
+                                  frame_moving, frame_held, near_moving, near_held, rr_kept(moving)));
     }
     const RrResult emitter = rr_floor(state, {.emitter = kRrHalfMost});
     const double kept = rr_kept(emitter);
