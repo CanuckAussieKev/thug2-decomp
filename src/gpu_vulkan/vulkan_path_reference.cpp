@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -139,6 +140,10 @@ const uint STRATEGY_MIS = 0u;
 const uint STRATEGY_LIGHTS = 1u;
 const uint STRATEGY_BSDF = 2u;
 const uint PATH_MASK = 7u;          // world, objects, alpha-tested (vulkan_rt_scene.h's masks)
+const uint PATH_SEEN_THROUGH = 128u; // (path tracing, stage 3) the blended instances (kMaskNoShadow)
+const uint PATH_SURFACES = 135u;     // what a path's rays meet: all of them
+const uint PATH_MOST_CROSSED = 16u;  // blended surfaces a ray goes on through (added, filters, glass) before it stops
+const float PATH_DELTA_PDF = 1.0e15; // a mirror's "pdf" (a delta lobe: a light it reaches counted whole by MIS - squared, still finite)
 const uint PATH_CASTS = 4u;         // (rt::kCastsShadow)
 const uint PATH_TRANSPARENT = 64u;  // (rt::kTransparent)
 const float PATH_REACH = 1.0e6;
@@ -253,7 +258,103 @@ bool trace_closest(vec3 origin, vec3 dir, float reach, out uint instance, out ui
     return true;
 }
 
-bool blocked(vec3 origin, vec3 dir, float reach) { return ray_blocked(PATH_MASK, origin, dir, reach); }
+// (path tracing, stage 3) A number for a ray's candidate triangle (its own and the ray's seed): a blended surface's
+// coverage decided by it, the same one each time the ray meets that triangle.
+float path_candidate_number(uint seed, uint instance, uint primitive)
+{
+    return float(path_pcg(seed ^ path_pcg(instance ^ path_pcg(primitive + 0x9E3779B9u))) >> 8) * (1.0 / 16777216.0);
+}
+
+// (path tracing, stage 3) The closest surface along a path's ray: the blended instances too (hit_blend) - one drawn
+// over by an alpha (HIT_COVERAGE) hit by chance as its coverage there (`seed`), glass, filters and added surfaces always
+// (trace_path goes on through them); cut-outs by their alpha. False: none before `reach`.
+bool trace_surface(vec3 origin, vec3 dir, float reach, uint seed, out uint instance, out uint primitive, out uint id,
+                   out vec2 barycentrics, out float t, out mat4x3 to_world)
+{
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, PATH_SURFACES, origin, 0.0, dir, reach);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) != gl_RayQueryCandidateIntersectionTriangleEXT) {
+            continue;
+        }
+        uint i = rayQueryGetIntersectionInstanceIdEXT(query, false);
+        uint p = rayQueryGetIntersectionPrimitiveIndexEXT(query, false);
+        uint m = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
+        vec2 bc = rayQueryGetIntersectionBarycentricsEXT(query, false);
+        bool keep;
+        if ((geometry_record(i).instance_flags & PATH_TRANSPARENT) != 0u) {
+            HitBlend b = hit_blend(i, p, m, bc);
+            keep = b.kind != HIT_COVERAGE || path_candidate_number(seed, i, p) < b.coverage;
+        } else {
+            keep = cutout_kept(i, p, m, bc);
+        }
+        if (keep) {
+            rayQueryConfirmIntersectionEXT(query);
+        }
+    }
+    instance = 0u;
+    primitive = 0u;
+    id = 0u;
+    barycentrics = vec2(0.0);
+    t = reach;
+    to_world = mat4x3(1.0);
+    if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
+        return false;
+    }
+    instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
+    primitive = rayQueryGetIntersectionPrimitiveIndexEXT(query, true);
+    id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, true);
+    barycentrics = rayQueryGetIntersectionBarycentricsEXT(query, true);
+    t = rayQueryGetIntersectionTEXT(query, true);
+    to_world = rayQueryGetIntersectionObjectToWorldEXT(query, true);
+    return true;
+}
+
+// (path tracing, stage 3) The light that gets through the blended surfaces between `origin` and `reach` (nothing solid
+// there - the caller asked): each one's expected share (hit_blend_transmittance) multiplied in, whatever their order.
+vec3 seen_through(vec3 origin, vec3 dir, float reach)
+{
+    vec3 through = vec3(1.0);
+    if (reach <= 0.0) {
+        return through;
+    }
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, PATH_SEEN_THROUGH, origin, 0.0, dir, reach);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) != gl_RayQueryCandidateIntersectionTriangleEXT) {
+            continue;
+        }
+        uint i = rayQueryGetIntersectionInstanceIdEXT(query, false);
+        uint p = rayQueryGetIntersectionPrimitiveIndexEXT(query, false);
+        uint m = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
+        vec2 bc = rayQueryGetIntersectionBarycentricsEXT(query, false);
+        HitBlend b = hit_blend(i, p, m, bc);
+        float cos_theta = 1.0;
+        HitVertices v;
+        if (b.kind == HIT_GLASS && hit_vertices(i, p, v)) {
+            mat4x3 w = rayQueryGetIntersectionObjectToWorldEXT(query, false);
+            vec3 n = cross(w * vec4(v.position[1] - v.position[0], 0.0), w * vec4(v.position[2] - v.position[0], 0.0));
+            float l = length(n);
+            cos_theta = l > 0.0 ? dot(n / l, dir) : 1.0;
+        }
+        through *= b.kind == HIT_SOLID ? (cutout_kept(i, p, m, bc) ? vec3(0.0) : vec3(1.0))
+                                       : hit_blend_transmittance(b, cos_theta);
+        if (max(through.r, max(through.g, through.b)) <= 0.0) {
+            rayQueryTerminateEXT(query);
+        }
+    }
+    return through;
+}
+
+// The light that gets from `origin` to `reach` along `dir`: none past anything solid, else what the blended surfaces on
+// the way let through.
+vec3 transmittance(vec3 origin, vec3 dir, float reach)
+{
+    if (ray_blocked(PATH_MASK, origin, dir, reach)) {
+        return vec3(0.0);
+    }
+    return seen_through(origin, dir, reach);
+}
 
 bool in_sun(vec3 dir) { return pass.sun.w <= 1.0 && dot(dir, pass.sun.xyz) >= pass.sun.w; }
 
@@ -300,9 +401,10 @@ vec3 sample_light(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rn
             return vec3(0.0);
         }
         vec3 f = path_bsdf_cosine(m, n, v, dir);
-        if (max(f.r, max(f.g, f.b)) <= 0.0 || blocked(p, dir, PATH_REACH)) {
+        if (max(f.r, max(f.g, f.b)) <= 0.0) {
             return vec3(0.0);
         }
+        f *= transmittance(p, dir, PATH_REACH);
         float pdf = choice.x / pass.sun_radiance.w;
         float w = mis ? path_power_heuristic(pdf, path_bsdf_pdf(m, n, v, dir)) : 1.0;
         return f * pass.sun_radiance.rgb * (w / pdf);
@@ -313,9 +415,10 @@ vec3 sample_light(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rn
             return vec3(0.0);
         }
         vec3 f = path_bsdf_cosine(m, n, v, dir);
-        if (max(f.r, max(f.g, f.b)) <= 0.0 || blocked(p, dir, PATH_REACH)) {
+        if (max(f.r, max(f.g, f.b)) <= 0.0) {
             return vec3(0.0);
         }
+        f *= transmittance(p, dir, PATH_REACH);
         float pdf = choice.y * dot(n, dir) / PATH_PI;
         float w = mis ? path_power_heuristic(pdf, path_bsdf_pdf(m, n, v, dir)) : 1.0;
         return f * sky_radiance(dir) * (w / pdf);
@@ -364,7 +467,7 @@ vec3 sample_light(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rn
         }
         float pdf = choice.z / float(count) / s.area * t * t / cos_light;
         float w = mis ? path_power_heuristic(pdf, path_bsdf_pdf(m, n, v, dir)) : 1.0;
-        return f * s.emitted * (w / pdf);
+        return f * s.emitted * seen_through(p, dir, t) * (w / pdf); // (stage 3: the blended surfaces between)
     }
     if (u < choice.x + choice.y + choice.z + choice.w) {
         uint k = min(uint(u1 * float(pass.counts.y)), pass.counts.y - 1u);
@@ -378,11 +481,12 @@ vec3 sample_light(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rn
         float d = length(to);
         vec3 dir = to / max(d, 1e-6);
         float facing = dot(n, dir);
-        if (!(facing > 1.0e-4) || dot(dir, ng) <= 0.0 || blocked(p, dir, max(d - light.at.w, 0.0))) {
+        if (!(facing > 1.0e-4) || dot(dir, ng) <= 0.0) {
             return vec3(0.0);
         }
+        vec3 through = transmittance(p, dir, max(d - light.at.w, 0.0));
         // (a lamp's light: rt_lights.h's model - its light on the surface x the light model, as the lamps pass shines it)
-        return brdf_direct(m, n, v, dir, light.colour.rgb * (g / facing)) / (choice.w / float(pass.counts.y));
+        return brdf_direct(m, n, v, dir, light.colour.rgb * through * (g / facing)) / (choice.w / float(pass.counts.y));
     }
     return vec3(0.0);
 }
@@ -395,6 +499,7 @@ vec3 trace_path(vec3 origin, vec3 dir, inout uint rng)
     vec3 last_normal = vec3(0.0, 1.0, 0.0);
     uint strategy = pass.frame.w;
     uint skipped = 0u;
+    uint crossed = 0u;
     for (uint depth = 0u; depth <= pass.frame.z; ++depth) {
         uint instance;
         uint primitive;
@@ -402,7 +507,9 @@ vec3 trace_path(vec3 origin, vec3 dir, inout uint rng)
         vec2 bary;
         float t;
         mat4x3 to_world;
-        bool hit = trace_closest(origin, dir, PATH_REACH, instance, primitive, id, bary, t, to_world);
+        uint seed = path_pcg(rng ^ 0x68E31DA4u);
+        path_next(rng);
+        bool hit = trace_surface(origin, dir, PATH_REACH, seed, instance, primitive, id, bary, t, to_world);
         if (!hit) {
             vec3 seen_sky = sky_radiance(dir);
             vec3 seen_sun = in_sun(dir) ? pass.sun_radiance.rgb : vec3(0.0);
@@ -425,6 +532,34 @@ vec3 trace_path(vec3 origin, vec3 dir, inout uint rng)
             // (a mesh the light store hides - the bake's shadows drawn as geometry: not there)
             origin = s.position + dir * ray_offset(s.position);
             ++skipped;
+            --depth;
+            continue;
+        }
+        // (stage 3) a blended surface the path goes on through: an added one (its emission counted - not a listed
+        // emitter), a filter (the light behind it tinted), glass where it isn't painted (its Fresnel share reflected as a
+        // mirror - a bounce -, the rest straight through)
+        HitBlend blend = hit_blend(instance, primitive, id, bary);
+        if (blend.kind == HIT_ADDED || blend.kind == HIT_FILTER ||
+            (blend.kind == HIT_GLASS && path_next(rng) >= blend.coverage)) {
+            if (crossed >= PATH_MOST_CROSSED) {
+                break;
+            }
+            ++crossed;
+            if (blend.kind == HIT_ADDED) {
+                radiance += weight * s.emitted;
+            } else if (blend.kind == HIT_FILTER) {
+                weight *= blend.tint;
+            } else if (path_next(rng) < hit_glass_reflectance(dot(s.normal, dir))) {
+                if (depth == pass.frame.z) {
+                    break;
+                }
+                origin = s.position + s.normal * ray_offset(s.position);
+                dir = reflect(dir, s.normal);
+                last_pdf = PATH_DELTA_PDF;
+                last_normal = s.normal;
+                continue;
+            }
+            origin = s.position + dir * ray_offset(s.position);
             --depth;
             continue;
         }
@@ -940,19 +1075,25 @@ std::array<float, kLampFloats> lamp_record(const rt::Emitter& lamp)
             core::at(lamp.axis, 2), lamp.half_length};
 }
 
-// The world's part of the scene (its instances' meshes and materials, in order): what a reference is of. The objects
-// (the skater, a menu's props) may come and go while the game is paused - their instances don't start a run again.
+// The scene a reference is of: every instance's mesh, material and transform, in order, and the poses the skinned meshes
+// were written with (FrameRecord::poses_key). (Changed by path tracing, stage 3: the objects were left out - and with
+// the live pause the cars drove on through the sums; a reference is of a world that stands still - `pt ref` turns a
+// live pause into the full freeze - and starts again when anything in it moves.)
 uint64_t scene_key_of(const rt::FrameRecord& record)
 {
+    constexpr uint64_t kPrime = 1099511628211ULL;
     uint64_t key = 1469598103934665603ULL;
     for (const rt::Instance& instance : record.instances) {
-        if ((instance.flags & rt::kWorld) == 0) {
-            continue;
+        key = (key ^ instance.mesh) * kPrime;
+        key = (key ^ instance.material) * kPrime;
+        key = (key ^ instance.flags) * kPrime;
+        for (const std::array<float, 4>& row : instance.object_to_world) {
+            for (const float value : row) {
+                key = (key ^ std::bit_cast<uint32_t>(value)) * kPrime;
+            }
         }
-        key = (key ^ instance.mesh) * 1099511628211ULL;
-        key = (key ^ instance.material) * 1099511628211ULL;
     }
-    return key;
+    return (key ^ record.poses_key) * kPrime;
 }
 
 // --- the captures --------------------------------------------------------------------------------------------------------

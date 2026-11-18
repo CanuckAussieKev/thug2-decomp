@@ -127,7 +127,12 @@ void surface_reflection(const rt::Material& material, const Texture* colour, Mat
 //   vec4 material_sample(uint id, vec2 uv)           - the texel times the material's colour
 //   bool material_alpha_passes(uint id, float alpha) - the alpha test: true unless MATERIAL_ALPHA_TESTED and the
 //                                                      8-bit alpha is below the 8-bit reference (GREATEREQUAL)
-//   bool material_alpha_passes_at(uint id, vec2 uv)  - the same for material_sample(id, uv).a
+//   float material_drawn_alpha(uint id, vec2 uv, float vertex_alpha) - (path tracing, stage 3) the alpha the game draws
+//                                                      and tests: the texel's (MATERIAL_TEXTURE_ALPHA, rt::kTextureAlpha)
+//                                                      or the vertex alpha x the texel's, doubled - never colour.a (the
+//                                                      pass's fixed alpha, kept out of it by the game)
+//   bool material_alpha_passes_at(uint id, vec2 uv)  - the same for material_drawn_alpha(id, uv, 0.5) (the vertex alpha
+//                                                      the game's vertices usually hold, 128)
 //   (rt_pbr) bool material_has_surface(uint id)      - whether its texture has a surface map
 //   vec4 material_surface_lod(uint id, vec2 uv, float lod) - the map's texel through the material's sampler: normal
 //                                                      x, y (0 - 1 for -1 - 1), roughness, height; (0.5, 0.5, 1, 0.5)

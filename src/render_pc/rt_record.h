@@ -15,9 +15,10 @@
 //
 // Meshes are registered (add_mesh) the first frame they are in the record, with their first level of detail; removed
 // when destroyed. A mesh whose buffers moved (a skinned mesh's vertex buffers take turns, a device reset, an edit) is
-// given again (update_mesh) the frame it is next recorded; one whose vertices were written (skinned on the CPU, moved
-// by the editor) is reported changed (mesh_changed) then - so the geometry of a skinned mesh is the one it was drawn
-// with the frame before. A device reset forgets every mesh (removed; registered again under new ids). Materials are
+// given again (update_mesh) the frame it is next recorded; one whose vertices were written (moved by the editor) is
+// reported changed (mesh_changed) then. A mesh skinned on the CPU is not registered itself: each instance drawing it has
+// a pose of its own, skinned at the record with that instance's bones - the pose the draw makes this frame
+// (engine/gfx/rt_poses.h). A device reset forgets every mesh (removed; registered again under new ids). Materials are
 // given (set_material) when first used and whenever their first pass changes (texture animations).
 //
 // begin_frame comes at the first viewport's world camera, before the world is drawn: the record's instances and lights

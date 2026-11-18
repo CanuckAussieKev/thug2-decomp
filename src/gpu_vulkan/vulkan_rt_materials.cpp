@@ -140,9 +140,23 @@ bool material_alpha_passes(uint id, float alpha)
     }
     return uint(round(clamp(alpha, 0.0, 1.0) * 255.0)) >= uint(round(clamp(m.alpha_ref, 0.0, 1.0) * 255.0));
 }
+// (path tracing, stage 3) The alpha the game's alpha test compares at `uv`, with the vertex alpha `vertex_alpha` (0 - 1,
+// as the vertex colour holds it: 128 - 0.5 - the game's usual): the texel's alone where the material says so
+// (MATERIAL_TEXTURE_ALPHA - rt::kTextureAlpha), else the vertex alpha x the texel's, doubled (render_pc's generated pixel
+// shader: r0.a = t0.a, or v0.a x t0.a x 2). Never the pass's fixed alpha (colour.a), which the game keeps out of it - it
+// is 0 on nearly every material, and multiplied in it cut every alpha-tested surface away.
+const uint MATERIAL_TEXTURE_ALPHA = 128u;
+float material_drawn_alpha(uint id, vec2 uv, float vertex_alpha)
+{
+    float a = material_texel_lod(id, uv, 0.0).a;
+    if ((material(id).flags & MATERIAL_TEXTURE_ALPHA) == 0u) {
+        a = clamp(2.0 * vertex_alpha * a, 0.0, 1.0);
+    }
+    return a;
+}
 bool material_alpha_passes_at(uint id, vec2 uv)
 {
-    return material_alpha_passes(id, material_sample(id, uv).a);
+    return material_alpha_passes(id, material_drawn_alpha(id, uv, 0.5));
 }
 bool material_has_surface(uint id)
 {

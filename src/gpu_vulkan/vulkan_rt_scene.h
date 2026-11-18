@@ -177,6 +177,14 @@ std::string_view cutout_rays_glsl();
 //     emit word x the texel (the lamp's texture) - on a lamp drawn in a texture only its lamp texels (their brightest
 //     channel past rt_lights.h kTexelBright, as the world's draws show it); 0 elsewhere;
 //   - hidden: the light store hides the mesh (the bake's shadows drawn as geometry, the original's light cards).
+// (path tracing, stage 3) And how a ray meets a blended surface, from its material's first pass (never per object):
+//   struct HitBlend { uint kind; float coverage; vec3 tint; };
+//   HitBlend hit_blend(uint instance, uint primitive, uint id, vec2 barycentrics) - HIT_SOLID (not kTransparent),
+//        HIT_COVERAGE (an alpha blend: a surface over `coverage` - the drawn alpha), HIT_GLASS (seen through, glass
+//        class: `coverage` painted, the rest a thin pane), HIT_FILTER (a multiply: the light behind x `tint`), HIT_ADDED
+//        (add / subtract / brighten: light passes, its emission added)
+//   float hit_glass_reflectance(float cos_theta) - a thin pane's Fresnel share (Schlick, the material table's glass F0)
+//   vec3 hit_blend_transmittance(HitBlend b, float cos_theta) - the expected light a shadow ray takes through it.
 std::string_view hit_surface_glsl();
 inline constexpr float kHitMetalF0 = 0.2F; // (a surface map's F0 at least this: a metal - the reflections' HIT_METAL_F0)
 // The caller holds the backend's lock.
