@@ -1012,6 +1012,14 @@ void check_forces_and_conflicts()
     const config::Resolution metered = resolve(rtx50(), {});
     expect(metered.value("rt_exposure_adapt") == "1" && metered.at("rt_exposure_adapt").in_effect,
            "rt_exposure_adapt: on by default on Vulkan (the eye's adaptation)");
+    // (round EX) the camera as shipping engines model it: local exposure on, ACES the default tone curve; local
+    // exposure off by its switch
+    expect(metered.value("rt_local_exposure") == "1" && metered.at("rt_local_exposure").in_effect,
+           "rt_local_exposure: on by default on Vulkan");
+    expect(metered.value("rt_tonemap") == "2" && metered.at("rt_tonemap").in_effect,
+           "rt_tonemap: 2 (ACES) by default on Vulkan");
+    expect(resolve(rtx50(), {{"rt_local_exposure", "0"}}).value("rt_local_exposure") == "0",
+           "rt_local_exposure=0: off");
     // (round F - a linear, scene-referred frame) rt_hdr is retired: the frame is linear light whatever it says, so no
     // other setting's effective value moves with it - the scene the renderer is given is the same
     {

@@ -5420,3 +5420,33 @@ traced sky K and bounce B) and of the occlusion and reflections passes. The shad
   the disc, the emitters and the lamps) within 2 % on a still scene (glossy; smooth within 3 %), a camera swapped
   between two views, a red wall's bleeding (red and green within 2 %), a room lit through a window in its roof, a white
   floor under an even sky (energy), no NaN.
+
+### The camera as shipping engines model it (round EX: `rt_exposure_adapt`, `rt_local_exposure`, `rt_tonemap`)
+The output is what a game camera records, each step the industry's standard (vulkan_hdr.h):
+- **Auto exposure: a histogram** (Unreal Engine 5's default method; Frostbite's physical camera units - Lagarde and de
+  Rousiers 2014). The meter's 64 x 64 samples, on the linear light before any tone mapping, go into a centre-weighted
+  (Unity HDRP's "centre weighted" metering) histogram of log2 cd/m^2 - 1/4-stop bins, each keeping its samples' mean
+  place, so the average is exact. The weighted mean between the 10th and 90th percentiles of its weight (UE5's
+  AutoExposureLowPercent / HighPercent defaults) is the scene's average: a few lit spots or a black corner don't move
+  the exposure. It is put at middle grey 0.18 (UE5's target, ACES's scene-referred grey; it was ISO 12232's
+  saturation-based 0.104, made for a curve that clipped at 1) times the exposure compensation curve keyed by the
+  scene's luminance (UE5 has the slot; ours is Krawczyk et al.'s key over its daylight value - the same for every level),
+  within the camera's EV100 range. EV100 = log2(L x 100 / 12.5) (ISO 2720). Exponential adaptation (0.4 s darker,
+  1.2 s brighter): monotonic, no overshoot; the meter reads unexposed light, so nothing feeds back. The old average
+  meter is retired (no setting kept: the histogram with a 0 - 100 % window is that meter).
+- **Local exposure** (UE5's Lens > Local Exposure, its new-project values: highlight and shadow contrast 0.8, detail
+  strength 1, blurred luminance blend 0.6, blurred kernel 50 % of the width, middle grey bias 0): a bilateral grid
+  (Chen, Paris and Durand 2007) of 64-pixel tiles x 32 one-stop slices of the exposed log luminance, blurred 3 x 3 x 3,
+  read trilinearly at each pixel's own level, mixed with a Gaussian of the tiles' luminance; the base's distance from
+  the pivot (the key x 2^rt_exposure) scaled by the contrast. Two compute passes after the meter; the curve's pass reads
+  the grid. Off while the camera is set by hand (the path tracer's comparison maps pixel by pixel).
+- **The tone curve: ACES** (`rt_tonemap=2`, the default): the RRT + sRGB ODT in Stephen Hill's fit (AP1 matrices and
+  the rational curve). Middle grey 0.18 -> 0.105 of white (36 % encoded, where the old key put the average), white
+  reached about 6.5 stops above middle grey. Chosen over AgX (Blender / Godot), Khronos PBR Neutral (product colours
+  under even light) and Gran Turismo's (one studio's) because UE5 and HDRP ship ACES and it is defined on the 0.18
+  scene grey the meter targets. 0 (the shoulder) and 1 (Narkowicz) are kept.
+- Checks (thug2_vulkan_hdr_check "the camera"): a uniform daylight view metered to 0.18; a night street with 12-stop
+  lamp-lit patches under a tenth of the view - the window excludes them, local exposure + ACES keep them below white
+  (all clip without); adaptation monotonic; local exposure leaves a uniform view at the key unchanged, keeps the log
+  mean of two halves 4 stops either side, and an 8-stop edge inside a tile keeps 92 % of its step with each side's
+  factor within the blurred share (0.6 x 0.2 x 8 stops) - the grid doesn't cross the edge.

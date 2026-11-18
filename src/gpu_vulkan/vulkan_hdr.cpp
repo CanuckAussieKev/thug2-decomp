@@ -43,6 +43,7 @@ constexpr uint64_t kReportPipeline = 0x48445202U;
 constexpr uint64_t kReportFirstPass = 0x48445203U;
 constexpr uint64_t kReportCopy = 0x48445204U;
 constexpr uint64_t kReportMeter = 0x48445205U;
+constexpr uint64_t kReportLocal = 0x48445206U;
 
 constexpr float kLargest = 65504.0F;         // the largest 16-bit float
 constexpr float kBeyondWhite = 2.0F * kLargest; // (an infinity read back)
@@ -64,6 +65,25 @@ constexpr float kAcesB = 0.03F;
 constexpr float kAcesC = 2.43F;
 constexpr float kAcesD = 0.59F;
 constexpr float kAcesE = 0.14F;
+// (round EX) ACES's reference rendering and sRGB output transforms in Stephen Hill's fit (vulkan_hdr.h, rt_tonemap=2):
+// Rec. 709 -> AP1 with the RRT's saturation, the fitted curve, AP1 -> Rec. 709 (rows)
+using Matrix3 = std::array<std::array<float, 3>, 3>;
+constexpr Matrix3 kAcesInput{{{0.59719F, 0.35458F, 0.04823F}, {0.07600F, 0.90834F, 0.01566F}, {0.02840F, 0.13383F, 0.83777F}}};
+constexpr Matrix3 kAcesOutput{
+    {{1.60475F, -0.53108F, -0.07367F}, {-0.10208F, 1.10813F, -0.00605F}, {-0.00327F, -0.07276F, 1.07602F}}};
+constexpr float kHillA = 0.0245786F;
+constexpr float kHillB = 0.000090537F;
+constexpr float kHillC = 0.983729F;
+constexpr float kHillD = 0.4329510F;
+constexpr float kHillE = 0.238081F;
+constexpr uint32_t kCurveShoulder = 0;
+constexpr uint32_t kCurveAcesNarkowicz = 1;
+constexpr uint32_t kCurveAces = 2;
+// (round EX) the local exposure's passes: the grid's group (16 x 16 invocations over a tile), the blur's (64)
+constexpr uint32_t kLocalGroupSide = 16;
+constexpr uint32_t kLocalBlurGroup = 64;
+constexpr float kLocalLeastWeight = 1e-4F; // (a grid read with less weight than this: the blurred luminance alone)
+constexpr float kLocalFloor = 1e-30F;
 constexpr std::size_t kHdrPixelBytes = 8;
 constexpr std::size_t kBgraPixelBytes = 4;
 constexpr float kByteMax = 255.0F;
@@ -103,14 +123,55 @@ layout(push_constant) uniform Pass {
                      // the most stops down (rt_exposure_adapt)
     vec4 meter_rect; // the viewport in the copy's pixels: x, y, width, height
     vec4 night;      // (round S) x: the frame's pre-exposure (rt_daylight.h frame_pre_exposure); (path tracing) y: the
-                     // manual exposure's factor on the physical light (0: none)
+                     // manual exposure's factor on the physical light (0: none); (round EX) z: local exposure - 0 off,
+                     // 1 about the meter's key, 2 about the fixed key (no meter); w: the grid's tiles across
 } pc;
+// (round EX) the local exposure's grid (vulkan_hdr.h "Local exposure"), vec2s: the cells (log2 sum, count) - tile by
+// tile, LOCAL_SLICES each -, the blurred cells, each tile's whole (log2 sum, count), each tile's blurred luminance
+// (weighted log2 sum, weight)
+#ifdef LOCAL_WRITES
+layout(std430, set = 0, binding = 3) buffer Local { vec2 cells[]; } u_local;
+#else
+layout(std430, set = 0, binding = 3) readonly buffer Local { vec2 cells[]; } u_local;
+#endif
 
 const float kLargest = 65504.0;
+const vec3 kLuma = vec3(0.2126, 0.7152, 0.0722);
 
 float finite(float c)
 {
     return c >= 0.0 ? min(c, kLargest) : 0.0; // (not a number fails the comparison: 0)
+}
+
+vec3 finite3(vec3 c)
+{
+    return vec3(finite(c.r), finite(c.g), finite(c.b));
+}
+
+// The exposure's factor on the frame's light: rt_exposure's x the camera's - the manual exposure's (path tracing,
+// stage 1), the meter's slot (round S: the physical light's exposure over the frame's pre-exposure), or without either
+// the pre-exposure divided out.
+float exposure_factor()
+{
+    return pc.grade.x * (pc.night.y > 0.0 ? pc.night.y / pc.night.x
+                                          : (pc.meter.y > 0.5 ? u_meter.slots[int(pc.meter.x)].x : 1.0 / pc.night.x));
+}
+
+int local_tiles_x()
+{
+    return int(pc.night.w);
+}
+
+int local_tiles_y()
+{
+    return (int(pc.meter_rect.w) + LOCAL_TILE - 1) / LOCAL_TILE;
+}
+
+// An exposed luminance's place in the grid's slices (LOCAL_FIXED a slice)
+uint local_place(float y)
+{
+    float z = clamp(log2(max(y, LOCAL_FLOOR)) - LOCAL_LOWEST, 0.0, float(LOCAL_SLICES) - 1.0 / LOCAL_FIXED);
+    return uint(z * LOCAL_FIXED);
 }
 )";
 
@@ -135,6 +196,54 @@ vec3 aces(vec3 x)
     return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
 }
 
+// (round EX) ACES's reference rendering and sRGB output transforms, Hill's fit (rt_tonemap=2): linear Rec. 709 in and out
+vec3 aces_fitted(vec3 x)
+{
+    vec3 v = vec3(dot(vec3(0.59719, 0.35458, 0.04823), x), dot(vec3(0.07600, 0.90834, 0.01566), x),
+                  dot(vec3(0.02840, 0.13383, 0.83777), x));
+    v = (v * (v + 0.0245786) - 0.000090537) / (v * (0.983729 * v + 0.4329510) + 0.238081);
+    vec3 y = vec3(dot(vec3(1.60475, -0.53108, -0.07367), v), dot(vec3(-0.10208, 1.10813, -0.00605), v),
+                  dot(vec3(-0.00327, -0.07276, 1.07602), v));
+    return clamp(y, 0.0, 1.0);
+}
+
+// (round EX) The local exposure's factor (vulkan_hdr.h "Local exposure"; local_exposure_reference is its twin) for an
+// exposed luminance `y` at `p` (the pixel's centre in the viewport).
+float local_factor(vec2 p, float y)
+{
+    int nx = local_tiles_x();
+    int ny = local_tiles_y();
+    int tiles = nx * ny;
+    int cells = tiles * LOCAL_SLICES;
+    vec2 t = clamp(p / float(LOCAL_TILE) - 0.5, vec2(0.0), vec2(float(nx - 1), float(ny - 1)));
+    ivec2 t0 = ivec2(t);
+    ivec2 t1 = min(t0 + 1, ivec2(nx - 1, ny - 1));
+    vec2 f = t - vec2(t0);
+    float z = float(local_place(y)) / LOCAL_FIXED - 0.5;
+    z = clamp(z, 0.0, float(LOCAL_SLICES - 1));
+    int z0 = int(z);
+    int z1 = min(z0 + 1, LOCAL_SLICES - 1);
+    float fz = z - float(z0);
+    vec2 grid = vec2(0.0);
+    vec2 blur = vec2(0.0);
+    for (int k = 0; k < 4; ++k) {
+        int tx = (k & 1) != 0 ? t1.x : t0.x;
+        int ty = (k & 2) != 0 ? t1.y : t0.y;
+        float w = ((k & 1) != 0 ? f.x : 1.0 - f.x) * ((k & 2) != 0 ? f.y : 1.0 - f.y);
+        int tile = ty * nx + tx;
+        grid += w * mix(u_local.cells[cells + tile * LOCAL_SLICES + z0], u_local.cells[cells + tile * LOCAL_SLICES + z1], fz);
+        blur += w * u_local.cells[2 * cells + tiles + tile];
+    }
+    float own = LOCAL_LOWEST + float(local_place(y)) / LOCAL_FIXED;
+    float blurred = blur.y > 0.0 ? blur.x / blur.y : own;
+    float bilateral = grid.y > LOCAL_LEAST_WEIGHT ? grid.x / grid.y : blurred;
+    float base = mix(bilateral, blurred, LOCAL_BLEND);
+    float key = pc.night.z > 1.5 ? METER_KEY : u_meter.slots[3 * METER_SLOTS + int(pc.meter.x)].x;
+    float pivot = log2(key * pc.grade.x);
+    float contrast = base > pivot ? LOCAL_HIGHLIGHT : LOCAL_SHADOW;
+    return exp2((base - pivot) * (contrast - 1.0));
+}
+
 vec3 lut_entry(ivec3 i)
 {
     int n = int(pc.lut.x);
@@ -156,14 +265,13 @@ vec3 graded(vec3 c)
 
 // (round F: the frame is linear light) exposed in linear light, then encoded for the display once - the display's
 // preferences (saturation, contrast, the curve, the grade) act on the encoded colour
-vec3 tone(vec3 c)
+vec3 tone(vec3 c, vec2 p)
 {
-    c = vec3(finite(c.r), finite(c.g), finite(c.b));
-    // (round S: the meter's factor is the exposure of the physical light over the frame's pre-exposure; without the
-    // meter the pre-exposure alone is divided out)
-    // (path tracing, stage 1: the manual exposure - night.y its factor on the physical light - in place of the meter)
-    c *= pc.grade.x * (pc.night.y > 0.0 ? pc.night.y / pc.night.x
-                                        : (pc.meter.y > 0.5 ? u_meter.slots[int(pc.meter.x)].x : 1.0 / pc.night.x));
+    c = finite3(c) * exposure_factor();
+    // (round EX) local exposure, on the exposed light
+    if (pc.night.z > 0.5) {
+        c *= local_factor(p, dot(c, kLuma));
+    }
     c = display_from_linear(c);
     if (pc.grade.y != 1.0) {
         float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -174,8 +282,10 @@ vec3 tone(vec3 c)
     }
     if (pc.grade.w < 0.5) {
         c = vec3(shoulder(c.r), shoulder(c.g), shoulder(c.b));
-    } else {
+    } else if (pc.grade.w < 1.5) {
         c = display_from_linear(min(aces(linear_from_display(c)) * pc.shape.z, vec3(1.0)));
+    } else {
+        c = display_from_linear(aces_fitted(linear_from_display(c)));
     }
     if (pc.lut.x >= 2.0) {
         c = graded(c);
@@ -186,44 +296,56 @@ vec3 tone(vec3 c)
 void main()
 {
     ivec2 p = ivec2(gl_FragCoord.xy);
+    vec2 inside = gl_FragCoord.xy - pc.meter_rect.xy; // (the pixel's centre in the viewport)
 #ifdef MULTISAMPLED
     int samples = int(pc.shape.w);
     vec3 sum = vec3(0.0);
     for (int i = 0; i < samples; ++i) {
-        sum += tone(texelFetch(u_colour, p, i).rgb);
+        sum += tone(texelFetch(u_colour, p, i).rgb, inside);
     }
     o_colour = vec4(sum / float(samples), 1.0);
 #else
-    o_colour = vec4(tone(texelFetch(u_colour, p, 0).rgb), 1.0);
+    o_colour = vec4(tone(texelFetch(u_colour, p, 0).rgb, inside), 1.0);
 #endif
 }
 )";
 
-// (added by the low sun's glare; changed by the physical air) The meter (vulkan_hdr.h "The metering"; meter_light /
-// meter_key / meter_target_stops / meter_adapt are its twins): one group of METER_SIDE x METER_SIDE invocations, each
-// METER_EACH x METER_EACH of the grid's samples (sample 0 of a multisampled copy), their centre-weighted log of the
-// linear luminance - each sample's within METER_LEAST and METER_BRIGHTEST - summed in the group; the first invocation
-// moves the viewport's slot toward its target.
+// (added by the low sun's glare; changed by the physical air; round EX: the histogram) The meter (vulkan_hdr.h "The
+// metering"; meter_count / meter_window_mean / meter_key / meter_target_stops / meter_adapt are its twins): one group of
+// METER_SIDE x METER_SIDE invocations, each METER_EACH x METER_EACH of the grid's samples (sample 0 of a multisampled
+// copy), counted centre-weighted into the histogram of their physical log2 luminance; the first invocation averages
+// the window between the percentiles and moves the viewport's slot toward its target.
 constexpr const char* kMeterBody = R"(
 layout(local_size_x = METER_SIDE, local_size_y = METER_SIDE) in;
-shared float s_light[METER_SIDE * METER_SIDE];
-shared float s_weight[METER_SIDE * METER_SIDE];
 shared float s_over[METER_SIDE * METER_SIDE];
 shared float s_brightest[METER_SIDE * METER_SIDE];
 shared float s_negative[METER_SIDE * METER_SIDE];
-// (the readout's luminance histogram: METER_BINS bins of 1 / METER_BINS_PER_STOP stop from 2^METER_LOWEST_STOP cd/m^2)
-shared uint s_bins[METER_BINS];
+// the histogram: each bin's weight and its samples' weighted places inside it (fixed point)
+shared uint s_weight[METER_BINS];
+shared uint s_offset[METER_BINS];
+
+// The luminance (cd/m^2) a share `wanted` of the histogram's weight is under (its bin's middle).
+float percentile(float wanted)
+{
+    float counted = 0.0;
+    for (int b = 0; b < METER_BINS; ++b) {
+        counted += float(s_weight[b]);
+        if (counted >= wanted && s_weight[b] > 0u) {
+            return exp2(float(METER_LOWEST_STOP) + (float(b) + 0.5) / float(METER_BINS_PER_STOP));
+        }
+    }
+    return 0.0;
+}
 
 void main()
 {
     uint id = gl_LocalInvocationIndex;
     for (uint b = id; b < uint(METER_BINS); b += uint(METER_SIDE * METER_SIDE)) {
-        s_bins[b] = 0u;
+        s_weight[b] = 0u;
+        s_offset[b] = 0u;
     }
     barrier();
     float grid = float(METER_SIDE * METER_EACH);
-    float light = 0.0;
-    float weight = 0.0;
     float over = 0.0;
     float negative = 0.0;
     float brightest = 0.0;
@@ -237,30 +359,28 @@ void main()
             float most = max(c.r, max(c.g, c.b));
             over += most < kLargest ? 0.0 : 1.0;
             negative += min(c.r, min(c.g, c.b)) < 0.0 ? 1.0 : 0.0;
-            c = vec3(finite(c.r), finite(c.g), finite(c.b));
-            brightest = max(brightest, dot(c, vec3(0.2126, 0.7152, 0.0722)));
-            // (the readout) the sample's physical luminance (cd/m^2) counted in its bin
-            float physical = dot(c, vec3(0.2126, 0.7152, 0.0722)) / pc.night.x * METER_WHITE;
+            c = finite3(c);
+            float luma = dot(c, kLuma);
+            brightest = max(brightest, luma);
+            // the sample's physical luminance (cd/m^2) counted in its bin with its centre weight
+            float physical = luma / pc.night.x * METER_WHITE;
             float stop = physical > 0.0 ? log2(physical) : float(METER_LOWEST_STOP);
-            int bin = clamp(int(floor((stop - float(METER_LOWEST_STOP)) * float(METER_BINS_PER_STOP))), 0, METER_BINS - 1);
-            atomicAdd(s_bins[bin], 1u);
-            float l = clamp(dot(c, vec3(0.2126, 0.7152, 0.0722)), METER_LEAST, METER_BRIGHTEST * pc.night.x);
+            float place = max((stop - float(METER_LOWEST_STOP)) * float(METER_BINS_PER_STOP), 0.0);
+            int bin = min(int(place), METER_BINS - 1);
+            float within = clamp(place - float(bin), 0.0, 1.0 - 1.0 / METER_OFFSET_SCALE);
             vec2 d = uv - 0.5;
             float w = exp(-dot(d, d) / (2.0 * METER_CENTRE * METER_CENTRE));
-            light += w * log(l);
-            weight += w;
+            uint weight = uint(w * METER_WEIGHT_SCALE + 0.5);
+            atomicAdd(s_weight[bin], weight);
+            atomicAdd(s_offset[bin], uint(within * METER_OFFSET_SCALE) * weight);
         }
     }
-    s_light[id] = light;
-    s_weight[id] = weight;
     s_over[id] = over;
     s_brightest[id] = brightest;
     s_negative[id] = negative;
     barrier();
     for (uint half_count = uint(METER_SIDE * METER_SIDE) / 2u; half_count > 0u; half_count >>= 1u) {
         if (id < half_count) {
-            s_light[id] += s_light[id + half_count];
-            s_weight[id] += s_weight[id + half_count];
             s_over[id] += s_over[id + half_count];
             s_brightest[id] = max(s_brightest[id], s_brightest[id + half_count]);
             s_negative[id] += s_negative[id + half_count];
@@ -268,11 +388,38 @@ void main()
         barrier();
     }
     if (id == 0u) {
-        // (round S) the metered light over the frame's pre-exposure: the physical light; (round L) a camera's exposure
-        // for it, within the range its settings reach (CAMERA_LEAST_STOPS - CAMERA_MOST_STOPS)
-        float mean = exp(s_light[0] / max(s_weight[0], 1e-6)) / pc.night.x;
+        // the mean log2 luminance between the percentiles (Unreal's histogram average: each bin's weight inside the
+        // window, at its samples' mean place)
+        float total = 0.0;
+        for (int b = 0; b < METER_BINS; ++b) {
+            total += float(s_weight[b]);
+        }
+        float low = total * METER_LOW_PERCENT;
+        float high = total * METER_HIGH_PERCENT;
+        float sum = 0.0;
+        float summed = 0.0;
+        for (int b = 0; b < METER_BINS; ++b) {
+            if (s_weight[b] == 0u) {
+                continue;
+            }
+            float v = float(s_weight[b]);
+            float below = min(v, low);
+            v -= below;
+            low -= below;
+            high -= below;
+            v = min(v, high);
+            high -= v;
+            float at = float(METER_LOWEST_STOP) +
+                       (float(b) + float(s_offset[b]) / (float(s_weight[b]) * METER_OFFSET_SCALE)) / float(METER_BINS_PER_STOP);
+            sum += v * at;
+            summed += v;
+        }
+        float metered = summed > 0.0 ? exp2(sum / summed) : exp2(float(METER_LOWEST_STOP));
+        // (round S) the metered light in the unit (the physical light); (round L) a camera's exposure for it, within the
+        // range its settings reach (CAMERA_LEAST_STOPS - CAMERA_MOST_STOPS)
+        float mean = metered / METER_WHITE;
         float seen = max(mean, 1e-30);
-        // the key: the calibration's, x the scene key over daylight's (Krawczyk: the absolute luminance)
+        // the key: middle grey x the compensation curve (Krawczyk's scene key over daylight's: the absolute luminance)
         float adapted = 1.03 - 2.0 / (2.0 + log(seen * METER_WHITE + 1.0) / log(10.0));
         float key = METER_KEY * adapted / METER_DAY_ADAPTED;
         float target = clamp(clamp(log2(key / seen), CAMERA_LEAST_STOPS, CAMERA_MOST_STOPS), -pc.meter.w, pc.meter.w);
@@ -287,23 +434,114 @@ void main()
         // (round S2 - the readout, after the slots) the samples over the format's range or not a number, the brightest
         // (pre-exposed), the pre-exposure metered with, the samples with a negative channel
         u_meter.slots[METER_SLOTS + slot] = vec4(s_over[0], s_brightest[0], pc.night.x, s_negative[0]);
-        // (the readout's luminance) the samples' median, 95th and 99.5th percentiles (cd/m^2: each bin's middle) and the
+        // (the readout's luminance) the weighted median, 95th and 99.5th percentiles (cd/m^2: each bin's middle) and the
         // EV100 the camera stands at (round L)
-        float total = float(METER_SIDE * METER_EACH * METER_SIDE * METER_EACH);
-        vec3 wanted = vec3(0.5, 0.95, 0.995) * total;
-        vec3 found = vec3(-1.0);
-        float counted = 0.0;
-        for (int b = 0; b < METER_BINS; ++b) {
-            float before = counted;
-            counted += float(s_bins[b]);
-            float middle = exp2(float(METER_LOWEST_STOP) + (float(b) + 0.5) / float(METER_BINS_PER_STOP));
-            for (int k = 0; k < 3; ++k) {
-                if (found[k] < 0.0 && counted >= wanted[k] && counted > before) {
-                    found[k] = middle;
+        u_meter.slots[2 * METER_SLOTS + slot] =
+            vec4(percentile(0.5 * total), percentile(0.95 * total), percentile(0.995 * total), CAMERA_EV_AT_ZERO - now);
+        // (round EX) the key (the local exposure's pivot) and the window's ends
+        u_meter.slots[3 * METER_SLOTS + slot] =
+            vec4(key, percentile(METER_LOW_PERCENT * total), percentile(METER_HIGH_PERCENT * total), metered);
+    }
+}
+)";
+
+// (round EX) The local exposure's grid (vulkan_hdr.h "Local exposure"; local_exposure_reference is its twin): a group
+// per tile, LOCAL_GROUP x LOCAL_GROUP invocations each a square of its pixels (sample 0 of a multisampled copy), their
+// exposed log2 luminance counted into the tile's slices (fixed point); the cells and the tile's whole written.
+constexpr const char* kLocalGridBody = R"(
+layout(local_size_x = LOCAL_GROUP, local_size_y = LOCAL_GROUP) in;
+shared uint s_count[LOCAL_SLICES];
+shared uint s_sum[LOCAL_SLICES];
+
+void main()
+{
+    uint id = gl_LocalInvocationIndex;
+    if (id < uint(LOCAL_SLICES)) {
+        s_count[id] = 0u;
+        s_sum[id] = 0u;
+    }
+    barrier();
+    float factor = exposure_factor();
+    const int each = LOCAL_TILE / LOCAL_GROUP;
+    ivec2 origin = ivec2(gl_WorkGroupID.xy) * LOCAL_TILE + ivec2(gl_LocalInvocationID.xy) * each;
+    for (int j = 0; j < each; ++j) {
+        for (int i = 0; i < each; ++i) {
+            ivec2 q = origin + ivec2(i, j);
+            if (q.x >= int(pc.meter_rect.z) || q.y >= int(pc.meter_rect.w)) {
+                continue;
+            }
+            vec3 c = finite3(texelFetch(u_colour, ivec2(pc.meter_rect.xy) + q, 0).rgb);
+            uint place = local_place(dot(c, kLuma) * factor);
+            uint slice = place / uint(LOCAL_FIXED);
+            atomicAdd(s_count[slice], 1u);
+            atomicAdd(s_sum[slice], place);
+        }
+    }
+    barrier();
+    int nx = local_tiles_x();
+    int cells = nx * local_tiles_y() * LOCAL_SLICES;
+    int tile = int(gl_WorkGroupID.y) * nx + int(gl_WorkGroupID.x);
+    if (id < uint(LOCAL_SLICES)) {
+        u_local.cells[tile * LOCAL_SLICES + int(id)] =
+            vec2(float(s_sum[id]) / LOCAL_FIXED + LOCAL_LOWEST * float(s_count[id]), float(s_count[id]));
+    }
+    if (id == 0u) {
+        uint count = 0u;
+        uint sum = 0u;
+        for (int k = 0; k < LOCAL_SLICES; ++k) {
+            count += s_count[k];
+            sum += s_sum[k];
+        }
+        u_local.cells[2 * cells + tile] = vec2(float(sum) / LOCAL_FIXED + LOCAL_LOWEST * float(count), float(count));
+    }
+}
+)";
+
+// (round EX) The local exposure's blur: an invocation per cell (the 3 x 3 x 3 binomial over its neighbours, unnormalised:
+// the read divides) and per tile (the blurred luminance: the tiles' wholes under a Gaussian of the viewport's width x
+// LOCAL_KERNEL / 4 sigma).
+constexpr const char* kLocalBlurBody = R"(
+layout(local_size_x = LOCAL_BLUR_GROUP) in;
+
+void main()
+{
+    int nx = local_tiles_x();
+    int ny = local_tiles_y();
+    int tiles = nx * ny;
+    int cells = tiles * LOCAL_SLICES;
+    int g = int(gl_GlobalInvocationID.x);
+    if (g < cells) {
+        int z = g % LOCAL_SLICES;
+        int tile = g / LOCAL_SLICES;
+        int tx = tile % nx;
+        int ty = tile / nx;
+        vec2 sum = vec2(0.0);
+        for (int dz = -1; dz <= 1; ++dz) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    int x = tx + dx;
+                    int y = ty + dy;
+                    int s = z + dz;
+                    if (x < 0 || x >= nx || y < 0 || y >= ny || s < 0 || s >= LOCAL_SLICES) {
+                        continue;
+                    }
+                    float w = float((2 - abs(dx)) * (2 - abs(dy)) * (2 - abs(dz)));
+                    sum += w * u_local.cells[(y * nx + x) * LOCAL_SLICES + s];
                 }
             }
         }
-        u_meter.slots[2 * METER_SLOTS + slot] = vec4(max(found, vec3(0.0)), CAMERA_EV_AT_ZERO - now);
+        u_local.cells[cells + g] = sum;
+    } else if (g < cells + tiles) {
+        int tile = g - cells;
+        int tx = tile % nx;
+        int ty = tile / nx;
+        float sigma = LOCAL_KERNEL * 0.25 * pc.meter_rect.z / float(LOCAL_TILE);
+        vec2 sum = vec2(0.0);
+        for (int s = 0; s < tiles; ++s) {
+            vec2 d = vec2(float(s % nx - tx), float(s / nx - ty));
+            sum += exp(-dot(d, d) / (2.0 * sigma * sigma)) * u_local.cells[2 * cells + s];
+        }
+        u_local.cells[2 * cells + tiles + tile] = sum;
     }
 }
 )";
@@ -359,6 +597,10 @@ struct HdrState {
     DeviceBuffer meter_buffer;
     std::array<MeterSlot, kMeterSlots> meter_slots{};
     uint64_t meter_uses = 0;
+    // (round EX) the local exposure: its pipelines (the grid, the blur; single-sampled, multisampled) and its buffer
+    // (the grid's cells, made larger when a viewport needs more)
+    std::array<VkPipeline, 4> local_pipelines{};
+    DeviceBuffer local_buffer;
     // (round S2) the meter's readout: its buffer copied each pass into memory the processor reads (a frame or two
     // behind), logged while the pre-exposure changes and for kReadoutSeconds after (log_readout)
     DeviceBuffer meter_read;
@@ -450,6 +692,33 @@ float shoulder(const ToneParameters& parameters, float value)
 
 using Rgb = std::array<float, 3>;
 using Index3 = std::array<uint32_t, 3>;
+
+// A matrix's rows on a colour.
+Rgb times(const Matrix3& matrix, const Rgb& colour)
+{
+    Rgb out{};
+    for (std::size_t row = 0; row < out.size(); ++row) {
+        const std::array<float, 3>& m = core::at(matrix, row);
+        core::at(out, row) = (core::at(m, 0) * core::at(colour, 0)) + (core::at(m, 1) * core::at(colour, 1)) +
+                             (core::at(m, 2) * core::at(colour, 2));
+    }
+    return out;
+}
+
+// (round EX) ACES's reference rendering and sRGB output transforms, Hill's fit (the shader's aces_fitted): linear
+// Rec. 709 in and out, clamped to 0 - 1.
+Rgb aces_fitted(const Rgb& colour)
+{
+    Rgb v = times(kAcesInput, colour);
+    for (float& x : v) {
+        x = ((x * (x + kHillA)) - kHillB) / ((x * ((kHillC * x) + kHillD)) + kHillE);
+    }
+    Rgb out = times(kAcesOutput, v);
+    for (float& x : out) {
+        x = std::clamp(x, 0.0F, 1.0F);
+    }
+    return out;
+}
 
 // The table's entry at (red, green, blue).
 Rgb lut_entry(const GradeLut& lut, const Index3& at)
@@ -545,7 +814,7 @@ bool ensure_layouts(Backend& state, std::string* error)
         return true;
     }
     const VkDevice device = state.context.device();
-    const std::array<VkDescriptorSetLayoutBinding, 3> bindings{{
+    const std::array<VkDescriptorSetLayoutBinding, 4> bindings{{
         {.binding = 0,
          .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
          .descriptorCount = 1,
@@ -557,6 +826,11 @@ bool ensure_layouts(Backend& state, std::string* error)
          .stageFlags = kPassStages,
          .pImmutableSamplers = nullptr},
         {.binding = 2,
+         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+         .descriptorCount = 1,
+         .stageFlags = kPassStages,
+         .pImmutableSamplers = nullptr},
+        {.binding = 3, // (round EX) the local exposure's grid
          .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
          .descriptorCount = 1,
          .stageFlags = kPassStages,
@@ -598,6 +872,9 @@ bool ensure_layouts(Backend& state, std::string* error)
     return own.vertex != VK_NULL_HANDLE;
 }
 
+// The constants every shader of the pass is made with (the meter's, the local exposure's - defined with the meter).
+std::string pass_defines();
+
 // The pipeline for a colour target's format and samples (made on first use): no blending, colour written, alpha kept.
 
 VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits samples, std::string* error)
@@ -616,6 +893,7 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     if (samples != VK_SAMPLE_COUNT_1_BIT) {
         source += "#define MULTISAMPLED\n";
     }
+    source += pass_defines();
     source += kPassCommon;
     source += rt::kDisplayTransferGlsl;
     source += kFragmentBody;
@@ -754,12 +1032,71 @@ double adaptation_at(double mean)
     return 1.03 - (2.0 / (2.0 + std::log10((std::max(mean, 0.0) * meter_white()) + 1.0)));
 }
 
-// (added by the low sun's glare) The meter's compute pipeline for a single-sampled or multisampled copy (made on first
-// use; the layouts are the curve's).
-VkPipeline meter_pipeline(Backend& state, bool multisampled, std::string* error)
+// A number as GLSL reads it (a float literal).
+std::string glsl_real(float value)
+{
+    std::array<char, 32> text{};
+    std::snprintf(text.data(), text.size(), "%.9g", static_cast<double>(value));
+    std::string out(text.data());
+    if (out.find_first_of(".e") == std::string::npos) {
+        out += ".0";
+    }
+    return out;
+}
+
+std::string pass_defines()
+{
+    std::string source;
+    const auto define = [&source](const char* name, const std::string& value) {
+        source += std::string("#define ") + name + " " + value + "\n";
+    };
+    define("METER_SIDE", std::to_string(kMeterSide));
+    define("METER_EACH", std::to_string(kMeterEach));
+    define("METER_KEY", glsl_real(kMeterKey));
+    define("METER_WHITE", glsl_real(static_cast<float>(meter_white())));
+    define("METER_DAY_ADAPTED", glsl_real(static_cast<float>(adaptation_at(kDaylightAverage))));
+    const std::array<float, 2> camera = camera_stops_range();
+    define("CAMERA_LEAST_STOPS", glsl_real(std::get<0>(camera)));
+    define("CAMERA_MOST_STOPS", glsl_real(std::get<1>(camera)));
+    define("CAMERA_EV_AT_ZERO", glsl_real(static_cast<float>(camera_ev_at_zero())));
+    define("METER_SLOTS", std::to_string(kMeterSlots));
+    define("METER_BINS", std::to_string(kMeterBins));
+    define("METER_BINS_PER_STOP", std::to_string(kMeterBinsPerStop));
+    define("METER_LOWEST_STOP", std::to_string(kMeterLowestStop));
+    define("METER_LOW_PERCENT", glsl_real(kMeterLowPercent));
+    define("METER_HIGH_PERCENT", glsl_real(kMeterHighPercent));
+    define("METER_WEIGHT_SCALE", glsl_real(kMeterWeightScale));
+    define("METER_OFFSET_SCALE", glsl_real(kMeterOffsetScale));
+    define("METER_CENTRE", glsl_real(kMeterCentre));
+    define("METER_DARKEN", glsl_real(kMeterDarkenSeconds));
+    define("METER_BRIGHTEN", glsl_real(kMeterBrightenSeconds));
+    define("LOCAL_TILE", std::to_string(kLocalTile));
+    define("LOCAL_SLICES", std::to_string(kLocalSlices));
+    define("LOCAL_GROUP", std::to_string(kLocalGroupSide));
+    define("LOCAL_BLUR_GROUP", std::to_string(kLocalBlurGroup));
+    define("LOCAL_LOWEST", glsl_real(kLocalLowestStop));
+    define("LOCAL_FIXED", glsl_real(kLocalFixed));
+    define("LOCAL_FLOOR", glsl_real(kLocalFloor));
+    define("LOCAL_LEAST_WEIGHT", glsl_real(kLocalLeastWeight));
+    define("LOCAL_BLEND", glsl_real(kLocalBlurredBlend));
+    define("LOCAL_KERNEL", glsl_real(kLocalBlurredKernel));
+    define("LOCAL_HIGHLIGHT", glsl_real(kLocalHighlightContrast));
+    define("LOCAL_SHADOW", glsl_real(kLocalShadowContrast));
+    return source;
+}
+
+// The pass's compute shaders (round EX: the meter, the local exposure's grid and blur).
+enum class ComputeKind : uint8_t { kMeter, kLocalGrid, kLocalBlur };
+
+// A compute pipeline of the pass for a single-sampled or multisampled copy (made on first use; the layouts are the
+// curve's).
+VkPipeline compute_pipeline(Backend& state, ComputeKind kind, bool multisampled, std::string* error)
 {
     HdrState& own = hdr();
-    VkPipeline& made = core::at(own.meter_pipelines, multisampled ? 1 : 0);
+    const std::size_t variant = multisampled ? 1 : 0;
+    VkPipeline& made = kind == ComputeKind::kMeter ? core::at(own.meter_pipelines, variant)
+                                                   : core::at(own.local_pipelines,
+                                                              (kind == ComputeKind::kLocalBlur ? 2 : 0) + variant);
     if (made != VK_NULL_HANDLE) {
         return made;
     }
@@ -767,42 +1104,24 @@ VkPipeline meter_pipeline(Backend& state, bool multisampled, std::string* error)
         return VK_NULL_HANDLE;
     }
     const VkDevice device = state.context.device();
-    std::string source = "#version 450\n#define METER_WRITES\n";
+    std::string source = "#version 450\n";
+    source += kind == ComputeKind::kMeter ? "#define METER_WRITES\n" : "#define LOCAL_WRITES\n";
     if (multisampled) {
         source += "#define MULTISAMPLED\n";
     }
-    const auto define = [&source](const char* name, const std::string& value) {
-        source += std::string("#define ") + name + " " + value + "\n";
-    };
-    const auto real = [](float value) {
-        std::array<char, 32> text{};
-        std::snprintf(text.data(), text.size(), "%.9g", static_cast<double>(value));
-        std::string out(text.data());
-        if (out.find_first_of(".e") == std::string::npos) {
-            out += ".0";
-        }
-        return out;
-    };
-    define("METER_SIDE", std::to_string(kMeterSide));
-    define("METER_EACH", std::to_string(kMeterEach));
-    define("METER_KEY", real(kMeterKey));
-    define("METER_LEAST", real(kMeterLeast));
-    define("METER_WHITE", real(static_cast<float>(meter_white())));
-    define("METER_DAY_ADAPTED", real(static_cast<float>(adaptation_at(kDaylightAverage))));
-    const std::array<float, 2> camera = camera_stops_range();
-    define("CAMERA_LEAST_STOPS", real(std::get<0>(camera)));
-    define("CAMERA_MOST_STOPS", real(std::get<1>(camera)));
-    define("CAMERA_EV_AT_ZERO", real(static_cast<float>(camera_ev_at_zero())));
-    define("METER_BRIGHTEST", real(kMeterBrightest));
-    define("METER_SLOTS", std::to_string(kMeterSlots));
-    define("METER_BINS", std::to_string(kMeterBins));
-    define("METER_BINS_PER_STOP", std::to_string(kMeterBinsPerStop));
-    define("METER_LOWEST_STOP", std::to_string(kMeterLowestStop));
-    define("METER_CENTRE", real(kMeterCentre));
-    define("METER_DARKEN", real(kMeterDarkenSeconds));
-    define("METER_BRIGHTEN", real(kMeterBrightenSeconds));
+    source += pass_defines();
     source += kPassCommon;
-    source += kMeterBody;
+    switch (kind) {
+    case ComputeKind::kMeter:
+        source += kMeterBody;
+        break;
+    case ComputeKind::kLocalGrid:
+        source += kLocalGridBody;
+        break;
+    case ComputeKind::kLocalBlur:
+        source += kLocalBlurBody;
+        break;
+    }
     const VkShaderModule module = make_module(device, ShaderStage::kCompute, source, error);
     if (module == VK_NULL_HANDLE) {
         return VK_NULL_HANDLE;
@@ -824,9 +1143,32 @@ VkPipeline meter_pipeline(Backend& state, bool multisampled, std::string* error)
     vkDestroyShaderModule(device, module, nullptr);
     if (result != VK_SUCCESS) {
         made = VK_NULL_HANDLE;
-        *error = "vkCreateComputePipelines failed (the meter)";
+        *error = "vkCreateComputePipelines failed";
     }
     return made;
+}
+
+// (round EX) The local exposure's grid for a viewport `width` x `height`: its tiles across and down.
+std::array<uint32_t, 2> local_tiles(uint32_t width, uint32_t height)
+{
+    return {(width + kLocalTile - 1) / kLocalTile, (height + kLocalTile - 1) / kLocalTile};
+}
+
+// (round EX) The local exposure's buffer, at least `vec2s` of them (one when off: the descriptor needs a buffer), made
+// again larger when a viewport needs more.
+bool ensure_local_buffer(Backend& state, std::size_t vec2s)
+{
+    HdrState& own = hdr();
+    constexpr std::size_t kVec2Bytes = 2 * sizeof(float);
+    const auto bytes = static_cast<VkDeviceSize>(std::max<std::size_t>(vec2s, 1) * kVec2Bytes);
+    if (own.local_buffer.buffer != VK_NULL_HANDLE && own.local_buffer.bytes >= bytes) {
+        return true;
+    }
+    if (own.local_buffer.buffer != VK_NULL_HANDLE) {
+        retire_buffer(state, &own.local_buffer);
+    }
+    return state.memory.create_buffer(bytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kDevice,
+                                      &own.local_buffer);
 }
 
 // The meter's buffer (kMeterSlots vec4s; device memory - written and read only by the passes, read back by the check).
@@ -838,8 +1180,9 @@ bool ensure_meter_buffer(Backend& state)
     }
     constexpr std::size_t kSlotBytes = 4 * sizeof(float);
     own.meter_slots = {};
-    // (the slots, then each slot's readout - round S2 -, then each slot's luminance percentiles)
-    constexpr auto kBytes = static_cast<VkDeviceSize>(3 * kMeterSlots * kSlotBytes);
+    // (the slots, then each slot's readout - round S2 -, then each slot's luminance percentiles, then - round EX - each
+    // slot's key and window)
+    constexpr auto kBytes = static_cast<VkDeviceSize>(4 * kMeterSlots * kSlotBytes);
     return state.memory.create_buffer(kBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                       BufferPlace::kDevice, &own.meter_buffer) &&
            state.memory.create_buffer(kBytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT, BufferPlace::kReadBack,
@@ -937,6 +1280,36 @@ void record_meter(VkCommandBuffer commands, VkPipeline pipeline, std::size_t slo
     }
 }
 
+// (round EX) The local exposure's passes over the viewport's copy - the grid (a group per tile), then its blur and the
+// blurred luminance - after the meter (they read its factor and key), ready for the curve's pass. The compute
+// descriptors are pushed.
+void record_local(VkCommandBuffer commands, const std::array<VkPipeline, 2>& pipelines, const PassConstants& constants,
+                  const std::array<uint32_t, 2>& tiles)
+{
+    const HdrState& own = hdr();
+    VkMemoryBarrier barrier{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                            .pNext = nullptr,
+                            .srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT};
+    // (the meter's slot written; the grid of a viewport before read by its curve's pass)
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, std::get<0>(pipelines));
+    vkCmdPushConstants(commands, own.layout, kPassStages, 0, sizeof(PassConstants), &constants);
+    vkCmdDispatch(commands, std::get<0>(tiles), std::get<1>(tiles), 1);
+    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+                         &barrier, 0, nullptr, 0, nullptr);
+    const uint32_t count = std::get<0>(tiles) * std::get<1>(tiles);
+    const uint32_t invocations = (count * kLocalSlices) + count;
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, std::get<1>(pipelines));
+    vkCmdPushConstants(commands, own.layout, kPassStages, 0, sizeof(PassConstants), &constants);
+    vkCmdDispatch(commands, (invocations + kLocalBlurGroup - 1) / kLocalBlurGroup, 1, 1);
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1,
+                         &barrier, 0, nullptr, 0, nullptr);
+}
+
 // (round S2) The meter's readout in the log: the frame's pre-exposure, the eye's exposure (stops, and the factor on the
 // pre-exposed light), the metered physical light and its target, the brightest sample and the samples over the
 // format's range - from the last pass's copy the processor can read (a frame or two behind: the readout of a pass
@@ -967,7 +1340,7 @@ void log_readout(Backend& state, std::size_t slot_index, float pre)
         return;
     }
     constexpr std::size_t kVec4 = 4;
-    std::array<float, 3 * kVec4> values{};
+    std::array<float, 4 * kVec4> values{};
     vmaInvalidateAllocation(state.memory.allocator(), own.meter_read.allocation, 0, VK_WHOLE_SIZE);
     const std::span<const uint8_t> mapped(static_cast<const uint8_t*>(own.meter_read.mapped),
                                           static_cast<std::size_t>(own.meter_read.bytes));
@@ -977,6 +1350,8 @@ void log_readout(Backend& state, std::size_t slot_index, float pre)
                 slot_bytes);
     std::memcpy(&core::at(values, 2 * kVec4),
                 mapped.subspan(((2 * kMeterSlots) + slot_index) * slot_bytes, slot_bytes).data(), slot_bytes);
+    std::memcpy(&core::at(values, 3 * kVec4),
+                mapped.subspan(((3 * kMeterSlots) + slot_index) * slot_bytes, slot_bytes).data(), slot_bytes);
     const float over = core::at(values, 4);
     constexpr double kOverEvery = 5.0; // (outside the window: a sample over the range logged at most this often)
     if (now >= own.readout_until &&
@@ -999,6 +1374,14 @@ void log_readout(Backend& state, std::size_t slot_index, float pre)
             static_cast<double>(core::at(values, 8)), static_cast<double>(core::at(values, 9)),
             static_cast<double>(core::at(values, 10)), brightest, static_cast<double>(core::at(values, 11)),
             static_cast<double>(kCameraLeastEv100), static_cast<double>(kCameraMostEv100));
+    // (round EX) the histogram's window and the key it was put at; the local exposure
+    get_log("vulkan: rt_hdr: histogram: %.0f%% - %.0f%% window %.3g - %.3g cd/m^2, its mean %.3g cd/m^2 at the key %.4g "
+            "(middle grey %.2f x the compensation curve's %.3f); local exposure %s",
+            static_cast<double>(kMeterLowPercent) * 100.0, static_cast<double>(kMeterHighPercent) * 100.0,
+            static_cast<double>(core::at(values, 13)), static_cast<double>(core::at(values, 14)),
+            static_cast<double>(core::at(values, 15)), static_cast<double>(core::at(values, 12)),
+            static_cast<double>(kMeterKey), static_cast<double>(core::at(values, 12) / kMeterKey),
+            own.settings.local_exposure ? "on" : "off");
 }
 
 // An image like `like` (format, size, samples) for `usage`, made again when any of them changed.
@@ -1210,7 +1593,7 @@ ToneParameters tone_parameters(const HdrSettings& settings)
         std::isfinite(settings.saturation) ? std::clamp(settings.saturation, 0.0F, kMostSaturation) : 1.0F;
     parameters.contrast =
         std::isfinite(settings.contrast) ? std::clamp(settings.contrast, kLeastContrast, kMostContrast) : 1.0F;
-    parameters.curve = settings.tonemap == 1 ? 1U : 0U;
+    parameters.curve = settings.tonemap <= kCurveAces ? settings.tonemap : kCurveShoulder;
     const double white = std::isfinite(settings.white_point)
                              ? std::clamp(static_cast<double>(settings.white_point), 1.0, static_cast<double>(kMostWhite))
                              : static_cast<double>(kHdrWhitePoint);
@@ -1363,12 +1746,23 @@ std::array<float, 3> tone_map_reference(const ToneParameters& parameters, const 
             value = kMidGrey * std::pow(value / kMidGrey, parameters.contrast);
         }
     }
-    for (float& value : colour) {
-        if (parameters.curve == 0) {
-            value = shoulder(parameters, value);
-        } else {
-            const float mapped = std::min(aces_curve(rt::linear_from_display(value)) * parameters.aces_scale, 1.0F);
-            value = rt::display_from_linear(mapped);
+    if (parameters.curve == kCurveAces) {
+        Rgb linear{};
+        for (std::size_t channel = 0; channel < colour.size(); ++channel) {
+            core::at(linear, channel) = rt::linear_from_display(core::at(colour, channel));
+        }
+        const Rgb mapped = aces_fitted(linear);
+        for (std::size_t channel = 0; channel < colour.size(); ++channel) {
+            core::at(colour, channel) = rt::display_from_linear(core::at(mapped, channel));
+        }
+    } else {
+        for (float& value : colour) {
+            if (parameters.curve == kCurveShoulder) {
+                value = shoulder(parameters, value);
+            } else {
+                const float mapped = std::min(aces_curve(rt::linear_from_display(value)) * parameters.aces_scale, 1.0F);
+                value = rt::display_from_linear(mapped);
+            }
         }
     }
     if (lut != nullptr && lut->size >= kLeastLut) {
@@ -1404,7 +1798,193 @@ float meter_light(const std::array<float, 3>& colour)
     for (std::size_t channel = 0; channel < colour.size(); ++channel) {
         light += core::at(kLuma, channel) * finite(core::at(colour, channel)); // (the frame is linear: round F)
     }
-    return std::clamp(light, kMeterLeast, kMeterBrightest);
+    return light;
+}
+
+void meter_count(MeterHistogram* histogram, float luminance, float weight)
+{
+    const auto lowest = static_cast<float>(kMeterLowestStop);
+    const float stop = luminance > 0.0F ? std::log2(luminance) : lowest;
+    const float place = std::max((stop - lowest) * static_cast<float>(kMeterBinsPerStop), 0.0F);
+    const int bin = std::min(static_cast<int>(place), kMeterBins - 1);
+    const float within = std::clamp(place - static_cast<float>(bin), 0.0F, 1.0F - (1.0F / kMeterOffsetScale));
+    const auto counted = static_cast<uint32_t>((weight * kMeterWeightScale) + 0.5F);
+    const auto at = static_cast<std::size_t>(bin);
+    core::at(histogram->weight, at) += counted;
+    core::at(histogram->offset, at) += static_cast<uint32_t>(within * kMeterOffsetScale) * counted;
+}
+
+float meter_window_mean(const MeterHistogram& histogram)
+{
+    float total = 0.0F;
+    for (const uint32_t weight : histogram.weight) {
+        total += static_cast<float>(weight);
+    }
+    float low = total * kMeterLowPercent;
+    float high = total * kMeterHighPercent;
+    float sum = 0.0F;
+    float summed = 0.0F;
+    for (std::size_t b = 0; b < histogram.weight.size(); ++b) {
+        const uint32_t weight = core::at(histogram.weight, b);
+        if (weight == 0) {
+            continue;
+        }
+        float v = static_cast<float>(weight);
+        const float below = std::min(v, low);
+        v -= below;
+        low -= below;
+        high -= below;
+        v = std::min(v, high);
+        high -= v;
+        const float at = static_cast<float>(kMeterLowestStop) +
+                         ((static_cast<float>(b) + (static_cast<float>(core::at(histogram.offset, b)) /
+                                                    (static_cast<float>(weight) * kMeterOffsetScale))) /
+                          static_cast<float>(kMeterBinsPerStop));
+        sum += v * at;
+        summed += v;
+    }
+    return summed > 0.0F ? std::exp2(sum / summed) : std::exp2(static_cast<float>(kMeterLowestStop));
+}
+
+// (round EX) the local exposure's twin
+namespace {
+
+// An exposed luminance's place in the grid's slices (the shader's local_place).
+uint32_t local_place(float luminance)
+{
+    const float z = std::clamp(std::log2(std::max(luminance, kLocalFloor)) - kLocalLowestStop, 0.0F,
+                               static_cast<float>(kLocalSlices) - (1.0F / kLocalFixed));
+    return static_cast<uint32_t>(z * kLocalFixed);
+}
+
+using Cell = std::array<float, 2>;
+
+void add_cell(Cell* into, float weight, const Cell& cell)
+{
+    core::at(*into, 0) += weight * core::at(cell, 0);
+    core::at(*into, 1) += weight * core::at(cell, 1);
+}
+
+} // namespace
+
+std::vector<float> local_exposure_reference(uint32_t width, uint32_t height, const std::vector<float>& exposed,
+                                            float pivot)
+{
+    const std::array<uint32_t, 2> counts = local_tiles(width, height);
+    const auto nx = static_cast<int>(std::get<0>(counts));
+    const auto ny = static_cast<int>(std::get<1>(counts));
+    const auto slices = static_cast<int>(kLocalSlices);
+    const int tiles = nx * ny;
+    const int cells = tiles * slices;
+    // the grid: each cell's count and fixed-point sum, then as the shader writes them
+    std::vector<uint32_t> count(static_cast<std::size_t>(cells), 0);
+    std::vector<uint32_t> sum(static_cast<std::size_t>(cells), 0);
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            const uint32_t place = local_place(core::at(exposed, (static_cast<std::size_t>(y) * width) + x));
+            const auto tile = static_cast<int>(((y / kLocalTile) * std::get<0>(counts)) + (x / kLocalTile));
+            const auto at = static_cast<std::size_t>((tile * slices) + static_cast<int>(place / static_cast<uint32_t>(kLocalFixed)));
+            ++core::at(count, at);
+            core::at(sum, at) += place;
+        }
+    }
+    std::vector<Cell> raw(static_cast<std::size_t>(cells));
+    std::vector<Cell> whole(static_cast<std::size_t>(tiles));
+    for (int tile = 0; tile < tiles; ++tile) {
+        uint32_t tile_count = 0;
+        uint32_t tile_sum = 0;
+        for (int s = 0; s < slices; ++s) {
+            const auto at = static_cast<std::size_t>((tile * slices) + s);
+            core::at(raw, at) = {(static_cast<float>(core::at(sum, at)) / kLocalFixed) +
+                                     (kLocalLowestStop * static_cast<float>(core::at(count, at))),
+                                 static_cast<float>(core::at(count, at))};
+            tile_count += core::at(count, at);
+            tile_sum += core::at(sum, at);
+        }
+        core::at(whole, static_cast<std::size_t>(tile)) = {
+            (static_cast<float>(tile_sum) / kLocalFixed) + (kLocalLowestStop * static_cast<float>(tile_count)),
+            static_cast<float>(tile_count)};
+    }
+    // the blur: 3 x 3 x 3 binomial over the cells; the tiles' Gaussian
+    std::vector<Cell> blurred(static_cast<std::size_t>(cells), Cell{});
+    for (int g = 0; g < cells; ++g) {
+        const int z = g % slices;
+        const int tile = g / slices;
+        const int tx = tile % nx;
+        const int ty = tile / nx;
+        Cell& out = core::at(blurred, static_cast<std::size_t>(g));
+        for (int dz = -1; dz <= 1; ++dz) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    const int x = tx + dx;
+                    const int y = ty + dy;
+                    const int s = z + dz;
+                    if (x < 0 || x >= nx || y < 0 || y >= ny || s < 0 || s >= slices) {
+                        continue;
+                    }
+                    const auto w = static_cast<float>((2 - std::abs(dx)) * (2 - std::abs(dy)) * (2 - std::abs(dz)));
+                    add_cell(&out, w, core::at(raw, static_cast<std::size_t>((((y * nx) + x) * slices) + s)));
+                }
+            }
+        }
+    }
+    std::vector<Cell> wide(static_cast<std::size_t>(tiles), Cell{});
+    const float sigma = kLocalBlurredKernel * 0.25F * static_cast<float>(width) / static_cast<float>(kLocalTile);
+    for (int tile = 0; tile < tiles; ++tile) {
+        const int tx = tile % nx;
+        const int ty = tile / nx;
+        for (int s = 0; s < tiles; ++s) {
+            const auto dx = static_cast<float>((s % nx) - tx);
+            const auto dy = static_cast<float>((s / nx) - ty);
+            add_cell(&core::at(wide, static_cast<std::size_t>(tile)),
+                     std::exp(-((dx * dx) + (dy * dy)) / (2.0F * sigma * sigma)), core::at(whole, static_cast<std::size_t>(s)));
+        }
+    }
+    // each pixel: the grid read trilinearly at its own level, the blurred luminance bilinearly
+    std::vector<float> factors(static_cast<std::size_t>(width) * height, 1.0F);
+    const float log_pivot = std::log2(pivot);
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            const std::size_t pixel = (static_cast<std::size_t>(y) * width) + x;
+            const float tx = std::clamp(((static_cast<float>(x) + 0.5F) / static_cast<float>(kLocalTile)) - 0.5F, 0.0F,
+                                        static_cast<float>(nx - 1));
+            const float ty = std::clamp(((static_cast<float>(y) + 0.5F) / static_cast<float>(kLocalTile)) - 0.5F, 0.0F,
+                                        static_cast<float>(ny - 1));
+            const int x0 = static_cast<int>(tx);
+            const int y0 = static_cast<int>(ty);
+            const int x1 = std::min(x0 + 1, nx - 1);
+            const int y1 = std::min(y0 + 1, ny - 1);
+            const float fx = tx - static_cast<float>(x0);
+            const float fy = ty - static_cast<float>(y0);
+            const uint32_t place = local_place(core::at(exposed, pixel));
+            const float z = std::clamp((static_cast<float>(place) / kLocalFixed) - 0.5F, 0.0F, static_cast<float>(slices - 1));
+            const int z0 = static_cast<int>(z);
+            const int z1 = std::min(z0 + 1, slices - 1);
+            const float fz = z - static_cast<float>(z0);
+            Cell grid{};
+            Cell blur{};
+            for (int k = 0; k < 4; ++k) {
+                const int cx = (k & 1) != 0 ? x1 : x0;
+                const int cy = (k & 2) != 0 ? y1 : y0;
+                const float w = ((k & 1) != 0 ? fx : 1.0F - fx) * ((k & 2) != 0 ? fy : 1.0F - fy);
+                const int tile = (cy * nx) + cx;
+                const Cell& low = core::at(blurred, static_cast<std::size_t>((tile * slices) + z0));
+                const Cell& high = core::at(blurred, static_cast<std::size_t>((tile * slices) + z1));
+                add_cell(&grid, w,
+                         {core::at(low, 0) + ((core::at(high, 0) - core::at(low, 0)) * fz),
+                          core::at(low, 1) + ((core::at(high, 1) - core::at(low, 1)) * fz)});
+                add_cell(&blur, w, core::at(wide, static_cast<std::size_t>(tile)));
+            }
+            const float own_level = kLocalLowestStop + (static_cast<float>(place) / kLocalFixed);
+            const float blurred_level = core::at(blur, 1) > 0.0F ? core::at(blur, 0) / core::at(blur, 1) : own_level;
+            const float bilateral =
+                core::at(grid, 1) > kLocalLeastWeight ? core::at(grid, 0) / core::at(grid, 1) : blurred_level;
+            const float base = bilateral + ((blurred_level - bilateral) * kLocalBlurredBlend);
+            const float contrast = base > log_pivot ? kLocalHighlightContrast : kLocalShadowContrast;
+            core::at(factors, pixel) = std::exp2((base - log_pivot) * (contrast - 1.0F));
+        }
+    }
+    return factors;
 }
 
 float meter_key(float mean)
@@ -1517,11 +2097,18 @@ bool read_meter(Backend& state, const std::array<uint32_t, 4>& rect, MeterReadin
             more.size() >= kSlotBytes) {
             std::memcpy(luminance.data(), more.data(), kSlotBytes);
         }
+        std::array<float, 4> keyed{};
+        std::vector<uint8_t> key_bytes;
+        if (state.memory.read_buffer(own.meter_buffer, ((3 * kMeterSlots) + i) * kSlotBytes, kSlotBytes, &key_bytes) &&
+            key_bytes.size() >= kSlotBytes) {
+            std::memcpy(keyed.data(), key_bytes.data(), kSlotBytes);
+        }
         *reading = {.factor = core::at(values, 0),
                     .stops = core::at(values, 1),
                     .mean = core::at(values, 2),
                     .target = core::at(values, 3),
-                    .luminance = luminance};
+                    .luminance = luminance,
+                    .key = core::at(keyed, 0)};
         return true;
     }
     return false;
@@ -1603,19 +2190,41 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     // (added by the low sun's glare) the meter, when rt_exposure_adapt lets a bright view bring the exposure down
     VkPipeline meter = VK_NULL_HANDLE;
     const ManualExposure manual = manual_exposure(); // (path tracing, stage 1: the camera set by hand - no meter)
+    const bool multisampled = colour->samples != VK_SAMPLE_COUNT_1_BIT;
     if (own.settings.exposure_adapt > 0.0F && !manual.on) {
         std::string meter_error;
-        meter = meter_pipeline(state, colour->samples != VK_SAMPLE_COUNT_1_BIT, &meter_error);
+        meter = compute_pipeline(state, ComputeKind::kMeter, multisampled, &meter_error);
         if (meter == VK_NULL_HANDLE && first_report(state, kReportMeter)) {
             get_log("vulkan: rt_hdr: the meter couldn't be made (%s) - the exposure isn't adapted to bright views",
                     meter_error.c_str());
         }
     }
+    // (round EX) the local exposure (not while the camera is set by hand), its grid sized for the viewport
+    const std::array<uint32_t, 2> tiles = local_tiles(width, height);
+    const std::size_t tile_count = static_cast<std::size_t>(std::get<0>(tiles)) * std::get<1>(tiles);
+    std::array<VkPipeline, 2> local{};
+    if (own.settings.local_exposure && !manual.on) {
+        std::string local_error;
+        std::get<0>(local) = compute_pipeline(state, ComputeKind::kLocalGrid, multisampled, &local_error);
+        std::get<1>(local) = compute_pipeline(state, ComputeKind::kLocalBlur, multisampled, &local_error);
+        if ((std::get<0>(local) == VK_NULL_HANDLE || std::get<1>(local) == VK_NULL_HANDLE) &&
+            first_report(state, kReportLocal)) {
+            get_log("vulkan: rt_hdr: the local exposure couldn't be made (%s) - off", local_error.c_str());
+        }
+    }
+    const bool local_on = std::get<0>(local) != VK_NULL_HANDLE && std::get<1>(local) != VK_NULL_HANDLE &&
+                          ensure_local_buffer(state, (2 * tile_count * kLocalSlices) + (2 * tile_count));
+    if (!local_on && !ensure_local_buffer(state, 1)) {
+        return false;
+    }
     constants.meter_rect = {static_cast<float>(left), static_cast<float>(top), static_cast<float>(width),
                             static_cast<float>(height)};
     // (round S) the frame's pre-exposure divided out
     // (path tracing, stage 1) y: the manual exposure's factor on the physical light (0: none)
-    constants.night = {rt::frame_pre_exposure(), manual.on ? exposure_at_ev100(manual.ev100) : 0.0F, 0.0F, 0.0F};
+    // (round EX) z: the local exposure - about the meter's key (1) or, unmetered, the fixed key (2); w: its tiles across
+    const float local_mode = !local_on ? 0.0F : (meter != VK_NULL_HANDLE ? 1.0F : 2.0F);
+    constants.night = {rt::frame_pre_exposure(), manual.on ? exposure_at_ev100(manual.ev100) : 0.0F, local_mode,
+                       static_cast<float>(std::get<0>(tiles))};
 
     VkCommandBuffer commands = outside_pass(state);
     // the viewport's colour copied out (the copy's barriers by hand: the meter's compute shader reads it too)
@@ -1638,7 +2247,8 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
                                        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     const VkDescriptorBufferInfo table{.buffer = own.lut_buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     const VkDescriptorBufferInfo metered{.buffer = own.meter_buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
-    std::array<VkWriteDescriptorSet, 3> writes{};
+    const VkDescriptorBufferInfo grid{.buffer = own.local_buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
+    std::array<VkWriteDescriptorSet, 4> writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorCount = 1;
@@ -1652,14 +2262,23 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     core::at(writes, 2).dstBinding = 2;
     core::at(writes, 2).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     core::at(writes, 2).pBufferInfo = &metered;
+    core::at(writes, 3).dstBinding = 3;
+    core::at(writes, 3).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    core::at(writes, 3).pBufferInfo = &grid;
+    if (meter != VK_NULL_HANDLE || local_on) {
+        vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
+                                  static_cast<uint32_t>(writes.size()), writes.data());
+    }
     // (the meter first: the viewport's slot moved toward its target)
     if (meter != VK_NULL_HANDLE) {
         const std::size_t slot = meter_slot_of(shown, colour->extent);
         own.last_slot = static_cast<int>(slot);
-        vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
-                                  static_cast<uint32_t>(writes.size()), writes.data());
         log_readout(state, slot, core::at(constants.night, 0));
         record_meter(commands, meter, slot, &constants);
+    }
+    // (round EX) then the local exposure's grid, with the meter's factor and key
+    if (local_on) {
+        record_local(commands, local, constants, tiles);
     }
     // the pass: one triangle over the viewport
     VkRenderingAttachmentInfo colour_info{};
@@ -1703,12 +2322,13 @@ bool record_tone_map_pass(Backend& state, const rt::ViewDrawn& view)
     ++own.passes;
     if (first_report(state, kReportFirstPass)) {
         get_log("vulkan: rt_hdr: the first tone-mapping pass (%ux%u, %u sample%s; exposure %+.2f, curve %u, white "
-                "point %.2f - knee %.3f, saturation %.2f, contrast %.2f%s; %s)",
+                "point %.2f - knee %.3f, saturation %.2f, contrast %.2f%s; %s; local exposure %s)",
                 width, height, static_cast<unsigned>(colour->samples), colour->samples == 1 ? "" : "s",
                 static_cast<double>(own.settings.exposure), tone.curve, static_cast<double>(own.settings.white_point),
                 static_cast<double>(tone.knee), static_cast<double>(tone.saturation),
                 static_cast<double>(tone.contrast), lut.size >= kLeastLut ? ", a grading table" : "",
-                meter != VK_NULL_HANDLE ? "metered: a bright view brought down" : "not metered");
+                meter != VK_NULL_HANDLE ? "metered: a histogram auto exposure" : "not metered",
+                local_on ? "on" : "off");
     }
     return true;
 }
@@ -1777,6 +2397,12 @@ void release_hdr(Backend& state)
             }
             meter = VK_NULL_HANDLE;
         }
+        for (VkPipeline& local : own.local_pipelines) {
+            if (local != VK_NULL_HANDLE) {
+                vkDestroyPipeline(device, local, nullptr);
+            }
+            local = VK_NULL_HANDLE;
+        }
         if (own.vertex != VK_NULL_HANDLE) {
             vkDestroyShaderModule(device, own.vertex, nullptr);
         }
@@ -1796,6 +2422,7 @@ void release_hdr(Backend& state)
         state.memory.destroy_buffer(&own.lut_buffer);
         state.memory.destroy_buffer(&own.meter_buffer);
         state.memory.destroy_buffer(&own.meter_read);
+        state.memory.destroy_buffer(&own.local_buffer);
     }
     own.meter_slots = {};
     own.pipelines.clear();

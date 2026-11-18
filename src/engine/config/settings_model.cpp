@@ -696,9 +696,16 @@ std::vector<Decl> declarations()
             .pick({c("0", t::kOff), c("1", t::kOn)})
             .need(vulkan(), t::kNeedsVulkan)
             .live(E::kHdr),
-        gfx("rt_tonemap", K::kNumber, "0")
+        // (round EX) local exposure (gpu_vulkan/vulkan_hdr.h): UE5's, its new-project parameters
+        gfx("rt_local_exposure", K::kSwitch, "1")
+            .tab(G::kColour, t::kOptLocalExposure, t::kOptLocalExposureHelp)
+            .need(vulkan(), t::kNeedsVulkan)
+            .live(E::kHdr)
+            .off("0"),
+        // (round EX: 2, ACES's reference rendering and output transforms, the default)
+        gfx("rt_tonemap", K::kNumber, "2")
             .tab(G::kColour, t::kOptTonemap)
-            .pick({c("0", "Game"), c("1", "Filmic")})
+            .pick({c("0", "Game"), c("1", "Filmic"), c("2", "ACES")})
             .need(vulkan(), t::kNeedsVulkan)
             .live(E::kHdr),
         gfx("rt_white_point", K::kNumber, "1.25")
