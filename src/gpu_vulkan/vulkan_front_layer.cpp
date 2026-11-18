@@ -277,6 +277,7 @@ struct Timing {
     std::array<uint64_t, kTimingSlots> pending{};
     double sum_ms = 0.0;
     uint32_t measured = 0;
+    uint64_t draws = 0; // (the see-through draws in the layer's depth over the measured passes)
 };
 
 struct FrontState {
@@ -496,10 +497,12 @@ void collect_timing(Backend& state, FrontState& own, uint32_t slot)
     if (++timing.measured >= kTimingReport) {
         own.last_ms = timing.sum_ms / timing.measured;
         get_log("front layer: %.3f ms a frame on the device over the last %u (%ux%u; the see-through draws' depth and "
-                "their light)",
-                own.last_ms, timing.measured, own.width, own.height);
+                "their light; %.1f see-through draws a view)",
+                own.last_ms, timing.measured, own.width, own.height,
+                static_cast<double>(timing.draws) / static_cast<double>(timing.measured));
         timing.sum_ms = 0.0;
         timing.measured = 0;
+        timing.draws = 0;
     }
 }
 
@@ -737,6 +740,7 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     own.before = true;
     own.width = width;
     own.height = height;
+    own.timing.draws += images.draws;
     ++own.passes;
     surface_light_front_lit();
     if (first_report(state, kReportFirst)) {

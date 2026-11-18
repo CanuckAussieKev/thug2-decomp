@@ -1289,6 +1289,7 @@ bool surface_light_front_prepass(Backend& state, FrontLayerImages* out)
     out->light = {&core::at(own.front_light, now), &core::at(own.front_light, before)};
     out->sun = {&core::at(own.front_sun, now), &core::at(own.front_sun, before)};
     out->history = own.front_history;
+    out->draws = drawn;
     return true;
 }
 

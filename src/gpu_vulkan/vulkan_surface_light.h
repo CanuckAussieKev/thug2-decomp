@@ -133,6 +133,7 @@ struct FrontLayerImages {
     std::array<Image*, 2> light{};
     std::array<Image*, 2> sun{};
     bool history = false;
+    uint32_t draws = 0; // (the see-through draws drawn into its depth this view)
 };
 // At ViewOrder::kFrontLayer (the inputs made, the shading next): the kept draws that read the front layer (kLightFront -
 // see-through draws lit by the light model, and rt_water's water) drawn into its depth alone, the nearest kept. False
