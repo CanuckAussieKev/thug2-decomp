@@ -2409,6 +2409,55 @@ vec3 hit_blend_transmittance(HitBlend b, float cos_theta)
     return vec3(open);
 }
 
+// (round CW) The surface the per-surface lighting's prepass keeps at a pixel (vulkan_surface_light.h, step 1): an opaque or
+// cut-out one where its alpha test passes, a blended one (HIT_COVERAGE / HIT_GLASS - an alpha blend) where it is at
+// least half opaque (the prepass's kLightDepthHalf); never a filter or an added one (no depth of theirs is kept). The
+// light inputs are made for that surface, so a pass that finds the pixel's surface by a camera ray takes this test and
+// every drawn instance (RAY_DRAWN: the seen-through ones too). With the opaque kinds alone, a blended layer the prepass
+// kept - a road's painted crosswalk, 0.8 units over the asphalt - was missed: the ray found the asphalt under it, and the
+// light rays from there were shaded by the paint over it, texel by texel as its alpha (dark blotches over the paint).
+const uint RAY_DRAWN = 0x87u; // (kMaskWorld, kMaskObjects, kMaskAlphaTested, kMaskNoShadow - not kMaskAddsLight)
+bool drawn_kept(uint instance, uint primitive, uint id, vec2 barycentrics)
+{
+    if ((geometry_record(instance).instance_flags & HIT_INSTANCE_TRANSPARENT) == 0u) {
+        return cutout_kept(instance, primitive, id, barycentrics);
+    }
+    HitBlend b = hit_blend(instance, primitive, id, barycentrics);
+    return (b.kind == HIT_COVERAGE || b.kind == HIT_GLASS) && b.coverage >= 0.5;
+}
+// The nearest surface the prepass keeps along a camera ray (drawn_kept) before `reach`; false: none.
+bool trace_drawn(vec3 origin, vec3 dir, float reach, out uint instance, out uint primitive, out uint id,
+                 out vec2 barycentrics, out float t, out mat4x3 to_world)
+{
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, RAY_DRAWN, origin, 0.0, dir, reach);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
+            drawn_kept(rayQueryGetIntersectionInstanceIdEXT(query, false),
+                       rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
+                       rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
+                       rayQueryGetIntersectionBarycentricsEXT(query, false))) {
+            rayQueryConfirmIntersectionEXT(query);
+        }
+    }
+    instance = 0u;
+    primitive = 0u;
+    id = 0u;
+    barycentrics = vec2(0.0);
+    t = reach;
+    to_world = mat4x3(1.0);
+    if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
+        return false;
+    }
+    instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
+    primitive = rayQueryGetIntersectionPrimitiveIndexEXT(query, true);
+    id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, true);
+    barycentrics = rayQueryGetIntersectionBarycentricsEXT(query, true);
+    t = rayQueryGetIntersectionTEXT(query, true);
+    to_world = rayQueryGetIntersectionObjectToWorldEXT(query, true);
+    return true;
+}
+
 // (round PT-B - the one light through the seen-through surfaces) The light that gets through the seen-through instances
 // (mask 0x80: rt_surface_class.h kSeenThrough) between `origin` and `reach` - each one's expected share
 // (hit_blend_transmittance) multiplied in, whatever their order -, of the kinds `mask` asks for: the world's (0x01 /

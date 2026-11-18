@@ -165,6 +165,11 @@ std::string_view scene_geometry_glsl();
 //        (add / subtract / brighten: light passes, its emission added)
 //   float hit_glass_reflectance(float cos_theta) - a thin pane's Fresnel share (Schlick, the material table's glass F0)
 //   vec3 hit_blend_transmittance(HitBlend b, float cos_theta) - the expected light a shadow ray takes through it.
+// (round CW) The surface the per-surface lighting's prepass keeps at a pixel (vulkan_surface_light.h):
+//   bool drawn_kept(uint instance, uint primitive, uint id, vec2 barycentrics) - an opaque / cut-out one by its alpha
+//        test, a blended one (HIT_COVERAGE / HIT_GLASS) at least half opaque, never a filter or an added one
+//   bool trace_drawn(vec3 origin, vec3 dir, float reach, out instance, primitive, id, barycentrics, t, to_world) - the
+//        nearest such surface along a camera ray, every drawn instance (RAY_DRAWN 0x87) asked
 // (round PT-B - one light ray: engine/gfx/rt_surface_class.h) Every light ray's visibility:
 //   vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach) - what the seen-through instances (0x80) of the
 //        kinds `mask` picks (world 0x01 / 0x04, objects 0x02) let through before `reach`: their hit_blend_transmittance
