@@ -80,9 +80,11 @@ public:
     // The passes begun in submission `serial` (empty when it isn't among the last kKept).
     [[nodiscard]] std::vector<uint32_t> passes_of(uint64_t serial) const;
     // The markers each queue reached (checkpoints), or the buffer's (buffer markers), as lines; `near`: the latest
-    // submission (the markers' numbers are found near it). Only once the device is lost: the driver gives a queue's
-    // checkpoints then alone (vkGetQueueCheckpointDataNV's rule).
-    [[nodiscard]] std::vector<std::string> reached(std::span<const VkQueue> queues, uint64_t near) const;
+    // submission with markers (their numbers are found near it); `completed`: the last one known finished (round GF:
+    // when the driver gives no checkpoints, the lost work is said to be after it). Only once the device is lost: the
+    // driver gives a queue's checkpoints then alone (vkGetQueueCheckpointDataNV's rule).
+    [[nodiscard]] std::vector<std::string> reached(std::span<const VkQueue> queues, uint64_t near,
+                                                   uint64_t completed) const;
     // The buffer markers' two values (top of the pipe, bottom) - for the check.
     [[nodiscard]] std::array<uint32_t, 2> buffer_values() const;
 

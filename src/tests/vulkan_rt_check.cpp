@@ -832,6 +832,110 @@ void check_poses(render::Gpu& gpu, Tally* tally, std::mt19937& random, uint64_t*
     release_mesh(gpu, &source);
 }
 
+// (round GF) A buffer's device address and what the crash report says holds it (vulkan_memory.h describe_address).
+VkDeviceAddress current_address(render::GpuVertexBuffer* handle)
+{
+    namespace vk = render::vulkan;
+    vk::Buffer* const buffer = vk::object(handle);
+    const VkBufferDeviceAddressInfo info{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+                                         .pNext = nullptr,
+                                         .buffer = core::at(buffer->versions, buffer->current).memory.buffer};
+    return vkGetBufferDeviceAddress(vk::backend().context.device(), &info);
+}
+std::string held_by(VkDeviceAddress address) { return render::vulkan::backend().memory.describe_address(address); }
+
+// (round GF - the user's lost device, Boston) What a frame's ray tracing scene names by address - the TLAS's BLASes, the
+// geometry table's vertex / index / light-stream buffers - lives until the frame is over: a mesh removed and its buffers
+// released after the frame's scene was built, then a read-back finishing the frame part-way (relit's hurried trace, any
+// read-back), left them destroyed under the frame's later passes, which still read them by address (a page fault). And a
+// dynamic buffer's memory the frame's geometry table names is not handed out again by a discard in the same frame; and
+// a buffer released before its mesh is forgotten by the scene at once (not followed through a buffer made later at its
+// address).
+void check_frame_lifetime(render::Gpu& gpu, Tally* tally, std::mt19937& random, uint64_t* frame)
+{
+    rt::RayTracing* const backend = rt::ray_tracing();
+    const std::array<TracedRay, 1> one{{{.origin = {0, 0, 0}, .direction = {0, 0, 1}, .t_min = 0, .t_max = 1}}};
+    std::vector<TracedHit> hits;
+    const auto make = [&](bool dynamic) {
+        TestMesh mesh;
+        mesh.data = grid(kSide, kGridSize, 0.5);
+        grid_list(&mesh.data, kSide);
+        mesh.layout = {.indexed = true, .wide = false, .strip = false, .dynamic = dynamic, .stride = 24};
+        if (make_mesh(gpu, &mesh)) {
+            mesh.id = rt::next_mesh_id();
+            backend->add_mesh(mesh.id, mesh.geometry);
+            mesh.registered = true;
+        }
+        return mesh;
+    };
+    const auto instance_of = [&random](std::size_t mesh) {
+        return SceneInstance{.mesh = mesh,
+                             .instance = {.mesh = 0,
+                                          .material = kMaterialBase + 950,
+                                          .flags = rt::kOpaque | rt::kObject | rt::kCastsShadow,
+                                          .object_to_world = random_transform(random)}};
+    };
+    // 1. removed and released after the frame's scene was built, then a read-back mid-frame
+    {
+        std::vector<TestMesh> meshes{make(false)};
+        const std::vector<SceneInstance> instances{instance_of(0)};
+        draw_frame(gpu, meshes, instances, (*frame)++, true);
+        draw_frame(gpu, meshes, instances, (*frame)++, false); // (this frame's scene names the mesh's buffers)
+        const VkDeviceAddress address = current_address(meshes.front().vertices);
+        backend->remove_mesh(meshes.front().id);
+        release_mesh(gpu, &meshes.front());
+        render::vulkan::trace_rays_now(one, &hits); // (the frame finished part-way: a read-back)
+        const std::string during = held_by(address);
+        gpu.begin_scene(); // (the frame goes on - its passes still read the geometry table)
+        gpu.end_scene();
+        gpu.present();
+        std::string after;
+        for (uint32_t i = 0; i < render::vulkan::Frames::kSlots + 1; ++i) {
+            draw_frame(gpu, {}, {}, (*frame)++, true);
+        }
+        after = held_by(address);
+        text::print("    the released vertex buffer, after the read-back: %s\n    ... once its frame was over: %s\n",
+                    during.c_str(), after.c_str());
+        tally->check(address != 0 && during.starts_with("in a vertex buffer") && after.starts_with("in a buffer FREED"),
+                     "a mesh's buffer released after its frame's scene was built outlives a read-back that finishes "
+                     "the frame part-way, and is destroyed once the frame is over (the report then names it freed)");
+    }
+    // 2. a dynamic buffer's memory named by the frame is not handed out again in it
+    {
+        std::vector<TestMesh> meshes{make(true)};
+        const std::vector<SceneInstance> instances{instance_of(0)};
+        draw_frame(gpu, meshes, instances, (*frame)++, true);
+        draw_frame(gpu, meshes, instances, (*frame)++, false);
+        const VkDeviceAddress named = current_address(meshes.front().vertices);
+        render::vulkan::trace_rays_now(one, &hits);
+        const std::vector<uint8_t> bytes = vertex_bytes(meshes.front().data, meshes.front().layout);
+        const bool filled = fill_vertices(gpu, meshes.front().vertices, bytes, true); // (a discard)
+        const VkDeviceAddress written = current_address(meshes.front().vertices);
+        gpu.begin_scene();
+        gpu.end_scene();
+        gpu.present();
+        tally->check(filled && named != 0 && written != named,
+                     "a discard after a read-back in the same frame writes other memory than the one the frame's "
+                     "geometry table names");
+        backend->remove_mesh(meshes.front().id);
+        release_mesh(gpu, &meshes.front());
+    }
+    // 3. a buffer released before its mesh: the scene forgets the mesh at once
+    {
+        std::vector<TestMesh> meshes{make(false)};
+        const std::vector<SceneInstance> instances{instance_of(0)};
+        draw_frame(gpu, meshes, instances, (*frame)++, true);
+        const uint32_t refused_before = render::vulkan::scene_stats().refused;
+        release_mesh(gpu, &meshes.front()); // (its owner forgot to remove it first)
+        const uint32_t refused_after = render::vulkan::scene_stats().refused;
+        tally->check(refused_after == refused_before + 1,
+                     text::format("a mesh whose buffers are released before it is left out at once (%u -> %u refused)",
+                                  refused_before, refused_after));
+        backend->remove_mesh(meshes.front().id);
+        draw_frame(gpu, {}, {}, (*frame)++, true);
+    }
+}
+
 // (round PT-B - the surfaces' classes, engine/gfx/rt_surface_class.h) Whether a level's texels are all drawn opaque
 // (vulkan_formats.h level_alpha_opaque), on hand-made levels of each format the game's textures use.
 void check_texel_alpha(Tally* tally)
@@ -1220,6 +1324,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
     }
 
     check_poses(gpu, tally, random, &frame);
+    check_frame_lifetime(gpu, tally, random, &frame); // (round GF)
 
     // everything removed and released: the meshes' structures destroyed once their frames have run
     for (TestMesh& mesh : meshes) {

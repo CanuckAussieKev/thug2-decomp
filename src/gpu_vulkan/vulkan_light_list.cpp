@@ -111,15 +111,15 @@ void main()
     uint instance = low;
     uint primitive = g - membership[instance];
     GeometryRecord record = geometry_record(instance);
-    if ((record.flags & GEOMETRY_LIVE) == 0u || (record.flags & GEOMETRY_LIGHT) == 0u ||
-        (record.instance_flags & LIST_CASTS) == 0u ||
-        (record.instance_flags & LIST_TRANSPARENT) != 0u) {
+    uvec3 triangle; // (round GF: read only within the record's triangles, vertices and light stream)
+    if ((record.instance_flags & LIST_CASTS) == 0u || (record.instance_flags & LIST_TRANSPARENT) != 0u ||
+        !geometry_triangle(record, primitive, triangle) || !geometry_light_corners(record, triangle)) {
         return;
     }
     float most = 0.0;
     vec3 corners = vec3(0.0);
     for (uint k = 0u; k < 3u; ++k) {
-        uint at = geometry_corner(record, primitive, k) * 32u;
+        uint at = triangle[k] * 32u;
         vec4 flags = unpackUnorm4x8(geometry_word(record.light_address, at + 24u)).zyxw;
         if (flags.a < 0.75) {
             return; // (no store at an animated vertex; a hidden mesh)

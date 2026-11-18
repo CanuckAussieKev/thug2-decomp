@@ -71,6 +71,9 @@ struct Surface {
 struct BufferVersion {
     DeviceBuffer memory;
     uint64_t last_use = 0; // the last submission that drew from it or copied into it (vulkan_frames.h)
+    // (round GF) the last frame whose ray tracing scene took its address (its geometry table, vulkan_rt_scene.cpp): not
+    // handed out again by a discard until that frame is over - its passes may read it after a part-way finish
+    uint64_t held_frame = 0;
     uint64_t copied = 0;   // the last submission whose uploads or stream copied into it (copied_in_stream: which)
     bool copied_in_stream = false;
 };

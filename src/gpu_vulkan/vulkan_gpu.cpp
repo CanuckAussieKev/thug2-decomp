@@ -96,6 +96,9 @@ void destroy_surface(Backend& state, Surface* surface)
 
 void destroy_buffer(Backend& state, Buffer* buffer)
 {
+    // (NOT ORIGINAL - round GF: the ray tracing scene's meshes and light streams that name it forget it first - a
+    // buffer made later at the same address is another buffer)
+    rt_scene_buffer_released_locked(state, buffer);
     for (BufferVersion& version : buffer->versions) {
         retire_buffer(state, &version.memory);
     }
@@ -450,6 +453,15 @@ void copy_rows(const std::vector<uint8_t>& from, Extent from_size, std::vector<u
 
 // --- buffers -----------------------------------------------------------------------------------------------------
 
+// (NOT ORIGINAL - round GF) What a buffer's memory is, for a lost device's report (Memory::name_buffer).
+const char* buffer_owner(const Buffer& buffer)
+{
+    if (buffer.index) {
+        return buffer.dynamic ? "a dynamic index buffer's memory" : "an index buffer";
+    }
+    return buffer.dynamic ? "a dynamic vertex buffer's memory" : "a vertex buffer";
+}
+
 long make_buffer(Backend& state, bool index, const std::array<uint32_t, 4>& args, Buffer** out)
 {
     // (args: bytes, usage, format, pool)
@@ -472,6 +484,7 @@ long make_buffer(Backend& state, bool index, const std::array<uint32_t, 4>& args
                                     &version.memory)) {
         return kInvalid;
     }
+    state.memory.name_buffer(version.memory, buffer_owner(*made)); // (NOT ORIGINAL - round GF: the crash report's)
     made->versions.push_back(version);
     if (!made->dynamic) {
         made->shadow.assign(made->bytes, 0);
@@ -484,12 +497,18 @@ long make_buffer(Backend& state, bool index, const std::array<uint32_t, 4>& args
 // else a new one.
 bool discard_version(Backend& state, Buffer* buffer)
 {
+    // (NOT ORIGINAL - round GF: a version a frame's ray tracing scene names by address is free once that frame is over,
+    // not merely its submissions so far - vulkan_frames.h)
     const uint64_t completed = state.frames.completed();
-    if (core::at(buffer->versions, buffer->current).last_use <= completed) {
+    const uint64_t completed_frame = state.frames.completed_frame();
+    const auto free = [completed, completed_frame](const BufferVersion& version) {
+        return version.last_use <= completed && version.held_frame <= completed_frame;
+    };
+    if (free(core::at(buffer->versions, buffer->current))) {
         return true;
     }
     for (std::size_t i = 0; i < buffer->versions.size(); ++i) {
-        if (core::at(buffer->versions, i).last_use <= completed) {
+        if (free(core::at(buffer->versions, i))) {
             buffer->current = i;
             return true;
         }
@@ -501,6 +520,7 @@ bool discard_version(Backend& state, Buffer* buffer)
     if (!state.memory.create_buffer(buffer->bytes, usage, BufferPlace::kUpload, &version.memory)) {
         return false;
     }
+    state.memory.name_buffer(version.memory, buffer_owner(*buffer));
     buffer->versions.push_back(version);
     buffer->current = buffer->versions.size() - 1;
     return true;
