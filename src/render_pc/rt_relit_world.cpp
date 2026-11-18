@@ -156,6 +156,10 @@ struct Entry {
     uint64_t field_for = 0; // (the light field being made: the lighting its vertices were all added for ...)
     uint64_t field_lighting = 0; // (... the lighting its vertices are being added for, the first field_done of them)
     std::size_t field_done = 0;
+    // (round P10b) it joined the light's bounce passes after they were made (State::bounce_joining): its store is to be
+    // written again with its own bounce, and its vertices added to the light field made for the lighting now
+    bool store_stale = false;
+    bool field_join = false;
     // (lighting round A) its light store: the stream (engine/gfx/rt_cel.h - the light's parts and the colour the world
     // draws it with, a buffer of its own beside the game's)
     GpuVertexBuffer* stream = nullptr;
@@ -267,6 +271,13 @@ struct State {
     uint64_t bounce_finished = 0;
     uint32_t bounce_passes = 0;   // (round A2) the passes made for the light now (kRelitBouncePasses) ...
     rt::Vec3 bounce_light_sun{};  // ... toward this sun
+    // (round P10b) Entries met after the light's passes were made (light_bounced) - an object placed once it stood
+    // still, one back in view that missed them - joining: each one's own bounce traced from the hits of the pass done,
+    // its store written, its vertices added to the light field. Before, such an entry made the bounce due and began a
+    // pass over the whole level (every vertex traced again, every store written, the field made again) for each object
+    // placed: in Boston a pass a few seconds of play, paced to a few hundred vertices a frame - the relit work never
+    // done (about 1.5 ms of every frame), and each pass one more bounce for the level.
+    bool bounce_joining = false;
     // (one relight at a time) the light field being made for the lighting `field_building_for`, over frames
     std::shared_ptr<rt::LightField> field_building;
     uint64_t field_building_for = 0;
@@ -314,12 +325,12 @@ bool sun_stale(const Entry& entry)
     return rt::dot(entry.sun_for, st.sun) < kSameSun || entry.radius_for != st.radius;
 }
 
-// Whether an entry's bounce is still to trace in the bounce's pass under way.
-bool bounce_stale(const Entry& entry)
+// (round P10b) Whether the light's bounce passes are all made for the sun now (kRelitBouncePasses of them toward it):
+// an entry whose bounce is due then is one that wasn't in them (State::bounce_joining).
+bool light_bounced()
 {
     const State& st = state();
-    return st.bounce_begun != st.bounce_finished &&
-           (rt::dot(entry.bounce_for, st.bounce_sun) < kSameSun || entry.bounce_pass != st.bounce_begun);
+    return st.bounce_passes >= kRelitBouncePasses && rt::dot(st.bounce_light_sun, st.sun) >= kBounceSameSun;
 }
 
 // Whether the bounce is due again: an entry's traced for a sun kBounceSameSun or further from the one now.
@@ -327,6 +338,17 @@ bool bounce_stale(const Entry& entry)
 bool bounce_due(const Entry& entry)
 {
     return rt::dot(entry.bounce_for, state().sun) < kBounceSameSun || state().bounce_passes < kRelitBouncePasses;
+}
+
+// Whether an entry's bounce is still to trace in the bounce's pass under way - or (round P10b) it is joining the passes
+// made for the light now (its bounce due: it wasn't in them).
+bool bounce_stale(const Entry& entry)
+{
+    const State& st = state();
+    if (st.bounce_begun == st.bounce_finished) {
+        return st.bounce_joining && light_bounced() && bounce_due(entry);
+    }
+    return rt::dot(entry.bounce_for, st.bounce_sun) < kSameSun || entry.bounce_pass != st.bounce_begun;
 }
 
 // A colour's brightness (0 - 255; A8R8G8B8).
@@ -1001,6 +1023,7 @@ void level_changed(uint32_t level)
     st.logged = Status::kOff;
     st.bounce_finished = st.bounce_begun; // (a bounce pass of the level before not taken on)
     st.bounce_passes = 0;
+    st.bounce_joining = false;
     st.listed.clear();
     st.refused.clear();
     for (auto& [buffer, entry] : st.entries) {
@@ -1087,6 +1110,12 @@ void mark_traced(Job::Kind kind, Entry& entry)
         entry.bounce_done = entry.input.positions.size();
         entry.bounce_for = st.bounce_sun; // (written again when the pass is done: the lighting's number moves)
         entry.bounce_pass = st.bounce_begun;
+        // (round P10b) one joining the passes made: no pass ends to move the lighting's number - its store written
+        // again and its vertices added to the light field on their own
+        if (st.bounce_begun == st.bounce_finished) {
+            entry.store_stale = true;
+            entry.field_join = true;
+        }
     } else {
         entry.sun_done = entry.input.positions.size();
         entry.sun_for = st.sun;
@@ -1254,12 +1283,18 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
     }
     // the pass under way done, or a new one begun - toward the sun now, once every mesh's sun is traced for it and the
     // bounce is due (kBounceSameSun)
-    if (st.bounce_begun != st.bounce_finished) {
+    // (round P10b) or entries met since the light's passes were made joining them (State::bounce_joining) - until none
+    // is left, or the light moves (its own passes then)
+    if (st.bounce_begun != st.bounce_finished || st.bounce_joining) {
         const bool left = std::ranges::any_of(st.order, [&st](const VertexBufferData* buffer) {
             return stale_for(Job::Kind::kBounce, st.entries.at(buffer));
         });
         if (!left) {
-            st.bounce_finished = st.bounce_begun;
+            if (st.bounce_joining) {
+                st.bounce_joining = false;
+            } else {
+                st.bounce_finished = st.bounce_begun;
+            }
             return;
         }
     } else {
@@ -1273,10 +1308,14 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
         if (!suns_ready || !due) {
             return;
         }
-        ++st.bounce_begun;
-        st.bounce_sun = st.sun;
-        st.bounce_passes = rt::dot(st.bounce_light_sun, st.sun) < kBounceSameSun ? 1 : st.bounce_passes + 1;
-        st.bounce_light_sun = st.sun;
+        if (light_bounced()) {
+            st.bounce_joining = true; // (round P10b: the due ones weren't in the passes made for this light - they join them)
+        } else {
+            ++st.bounce_begun;
+            st.bounce_sun = st.sun;
+            st.bounce_passes = rt::dot(st.bounce_light_sun, st.sun) < kBounceSameSun ? 1 : st.bounce_passes + 1;
+            st.bounce_light_sun = st.sun;
+        }
     }
     // (the hits' colours for the pass - the same for every frame of it: made once a pass, over frames as the writes
     // are - kRelitFrameMs of them a frame while the level is shown -, before its first rays; before, every entry's were
@@ -1333,10 +1372,80 @@ void log_status(Status status)
 // (the one lighting path - engine/gfx/rt_light_field.h) The light field made for the lighting now, once every entry's
 // sun and bounce are traced for it (all at once: it reads the model, not the written colours), and published; an
 // earlier one stays until then.
+// A vertex of an entry added to a light field (the light now's parts and the bake's at its own lighting `own`).
+void add_to_field(const Entry& entry, std::size_t vi, const rt::RelitLighting& light, const rt::RelitLighting& own,
+                  rt::LightField* field)
+{
+    const State& st = state();
+    const rt::RelitVertex& vertex = core::at(entry.light, vi);
+    if (!vertex.used || (vi < entry.animated.size() && core::at(entry.animated, vi) != 0)) {
+        return;
+    }
+    rt::RelitVertex at_bake = vertex;
+    at_bake.sun = vertex.sun_baked;
+    const rt::RelitParts now = rt::relit_parts(st.model, vertex, light);
+    const rt::RelitParts baked = rt::relit_parts(st.model, at_bake, own);
+    const rt::LightParts parts{.direct_now = now.direct,
+                               .indirect_now = now.indirect,
+                               .direct_own = baked.direct,
+                               .indirect_own = baked.indirect,
+                               .local = now.lamps,
+                               .sky_now = {std::get<0>(light.sky) * vertex.sky, std::get<1>(light.sky) * vertex.sky,
+                                           std::get<2>(light.sky) * vertex.sky}, // (round O: the sky's probe)
+                               .normal = vertex.normal};
+    field->add(core::at(entry.input.positions, vi), parts);
+}
+
+// (round P10b) Whether an entry is still to join the light's passes made (its bounce not traced yet).
+bool joining(const Entry& entry)
+{
+    const State& st = state();
+    return st.bounce_begun == st.bounce_finished && entry.analysed && bounce_stale(entry);
+}
+
+// (round P10b) The entries that joined the light's passes since the field for the lighting now was made (Entry::
+// field_join) added to it: a copy of it with their vertices (the field is their sum) published - the field not made
+// again for every vertex of the level.
+void join_light_field(uint64_t lighting, const rt::RelitLighting& light)
+{
+    State& st = state();
+    if (st.bounce_joining) {
+        return; // (once the ones joining now are all traced: one copy for them all)
+    }
+    std::shared_ptr<rt::LightField> joined;
+    const rt::RelitLighting own = rt::relit_own_lighting(st.model, 0.0F);
+    for (const VertexBufferData* buffer : st.order) {
+        Entry& entry = st.entries.at(buffer);
+        if (!entry.field_join || !entry.analysed || sun_stale(entry) || joining(entry)) {
+            continue;
+        }
+        entry.field_join = false;
+        if (entry.field_for == lighting) {
+            continue; // (the field's making reached it after it joined)
+        }
+        if (joined == nullptr) {
+            const std::shared_ptr<const rt::LightField> now = rt::light_field();
+            if (now == nullptr) {
+                return;
+            }
+            joined = std::make_shared<rt::LightField>(*now);
+        }
+        const std::size_t vertices = std::min(entry.input.positions.size(), entry.light.size());
+        for (std::size_t vi = 0; vi < vertices; ++vi) {
+            add_to_field(entry, vi, light, own, joined.get());
+        }
+        entry.field_for = lighting;
+    }
+    if (joined != nullptr) {
+        rt::set_light_field(std::move(joined));
+    }
+}
+
 void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
 {
     State& st = state();
     if (st.field_lighting == lighting) {
+        join_light_field(lighting, light);
         return;
     }
     for (const VertexBufferData* buffer : st.order) {
@@ -1357,7 +1466,8 @@ void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
     constexpr std::size_t kFieldTimed = 256; // (the time looked at every this many vertices)
     for (const VertexBufferData* buffer : st.order) {
         Entry& entry = st.entries.at(buffer);
-        if (!entry.analysed || entry.field_for == lighting) {
+        // (round P10b: one joining the light's passes added once its bounce is traced - join_light_field)
+        if (!entry.analysed || entry.field_for == lighting || joining(entry)) {
             continue;
         }
         if (entry.field_lighting != lighting) { // (its vertices added from the first, for this field)
@@ -1370,23 +1480,7 @@ void make_light_field(uint64_t lighting, const rt::RelitLighting& light)
                 entry.field_done = vi;
                 return; // (the rest next frame - inside a mesh too)
             }
-            const rt::RelitVertex& vertex = core::at(entry.light, vi);
-            if (!vertex.used || (vi < entry.animated.size() && core::at(entry.animated, vi) != 0)) {
-                continue;
-            }
-            rt::RelitVertex at_bake = vertex;
-            at_bake.sun = vertex.sun_baked;
-            const rt::RelitParts now = rt::relit_parts(st.model, vertex, light);
-            const rt::RelitParts baked = rt::relit_parts(st.model, at_bake, own);
-            const rt::LightParts parts{.direct_now = now.direct,
-                                       .indirect_now = now.indirect,
-                                       .direct_own = baked.direct,
-                                       .indirect_own = baked.indirect,
-                                       .local = now.lamps,
-                                       .sky_now = {std::get<0>(light.sky) * vertex.sky, std::get<1>(light.sky) * vertex.sky,
-                                                   std::get<2>(light.sky) * vertex.sky}, // (round O: the sky's probe)
-                                       .normal = vertex.normal};
-            st.field_building->add(core::at(entry.input.positions, vi), parts);
+            add_to_field(entry, vi, light, own, st.field_building.get());
         }
         entry.field_for = lighting;
     }
@@ -1421,7 +1515,7 @@ bool relight_running()
     }
     for (const VertexBufferData* buffer : st.order) {
         const Entry& entry = st.entries.at(buffer);
-        if (entry.analysed && (sun_stale(entry) || entry.written != st.wanted_lighting)) {
+        if (entry.analysed && (sun_stale(entry) || entry.written != st.wanted_lighting || entry.store_stale)) {
             return true;
         }
     }
@@ -1453,7 +1547,7 @@ void write_streams(uint64_t lighting, const rt::RelitLighting& light)
     const uint64_t wanted = lighting;
     for (const VertexBufferData* buffer : st.order) {
         Entry& entry = st.entries.at(buffer);
-        if (!entry.analysed || entry.written == wanted || sun_stale(entry)) {
+        if (!entry.analysed || (entry.written == wanted && !entry.store_stale) || sun_stale(entry)) {
             continue;
         }
         const auto count = static_cast<uint32_t>(entry.originals.size());
@@ -1502,6 +1596,7 @@ void write_streams(uint64_t lighting, const rt::RelitLighting& light)
         }
         gpu().unlock_vertex_buffer(entry.stream);
         entry.written = wanted;
+        entry.store_stale = false;
         publish_stream(entry, entry.stream);
         ++written;
     }
