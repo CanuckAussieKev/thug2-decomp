@@ -5914,6 +5914,42 @@ One light list, one way to sample it:
   bright specks moving over the street, the bank's ceiling and the bus stop). Passes without the pool (the reflections'
   list-lit hits, the front layer) keep one pick.
 
+### GI's specular in a reservoir of its own, DI's target with the whole BRDF (round WS)
+
+- **ReSTIR GI's specular reservoir** (vulkan_restir_gi.cpp; ReSTIR GI's resampling of the whole BSDF - Ouyang et al.
+  2021 -, RTXDI's GI with a BRDF-aware target): round BR gave every surface its own GGX visible-normal ray, its noise
+  (the secondary vertex's next-event estimate seen through the lobe) shown as it came. That ray is now the candidate of
+  a second reservoir per pixel (binding 16, 4 uvec4 a pixel: this frame's, the history), target p^ = the luminance of
+  the specular lobe x the sample's light at the surface's own view - the reuse re-evaluates the lobe where the sample
+  goes. Temporal: the point's own pixel's history (not permuted - a neighbour's view of a lobe puts its samples in this
+  lobe's tails: the check's floor had 5 x the pixel-frames over 4 x their mean with permutation, none without);
+  spatial: one neighbour (the weights' rays grow with the square of the reservoirs) within a radius shrinking with the
+  lobe. Both reconnected (Lin et al. 2022), RTXDI's GI sample validation (a Jacobian outside 1/10 .. 10 not taken - round
+  LC's finding, the clamp to 1/3 .. 3 not done), combined by the **generalised balance heuristic** (each sample's weight
+  its share of every reservoir's M x target at it in the area measure, with an any-hit ray: 1 / Z let a sample from
+  another lobe's tail come out x 100s - the near-mirror floor -43 %); the result's ray only for what seen-through
+  surfaces let through. Roughness-aware: a history or neighbour only within 0.1 of the roughness, no reuse at all below
+  0.2 (a near-mirror keeps its own ray: with a moving camera its history's samples sit in the old view's lobe - the
+  check's 0.12 floor -17 % under the boiling filter, -6 % without). The boiling filter runs on the specular reservoirs
+  apart from the diffuse ones.
+  **Off in the game** (kSpecularReuseInGame): measured there (BO at night, the ledge under "100% INTRO APR" and the
+  brick wall, 60-frame series under DLSS Ray Reconstruction) it made the picture noisier - the ledge's specks a frame
+  338 -> 392, each pixel's temporal deviation 2.43 -> 2.83 (0-255), the wall's 0.58 -> 0.70 - for +2.6 ms (GI 6.1 ->
+  8.7 ms at 1280x720): the unpermuted history carries the error from frame to frame and Ray Reconstruction keeps it
+  as detail. Each frame's own ray (a reservoir of one candidate) until a decorrelated specular reuse is found.
+- **ReSTIR DI's target: the whole BRDF** (vulkan_restir_di.cpp light_target - RTXDI's target for a light sample): the
+  luminance of the light through a white diffuser's lobe plus the material's specular lobe toward the eye, unshadowed.
+  The diffuse lobe's alone gave the lights' specular (the chosen sample through the specular lobe) from samples drawn
+  for the diffuse - the flaw round BR removed from GI. Unbiased either way (the check 24 / 0, the glossy floor -0.41 %).
+- **Measured** (thug2_vulkan_restir_gi_check, the specular alone - RestirGiOverrides::specular_only -, F0 0.04): at
+  roughness 0.35 / 0.25 the pixel-frames over 4 x their mean 0.22 % -> 0.00 %, each pixel's variation 0.47 -> 0.21 /
+  0.37 -> 0.23; the mean the own rays' within 0.5 % still and 0.8 / 2.6 % with the camera orbiting. In the game BO's
+  ledge specks are not GI's specular: they stay with GI's light (diffuse and specular) zeroed, with only ReSTIR DI or
+  only ReSTIR GI on (119 a frame with GI's light zeroed and the lamps by the passes), and go with both by the passes. The specks on the kickers in front
+  the bank (round NK's build) likewise come from each of ReSTIR DI, GI's diffuse and GI's specular on its own, and the
+  specular reuse doesn't change them - a common cause in that surface's path through the shading / Ray Reconstruction is
+  suspected, not found yet.
+
 ### What is drawn apart, in the rays (round PG)
 
 The last gap of stage 3: what the game draws in passes of its own after the ray-traced lighting - the clutter's items,

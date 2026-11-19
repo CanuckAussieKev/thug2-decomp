@@ -35,7 +35,17 @@
 //        BR: before, those of roughness 0.3 and more took it from the diffuse reservoir's sample - one that lands in the
 //        lobe by chance, single bright pixels from frame to frame that Ray Reconstruction passed as sparkle - Kajiya's and
 //        Lumen's split: resampling for the diffuse, a ray per pixel for the reflections): its weight F G2/G1, what it meets
-//        (its reflected light, the sky past it).
+//        (its reflected light, the sky past it). (Round WS) That ray is the candidate of a specular reservoir of its own
+//        (ReSTIR GI's reuse of the whole BSDF - Ouyang et al. 2021; RTXDI's GI with a BRDF-aware target): target p^ = the
+//        luminance of the specular lobe x the sample's light at the surface's own view; last frame's specular reservoir
+//        of the point's own pixel (not permuted: a neighbour's view of a lobe puts its samples in this lobe's tails)
+//        reconnected here, combined by the generalised balance heuristic (Lin et al. 2022) with RTXDI's GI sample
+//        validation (a reconnection Jacobian outside 1/10 .. 10 not taken) and the visibility in the weights' targets;
+//        roughness-aware - a history or neighbour only of a like roughness (within 0.1), no reuse at all below roughness
+//        0.2 (a near-mirror keeps its own ray, as before), the spatial radius shrinking with the lobe. The reuse is OFF in
+//        the game (kSpecularReuseInGame - measured noisier under Ray Reconstruction, +2.6 ms); the check's alone;
+//   2. ... and the specular reservoir's spatial reuse: one neighbour (the weights' rays grow with the square of the
+//      reservoirs), the same heuristic; the chosen sample's ray from the pixel the result's visibility;
 //   2. spatial reuse: the pixel's reservoir and two neighbours' within 24 pixels that pass the surface tests, reconnected
 //      the same way; the chosen sample traced from the pixel (ray_light - the one light ray: cut-outs by their alpha,
 //      seen-through surfaces by their transmittance); out:
@@ -44,7 +54,8 @@
 //        puts the lamps;
 //      - the visibility input's indirect visibility set to 0: the light store's environment term (its sky K and bounce B)
 //        has no weight where this pass lit the surface - its sky and bounce are these samples;
-//      - the specular: pass 1's ray over the surface's specular albedo E (demodulated), added into the specular input
+//      - the specular: the specular reservoir's chosen sample (round WS - was pass 1's ray) over the surface's specular
+//        albedo E (demodulated), added into the specular input
 //        (ReSTIR DI wrote the lights' there first): the shading takes E x it in place of its environment's specular; and
 //        the specular ray's hit distance for Ray Reconstruction (its specular hit distance guide).
 // A pixel's next-frame history is its temporal reservoir, not the spatial one: fed back, the neighbours' samples come back
@@ -92,6 +103,9 @@ struct RestirGiOverrides {
     // (round DD) the local lights' RIS candidates a next-event sample takes from the pool (0: the game's; 1: one pick
     // by power alone, as before round DD)
     uint32_t local_candidates = 0;
+    // (round WS) the specular reservoir's temporal and spatial reuse (false: each frame's own GGX ray alone, as before)
+    bool specular_reuse = true;
+    bool specular_only = false; // (round WS) the sums the specular alone (its reuse measured apart from the diffuse)
     uint32_t seed = 0;
 };
 void set_restir_gi_overrides(const RestirGiOverrides& overrides);

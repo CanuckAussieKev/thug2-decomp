@@ -69,7 +69,7 @@ constexpr uint32_t kBindingNowAt = 12;
 constexpr uint32_t kBindingNowMore = 13;
 constexpr uint32_t kBindingBeforeAt = 14;
 constexpr uint32_t kBindingBeforeMore = 15;
-constexpr uint32_t kBindingSpecularRays = 16; // 2 a pixel: the mirror-like surfaces' specular ray (pass 1 -> pass 2)
+constexpr uint32_t kBindingSpecularReservoirs = 16; // (round WS) 4 a pixel: the specular reservoir - this frame's, the history
 constexpr uint32_t kBindingDepth = 17;
 constexpr uint32_t kBindingLampsIo = 18;
 constexpr uint32_t kBindingLampsOnIo = 19;
@@ -93,7 +93,7 @@ constexpr VkDeviceSize kUniformAlignment = 256;
 constexpr std::size_t kMatrixSide = 4;
 constexpr double kSingular = 1e-300;
 constexpr uint32_t kReservoirWords = 2; // uvec4s a pixel
-constexpr uint32_t kSpecularRayWords = 2;
+constexpr uint32_t kSpecularReservoirWords = 4; // (round WS) uvec4s a pixel: after the temporal pass, the history
 
 // The estimator's settings (fixed - no per-level values): the spatial neighbours, the reservoirs' sample count kept at
 // most (one candidate a frame: 20 frames' worth - Ouyang et al. keep 30), the neighbours' radius (pixels), the surface
@@ -115,6 +115,16 @@ constexpr uint32_t kFlagForced = 8U;
 constexpr uint32_t kFlagPermute = 16U; // (round PT4d) vulkan_light_list.h restir_denoiser_glsl
 constexpr uint32_t kFlagBoiling = 32U;
 constexpr uint32_t kFlagCache = 64U; // (round MB) the secondary's bounce from the radiance cache
+constexpr uint32_t kFlagSpecularReuse = 128U; // (round WS) the specular reservoir's temporal and spatial reuse
+constexpr uint32_t kFlagSpecularOnly = 256U;  // (round WS - the check's) the sums the specular alone
+// (round WS) The specular reservoir's reuse in the game: OFF. The check measures it unbiased and its estimate's noise
+// halved (the specular alone, a still or orbiting camera), but in the game under Ray Reconstruction (BO at night, the
+// ledge under the sign and the brick wall, 60-frame series) it made the picture noisier - the ledge's specks a frame
+// 338 -> 392, each pixel's temporal deviation 2.43 -> 2.83 (0-255), the wall's 0.58 -> 0.70 - for +2.6 ms (GI 6.1 ->
+// 8.7 ms at 1280x720): its history is the point's own pixel's (permutation sampling put another view's lobe's samples
+// in its tails - x 5 the outliers), so its error carries from frame to frame and Ray Reconstruction keeps it as
+// detail. Its own ray each frame (the reservoir of one candidate) until a decorrelated reuse is found.
+constexpr bool kSpecularReuseInGame = false;
 
 // (round MB) The radiance cache (NVIDIA's SHaRC - spatially hashed radiance cache, the one Cyberpunk 2077's path tracing
 // reads at its secondary vertices; the hash grid of Binder et al. 2019 / Gautron 2020): fixed, no per-level values.
@@ -249,7 +259,8 @@ layout(std430, set = 0, binding = 12) buffer SurfacesNow { vec4 now_at[]; };
 layout(std430, set = 0, binding = 13) buffer SurfacesNowMore { uvec4 now_more[]; };
 layout(std430, set = 0, binding = 14) readonly buffer SurfacesBefore { vec4 before_at[]; };
 layout(std430, set = 0, binding = 15) readonly buffer SurfacesBeforeMore { uvec4 before_more[]; };
-layout(std430, set = 0, binding = 16) buffer SpecularRays { vec4 specular_rays[]; };
+// (round WS) the specular reservoirs: 4 words a pixel - this frame's after the temporal pass (0, 1), the history (2, 3)
+layout(std430, set = 0, binding = 16) buffer SpecularReservoirs { uvec4 spec_res[]; };
 #ifdef CHECK
 layout(std430, set = 0, binding = 23) buffer Sums { vec4 sums[]; };
 #else
@@ -277,6 +288,8 @@ const uint FLAG_FORCED = 8u;
 const uint FLAG_PERMUTE = 16u;
 const uint FLAG_BOILING = 32u;
 const uint FLAG_CACHE = 64u;
+const uint FLAG_SPECULAR_REUSE = 128u;
+const uint FLAG_SPECULAR_ONLY = 256u;
 const uint MOST_SPATIAL = 4u;
 const uint LIGHT_RAYS = 15u;          // world, objects, alpha-tested, drawn apart (round PG) - the reference's rays
 const uint LIGHT_RAYS_ON_OBJECT = 13u; // (an object's pixel: the world's and what is drawn apart - its low-poly body
@@ -723,6 +736,74 @@ float target_at(Surface s, vec3 eye, Reservoir r, out vec3 dir, out float reach,
 vec3 seen(Surface s, vec3 dir, float reach) { return ray_light(rays_of(s), s.at + s.ng * ray_offset(s.at), dir, reach); }
 bool seen_at_all(vec3 through) { return max(through.r, max(through.g, through.b)) > 0.0; }
 
+// (round WS) The specular reservoir - ReSTIR GI's reuse of the environment's specular (Ouyang et al. 2021 resample with
+// the surface's whole BSDF; RTXDI's GI does the same with a BRDF-aware target): a reservoir of its own beside the diffuse
+// one (round BR split them: a sample drawn for the diffuse lobe lands in a GGX lobe by chance). Its candidate is the
+// surface's GGX visible-normal ray (pdf: the lobe's reflection pdf); its target p^ = the luminance of the specular lobe
+// x the sample's light at the surface's own view (specular_target_of) - the reuse re-evaluates the lobe at the receiving
+// surface and view, so a sample only goes where that lobe takes it. Reconnection shift (Lin et al. 2022) with RTXDI's GI
+// sample validation (jacobian_kept), the reservoirs combined by the generalised balance heuristic (Lin et al. 2022 - a
+// sample's weight its share of every reservoir's M x target at it: one lobe's sample in another's peak can't come out
+// x 100s, as it did with 1 / Z); the target unshadowed - the visibility is the result's ray alone (an unbiased estimator
+// with the integrand's visibility applied once; no rays in the weights); roughness-aware: a neighbour or
+// history only of a like roughness (SPECULAR_ROUGHNESS_AGREEMENT), the spatial radius shrinking with the lobe, and no
+// reuse at all below SPECULAR_REUSE_ROUGHNESS - a near-mirror's neighbours look elsewhere (their samples land
+// outside its lobe); it takes its own ray and the temporal reuse alone (its history's sample re-evaluated at this frame's
+// view: while the view holds, the same reflection - averaged over frames; once it moves, outside the lobe and dropped).
+const float SPECULAR_REUSE_ROUGHNESS = 0.2;
+const uint SPECULAR_NEIGHBOURS = 1u; // (the weights' rays grow with their square)
+const float SPECULAR_ROUGHNESS_AGREEMENT = 0.1;
+const float GI_MOST_JACOBIAN = 10.0;
+// RTXDI's GI sample validation (RAB_ValidateGISampleWithJacobian - round LC's finding: a secondary point much nearer the
+// receiving surface than the one that found it took the neighbour's weight x 100s): a reconnection whose Jacobian is
+// outside 1/10 .. 10 is not taken (RTXDI's further clamp of the kept ones to 1/3 .. 3 is not done: a clamp biases).
+bool jacobian_kept(float jacobian) { return jacobian <= GI_MOST_JACOBIAN && jacobian >= 1.0 / GI_MOST_JACOBIAN; }
+float specular_target_of(Surface s, vec3 v, vec3 dir, vec3 bounce)
+{
+    if (dot(s.ng, dir) <= 0.0 || dot(s.n, dir) <= 0.0 || !(max(s.f0.r, max(s.f0.g, s.f0.b)) > 0.0)) {
+        return 0.0;
+    }
+    return good(path_luma(specular_lobe(s, v, dir) * bounce));
+}
+float specular_target_at(Surface s, vec3 eye, Reservoir r, out vec3 dir, out float reach, out float g)
+{
+    if (!sample_from(s, r, dir, reach, g)) {
+        return 0.0;
+    }
+    return specular_target_of(s, view_of(s, eye), dir, r.bounce);
+}
+// A sample's specular target at `x` in the area measure (its target x the solid angle factor there - the sky's
+// directions: 1): the generalised balance heuristic's term; `g` the factor. 0 where `x` can't take it.
+float specular_area_target(Surface x, vec3 eye, Reservoir r, out float g)
+{
+    vec3 dir;
+    float reach;
+    float t = specular_target_at(x, eye, r, dir, reach, g);
+    return t > 0.0 && g > 0.0 ? good(t * g) : 0.0;
+}
+bool rough_alike(Surface s, Surface other) { return abs(s.rough - other.rough) <= SPECULAR_ROUGHNESS_AGREEMENT; }
+// Whether nothing solid stands between surface `x` and a sample (the weights' visibility - any hit; what the seen-through
+// surfaces let through is the result's ray alone).
+bool unblocked(Surface x, Reservoir r)
+{
+    vec3 dir;
+    float reach;
+    float g;
+    return sample_from(x, r, dir, reach, g) && !ray_blocked(rays_of(x) & ~RAY_SEEN_THROUGH, x.at + x.ng * ray_offset(x.at), dir, reach);
+}
+void store_specular(bool history, uint i, Reservoir r)
+{
+    uvec2 b = pack_light(r.bounce);
+    uint at = i * 4u + (history ? 2u : 0u);
+    spec_res[at] = uvec4(floatBitsToUint(r.y), packSnorm2x16(oct_encode(r.ny)));
+    spec_res[at + 1u] = uvec4(b.x, b.y | (r.kind << 24), floatBitsToUint(r.W), floatBitsToUint(r.M));
+}
+Reservoir load_specular(bool history, uint i)
+{
+    uint at = i * 4u + (history ? 2u : 0u);
+    return reservoir_of(spec_res[at], spec_res[at + 1u]);
+}
+
 #ifdef PASS_CACHE
 // (round MB) The cache's entry for a point (claimed if it has none yet: the probes' first free slot); false when the
 // probes are all taken by other cells (the sample is dropped).
@@ -878,14 +959,15 @@ void main()
 
 #ifdef PASS_TEMPORAL
 // The pixel's reservoir after its sample and the temporal reuse (stored by main, after the boiling filter); `weight` its
-// sample's contribution (target x W - what the filter compares). Also the surface's specular ray.
-Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
+// sample's contribution (target x W - what the filter compares). (Round WS) Also its specular reservoir and that one's
+// contribution.
+Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoir spec, out float spec_weight)
 {
     weight = 0.0;
+    spec = no_reservoir(0.0);
+    spec_weight = 0.0;
     Surface s = primary(pass.rect.xy + local);
     put_surface(i, s);
-    specular_rays[i * 2u] = vec4(0.0, 0.0, 0.0, GI_MISS_DISTANCE);
-    specular_rays[i * 2u + 1u] = vec4(0.0);
     if (!s.valid) {
         return no_reservoir(0.0);
     }
@@ -940,85 +1022,169 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
     }
 
     // 2. the reservoir this point had last frame, its sample reconnected here - (round PT4d) a neighbour's in its 4 x 4
-    // block by the frame's permutation (vulkan_light_list.h restir_denoiser_glsl)
-    float kept_target = chosen;
+    // block by the frame's permutation (vulkan_light_list.h restir_denoiser_glsl). (Round WS) Its pixel's surface found
+    // once for both reservoirs.
+    bool has_then = false;
+    uint j = 0u;
+    Surface then = no_surface();
+    bool has_then_spec = false;
+    uint j_spec = 0u;
+    Surface then_spec = no_surface();
     if ((pass.counts.w & FLAG_TEMPORAL) != 0u) {
         vec4 q = pass.prev_to_pixel * vec4(s.at, 1.0);
         if (q.w > 0.0) {
             ivec2 before = ivec2(floor(q.xy / q.w)) - pass.rect.xy;
+            // (round WS) the specular reservoir's history is the point's own pixel's: permutation sampling hands a
+            // neighbour's - another view of the lobe, its samples in this lobe's tails (the check's floor: x 5 the
+            // pixel-frames over 4 x their mean with it, none without)
+            if (all(greaterThanEqual(before, ivec2(0))) && all(lessThan(before, pass.rect.zw))) {
+                j_spec = uint(before.y * pass.rect.z + before.x);
+                then_spec = surface_of(before_at[j_spec], before_more[j_spec]);
+                has_then_spec = alike(s, then_spec);
+            }
             if ((pass.counts.w & FLAG_PERMUTE) != 0u) {
                 before = restir_permuted(before, pass.counts.z);
             }
             if (all(greaterThanEqual(before, ivec2(0))) && all(lessThan(before, pass.rect.zw))) {
-                uint j = uint(before.y * pass.rect.z + before.x);
-                Surface then = surface_of(before_at[j], before_more[j]);
-                if (alike(s, then)) {
-                    Reservoir h = load_b(j);
-                    h.M = min(h.M, cap);
-                    vec3 h_dir;
-                    float h_reach;
-                    float g_here;
-                    float t_h = h.kind != KIND_NONE && h.W > 0.0 ? target_at(s, eye, h, h_dir, h_reach, g_here) : 0.0;
-                    vec3 then_dir;
-                    float then_reach;
-                    float g_then;
-                    float jacobian = t_h > 0.0 && sample_from(then, h, then_dir, then_reach, g_then) && g_then > 0.0
-                                         ? good(g_here / g_then) : 0.0;
-                    float w_r = chosen * r.W * r.M;
-                    float w_h = good(t_h * h.W * jacobian * h.M);
-                    float total = w_r + w_h;
-                    Reservoir out_r = no_reservoir(r.M + h.M);
-                    if (total > 0.0) {
-                        float z = 0.0;
-                        float target = 0.0;
-                        if (path_next(rng) * total < w_h) {
-                            // its light, seen from here: then this pixel's sample could have been it too
-                            if (seen_at_all(seen(s, h_dir, h_reach))) {
-                                out_r = h;
-                                target = t_h;
-                                z = h.M + r.M;
-                            }
-                        } else {
-                            out_r = r;
-                            target = chosen;
-                            z = r.M;
-                            // could last frame's reservoir have made it: its surface's target and a ray from there
-                            vec3 t_dir;
-                            float t_reach;
-                            float t_g;
-                            if (target_at(then, pass.prev_eye.xyz, r, t_dir, t_reach, t_g) > 0.0 &&
-                                seen_at_all(seen(then, t_dir, t_reach))) {
-                                z += h.M;
-                            }
-                        }
-                        out_r.M = r.M + h.M;
-                        out_r.W = z > 0.0 && target > 0.0 ? good(total / (z * target)) : 0.0;
-                        kept_target = target;
-                    }
-                    r = out_r;
-                }
+                j = uint(before.y * pass.rect.z + before.x);
+                then = surface_of(before_at[j], before_more[j]);
+                has_then = alike(s, then);
             }
         }
     }
+    float kept_target = chosen;
+    if (has_then) {
+        Reservoir h = load_b(j);
+        h.M = min(h.M, cap);
+        vec3 h_dir;
+        float h_reach;
+        float g_here;
+        float t_h = h.kind != KIND_NONE && h.W > 0.0 ? target_at(s, eye, h, h_dir, h_reach, g_here) : 0.0;
+        vec3 then_dir;
+        float then_reach;
+        float g_then;
+        float jacobian = t_h > 0.0 && sample_from(then, h, then_dir, then_reach, g_then) && g_then > 0.0
+                             ? good(g_here / g_then) : 0.0;
+        float w_r = chosen * r.W * r.M;
+        float w_h = good(t_h * h.W * jacobian * h.M);
+        float total = w_r + w_h;
+        Reservoir out_r = no_reservoir(r.M + h.M);
+        if (total > 0.0) {
+            float z = 0.0;
+            float target = 0.0;
+            if (path_next(rng) * total < w_h) {
+                // its light, seen from here: then this pixel's sample could have been it too
+                if (seen_at_all(seen(s, h_dir, h_reach))) {
+                    out_r = h;
+                    target = t_h;
+                    z = h.M + r.M;
+                }
+            } else {
+                out_r = r;
+                target = chosen;
+                z = r.M;
+                // could last frame's reservoir have made it: its surface's target and a ray from there
+                vec3 t_dir;
+                float t_reach;
+                float t_g;
+                if (target_at(then, pass.prev_eye.xyz, r, t_dir, t_reach, t_g) > 0.0 &&
+                    seen_at_all(seen(then, t_dir, t_reach))) {
+                    z += h.M;
+                }
+            }
+            out_r.M = r.M + h.M;
+            out_r.W = z > 0.0 && target > 0.0 ? good(total / (z * target)) : 0.0;
+            kept_target = target;
+        }
+        r = out_r;
+    }
     weight = r.kind != KIND_NONE && r.W > 0.0 ? good(kept_target * r.W) : 0.0;
 
-    // 3. the surface's specular: one ray along a visible normal of its lobe (round BR: every surface's - before, those
-    // of roughness 0.3 and more took it from the diffuse reservoir's sample, which lands in a GGX lobe by chance: single
-    // bright pixels from frame to frame that Ray Reconstruction passed as sparkle, Training's dark walls and pillars)
-    {
-        vec3 e = brdf_specular_albedo(s.f0, nv, s.rough);
+    // 3. the surface's specular (round WS: a reservoir of its own - specular_target_of): the candidate one ray along a
+    // visible normal of its lobe (round BR: every surface's - before, those of roughness 0.3 and more took it from the
+    // diffuse reservoir's sample, which lands in a GGX lobe by chance), then last frame's specular reservoir reconnected
+    // here as the diffuse one is (its target at this view, the Jacobian validated - jacobian_kept)
+    if (max(s.f0.r, max(s.f0.g, s.f0.b)) > 0.0) {
+        spec = no_reservoir(1.0);
+        float s_chosen = 0.0;
         vec3 h = path_to_world(s.n, path_ggx_visible_normal(path_to_local(s.n, v), alpha, path_next(rng), path_next(rng)));
         vec3 l = 2.0 * dot(v, h) * h - v;
-        if (max(s.f0.r, max(s.f0.g, s.f0.b)) > 0.0 && dot(l, s.ng) > 0.0 && dot(l, s.n) > 0.0) {
+        if (dot(l, s.ng) > 0.0 && dot(l, s.n) > 0.0) {
             float pdf = path_ggx_reflection_pdf(nv, clamp(dot(s.n, h), 0.0, 1.0), alpha);
-            vec3 lobe_weight = pdf > 0.0 ? good3(specular_lobe(s, v, l) / pdf) : vec3(0.0);
             Secondary sec = trace_secondary(mask, origin, l, rng);
-            vec3 through = seen_through(mask, origin, l, sec.hit ? sec.t : GI_REACH);
-            vec3 reflected = sec.hit ? with_bounces(sec) : sky_radiance(l);
-            specular_rays[i * 2u] = vec4(good3(lobe_weight * reflected * through / max(e, vec3(1.0e-4))),
-                                         sec.hit ? sec.t : GI_MISS_DISTANCE);
-            specular_rays[i * 2u + 1u] = vec4(good3(lobe_weight * reflected * through), 0.0);
+            Reservoir c;
+            c.M = 1.0;
+            if (sec.hit) {
+                c.kind = KIND_SURFACE;
+                c.y = sec.at;
+                c.ny = sec.n;
+                c.bounce = with_bounces(sec);
+            } else {
+                c.kind = KIND_SKY;
+                c.y = l;
+                c.ny = -l;
+                c.bounce = good3(sky_radiance(l));
+            }
+            float t = specular_target_of(s, v, l, c.bounce);
+            if (t > 0.0 && pdf > 0.0) {
+                c.W = good(1.0 / pdf);
+                spec = c;
+                s_chosen = t;
+            }
         }
+        float s_kept = s_chosen;
+        if (has_then_spec && (pass.counts.w & FLAG_SPECULAR_REUSE) != 0u && s.rough >= SPECULAR_REUSE_ROUGHNESS &&
+            rough_alike(s, then_spec)) {
+            // the generalised balance heuristic (Lin et al. 2022): each sample's weight its share of both reservoirs'
+            // M x target at it in the area measure (specular_area_target) - the history's lobe looks elsewhere than this
+            // one's: with 1 / Z its sample, landing in this lobe's peak from the history's tail, came out x 100s (the
+            // check's near-mirror floor -43 % under the boiling filter, +12 % without)
+            Reservoir h = load_specular(true, j_spec);
+            h.M = min(h.M, cap);
+            float g_h_here;
+            float g_h_then;
+            float a_h_here = h.kind != KIND_NONE && h.W > 0.0 ? specular_area_target(s, eye, h, g_h_here) : 0.0;
+            float a_h_then = a_h_here > 0.0 ? specular_area_target(then_spec, pass.prev_eye.xyz, h, g_h_then) : 0.0;
+            // (the targets with the visibility: the history's sample seen from here, this pixel's from there - each
+            // reservoir holds only samples its surface sees, as its rays found them)
+            if (a_h_here > 0.0 && a_h_then > 0.0 && !unblocked(s, h)) {
+                a_h_here = 0.0;
+            }
+
+            float jacobian = a_h_then > 0.0 ? good(g_h_here / g_h_then) : 0.0;
+            if (!jacobian_kept(jacobian)) {
+                a_h_here = 0.0;
+                a_h_then = 0.0;
+            }
+            float g_r_here;
+            float g_r_then;
+            float a_r_here = spec.kind != KIND_NONE && s_chosen > 0.0 ? specular_area_target(s, eye, spec, g_r_here) : 0.0;
+            float a_r_then = a_r_here > 0.0 ? specular_area_target(then_spec, pass.prev_eye.xyz, spec, g_r_then) : 0.0;
+            if (a_r_then > 0.0 && !jacobian_kept(g_r_then / g_r_here)) {
+                a_r_then = 0.0;
+            }
+            if (a_r_then > 0.0 && !unblocked(then_spec, spec)) {
+                a_r_then = 0.0;
+            }
+
+            float m_r = a_r_here > 0.0 ? spec.M * a_r_here / (spec.M * a_r_here + h.M * a_r_then) : 0.0;
+            float m_h = a_h_then > 0.0 && a_h_here > 0.0 ? h.M * a_h_then / (h.M * a_h_then + spec.M * a_h_here) : 0.0;
+            float t_h = a_h_here > 0.0 ? a_h_here / g_h_here : 0.0;
+            float w_r = good(m_r * s_chosen * spec.W);
+            float w_h = good(m_h * t_h * h.W * jacobian);
+            float total = w_r + w_h;
+            Reservoir out_r = no_reservoir(spec.M + h.M);
+            if (total > 0.0) {
+                bool take_h = path_next(rng) * total < w_h;
+                out_r = take_h ? h : spec;
+                float target = take_h ? t_h : s_chosen;
+                out_r.M = spec.M + h.M;
+                out_r.W = target > 0.0 ? good(total / target) : 0.0;
+                s_kept = target;
+            }
+            spec = out_r;
+        }
+        spec_weight = spec.kind != KIND_NONE && spec.W > 0.0 ? good(s_kept * spec.W) : 0.0;
     }
     return r;
 }
@@ -1028,16 +1194,26 @@ void main()
     bool inside = all(lessThan(local, pass.rect.zw));
     uint i = uint(local.y * pass.rect.z + local.x);
     float weight = 0.0;
+    float spec_weight = 0.0;
     Reservoir r = no_reservoir(0.0);
+    Reservoir spec = no_reservoir(0.0);
     if (inside) {
-        r = temporal_reservoir(local, i, weight);
+        r = temporal_reservoir(local, i, weight, spec, spec_weight);
     }
-    // (round PT4d) the boiling filter - every invocation of the group takes part (no early return above)
+    // (round PT4d) the boiling filter - every invocation of the group takes part (no early return above); (round WS) the
+    // specular reservoirs' apart from the diffuse ones (their contributions are of another lobe)
     if ((pass.counts.w & FLAG_BOILING) != 0u && restir_boiling(weight)) {
         r = no_reservoir(0.0);
     }
+    // (every invocation has read the group's mean before the second filter writes the shared sums again)
+    memoryBarrierShared();
+    barrier();
+    if ((pass.counts.w & (FLAG_BOILING | FLAG_SPECULAR_REUSE)) == (FLAG_BOILING | FLAG_SPECULAR_REUSE) && restir_boiling(spec_weight)) {
+        spec = no_reservoir(0.0);
+    }
     if (inside) {
         store_reservoir(false, i, r);
+        store_specular(false, i, spec);
     }
 }
 #endif
@@ -1065,6 +1241,110 @@ void put_result(ivec2 p, uint i, Surface s, vec3 diffuse, vec3 specular, float h
     imageStore(o_specular_hit, p, vec4(hit, 0.0, 0.0, 0.0));
 #endif
 }
+// (round WS) The specular reservoir's spatial reuse and its result: the pixel's reservoir and, for a lobe of
+// SPECULAR_REUSE_ROUGHNESS and more, its neighbours' of the same surface and a like roughness within a radius that
+// shrinks with the lobe, resampled toward this pixel's specular target (each reconnected here, the Jacobian validated;
+// combined by the generalised balance heuristic); the chosen sample traced from the pixel (the one visibility ray). Returns the specular over E (demodulated); `hit` the sample's
+// distance (Ray Reconstruction's specular hit distance), `full` its light (the check's).
+vec3 specular_spatial(ivec2 local, uint i, Surface s, vec3 e, inout uint rng, out float hit, out vec3 full)
+{
+    hit = GI_MISS_DISTANCE;
+    full = vec3(0.0);
+    if (!(max(s.f0.r, max(s.f0.g, s.f0.b)) > 0.0)) {
+        return vec3(0.0);
+    }
+    vec3 eye = pass.eye.xyz;
+    float cap = float(pass.params.z);
+    Reservoir taken[MOST_SPATIAL + 1u];
+    Surface where[MOST_SPATIAL + 1u];
+    uint n = 1u;
+    taken[0] = load_specular(false, i);
+    where[0] = s;
+    if ((pass.counts.w & (FLAG_SPATIAL | FLAG_SPECULAR_REUSE)) == (FLAG_SPATIAL | FLAG_SPECULAR_REUSE) &&
+        s.rough >= SPECULAR_REUSE_ROUGHNESS) {
+        float radius_most = pass.tune.x * clamp(s.rough * 2.0, 0.25, 1.0);
+        for (uint k = 0u; k < min(SPECULAR_NEIGHBOURS, MOST_SPATIAL); ++k) {
+            float angle = 2.0 * PATH_PI * path_next(rng);
+            float radius = radius_most * sqrt(path_next(rng));
+            ivec2 q = local + ivec2(round(vec2(cos(angle), sin(angle)) * radius));
+            if (any(lessThan(q, ivec2(0))) || any(greaterThanEqual(q, pass.rect.zw)) || q == local) {
+                continue;
+            }
+            uint j = uint(q.y * pass.rect.z + q.x);
+            Surface other = surface_of(now_at[j], now_more[j]);
+            if (!alike(s, other) || !rough_alike(s, other)) {
+                continue;
+            }
+            taken[n] = load_specular(false, j);
+            taken[n].M = min(taken[n].M, cap);
+            where[n] = other;
+            ++n;
+        }
+    }
+    // the generalised balance heuristic: each sample's weight its share of every reservoir's M x target at it (in the
+    // area measure, the reconnection validated), its target here x its W x the Jacobian
+    float a[(MOST_SPATIAL + 1u) * (MOST_SPATIAL + 1u)]; // a[j * (MOST_SPATIAL + 1) + k]: sample k's at surface j
+    float g[(MOST_SPATIAL + 1u) * (MOST_SPATIAL + 1u)];
+    // (with the visibility, as each reservoir's samples are ones its surface sees - a reservoir's own sample was seen
+    // from it: an any-hit ray for each cross term)
+    for (uint k = 0u; k < n; ++k) {
+        bool live = taken[k].kind != KIND_NONE && taken[k].W > 0.0;
+        for (uint jj = 0u; jj < n; ++jj) {
+            uint at = jj * (MOST_SPATIAL + 1u) + k;
+            float gj = 0.0;
+            a[at] = live ? specular_area_target(where[jj], eye, taken[k], gj) : 0.0;
+            g[at] = gj;
+            if (a[at] > 0.0 && jj != k && !unblocked(where[jj], taken[k])) {
+                a[at] = 0.0;
+            }
+        }
+    }
+    float total = 0.0;
+    uint chosen = 0xFFFFFFFFu;
+    float target = 0.0;
+    for (uint k = 0u; k < n; ++k) {
+        uint own = k * (MOST_SPATIAL + 1u) + k;
+        uint here = k; // (surface 0's row)
+        if (!(a[own] > 0.0) || !(a[here] > 0.0)) {
+            continue;
+        }
+        float jacobian = k == 0u ? 1.0 : good(g[here] / g[own]);
+        if (!jacobian_kept(jacobian)) {
+            continue;
+        }
+        float all_m = 0.0;
+        for (uint jj = 0u; jj < n; ++jj) {
+            uint at = jj * (MOST_SPATIAL + 1u) + k;
+            if (jj != k && !jacobian_kept(g[at] / g[own])) {
+                continue;
+            }
+            all_m += taken[jj].M * a[at];
+        }
+        float t = a[here] / g[here];
+        float w = all_m > 0.0 ? good(taken[k].M * a[own] / all_m * t * taken[k].W * jacobian) : 0.0;
+        total += w;
+        if (w > 0.0 && path_next(rng) * total < w) {
+            chosen = k;
+            target = t;
+        }
+    }
+    if (chosen == 0xFFFFFFFFu || !(target > 0.0)) {
+        return vec3(0.0);
+    }
+    vec3 chosen_dir;
+    float chosen_reach;
+    float g_unused;
+    if (!sample_from(s, taken[chosen], chosen_dir, chosen_reach, g_unused)) {
+        return vec3(0.0);
+    }
+    // what the seen-through surfaces let through (nothing solid stands in the way: its weight's ray, or its own)
+    vec3 through = seen_through(rays_of(s), s.at + s.ng * ray_offset(s.at), chosen_dir, chosen_reach);
+    float w_chosen = good(total / target);
+    Reservoir c = taken[chosen];
+    hit = c.kind == KIND_SURFACE ? length(c.y - s.at) : GI_MISS_DISTANCE;
+    full = good3(specular_lobe(s, view_of(s, eye), chosen_dir) * c.bounce * through * w_chosen);
+    return good3(full / max(e, vec3(1.0e-4)));
+}
 void main()
 {
     ivec2 local = ivec2(gl_GlobalInvocationID.xy);
@@ -1077,6 +1357,7 @@ void main()
     float cap = float(pass.params.z);
     if (!s.valid) {
         store_reservoir(true, i, no_reservoir(0.0));
+        store_specular(true, i, no_reservoir(0.0));
         put_result(p, i, s, vec3(0.0), vec3(0.0), 0.0, vec3(0.0));
         return;
     }
@@ -1144,13 +1425,14 @@ void main()
     }
     Reservoir r = no_reservoir(min(m_sum, cap));
     vec3 diffuse = vec3(0.0);
-    vec3 specular = specular_rays[i * 2u].rgb;
-    float hit = specular_rays[i * 2u].a;
     vec3 full = vec3(0.0);
     BrdfMaterial m = material_of(s);
     vec3 v = view_of(s, eye);
     float nv = max(dot(s.n, v), 1.0e-4);
     vec3 e = brdf_specular_albedo(s.f0, nv, s.rough);
+    float hit;
+    vec3 full_specular;
+    vec3 specular = specular_spatial(local, i, s, e, rng, hit, full_specular);
     if (chosen != 0xFFFFFFFFu) {
         vec3 through = seen(s, chosen_dir, chosen_reach);
         if (seen_at_all(through)) {
@@ -1182,7 +1464,7 @@ void main()
         }
     }
 #ifdef CHECK
-    full += specular_rays[i * 2u + 1u].rgb;
+    full = (pass.counts.w & FLAG_SPECULAR_ONLY) != 0u ? full_specular : full + full_specular;
 #endif
     if (any(isnan(diffuse)) || any(isinf(diffuse)) || any(isnan(specular)) || any(isinf(specular)) || any(isnan(full)) ||
         any(isinf(full))) {
@@ -1196,6 +1478,7 @@ void main()
     // come back into the neighbours' own spatial reuse through their histories - inputs no longer independent, and the
     // unbiased combination's weights then aren't (the furnace: -1.5 % with a glossy target); each chain apart, none)
     store_reservoir(true, i, taken[0]);
+    store_specular(true, i, load_specular(false, i)); // (round WS: the same - its temporal reservoir)
     put_result(p, i, s, diffuse, specular, hit, full);
 }
 #endif
@@ -1452,7 +1735,7 @@ struct GiState {
     DeviceBuffer reservoirs_b;
     std::array<DeviceBuffer, 2> at{};
     std::array<DeviceBuffer, 2> more{};
-    DeviceBuffer specular_rays;
+    DeviceBuffer specular_reservoirs;
     DeviceBuffer sums;
     DeviceBuffer counters;
     Image specular_hit;
@@ -2169,7 +2452,7 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
     }
     bool made = ensure_buffer(state, &own.reservoirs_a, pixels * 16 * kReservoirWords, storage, BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.reservoirs_b, pixels * 16 * kReservoirWords, storage, BufferPlace::kDevice) &&
-                ensure_buffer(state, &own.specular_rays, pixels * 16 * kSpecularRayWords, storage, BufferPlace::kDevice) &&
+                ensure_buffer(state, &own.specular_reservoirs, pixels * 16 * kSpecularReservoirWords, storage, BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.counters, 16, storage, BufferPlace::kDevice) &&
                 (!check || ensure_buffer(state, &own.sums, pixels * 2 * 16, storage, BufferPlace::kDevice)) &&
                 (check || ensure_image(state, &own.specular_hit, VK_FORMAT_R16_SFLOAT, extent,
@@ -2212,7 +2495,9 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
                            (check && own.accumulate ? kFlagAccumulate : 0U) | (check ? kFlagForced : 0U) |
                            (!check || own.overrides.permutation ? kFlagPermute : 0U) |
                            (!check || own.overrides.boiling_filter ? kFlagBoiling : 0U) |
-                           (!check || own.overrides.cache ? kFlagCache : 0U);
+                           (!check || own.overrides.cache ? kFlagCache : 0U) |
+                           ((check ? own.overrides.specular_reuse : kSpecularReuseInGame) ? kFlagSpecularReuse : 0U) |
+                           (check && own.overrides.specular_only ? kFlagSpecularOnly : 0U);
     block.counts = {own.entries, static_cast<uint32_t>(local.lamp_list.size()), static_cast<uint32_t>(own.frames), flags};
     const uint32_t candidates =
         check && own.overrides.local_candidates != 0U ? own.overrides.local_candidates : kLocalCandidates;
@@ -2311,7 +2596,7 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         whole(core::at(own.more, now).buffer),
         whole(core::at(own.at, before).buffer),
         whole(core::at(own.more, before).buffer),
-        whole(own.specular_rays.buffer),
+        whole(own.specular_reservoirs.buffer),
         whole(check ? own.sums.buffer : own.counters.buffer),
         whole(own.counters.buffer),
         whole(own.cache.buffer)};
@@ -2319,7 +2604,7 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         kBindingGeometry,    kBindingBlock,       kBindingLights,     kBindingEmitters,  kBindingLamps,
         kBindingMembership,  kBindingSlots,       kBindingSkyCells,   kBindingSkyAlias,  kBindingReservoirsA,
         kBindingReservoirsB, kBindingNowAt,       kBindingNowMore,    kBindingBeforeAt,  kBindingBeforeMore,
-        kBindingSpecularRays, kBindingSums,       kBindingCounters,   kBindingCache};
+        kBindingSpecularReservoirs, kBindingSums,       kBindingCounters,   kBindingCache};
     std::array<VkDescriptorImageInfo, 6> images{};
     if (inputs != nullptr) {
         for (std::size_t k = 0; k < images.size(); ++k) {
@@ -2484,7 +2769,7 @@ void release_restir_gi(Backend& state)
     }
     for (DeviceBuffer* buffer : {&core::at(own.sky_cells, 0), &core::at(own.sky_cells, 1), &own.sky_read, &own.sky_alias,
                                  &own.lights, &own.reservoirs_a, &own.reservoirs_b, &core::at(own.at, 0),
-                                 &core::at(own.at, 1), &core::at(own.more, 0), &core::at(own.more, 1), &own.specular_rays,
+                                 &core::at(own.at, 1), &core::at(own.more, 0), &core::at(own.more, 1), &own.specular_reservoirs,
                                  &own.sums, &own.counters, &own.cache}) {
         state.memory.destroy_buffer(buffer);
     }
