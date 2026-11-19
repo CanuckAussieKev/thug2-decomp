@@ -53,6 +53,7 @@ add_library(thug2_render_pc STATIC
     pc_viewport.cpp
     pc_weather.cpp
     rt_record.cpp
+    rt_apart.cpp
     grass_world.cpp
     snow_world.cpp
     scatter_world.cpp

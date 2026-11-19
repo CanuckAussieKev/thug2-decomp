@@ -5495,7 +5495,8 @@ through the tone curve at that EV. `pt off` ends it.
   foliage, walls drawn alpha-tested) now cast and occlude by their texels - and the relit bake's rays.
 - The BLASes are built with `VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR`: the light through blended surfaces
   is a product over the candidates a ray meets.
-- Not yet: particles, billboards, grass, clutter and decals (no per-frame triangle BLAS); objects' baked colours (an
+- Particles, billboards and clutter: round PG ("What is drawn apart, in the rays" below); grass and decals stay out by design.
+  Not yet: objects' baked colours (an
   object drawn with its own colours - BO's lamp globes, lit yellow by their baked colours - is white and unlit in the
   reference: its colours are neither tint nor emission until objects are de-baked like the world).
 
@@ -5871,3 +5872,40 @@ One light list, one way to sample it:
   power) takes its pick and point from the pool - the group's pdf x the group's share of the list's picks; the pool is
   read through its device address (GI's pushed set is full). The fog's haze is now run where the light list's emitting
   triangles alone light it (no sun, no analytic lamp: it was skipped).
+
+### What is drawn apart, in the rays (round PG)
+
+The last gap of stage 3: what the game draws in passes of its own after the ray-traced lighting - the clutter's items,
+the particles, the level's billboards - is in the acceleration structure as shipping path-traced games put it there,
+so it casts shadows and is met by the bounce, reflection and fog light rays and by the path tracer.
+
+- **One kind of instance** (t::kDrawnApart, instance mask kMaskDrawnApart 0x08): a light ray's and a secondary ray's
+  occluder and surface - the sun's and the lamps' shadows, the occlusion, ReSTIR DI / GI's light rays and GI's bounces,
+  the reflected rays and their sun rays (kReflectedRayMask - the reflections' camera ray keeps kReflectionMask), the
+  fog's light and air map, the front layer, the path tracer - never a camera ray's (its pixels aren't in the depth those
+  passes read: RAY_DRAWN 0x87 leaves it out, drawn_kept refuses a seen-through one). Its class is the one
+  classification (rt_surface_class.h): solid and cut-out ones 0x08 (by their alpha, cutout_kept), seen-through ones
+  0x80 with the flag (seen_through takes them when the ray's mask has 0x08), added ones 0x40 (light passes; a path's
+  ray meets them). The relit bake never asks for 0x08: the baked light stays the level's.
+- **Clutter** (ender_pc/rt_record.cpp record_clutter, engine/gfx/scatter.h "the clutter in the rays" - UE's
+  instanced static meshes / RTX Remix's instances): one static BLAS per item kind's part (the five kinds' meshes, a can's
+  label its own), an instance per item within the raster's range - the game's LOD distance of its small objects x
+  lod_distance_scale, measured from the first view's camera - placed by the vertex shader's transform without the
+  wind's bend; its material a flat colour (each part's colour at four shades of the item's colour hash). The item pass's
+  own sun ray leaves them out (an item never shadows itself). [debug] rt_clutter=0: not traced.
+- **Particles and billboards** (ender_pc/rt_apart.h, engine/gfx/rt_apart.h - RTX Remix's captured particle draws, the
+  alpha-tested particle BLAS of Cyberpunk 2077's RT Overdrive): the first view's particle draws (their material handed
+  in, their vertices as the dynamic buffer took them, drawn as quads or a list) and billboard draws (the card as turned
+  for that camera) kept as triangle lists, grouped by material and vertex format; at the next record each group is a
+  mesh of the frame's triangles - a dynamic buffer (grown by doubling; the vertices past this frame's NaN: inactive
+  triangles), t::Geometry::rebuilt: built anew each frame with PREFER_FAST_BUILD, never refitted. A frame late (the
+  record comes before the draws, as the objects' lights do), turned toward the camera that drew them, only what the view
+  drew (a culled system casts nothing). The glows drawn from memory are added light and not kept. [debug]
+  rt_particles=0: not traced. Billboards are no longer registered as world meshes (their buffer holds the last draw's
+  turned card).
+- **Grass stays out** (UE5's hardware ray tracing and Cyberpunk 2077 leave dense grass out of the BVH; its own pass traces
+  each blade's sun visibility against the scene): a grassy level's field is millions of blades - a BLAS of every blade
+  is hundreds of MB and a rebuild per wind step - and a card proxy would put shadows where no blade is drawn.
+- **Decals stay material layers** (round DB): never geometry.
+- The geometry table's row is made once per mesh a frame (write_instances): thousands of clutter instances of a few
+  meshes cost one row each.

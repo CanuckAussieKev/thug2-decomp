@@ -8,6 +8,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "render_pc/dynamic_vertices.h"
+#include "render_pc/rt_apart.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -156,6 +157,15 @@ void* lock_dynamic_vertices(uint32_t count, uint32_t stride, render::GpuVertexBu
 // 0x005F4800
 void unlock_dynamic_vertices(uint32_t count, uint32_t stride)
 {
+    // Not original - (round PG) a particle draw's vertices kept for the rays (render_pc/rt_apart.h) before the buffer
+    // is let go of. Original behaviour: nothing.
+    if (render::rt_apart::capturing() && dynamic_vertices_locked() != nullptr && stride > 0 &&
+        dynamic_vertices_used() + (count * stride) <= dynamic_vertices_size()) {
+        render::rt_apart::vertices_unlocked(
+            std::span<const uint8_t>(dynamic_vertices_locked(), dynamic_vertices_size())
+                .subspan(dynamic_vertices_used(), std::size_t{count} * stride),
+            dynamic_vertices_used() / stride, stride);
+    }
     render::gpu().unlock_vertex_buffer(dynamic_vertices());
     dynamic_vertices_locked() = nullptr;
     dynamic_vertices_used() = ((count * stride) + dynamic_vertices_used() + kVertexAlignSlack) & ~kVertexAlignMask;

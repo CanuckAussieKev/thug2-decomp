@@ -1007,7 +1007,9 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     constants.shape = {
         static_cast<float>(std::tan(static_cast<double>(softness) * kDegreesToRadians)),
         static_cast<float>(soft ? own.settings.rays : 1U), 0.0F, 0.0F};
-    const uint32_t mask = kMaskWorld | (own.settings.objects ? kMaskObjects : 0U) | (alpha ? kMaskAlphaTested : 0U);
+    // (round PG) and what is drawn apart - the clutter, the particles, the billboards (kMaskDrawnApart)
+    const uint32_t mask =
+        kMaskWorld | (own.settings.objects ? kMaskObjects : 0U) | (alpha ? kMaskAlphaTested : 0U) | kMaskDrawnApart;
     constants.camera = {core::at(view.camera.position, 0), core::at(view.camera.position, 1),
                         core::at(view.camera.position, 2),
                         std::bit_cast<float>(mask)};

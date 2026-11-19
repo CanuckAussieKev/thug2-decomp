@@ -175,8 +175,8 @@ layout(std430, set = 0, binding = 14) buffer Slots { uint slots[]; };
 const uint STRATEGY_MIS = 0u;
 const uint STRATEGY_LIGHTS = 1u;
 const uint STRATEGY_BSDF = 2u;
-const uint PATH_MASK = 7u;          // world, objects, alpha-tested (vulkan_rt_scene.h's masks)
-const uint PATH_SURFACES = 199u;     // what a path's rays meet: all of them - the seen-through (0x80) and those
+const uint PATH_MASK = 15u;         // world, objects, alpha-tested, drawn apart (vulkan_rt_scene.h's masks)
+const uint PATH_SURFACES = 207u;     // what a path's rays meet: all of them - the seen-through (0x80) and those
                                      // that add light (0x40, round PT-B: kMaskAddsLight) too
 const uint PATH_MOST_CROSSED = 16u;  // blended surfaces a ray goes on through (added, filters, glass) before it stops
 const float PATH_DELTA_PDF = 1.0e15; // a mirror's "pdf" (a delta lobe: a light it reaches counted whole by MIS - squared, still finite)

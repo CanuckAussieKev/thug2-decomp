@@ -28,6 +28,7 @@
 #include "engine/gfx/view_setup.h"
 #include "base/maths/mat4.h"
 #include "base/core/same_bits.h"
+#include "render_pc/rt_apart.h"
 #include "render_pc/rt_record.h"
 #include "render_pc/water_materials.h"
 
@@ -342,6 +343,7 @@ void MaterialRef::hand_in()
         return;
     }
     water_materials::note_material(this); // NOT ORIGINAL - [Graphics] rt_water: water draws marked (water_materials.h)
+    rt_apart::material_used(this); // NOT ORIGINAL - (round PG) a particle draw's material kept for the rays (rt_apart.h)
     choose_blend_mode(core::at(blend_modes_, 0));
     set_common_states(this);
     for (uint32_t pass = 0; pass < pass_count_; ++pass) {
@@ -416,6 +418,7 @@ void MaterialRef::submit_states()
     if (renderer().submit_locked() != 0U) {
         return;
     }
+    rt_apart::material_used(this); // NOT ORIGINAL - (round PG) a particle draw's material kept for the rays
     set_common_states(this);
 }
 

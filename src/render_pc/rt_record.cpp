@@ -38,7 +38,10 @@
 #include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
+#include "engine/gfx/graphics_options.h"
+#include "engine/gfx/rt_apart.h"
 #include "engine/gfx/rt_poses.h"
+#include "engine/gfx/scatter.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
@@ -56,7 +59,9 @@
 #include "render_pc/mesh_pass.h"
 #include "render_pc/pc_scene.h"
 #include "render_pc/relit_bake.h"
+#include "render_pc/rt_apart.h"
 #include "render_pc/rt_relit_world.h"
+#include "render_pc/scatter_world.h"
 #include "render_pc/sub_mesh.h"
 #include "render_pc/vertex_buffers.h"
 
@@ -100,6 +105,7 @@ constexpr std::size_t kFitTriangles = 40000;       // triangles looked at for th
 constexpr float kMinUp = 0.7F;                  // the samples' triangles face up (or down) at least this much
 constexpr uint64_t kFnvBasis = 14695981039346656037ULL;
 constexpr uint64_t kFnvPrime = 1099511628211ULL;
+constexpr uint32_t kFnvPrime32 = 16777619U;     // (round PG: a draw's layout key)
 constexpr std::size_t kMaxSceneLights = 31;     // update_all_lights' limit
 constexpr uint32_t kPassEnvironment = 0x8;      // a material pass's flags: environment mapped (pc_material.cpp)
 constexpr uint32_t kPassCount = 4;              // a material's passes, at most
@@ -152,6 +158,21 @@ struct State {
     // frame, skinned here with its bones (the draw's code and palette) - the meshes' own buffers hold only the last
     // draw's pose of the frame before, and are never registered
     rt::PoseStore poses;
+    // (round PG) what is drawn apart (rt_apart.h): the particles' and billboards' triangles of the frame before, as
+    // per-frame meshes; and the clutter's items as instances of a mesh per part (scatter.h "the clutter in the rays")
+    rt::ApartStore apart;
+    struct ClutterRays {
+        GpuVertexBuffer* buffer = nullptr; // every part's triangles (scatter::MeshVertex), one after another
+        std::array<rt::MeshId, scatter::kRayParts> meshes{};
+        std::array<std::array<rt::MaterialId, scatter::kRayShades>, scatter::kRayParts> materials{};
+        bool tried = false; // (made once a device; not again after a failure)
+        std::vector<uint32_t> items; // (the frame's, reused)
+        // each item's transform, made once a scatter (the items never move)
+        std::shared_ptr<const scatter::Scatter> placed_for;
+        std::vector<std::array<std::array<float, 4>, 3>> placed;
+    } clutter;
+    std::array<float, 3> camera{}; // the first viewport's camera, last drawn (the clutter's range is measured from it)
+    bool camera_known = false;
     uint64_t frame = 0;
     bool recorded = false; // record_frame ran this frame (begin_frame not yet)
     bool begun = false;    // begin_frame called this frame
@@ -875,6 +896,11 @@ void record_world(rt::RayTracing& rt)
         for (const MeshRef* mesh : meshes->mesh_run()) {
             ++count;
             if (mesh == nullptr) {
+                continue;
+            }
+            // (round PG) a billboard - a card the processor turns toward each camera as it draws it: its buffer holds the
+            // last draw's vertices - is in the rays as drawn, through the draws apart (rt_apart.h), not as a world mesh
+            if (mesh->billboard() != nullptr) {
                 continue;
             }
             if (mesh_shown(mesh)) {
@@ -2153,6 +2179,194 @@ uint32_t decode_first_level(GpuTexture* texture, texel::Image* out)
     return desc.format;
 }
 
+// (round PG) The clutter's meshes - each part's triangles (scatter::ray_part_triangles) in one buffer of the Gpu's, a mesh
+// each - and its materials (each part's colour at each shade, untextured), made the first time they are wanted. False:
+// they couldn't be (logged once).
+bool clutter_ready(rt::RayTracing& rt)
+{
+    State::ClutterRays& own = state().clutter;
+    if (own.buffer != nullptr) {
+        return true;
+    }
+    if (own.tried) {
+        return false;
+    }
+    own.tried = true;
+    const std::vector<scatter::MeshVertex> meshes = scatter::make_meshes();
+    std::vector<scatter::MeshVertex> all;
+    std::array<std::pair<uint32_t, uint32_t>, scatter::kRayParts> runs{}; // first vertex, vertices
+    for (uint32_t part = 0; part < scatter::kRayParts; ++part) {
+        const std::vector<scatter::MeshVertex> triangles = scatter::ray_part_triangles(meshes, part);
+        core::at(runs, part) = {static_cast<uint32_t>(all.size()), static_cast<uint32_t>(triangles.size())};
+        all.insert(all.end(), triangles.begin(), triangles.end());
+    }
+    const auto bytes = static_cast<uint32_t>(all.size() * sizeof(scatter::MeshVertex));
+    void* data = nullptr;
+    if (bytes == 0 ||
+        gpu().create_vertex_buffer(bytes, gpu_value::kUsageWriteOnly, 0, gpu_value::kPoolDefault, &own.buffer) !=
+            gpu_value::kResultOk ||
+        own.buffer == nullptr) {
+        own.buffer = nullptr;
+        get_log("rt: the clutter's meshes couldn't be made - the clutter isn't in the rays");
+        return false;
+    }
+    if (gpu().lock_vertex_buffer(own.buffer, 0, 0, &data, 0) != gpu_value::kResultOk || data == nullptr) {
+        gpu().release_vertex_buffer(own.buffer);
+        own.buffer = nullptr;
+        get_log("rt: the clutter's meshes couldn't be written - the clutter isn't in the rays");
+        return false;
+    }
+    std::memcpy(data, all.data(), bytes);
+    gpu().unlock_vertex_buffer(own.buffer);
+    constexpr uint32_t kNormalAt = offsetof(scatter::MeshVertex, normal);
+    for (uint32_t part = 0; part < scatter::kRayParts; ++part) {
+        const auto [first, count] = core::at(runs, part);
+        rt::MeshId& id = core::at(own.meshes, part);
+        id = 0;
+        if (count == 0) {
+            continue;
+        }
+        id = rt::next_mesh_id();
+        rt.add_mesh(id, {.vertices = own.buffer,
+                         .vertex_offset = first * static_cast<uint32_t>(sizeof(scatter::MeshVertex)),
+                         .vertex_stride = sizeof(scatter::MeshVertex),
+                         .vertex_count = count,
+                         .position_offset = 0,
+                         .vertex_buffer_bytes = bytes,
+                         .normal_offset = kNormalAt,
+                         .normal_format = rt::kNormalFloat3});
+        for (uint32_t shade = 0; shade < scatter::kRayShades; ++shade) {
+            rt::MaterialId& material = core::at(core::at(own.materials, part), shade);
+            if (material != 0) {
+                continue; // (the materials outlive a device reset - the table's own)
+            }
+            const scatter::Vec3 colour = scatter::ray_part_colour(part, shade);
+            rt::Material surface;
+            surface.colour = {core::at(colour, 0), core::at(colour, 1), core::at(colour, 2), 1.0F};
+            material = rt::next_material_id();
+            rt.set_material(material, surface);
+        }
+    }
+    get_log("rt: the clutter's meshes made for the rays: %zu triangles in %u parts", all.size() / 3,
+            static_cast<unsigned>(scatter::kRayParts));
+    return true;
+}
+
+// (round PG) The clutter's items within its range of the first viewport's camera (the raster's: kClutterLodDistance x
+// [Graphics] lod_distance_scale) - an instance of its part's mesh each (a can's body and label), drawn apart
+// (rt::kDrawnApart: a light ray's and a secondary ray's occluder, never a camera ray's), opaque, casting.
+void record_clutter(rt::RayTracing& rt)
+{
+    static const bool kWanted = build_info::fetch_flag("debug", "rt_clutter", true);
+    State& st = state();
+    const std::shared_ptr<const scatter::Scatter> made = scatter_world::current();
+    if (!kWanted || made == nullptr || made->items.empty() || !st.camera_known || !clutter_ready(rt)) {
+        return;
+    }
+    const float range = graphics_options::get_scaled(scatter::kClutterLodDistance,
+                                                     graphics_options::get_pull().lod_distance_scale_);
+    if (st.clutter.placed_for != made) {
+        st.clutter.placed_for = made;
+        st.clutter.placed.resize(made->items.size());
+        for (std::size_t i = 0; i < made->items.size(); ++i) {
+            core::at(st.clutter.placed, i) = scatter::ray_item_transform(core::at(made->items, i));
+        }
+    }
+    std::vector<uint32_t>& items = st.clutter.items;
+    scatter::ray_items(*made, st.camera, range, &items);
+    std::vector<rt::Instance>& out = rt::frame_record().instances;
+    out.reserve(out.size() + (items.size() * 2));
+    constexpr uint32_t kFlags = rt::kObject | rt::kDrawnApart | rt::kOpaque | rt::kCastsShadow;
+    for (const uint32_t index : items) {
+        const scatter::Item& item = core::at(made->items, index);
+        const auto kind = static_cast<scatter::ItemKind>(
+            std::min<uint32_t>((item.packed >> scatter::kItemKindShift) & 0xFU, scatter::kItemKinds - 1));
+        const std::array<std::array<float, 4>, 3>& rows = core::at(st.clutter.placed, index);
+        const uint32_t shade = scatter::ray_shade(item);
+        for (const uint32_t part : scatter::ray_parts_of(kind)) {
+            const rt::MeshId mesh = core::at(st.clutter.meshes, part);
+            if (mesh == 0) {
+                continue;
+            }
+            out.push_back({.mesh = mesh,
+                           .material = core::at(core::at(st.clutter.materials, part), shade),
+                           .flags = kFlags,
+                           .object_to_world = rows});
+        }
+    }
+}
+
+// (round PG) The particles' and billboards' draws of the frame before (rt_apart.h), a mesh per material and vertex
+// layout (engine/gfx/rt_apart.h - built anew each frame), each an instance drawn apart with its material's class
+// (rt_surface_class.h: a cut-out or solid one an occluder by its alpha, a blended one seen through by its coverage, an
+// added one light that passes) - the vertex alpha the least of its vertices'.
+void record_apart(rt::RayTracing& rt)
+{
+    State& st = state();
+    std::vector<rt_apart::Draw> draws = rt_apart::take();
+    struct Group {
+        const MaterialRef* material = nullptr;
+        uint32_t fvf = 0;
+        uint32_t stride = 0;
+        std::vector<uint8_t> vertices;
+    };
+    std::vector<Group> groups;
+    for (rt_apart::Draw& draw : draws) {
+        const auto found = std::ranges::find_if(groups, [&draw](const Group& g) {
+            return g.material == draw.material && g.fvf == draw.fvf && g.stride == draw.stride;
+        });
+        if (found == groups.end()) {
+            groups.push_back({.material = draw.material, .fvf = draw.fvf, .stride = draw.stride,
+                              .vertices = std::move(draw.vertices)});
+        } else {
+            found->vertices.insert(found->vertices.end(), draw.vertices.begin(), draw.vertices.end());
+        }
+    }
+    std::vector<rt::ApartStore::Batch> batches;
+    std::vector<uint32_t> flags;
+    std::vector<rt::MaterialId> materials;
+    for (const Group& group : groups) {
+        rt::Geometry layout;
+        if (!rt::set_vertex_attributes(group.fvf, &layout)) {
+            continue;
+        }
+        layout.vertex_stride = group.stride;
+        const rt::MaterialId material = material_id(group.material, rt);
+        if (material == 0) {
+            continue;
+        }
+        const rt::Material& surface = st.materials.at(group.material).material;
+        float least_alpha = 1.0F;
+        if (layout.colour_format == rt::kColourA8R8G8B8 && layout.colour_offset + sizeof(uint32_t) <= group.stride) {
+            uint32_t lowest = kByteMax;
+            for (std::size_t at = layout.colour_offset + 3; at < group.vertices.size(); at += group.stride) {
+                lowest = std::min<uint32_t>(lowest, core::at(group.vertices, at)); // (the colour word's A byte)
+            }
+            least_alpha = static_cast<float>(lowest) * kPerByte;
+        }
+        const rt::SurfaceClass surface_class =
+            rt::surface_class(surface, rt::vertex_alpha_counts(surface) ? least_alpha : 1.0F);
+        batches.push_back({.key = group.material,
+                           .layout_key = (group.fvf * kFnvPrime32) ^ group.stride,
+                           .layout = layout,
+                           .vertices = group.vertices});
+        flags.push_back(rt::kObject | rt::kDrawnApart | rt::surface_instance_flags(surface_class, surface));
+        materials.push_back(material);
+    }
+    std::vector<rt::MeshId> meshes;
+    st.apart.commit(batches, gpu(), rt, &meshes);
+    maths::Mat4 identity;
+    identity.reset_to_identity();
+    const std::array<std::array<float, 4>, 3> rows = rt::object_to_world_rows(identity.floats());
+    for (std::size_t i = 0; i < meshes.size(); ++i) {
+        if (core::at(meshes, i) != 0) {
+            rt::frame_record().instances.push_back(
+                {.mesh = core::at(meshes, i), .material = core::at(materials, i), .flags = core::at(flags, i),
+                 .object_to_world = rows});
+        }
+    }
+}
+
 bool on() { return backend() != nullptr; }
 
 void object_lit(const Singleton* instance, const rt::ObjectLight& light)
@@ -2206,6 +2420,14 @@ void record_frame()
         }
     }
     st.poses.end_frame(st.frame, gpu(), *rt); // (the poses of instances gone or not drawn released)
+    { // (round PG: the clutter, the particles and the billboards - drawn apart)
+        const frame_profile::Scope phase("rt_clutter");
+        record_clutter(*rt);
+    }
+    {
+        const frame_profile::Scope phase("rt_apart");
+        record_apart(*rt);
+    }
     record_lights();
     st.written.clear();
 }
@@ -2427,6 +2649,10 @@ void camera_chosen(int viewport)
                                           .projection = rows_of(gfx.projection_matrix()),
                                           .position = {core::at(camera.position, 0), core::at(camera.position, 1),
                                                        core::at(camera.position, 2)}});
+    if (viewport == 0) { // (round PG: the clutter's range is measured from it at the next record)
+        st.camera = {core::at(camera.position, 0), core::at(camera.position, 1), core::at(camera.position, 2)};
+        st.camera_known = true;
+    }
     if (!st.begun) {
         st.begun = true;
         const frame_profile::Scope phase("rt_begin"); // (where a frame's time goes - platform/frame_profile.h)
@@ -2484,6 +2710,7 @@ void mesh_released(const MeshRef* mesh)
 
 void material_released(const MaterialRef* material)
 {
+    rt_apart::material_released(material); // (round PG: the draws kept with it)
     rt::RayTracing* rt = backend();
     if (rt == nullptr) {
         return;
@@ -2533,6 +2760,18 @@ void forget_meshes()
     st.meshes.clear();
     st.written.clear();
     st.poses.release_all(gpu(), rt); // (the device's buffers go: the poses made again at the next record)
+    st.apart.release_all(gpu(), rt);  // (round PG: the draws apart's meshes, and the clutter's - made again)
+    if (st.clutter.buffer != nullptr) {
+        for (rt::MeshId& id : st.clutter.meshes) {
+            if (id != 0) {
+                rt->remove_mesh(id);
+            }
+            id = 0;
+        }
+        gpu().release_vertex_buffer(st.clutter.buffer);
+        st.clutter.buffer = nullptr;
+    }
+    st.clutter.tried = false;
 }
 
 ColourWrite::ColourWrite(Relit relit) : relit_(relit)
