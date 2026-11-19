@@ -147,6 +147,13 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
 // emitter_count, emitter_spare and uvec4 emitter_entries[]).
 [[nodiscard]] std::string_view emitter_scan_glsl();
 
+// (round SK) GLSL: the presampled pool (kLightPoolSize picks, read through its device address) as light_sample_glsl's
+// LL_POOL resampling reads it - `pool` a uvec4 expression of the caller's block: xy the pool's address, z 1 when it is
+// there, w the local group's share of the list's picks (its float's bits) - FrameLightList::pool. Goes before
+// local_light_glsl. Every pass that samples the list from a surface takes the same resampled local lights (one light
+// model): ReSTIR GI's secondary vertices, the reflections' hits, the front layer.
+[[nodiscard]] std::string light_pool_reader_glsl(std::string_view pool);
+
 // (round WF - path tracing, stage 7) GLSL: a local light of the list seen from any point - in a medium as well as on a
 // surface (after light_instances_glsl, rt_path.h's kPathGlsl, rt_lamp_glsl, hit_surface_glsl and rt_light_list.h's
 // kLightListGlsl; the caller declares `light_entries[]`, `emitter_entries[]` and `lamps[]` as ReSTIR DI's):
@@ -184,6 +191,9 @@ struct FrameLightList {
     float sky_dist = 0.0F;               // 1 / the sky grid's luminance integral (0: no sky)
     float cache_cells = 0.0F;            // the angle a cache cell spans from the camera (its least)
     std::array<float, 3> eye{};          // the camera the cache's cells were keyed from
+    // (round SK) the local lights' presampled pool as ReSTIR GI read it this frame (light_pool_reader_glsl's uvec4: its
+    // address, 1 when there, the local group's share of the picks): its consumers resample the local lights as GI does
+    std::array<uint32_t, 4> pool{};
 };
 
 // (round WF - path tracing, stage 7) GLSL: the full list sampled from any point - one light by power, one ray (ReSTIR GI's

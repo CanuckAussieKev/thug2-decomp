@@ -85,6 +85,13 @@ bool make_rt_reflection_wet_trace(Backend& state, std::string* error = nullptr);
 // instead of the light store's sky K, bounce B and the lamps pass's lit set: glass, water and the game's shine reflect the
 // light everything else is lit by. (The check's) every such trace made: whether they compiled - why not in `error`.
 bool make_rt_reflection_listed_traces(Backend& state, std::string* error = nullptr);
+// (round SK - the check's) The local lights at those hits are resampled from ReSTIR GI's presampled pool as at GI's own
+// secondary vertices (RIS over its picks - vulkan_light_list.h light_pool_reader_glsl): the pool words the traces' block
+// takes from `list` (FrameLightList::pool), and whether the traces' GLSL reads the local lights from that pool. Before
+// round SK they picked one local light by power - the specks on BO's kickers and ledges at night.
+struct FrameLightList;
+[[nodiscard]] std::array<uint32_t, 4> rt_reflection_list_pool(const FrameLightList& list);
+[[nodiscard]] bool rt_reflection_listed_traces_resample_pool();
 
 // The passes over the device's bound targets for a viewport (the listener's work, also called by the check program).
 // The caller holds the lock. Returns whether they were recorded (false: skipped - off, no scene, nothing reflective,

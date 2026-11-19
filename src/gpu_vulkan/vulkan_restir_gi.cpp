@@ -1538,10 +1538,7 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
     source += rt::lights::kLightListGlsl;
     // (round OM) the local lights' next-event picks from the presampled pool, read through its address (the pushed set
     // is full: 32 bindings)
-    source += "#define LIGHT_POOL_SIZE " + std::to_string(kLightPoolSize) + "u\n";
-    source += "layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer LightPoolWords { uvec4 "
-              "words[]; };\n#define light_pool (LightPoolWords(pass.pool.xy).words)\n#define LL_POOL (pass.pool.z != "
-              "0u)\n#define LL_POOL_SHARE uintBitsToFloat(pass.pool.w)\n";
+    source += light_pool_reader_glsl("pass.pool");
     source += "#define LL_LOCAL_CANDIDATES pass.params.x\n"; // (round DD: the local lights' RIS candidates)
     source += local_light_glsl();
     if (which == Shader::kSky) {
@@ -2717,7 +2714,8 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         .sun_radiance = block.sun_radiance,
         .sky_dist = core::at(block.sky_dist, 0),
         .cache_cells = core::at(block.cache_cells, 0),
-        .eye = {core::at(view.camera.position, 0), core::at(view.camera.position, 1), core::at(view.camera.position, 2)}};
+        .eye = {core::at(view.camera.position, 0), core::at(view.camera.position, 1), core::at(view.camera.position, 2)},
+        .pool = block.pool}; // (round SK: the pool its next-event estimation resampled from - the list's other consumers' too)
     if (own.passes == 1 && first_report(state, kReportFirst)) {
         get_log("restir gi: the indirect light by ReSTIR GI - %ux%u, %u spatial neighbours; %u lights listed (%u lamps), "
                 "the sky's grid %s",

@@ -10,6 +10,10 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
 - `make_workspace.ps1 -Number <n>` - makes or refreshes C:\Games\THUG2-<n> as a mirror of the main install (1280x720
   window, allow_multiple_instances=1, debug_collision=0). Refuses while its lock is held or a game runs. Refresh a
   workspace before giving it to a new agent, so it starts from main.
+- `node tools/game/speck_count.ts <series folder> <x,y,w,h> [--skip N] [--threshold 30]` - the specks in a captured
+  series (automation `capture <frames> <folder>` with the camera held): pixels over their 5x5 neighbourhood's median by
+  the threshold (0-255 luma) in a rectangle, a frame on average - flickering (also over the pixel's own median over the
+  series) and steady - and each pixel's standard deviation over the series.
 - `node tools/game/workspace_parity.ts check|sync --workspace C:\Games\THUG2-<n> [--owner <lock holder>]
   [--settings main|<screenshot sidecar .txt>|none] [--dry-run]` - is a workspace the main install's game? `check`
   compares, file by file (size and time), what a look depends on - the game's Data (its building relief and surface-map

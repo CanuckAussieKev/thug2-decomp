@@ -85,6 +85,7 @@
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
+#include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_rt_reflections.h"
@@ -2372,6 +2373,14 @@ int run(const Options& options, SDL_Window* window)
         }
         tally.check(listed, "the traces lit by the light list made (single, multisampled, the sky's, the puddles')" +
                                 (listed ? std::string() : ": " + why));
+        // (round SK) their hits' local lights resampled from ReSTIR GI's pool as GI's own secondary vertices' are (the
+        // specks on BO's kickers: one local light by power a hit, many times its share now and then)
+        render::vulkan::FrameLightList list;
+        list.pool = {0x12345670U, 0x9U, 1U, 0x3E800000U};
+        tally.check(render::vulkan::rt_reflection_list_pool(list) == list.pool &&
+                        render::vulkan::rt_reflection_listed_traces_resample_pool(),
+                    "the light list's traces resample the local lights from GI's pool (its words in their block, read by "
+                    "their GLSL)");
     }
     release_mirror(gpu, &mirror);
     render::vulkan::set_rt_reflection_settings({});
