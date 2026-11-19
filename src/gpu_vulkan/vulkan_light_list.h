@@ -134,6 +134,8 @@ struct RestirLocalLights {
 };
 struct Backend;
 bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLighting& lighting, RestirLocalLights* out);
+// (round OM) The emitting triangles the local group's list holds now (0: none, or no scan in yet); the caller holds the lock.
+[[nodiscard]] std::size_t restir_listed_triangles_locked(const Backend& state);
 
 // GLSL (after scene_geometry_glsl and hit_surface_glsl; the caller defines LIST_INSTANCE_ADDRESS - the TLAS instances'
 // device address as a uvec2 expression - and LIST_INSTANCES, the instances' count, and declares `uint membership[]` (the

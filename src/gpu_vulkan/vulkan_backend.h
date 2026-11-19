@@ -203,6 +203,9 @@ struct Backend {
     // output, a float texture - a copy of the world - encoded where a stage samples it, clears decoded)
     bool linear_phase = false;
     std::string cache_folder; // where the shader and pipeline caches are kept (empty: not kept)
+    // (round OM - vulkan_rt_micromaps.h) a static buffer's write or a texture's level 0 uploaded, counted: what the
+    // opacity micromaps were baked from (vertex alphas, texels) is looked at again only when it has moved
+    uint64_t baked_input_writes = 0;
     VkDeviceSize uniform_alignment = kUniformAlignmentAtMost;
     Image blank;          // a 1x1 opaque white texture for the stages with none
     Image present_source; // the multisampled back buffer resolved, for the present's copy

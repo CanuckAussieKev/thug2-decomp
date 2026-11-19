@@ -226,6 +226,8 @@ bool upload_level(Backend& state, Texture* texture, uint32_t level)
     const auto start = std::chrono::steady_clock::now();
     if (level == 0) {
         texture->alpha_read = false; // (round PT-B: read again when next asked - texture_alpha)
+        ++texture->level0_uploads;   // (round OM: an opacity micromap baked from it looks again)
+        ++state.baked_input_writes;
     }
     const Extent extent = level_extent(texture_extent(*texture), level);
     const LevelLayout layout = d3d_level_layout(texture->desc.format, extent);
@@ -575,6 +577,8 @@ long unlock_buffer(Backend& state, Buffer* buffer)
     if (written.empty()) {
         return kOk;
     }
+    ++buffer->writes; // (round OM: an opacity micromap baked from its vertex alphas looks again)
+    ++state.baked_input_writes;
     const std::optional<RingSpan> staged = state.staging.copy(written, kStagingAlignment);
     if (!staged) {
         return kInvalid;

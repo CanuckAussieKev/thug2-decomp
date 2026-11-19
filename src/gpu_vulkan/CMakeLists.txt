@@ -49,6 +49,7 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_rt_clouds.cpp
     vulkan_rt_glsl.cpp
     vulkan_rt_materials.cpp
+    vulkan_rt_micromaps.cpp
     vulkan_hdr.cpp
     vulkan_motion.cpp
     vulkan_upscale.cpp

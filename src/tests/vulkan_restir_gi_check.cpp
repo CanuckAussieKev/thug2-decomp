@@ -18,7 +18,7 @@
 //     sky's light on it within 3 % of the bare floor's (it was black: the floor under it found, shaded by the paint);
 //   - disocclusion: the camera swapped between two views every frame (history across the other view): within 2 %;
 //   - no estimate NaN or infinite; the validation layer silent; the passes' device time printed.
-//   thug2_vulkan_restir_gi_check [--device N] [--display N] [--no-validation]
+//   thug2_vulkan_restir_gi_check [--device N] [--display N] [--no-validation] [--micromaps]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -55,7 +55,9 @@
 #include "gpu_vulkan/vulkan_context.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_path_reference.h"
+#include "gpu_vulkan/vulkan_restir_di.h"
 #include "gpu_vulkan/vulkan_restir_gi.h"
+#include "gpu_vulkan/vulkan_rt_fog.h"
 #include "platform/run_log.h"
 #include "tests/check_window.h"
 #include "tests/no_error_dialogs.h"
@@ -113,6 +115,10 @@ struct Options {
     int display = 0;
     int device = -1;
     bool validation = true;
+    // (round OM) VK_EXT_opacity_micromap enabled too (--micromaps): this scene has no cut-out to bake, and with the
+    // extension enabled the Khronos validation layer (1.4.363) crashed in a push-descriptor write of ReSTIR DI's emitters'
+    // scan at the room's scene - without the layer every check passes either way (round OM's record)
+    bool micromaps = false;
 };
 
 Options read_options(std::span<char*> arguments)
@@ -123,6 +129,8 @@ Options read_options(std::span<char*> arguments)
         const bool has_value = i + 1 < arguments.size();
         if (argument == "--no-validation") {
             options.validation = false;
+        } else if (argument == "--micromaps") {
+            options.micromaps = true;
         } else if (argument == "--device" && has_value) {
             options.device = text::to_int(core::at(arguments, ++i));
         } else if (argument == "--display" && has_value) {
@@ -756,6 +764,141 @@ rt::Emitter lamp_at(const Vec3& at, float intensity, float core)
 
 // --- the checks --------------------------------------------------------------------------------------------------------------
 
+// (round OM - vulkan_restir_di.h SharedPrimary) One primary surface a view: ReSTIR DI on beside ReSTIR GI (its check's
+// variant - the same camera rays through the pixels' centres), GI run twice from the same start (its random numbers the
+// same) - reading DI's surfaces, and tracing its own - must give the same image.
+bool shared_run(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, const Lighting& lighting,
+                bool shared, vk::RestirGiAccumulation* image)
+{
+    constexpr int kSharedFrames = 12;
+    vk::set_restir_shared_primary(shared);
+    vk::RestirOverrides direct;
+    direct.on = true;
+    direct.lamps = lighting.lamps;
+    direct.lamps_surfaced.assign(lighting.lamps.size(), 0);
+    direct.seed = 31U;
+    vk::set_restir_overrides(direct);
+    vk::forget_restir_history();
+    vk::RestirGiOverrides overrides;
+    overrides.on = true;
+    overrides.roughness = lighting.roughness;
+    overrides.f0 = lighting.f0;
+    overrides.albedo_scale = lighting.albedo;
+    overrides.sky = lighting.sky;
+    overrides.sun_toward = lighting.sun_toward;
+    overrides.sun_light = lighting.sun_light;
+    overrides.sun_radius_degrees = lighting.sun_radius;
+    overrides.lamps = lighting.lamps;
+    overrides.lamps_surfaced.assign(lighting.lamps.size(), 0);
+    overrides.cache = false; // (the cache's sums are atomics: their order isn't fixed)
+    overrides.seed = 4099U;
+    vk::set_restir_gi_overrides(overrides);
+    vk::set_restir_gi_pool(false); // (the pool's picks are made again each submission: not the same twice)
+    vk::restart_restir_gi_sequence();
+    vk::set_restir_gi_accumulate(true);
+    vk::restart_restir_gi_accumulation();
+    for (int frame = 0; frame < kSharedFrames; ++frame) {
+        draw_frame(gpu, targets, meshes, view_from(kEyeA));
+    }
+    bool read = false;
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        read = vk::read_restir_gi_accumulation(state, image) && image->width == kWidth && image->height == kHeight;
+    }
+    vk::set_restir_gi_overrides({});
+    vk::set_restir_overrides({});
+    vk::set_restir_shared_primary(true);
+    vk::set_restir_gi_pool(true);
+    return read;
+}
+
+void check_shared_primary(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes,
+                          const Lighting& lighting, Tally* tally)
+{
+    text::print("one primary surface for ReSTIR DI and GI (round OM):\n");
+    vk::RestirGiAccumulation traced;
+    vk::RestirGiAccumulation shared;
+    const uint64_t before = vk::restir_gi_stats().shared_views;
+    const bool read_traced = shared_run(gpu, targets, meshes, lighting, false, &traced);
+    const uint64_t after_traced = vk::restir_gi_stats().shared_views;
+    const bool read_shared = shared_run(gpu, targets, meshes, lighting, true, &shared);
+    const uint64_t after_shared = vk::restir_gi_stats().shared_views;
+    double largest = 0.0;
+    double total = 0.0;
+    std::size_t lit = 0;
+    for (std::size_t i = 0; read_traced && read_shared && i < traced.mean.size() && i < shared.mean.size(); ++i) {
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            const double a = core::at(core::at(traced.mean, i), ch);
+            const double b = core::at(core::at(shared.mean, i), ch);
+            largest = std::max(largest, std::abs(a - b));
+            total += a;
+            lit += a > 0.0 ? 1 : 0;
+        }
+    }
+    const double mean = lit > 0 ? total / static_cast<double>(lit) : 0.0;
+    tally->check(read_traced && read_shared && after_traced == before && after_shared > after_traced && lit > 0 &&
+                     largest <= 1.0e-6 * std::max(mean, 1.0e-6),
+                 text::format("ReSTIR GI with ReSTIR DI's primary surfaces (%llu views shared) and with its own: the "
+                              "same image - the largest difference %.3g (mean %.4g over %zu lit channels)",
+                              static_cast<unsigned long long>(after_shared - after_traced), largest, mean, lit));
+}
+
+// (round OM - round PF's gap: the fog with emitting triangles) The haze lit by the disc's 16 emitting triangles (the
+// light store's - no lamp in the frame): its light list's candidates from the presampled pool, and the same candidates
+// picked at each point as before the pool (vulkan_rt_fog.h set_rt_fog_light_pool) - one estimator: the two histories'
+// light the same within their noise, and the haze lit at all.
+double fog_light(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, bool pool, bool* ok)
+{
+    constexpr int kFogFrames = 96;
+    vk::set_rt_fog_light_pool(pool);
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        vk::rt_fog_reset_history(state);
+    }
+    for (int frame = 0; frame < kFogFrames; ++frame) {
+        draw_frame(gpu, targets, meshes, view_from(kEyeA));
+    }
+    vk::RtFogTexels history;
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        *ok = vk::read_rt_fog_image(state, {0, 0, kWidth, kHeight}, vk::RtFogImage::kHistory, &history) && *ok;
+    }
+    vk::set_rt_fog_light_pool(true);
+    double sum = 0.0;
+    for (const std::array<float, 4>& texel : history.texels) {
+        sum += luma({core::at(texel, 0), core::at(texel, 1), core::at(texel, 2)});
+    }
+    return history.texels.empty() ? 0.0 : sum / static_cast<double>(history.texels.size());
+}
+
+void check_fog_emitters(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    text::print("the fog lit by emitting triangles (round OM - the presampled pool's triangle records):\n");
+    vk::RtFogSettings fog;
+    fog.on = true;
+    fog.haze = true;
+    fog.scale = 2;
+    vk::set_rt_fog_settings(fog);
+    bool ok = true;
+    const double pooled = fog_light(gpu, targets, meshes, true, &ok);
+    const double picked = fog_light(gpu, targets, meshes, false, &ok);
+    const vk::RtFogLights lights = [] {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        return vk::rt_fog_lights_locked(state);
+    }();
+    vk::set_rt_fog_settings({});
+    constexpr double kFogAgreement = 0.03;
+    tally->check(ok && lights.triangles > 0 && lights.lamps.empty() && picked > 0.0 &&
+                     std::abs(pooled - picked) <= kFogAgreement * picked,
+                 text::format("the haze's light from %zu emitting triangles (no lamp): from the pool %.5g, picked at each "
+                              "point %.5g (%+.2f %%; within 3 %%)",
+                              lights.triangles, pooled, picked, picked > 0.0 ? 100.0 * (pooled / picked - 1.0) : 0.0));
+}
+
 void check_device(render::Gpu& gpu, Tally* tally)
 {
     Targets targets;
@@ -797,6 +940,8 @@ void check_device(render::Gpu& gpu, Tally* tally)
                               "%.5f (%+.2f %%)",
                               static_cast<double>(kRoughness), full.mean, full.sigma, ref_a.mean, ref_a.sigma,
                               percent(full.mean, ref_a.mean)));
+    check_shared_primary(gpu, targets, everything, lit, tally); // (round OM)
+    check_fog_emitters(gpu, targets, everything, tally);        // (round OM)
     RunPlan alone = plan;
     alone.spatial = 0;
     alone.temporal = false;
@@ -1089,7 +1234,8 @@ Opened open_device(const Options& options, SDL_Window* window)
     vk::set_context_options({.validation = options.validation,
                              .device_index = options.device,
                              .on_message = print_line,
-                             .ray_tracing = true},
+                             .ray_tracing = true,
+                             .opacity_micromaps = options.micromaps},
                             window);
     render::GpuContext& context = vk::gpu_context();
     if (!context.create_instance()) {

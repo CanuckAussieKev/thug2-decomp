@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -120,5 +121,24 @@ void release_restir_di(Backend& state);
 // The passes for a viewport (the listener's work). The caller holds the lock. False: not this view (another tier, no
 // inputs, no scene).
 bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view);
+
+// (round OM) One primary surface a view for ReSTIR DI and GI (NVIDIA's RTXDI / ReSTIR GI samples' shared G-buffer): the
+// pixel's surface - the camera ray's drawn surface (trace_drawn, hit_surface) or the depth's own - found once, by ReSTIR
+// DI's first pass, and written in full precision (the material as the surface has it - kSharedSurfaceBytes a pixel, its
+// row-major index in the view's rectangle: at + valid, shading normal + roughness, triangle normal + flags (1 an object's,
+// 2 a metal), albedo, F0); ReSTIR GI's passes read it where it is this view's (the same frame, rectangle, camera and
+// matrix - else they trace their own, as before). Its device address, the frame's submission and the view it was
+// written for: the caller holds the lock. set_restir_shared_primary(false): never shared (the checks' comparison).
+inline constexpr std::size_t kSharedSurfaceBytes = 80;
+struct SharedPrimary {
+    uint64_t address = 0; // (a device address) 0: none this frame
+    uint64_t serial = 0;
+    std::array<int32_t, 4> rect{};
+    std::array<float, 16> to_world{};
+    std::array<float, 3> eye{};
+    bool check = false; // (the check's camera rays through the pixels' centres)
+};
+[[nodiscard]] SharedPrimary restir_shared_primary(const Backend& state);
+void set_restir_shared_primary(bool on);
 
 } // namespace render::vulkan

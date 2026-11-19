@@ -452,6 +452,19 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
         return radiance * ray_light(mask, p, dir, LL_REACH) / pdf;
     }
     LocalLight l;
+#ifdef LL_POOL
+    // (round OM - RTXDI's presampled light tiles, as the fog's candidates) the local group's light from the pool: a pick
+    // of the group by power and a uniform point on it, as local_light_at's - its pdf the group's; x the group's share of
+    // the full list's picks (LL_POOL_SHARE) it is the pdf of the pick above. The same distribution; the triangle's corners,
+    // instance and emission texel not read here.
+    if (LL_POOL) {
+        uint slot = min(uint(u1 * float(LIGHT_POOL_SIZE)), LIGHT_POOL_SIZE - 1u);
+        if (!light_seen_from(light_pool_read(slot), p, l) || !(l.pdf > 0.0)) {
+            return vec3(0.0);
+        }
+        l.pdf *= LL_POOL_SHARE;
+    } else
+#endif
     if (!local_light_at(picked, count, vec2(u1, u2), p, l) || !(l.pdf > 0.0)) {
         return vec3(0.0);
     }

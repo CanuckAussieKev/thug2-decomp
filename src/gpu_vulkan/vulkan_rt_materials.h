@@ -193,6 +193,18 @@ public:
     [[nodiscard]] uint32_t slot_of(GpuTexture* texture) const; // 0: none
     [[nodiscard]] uint32_t rows() const { return current_.rows; }
     [[nodiscard]] MaterialRecord record(rt::MaterialId id) const;
+    // (round OM - opacity micromaps, vulkan_rt_micromaps.h) A material's texture as the table has it: its slot (0: the
+    // white texture), its size and how often its level 0 was uploaded (vulkan_objects.h Texture::level0_uploads; 0 and
+    // 1 x 1 for the white texture)...
+    struct TextureInfo {
+        uint32_t slot = 0;
+        uint32_t width = 1;
+        uint32_t height = 1;
+        uint64_t uploads = 0;
+    };
+    [[nodiscard]] TextureInfo texture_info(rt::MaterialId id) const;
+    // ... and how many make_visible calls changed something the shaders read (rows, slots, a new buffer).
+    [[nodiscard]] uint64_t changes() const;
 
 private:
     // A buffer of records and the set that names it.
@@ -240,6 +252,7 @@ private:
     uint32_t next_slot_ = 1;
     std::vector<uint32_t> slots_to_write_;          // slots whose descriptor changed since the last make_visible
     bool full_reported_ = false;
+    uint64_t changes_ = 0; // (round OM)
 };
 
 } // namespace render::vulkan

@@ -41,6 +41,7 @@
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_upscale.h"
+#include "gpu_vulkan/vulkan_restir_di.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -164,8 +165,12 @@ struct GiBlock {
     std::array<float, 4> cloud_place{};    // (the clouds' shadow map: vulkan_rt_sky_pass.h CloudShadowMap)
     std::array<float, 4> cloud_light{};
     std::array<float, 4> cache_cells{};    // (round MB) x the angle a radiance cache cell spans from the camera (its least)
+    std::array<uint32_t, 4> shared{};      // (round OM) xy ReSTIR DI's primary surfaces of this view, z 1: read them
+    // (round OM) xy the light list's presampled pool (vulkan_light_list.h kLightPoolSize), z 1: the local lights from it,
+    // w the local group's share of the list's picks (float bits)
+    std::array<uint32_t, 4> pool{};
 };
-static_assert(sizeof(GiBlock) == (2 * 64) + (19 * 16));
+static_assert(sizeof(GiBlock) == (2 * 64) + (21 * 16));
 
 // --- the shaders -------------------------------------------------------------------------------------------------------
 
@@ -192,6 +197,8 @@ layout(std140, set = 0, binding = 2) uniform GiBlock {
     vec4 cloud_place;
     vec4 cloud_light;
     vec4 cache_cells;
+    uvec4 surfaces;
+    uvec4 pool;
 } pass;
 struct LightEntry {
     float threshold;
@@ -432,11 +439,49 @@ Surface depth_surface(ivec2 p, vec3 here, vec3 dir)
 }
 #endif
 
+// (round OM - vulkan_restir_di.h SharedPrimary) ReSTIR DI's primary surface of this view - the same surface this pass
+// would find, in full precision: the material put on it here as primary() does (hit_material: the check's).
+layout(buffer_reference, buffer_reference_align = 16, scalar) readonly buffer SharedSurfaces { vec4 rows[]; };
+Surface shared_surface(ivec2 p)
+{
+    ivec2 local = p - pass.rect.xy;
+    uint at = (uint(local.y) * uint(pass.rect.z) + uint(local.x)) * 5u;
+    SharedSurfaces rows = SharedSurfaces(pass.surfaces.xy);
+    vec4 r0 = rows.rows[at];
+    vec4 r1 = rows.rows[at + 1u];
+    vec4 r2 = rows.rows[at + 2u];
+    vec4 r3 = rows.rows[at + 3u];
+    vec4 r4 = rows.rows[at + 4u];
+    uint flags = floatBitsToUint(r2.w);
+    Surface s;
+    s.at = r0.xyz;
+    s.valid = r0.w > 0.5;
+    s.n = r1.xyz;
+    s.ng = r2.xyz;
+    s.object = (flags & 1u) != 0u;
+    if ((pass.counts.w & FLAG_FORCED) != 0u) {
+        BrdfMaterial m = brdf_material(r3.rgb * pass.force.z, vec3(pass.force.y), pass.force.x);
+        s.albedo = m.albedo;
+        s.f0 = m.f0;
+        s.rough = m.roughness;
+        s.metal = false;
+    } else {
+        s.albedo = r3.rgb;
+        s.f0 = r4.rgb;
+        s.rough = r1.w;
+        s.metal = (flags & 2u) != 0u;
+    }
+    return s;
+}
+
 // The pixel's surface: the check's camera ray through its centre; the game's the prepass's depth there, its triangle the
 // one a camera ray meets at that point (round CW: the one the prepass kept - trace_drawn, a blended layer too) -
-// (round PT4d) where none does, the depth's own surface (depth_surface).
+// (round PT4d) where none does, the depth's own surface (depth_surface). (Round OM: ReSTIR DI's where it found it.)
 Surface primary(ivec2 p)
 {
+    if (pass.surfaces.z != 0u) {
+        return shared_surface(p);
+    }
     vec2 centre = vec2(p) + 0.5;
     vec3 eye = pass.eye.xyz;
     vec3 dir;
@@ -1204,6 +1249,12 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
     source += kCommon;
     source += light_instances_glsl();
     source += rt::lights::kLightListGlsl;
+    // (round OM) the local lights' next-event picks from the presampled pool, read through its address (the pushed set
+    // is full: 32 bindings)
+    source += "#define LIGHT_POOL_SIZE " + std::to_string(kLightPoolSize) + "u\n";
+    source += "layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer LightPoolWords { uvec4 "
+              "words[]; };\n#define light_pool (LightPoolWords(pass.pool.xy).words)\n#define LL_POOL (pass.pool.z != "
+              "0u)\n#define LL_POOL_SHARE uintBitsToFloat(pass.pool.w)\n";
     source += local_light_glsl();
     if (which == Shader::kSky) {
         source += sky_grid_glsl();
@@ -1387,6 +1438,8 @@ struct GiState {
     DeviceBuffer lights;
     uint64_t table_key = 0;
     uint32_t entries = 0;
+    float local_share = 0.0F; // (round OM) the list's local group's share of its picks (the pool's pdf x it)
+    bool pool_off = false;    // (round OM - the checks') the local lights picked from the list itself, as before
     // per pixel
     uint32_t width = 0;
     uint32_t height = 0;
@@ -1409,6 +1462,7 @@ struct GiState {
     bool lit_view = false;
     FrameLightList frame_list; // (round WF) the full list and the cache this frame (restir_gi_frame_lights)
     uint64_t hit_frame = 0; // (the frame whose view wrote specular_hit)
+    uint64_t shared_views = 0; // (round OM) views whose primary surfaces were ReSTIR DI's
     uint64_t passes = 0;
     Timing timing;
     double last_ms = 0.0;
@@ -1706,6 +1760,9 @@ bool update_table(Backend& state, GiState& own, const SceneLighting& lighting, c
     }
     own.entries = static_cast<uint32_t>(list.table.entries.size());
     own.table_key = key;
+    constexpr std::size_t kTrianglesKind = 2;
+    constexpr std::size_t kLampsKind = 3;
+    own.local_share = static_cast<float>(core::at(list.kind_pick, kTrianglesKind) + core::at(list.kind_pick, kLampsKind));
     return true;
 }
 
@@ -1917,6 +1974,22 @@ void set_restir_gi_overrides(const RestirGiOverrides& overrides)
     gi_state().overrides = overrides;
 }
 
+void set_restir_gi_pool(bool on)
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    gi_state().pool_off = !on;
+}
+
+void restart_restir_gi_sequence()
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    gi_state().frames = 0;
+    gi_state().history = false;
+    gi_state().cache_clear = true;
+}
+
 void forget_restir_gi_history()
 {
     Backend& state = backend();
@@ -1987,7 +2060,8 @@ RestirGiStats restir_gi_stats()
                          .gpu_ms = own.last_ms,
                          .cache_ms = own.last_cache_ms,
                          .gpu_width = own.timed_width,
-                         .gpu_height = own.timed_height};
+                         .gpu_height = own.timed_height,
+                         .shared_views = own.shared_views};
 }
 
 bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
@@ -2141,6 +2215,25 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
                        static_cast<uint32_t>(scene.instances_address >> 32U), scene.instances, 0U};
     (void)disc_of(lighting, &block.sun, &block.sun_radiance);
     block.cache_cells = {static_cast<float>(kCacheCellPixels * pixel_angle(to_world, view)), 0.0F, 0.0F, 0.0F};
+    // (round OM) the local lights' next-event picks from ReSTIR DI's presampled pool (vulkan_light_list.h) - made for this
+    // submission from the same local group the list holds
+    if (!own.pool_off && local.light_pool != VK_NULL_HANDLE && local.entries > 0 && own.local_share > 0.0F) {
+        const VkBufferDeviceAddressInfo pool_info{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = local.light_pool};
+        const VkDeviceAddress pool = vkGetBufferDeviceAddress(state.context.device(), &pool_info);
+        block.pool = {static_cast<uint32_t>(pool & 0xFFFFFFFFULL), static_cast<uint32_t>(pool >> 32U), 1U,
+                      std::bit_cast<uint32_t>(own.local_share)};
+    }
+    // (round OM) ReSTIR DI's primary surfaces when they are this view's: the same frame, rectangle, camera and matrix
+    const SharedPrimary shared = restir_shared_primary(state);
+    if (shared.address != 0 && shared.check == check && shared.rect == block.rect && shared.to_world == block.to_world &&
+        shared.eye == std::array<float, 3>{core::at(block.eye, 0), core::at(block.eye, 1), core::at(block.eye, 2)}) {
+        block.shared = {static_cast<uint32_t>(shared.address & 0xFFFFFFFFULL), static_cast<uint32_t>(shared.address >> 32U),
+                        1U, 0U};
+        if (++own.shared_views == 1) {
+            get_log("restir gi: the view's primary surfaces read from ReSTIR DI's (one camera ray a pixel for both)");
+        }
+    }
     block.sky_dist = {own.sky_integral > 0.0 ? static_cast<float>(1.0 / own.sky_integral) : 0.0F, 0.0F, 0.0F, 0.0F};
     if (map_now) {
         block.cloud_place = cloud_map.place;

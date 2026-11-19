@@ -3559,7 +3559,12 @@ Opened open_device(const Options& options, SDL_Window* window)
     render::vulkan::set_context_options({.validation = options.validation,
                                          .device_index = options.device,
                                          .on_message = print_line,
-                                         .ray_tracing = true},
+                                         .ray_tracing = true,
+                                         // (round OM) no opacity micromaps: the cut-out box is drawn solid in the
+                                         // raster while its texels are alpha 0 for the rays (a fixture: the game's
+                                         // raster discards them too) - a micromap rightly drops it for every ray, the
+                                         // "everything solid" ones too (vulkan_rt_micromaps.h; rt_check covers them)
+                                         .opacity_micromaps = false},
                                         window);
     // (on before the device: its depth surfaces are made samplable)
     render::vulkan::set_rt_light_settings(settings_for(true, 4));

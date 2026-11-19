@@ -301,11 +301,23 @@ void Frames::retire(VkAccelerationStructureKHR structure, const DeviceBuffer& me
     }
 }
 
+void Frames::retire(VkMicromapEXT micromap, const DeviceBuffer& memory)
+{
+    Retired& retired = slot().retired;
+    if (micromap != VK_NULL_HANDLE) {
+        retired.micromaps.push_back(micromap);
+    }
+    if (memory.buffer != VK_NULL_HANDLE) {
+        retired.buffers.push_back(memory);
+    }
+}
+
 std::size_t Frames::retired_count() const
 {
     std::size_t count = 0;
     for (const Slot& each : slots_) {
-        count += each.retired.images.size() + each.retired.buffers.size() + each.retired.structures.size();
+        count += each.retired.images.size() + each.retired.buffers.size() + each.retired.structures.size() +
+                 each.retired.micromaps.size();
     }
     return count;
 }
@@ -316,6 +328,10 @@ void Frames::destroy(Retired& retired)
         vkDestroyAccelerationStructureKHR(device_, structure, nullptr);
     }
     retired.structures.clear();
+    for (VkMicromapEXT micromap : retired.micromaps) { // (round OM: likewise)
+        vkDestroyMicromapEXT(device_, micromap, nullptr);
+    }
+    retired.micromaps.clear();
     for (Image& image : retired.images) {
         memory_->destroy_image(&image);
     }

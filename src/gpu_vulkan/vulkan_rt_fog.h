@@ -132,6 +132,9 @@ bool record_rt_fog_pass(Backend& state, const rt::ViewDrawn& view);
 
 // The passes recorded (for the check and the log).
 [[nodiscard]] uint64_t rt_fog_passes();
+// (round OM - the checks') The light list's candidates from the presampled pool (true, the default) or picked at each
+// point as before it (the same distribution: a check of the pool's records against the list's own).
+void set_rt_fog_light_pool(bool on);
 
 // (round WF - path tracing, stage 7) The local lights the last pass's air was lit by: the light list's lamps (vulkan_light_list.h
 // restir_local_lights - its order), its emitting triangles' count, the scale on their light (the frame's pre-exposure) and

@@ -393,6 +393,7 @@ bool Context::open(SDL_Window* window, const ContextOptions& options)
 {
     on_message_ = options.on_message;
     ray_tracing_wanted_ = options.ray_tracing;
+    opacity_micromaps_wanted_ = options.opacity_micromaps;
     additions_ = options.additions;
     crash_markers_wanted_ = options.crash_markers;
     window_ = window;
@@ -565,7 +566,11 @@ bool Context::create_device()
     structures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
     VkPhysicalDeviceRayQueryFeaturesKHR queries{};
     queries.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+    VkPhysicalDeviceOpacityMicromapFeaturesEXT micromaps{};
+    micromaps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT;
     ray_tracing_ = false;
+    opacity_micromaps_ = false;
+    opacity_micromap_levels_ = 0;
     if (ray_tracing_wanted_ && dynamic_rendering_) {
         if (ray_tracing_offered(physical_device_)) {
             for (const char* name : kRayTracingExtensions) {
@@ -584,6 +589,13 @@ bool Context::create_device()
             features13.pNext = &features12;
             features12.pNext = &structures;
             structures.pNext = &queries;
+            // (round OM: opacity micromaps where the device has them - vulkan_rt_micromaps.h)
+            if (opacity_micromaps_wanted_ && opacity_micromaps_offered(physical_device_, &opacity_micromap_levels_)) {
+                extensions.push_back(VK_EXT_OPACITY_MICROMAP_EXTENSION_NAME);
+                micromaps.micromap = VK_TRUE;
+                queries.pNext = &micromaps;
+                opacity_micromaps_ = true;
+            }
             // (ray-traced shadows trace each sample of a multisampled target: vulkan_rt_shadows.h)
             enabled_features_.sampleRateShading = offered.sampleRateShading;
             // (round V: a surface writes Ray Reconstruction's guides from its fragment shader - vulkan_surface_light.h)
@@ -1040,6 +1052,34 @@ VkResult Context::queue_present(uint32_t image)
 VkImage Context::swapchain_image(uint32_t image) const { return core::at(images_, image); }
 
 VkSemaphore Context::present_semaphore(uint32_t image) const { return core::at(presented_, image); }
+
+// NOT ORIGINAL - (round OM) VK_EXT_opacity_micromap and its micromap feature offered, with 4-state micromaps of at least
+// level 2 (16 micro-triangles: a word a triangle - vulkan_rt_micromaps.h); `levels` the finest level offered.
+bool opacity_micromaps_offered(VkPhysicalDevice device, uint32_t* levels)
+{
+    *levels = 0;
+    if (!has_extension(device_extensions(device), VK_EXT_OPACITY_MICROMAP_EXTENSION_NAME)) {
+        return false;
+    }
+    VkPhysicalDeviceOpacityMicromapFeaturesEXT features{};
+    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT;
+    VkPhysicalDeviceFeatures2 asked{};
+    asked.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    asked.pNext = &features;
+    vkGetPhysicalDeviceFeatures2(device, &asked);
+    VkPhysicalDeviceOpacityMicromapPropertiesEXT properties{};
+    properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_PROPERTIES_EXT;
+    VkPhysicalDeviceProperties2 told{};
+    told.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    told.pNext = &properties;
+    vkGetPhysicalDeviceProperties2(device, &told);
+    constexpr uint32_t kLeastLevel = 2;
+    if (features.micromap == VK_FALSE || properties.maxOpacity4StateSubdivisionLevel < kLeastLevel) {
+        return false;
+    }
+    *levels = properties.maxOpacity4StateSubdivisionLevel;
+    return true;
+}
 
 bool ray_tracing_offered(VkPhysicalDevice device)
 {

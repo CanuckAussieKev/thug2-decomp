@@ -130,8 +130,9 @@ struct RestirBlock {
     std::array<uint32_t, 4> list{};        // x the scan's capacity
     std::array<float, 4> grid{};           // (round PT4c) the light grid: xyz its corner, w a cell's side
     std::array<uint32_t, 4> grid_cells{};  // its cells across x, y, z; w its slots a cell (0: no grid - the list alone)
+    std::array<uint32_t, 4> shared{};      // (round OM) xy the shared primary surface's address, z 1: written here
 };
-static_assert(sizeof(RestirBlock) == (2 * 64) + (11 * 16));
+static_assert(sizeof(RestirBlock) == (2 * 64) + (12 * 16));
 
 // --- the shaders -------------------------------------------------------------------------------------------------------
 
@@ -151,6 +152,7 @@ layout(std140, set = 0, binding = 2) uniform RestirBlock {
     uvec4 list;
     vec4 grid;
     uvec4 grid_cells;
+    uvec4 surfaces;
 } pass;
 struct LightEntry {
     float threshold;
@@ -324,9 +326,29 @@ Surface depth_surface(ivec2 p, vec3 here, vec3 dir)
 }
 #endif
 
+// (round OM - vulkan_restir_di.h SharedPrimary) The view's primary surface for ReSTIR GI: 5 x vec4 a pixel - at + valid,
+// shading normal + roughness, triangle normal + flags (1 object, 2 metal), albedo, F0 - the material as the hit surface
+// has it (not the check's).
+layout(buffer_reference, buffer_reference_align = 16, scalar) writeonly buffer SharedSurfaces { vec4 rows[]; };
+Surface shared_primary(ivec2 p, Surface s, bool metal, vec3 f0, float rough)
+{
+    if (pass.surfaces.z != 0u) {
+        ivec2 local = p - pass.rect.xy;
+        uint at = (uint(local.y) * uint(pass.rect.z) + uint(local.x)) * 5u;
+        SharedSurfaces rows = SharedSurfaces(pass.surfaces.xy);
+        uint flags = (s.object ? 1u : 0u) | (metal ? 2u : 0u);
+        rows.rows[at] = vec4(s.at, s.valid ? 1.0 : 0.0);
+        rows.rows[at + 1u] = vec4(s.n, rough);
+        rows.rows[at + 2u] = vec4(s.ng, uintBitsToFloat(flags));
+        rows.rows[at + 3u] = vec4(s.albedo, 0.0);
+        rows.rows[at + 4u] = vec4(f0, 0.0);
+    }
+    return s;
+}
+
 // The pixel's surface: the check's camera ray through its centre; the game's the prepass's depth there, its triangle the
 // one a camera ray meets at that point (round CW: the one the prepass kept - trace_drawn, a blended layer too) -
-// (round PT4d) where none does, the depth's own surface (depth_surface).
+// (round PT4d) where none does, the depth's own surface (depth_surface). (Round OM: written for ReSTIR GI as it is found.)
 Surface primary(ivec2 p)
 {
     vec2 centre = vec2(p) + 0.5;
@@ -340,12 +362,12 @@ Surface primary(ivec2 p)
 #else
     float d = imageLoad(u_depth, p).r;
     if (!(d < 1.0)) {
-        return no_surface();
+        return shared_primary(p, no_surface(), false, vec3(0.0), 1.0);
     }
     vec3 here = world_at(centre, d);
     expected = length(here - eye);
     if (!(expected > 0.0)) {
-        return no_surface();
+        return shared_primary(p, no_surface(), false, vec3(0.0), 1.0);
     }
     dir = (here - eye) / expected;
     reach = expected * 1.05 + 1.0;
@@ -361,9 +383,9 @@ Surface primary(ivec2 p)
         (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected) ||
         !hit_surface(instance, primitive, id, bary, to_world, dir, h) || h.hidden) {
 #ifdef CHECK
-        return no_surface();
+        return shared_primary(p, no_surface(), false, vec3(0.0), 1.0);
 #else
-        return depth_surface(p, here, dir);
+        return shared_primary(p, depth_surface(p, here, dir), false, vec3(0.0), 1.0);
 #endif
     }
     Surface s;
@@ -380,6 +402,10 @@ Surface primary(ivec2 p)
 #endif
     s.object = (geometry_record(instance).instance_flags & HIT_INSTANCE_OBJECT) != 0u;
     s.valid = true;
+    // (GI's: the albedo, the material's F0 and roughness as the surface has them - it puts its check's on them itself)
+    Surface written = s;
+    written.albedo = h.base_colour;
+    shared_primary(p, written, h.kind == HIT_KIND_METAL, h.material.f0, h.material.roughness);
     return s;
 }
 
@@ -1138,6 +1164,8 @@ struct RestirState {
     std::array<DeviceBuffer, 2> more{};
     DeviceBuffer sums;
     DeviceBuffer counters;
+    DeviceBuffer shared; // (round OM) the view's primary surface for ReSTIR GI (kSharedSurfaceBytes a pixel)
+    SharedPrimary shared_view;
     uint64_t frames = 0;
     bool history = false;       // last frame's reservoirs and surfaces are this view's
     uint64_t history_layout = 0;
@@ -1160,6 +1188,12 @@ RestirState& restir_state()
 {
     static RestirState made;
     return made;
+}
+
+bool& shared_primary_on()
+{
+    static bool on = true;
+    return on;
 }
 
 bool first_report(Backend& state, uint64_t what) { return state.reported.insert(what).second; }
@@ -1661,7 +1695,9 @@ bool keep_light_pool(Backend& state, RestirState& own, VkCommandBuffer commands,
                      const DeviceBuffer& list)
 {
     constexpr VkDeviceSize kBytes = VkDeviceSize{kLightPoolSize} * kLightPoolWords * sizeof(uint32_t);
-    if (!ensure_buffer(state, &own.light_pool, kBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kDevice)) {
+    // (round OM: ReSTIR GI reads it through its address)
+    if (!ensure_buffer(state, &own.light_pool, kBytes,
+                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, BufferPlace::kDevice)) {
         return false;
     }
     if (own.entries == 0 || (own.pool_serial == state.frames.serial() && own.pool_table == own.table_key)) {
@@ -1729,6 +1765,13 @@ bool keep_light_pool(Backend& state, RestirState& own, VkCommandBuffer commands,
 }
 
 } // namespace
+
+std::size_t restir_listed_triangles_locked(const Backend& state)
+{
+    static_cast<void>(state);
+    const RestirState& own = restir_state();
+    return own.list_now >= 0 ? own.triangle_powers.size() : 0;
+}
 
 bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLighting& lighting, RestirLocalLights* out)
 {
@@ -1896,6 +1939,7 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
 {
     RestirState& own = restir_state();
     own.lit_view = false;
+    own.shared_view = SharedPrimary{}; // (round OM: none for this view until its first pass is recorded)
     const bool check = own.overrides.on;
     if (own.failed || (!check && !wanted(state)) || !state.context.ray_tracing_enabled() || rt::ray_tracing() == nullptr) {
         return false;
@@ -1975,6 +2019,10 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         made = ensure_buffer(state, &core::at(own.at, k), pixels * 16, storage, BufferPlace::kDevice) &&
                ensure_buffer(state, &core::at(own.more, k), pixels * 16, storage, BufferPlace::kDevice);
     }
+    // (round OM) the shared primary surface, read by ReSTIR GI through its address
+    const bool sharing = shared_primary_on() && made &&
+                         ensure_buffer(state, &own.shared, pixels * kSharedSurfaceBytes,
+                                       storage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, BufferPlace::kDevice);
     if (!made) {
         if (first_report(state, kReportBuffers)) {
             get_log("restir: the reservoirs (%ux%u) couldn't be made - the lamps pass lights the lamps", width, height);
@@ -2026,11 +2074,27 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     }
     core::at(block.grid, 3) = kGridSide;
     block.grid_cells = {kGridAcross, kGridUp, kGridAcross, grid ? kGridSlots : 0U};
+    VkDeviceAddress shared_address = 0;
+    if (sharing) {
+        const VkBufferDeviceAddressInfo address_info{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = own.shared.buffer};
+        shared_address = vkGetBufferDeviceAddress(state.context.device(), &address_info);
+        block.shared = {static_cast<uint32_t>(shared_address & 0xFFFFFFFFULL), static_cast<uint32_t>(shared_address >> 32U),
+                        1U, 0U};
+    }
     std::array<uint8_t, sizeof(RestirBlock)> block_bytes{};
     std::memcpy(block_bytes.data(), &block, sizeof(block));
     const std::optional<RingSpan> block_span = state.ring.copy(block_bytes, kUniformAlignment);
     if (!block_span) {
         return false;
+    }
+    if (sharing) { // (round OM: what ReSTIR GI's passes of this view may read)
+        own.shared_view = {.address = shared_address,
+                           .serial = state.frames.serial(),
+                           .rect = block.rect,
+                           .to_world = block.to_world,
+                           .eye = {core::at(block.eye, 0), core::at(block.eye, 1), core::at(block.eye, 2)},
+                           .check = check};
     }
 
     // the passes
@@ -2196,6 +2260,14 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     return true;
 }
 
+SharedPrimary restir_shared_primary(const Backend& state)
+{
+    const SharedPrimary& shared = restir_state().shared_view;
+    return shared.serial == state.frames.serial() ? shared : SharedPrimary{};
+}
+
+void set_restir_shared_primary(bool on) { shared_primary_on() = on; }
+
 void install_restir_di() { rt::add_view_listener(&listener()); }
 
 void uninstall_restir_di() { rt::remove_view_listener(&listener()); }
@@ -2229,7 +2301,7 @@ void release_restir_di(Backend& state)
     for (DeviceBuffer* buffer : {&core::at(own.emitters, 0), &core::at(own.emitters, 1), &own.membership, &own.slots,
                                  &own.read_back, &own.lights, &own.lamps, &own.reservoirs_a, &own.reservoirs_b,
                                  &core::at(own.at, 0), &core::at(own.at, 1), &core::at(own.more, 0), &core::at(own.more, 1),
-                                 &own.sums, &own.counters, &own.bounds, &own.cells, &own.light_pool}) {
+                                 &own.sums, &own.counters, &own.bounds, &own.cells, &own.light_pool, &own.shared}) {
         state.memory.destroy_buffer(buffer);
     }
     const RestirOverrides overrides = own.overrides;
