@@ -71,6 +71,7 @@
 #include "engine/script/context.h"
 #include "engine/sys/editor_mode.h"
 #include "engine/pad_input/input_event.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "platform/sdl_time.h"
 #include "base/core/down_cast.h"
@@ -309,10 +310,10 @@ void handle_event(const input::Event& event)
 
 bool is_switched_on() { return sys::editor_mode::on(); }
 
-bool& debug_enabled()
+bool debug_enabled()
 {
-    static bool on = config_int("features", "debug_editor", 0) != 0;
-    return on;
+    static build_info::LiveInt on{"features", "debug_editor", 0}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    return on.on();
 }
 
 bool live_now() { return editor_session().active_; }

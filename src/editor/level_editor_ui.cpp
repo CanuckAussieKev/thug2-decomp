@@ -41,6 +41,7 @@
 #include "editor/level_editor_ux8.h"
 #include "editor/level_editor_view.h"
 #include "editor/level_editor_rotate.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -524,10 +525,10 @@ void get_toolbar(const ShapeMesh& model)
 
 } // namespace
 
-bool& is_switched_on()
+bool is_switched_on()
 {
-    static bool on = config_int("features", "editor_ui", 1) != 0;
-    return on;
+    static build_info::LiveInt on{"features", "editor_ui", 1}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    return on.on();
 }
 
 bool underway() { return imgui_setup().running_; }

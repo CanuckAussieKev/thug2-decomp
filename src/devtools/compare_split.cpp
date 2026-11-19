@@ -151,7 +151,9 @@ void handle_event(const input::Event& event)
     }
 }
 
-void start()
+} // namespace
+
+void read_settings()
 {
     State& split = state();
     {
@@ -165,12 +167,24 @@ void start()
     }
     split.labels = build_info::fetch_flag(build_info::kGraphics, "compare_labels", true);
     split.overrides = read_section();
-    input::add_event_handler(handle_event);
-    if (build_info::fetch_flag(build_info::kGraphics, "compare_split", false)) {
-        set_on(true);
+    const bool wanted = build_info::fetch_flag(build_info::kGraphics, "compare_split", false);
+    if (wanted && split.on) {
+        prepare(); // (on already: its sides made again with the overrides as they are now)
+    } else {
+        set_on(wanted);
+    }
+    if (wanted) {
         get_log("compare: [Graphics] compare_split=1 - A ([Graphics]) left of %.0f%%, B right: %s", split.divider * kPerCent,
                 split.overrides.empty() ? "nothing differs ([Compare] is empty)" : summary_of(split.overrides).c_str());
     }
+}
+
+namespace {
+
+void start()
+{
+    input::add_event_handler(handle_event);
+    read_settings();
 }
 
 class CompareExtension final : public ext::Extension {

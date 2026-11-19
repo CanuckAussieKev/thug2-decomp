@@ -207,7 +207,7 @@ inline constexpr std::string_view kAxisLetters = "XYZ";
 
 // The editor is offered: in the editor mode only (engine/sys/editor_mode.h - thug2-editor.exe, -editor, -edit).
 bool is_switched_on();
-bool& debug_enabled();
+bool debug_enabled();
 // The editor is running (between LevelEditor_Start and LevelEditor_Stop).
 bool live_now();
 

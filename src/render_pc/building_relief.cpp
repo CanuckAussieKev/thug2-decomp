@@ -41,23 +41,32 @@ struct Settings {
     relief::Options options;
 };
 
+// (round CS) The settings as the model has them now: read again whenever its running values are (a change is put to use
+// by loading the level again - Apply::kReload).
 const Settings& settings()
 {
-    static const Settings kSettings = [] {
+    static Settings kept;
+    static uint64_t seen = ~uint64_t{0};
+    if (seen == config::running_refreshes()) {
+        return kept;
+    }
+    seen = config::running_refreshes();
+    const bool was_on = kept.on;
+    kept = [] {
         // (the settings model's running values: off without the Vulkan renderer or the files - settings_model.cpp)
         const config::Resolution& in_effect = config::running();
         Settings read;
         read.on = in_effect.on("building_relief");
         read.options.strength =
             std::clamp(in_effect.number("building_relief_strength", 1.0F), 0.0F, kMostStrength);
-        if (read.on) {
-            get_log("building_relief: on - strength %.2f, at most %.1f units in, %.1f out",
-                    static_cast<double>(read.options.strength), static_cast<double>(read.options.most_recess),
-                    static_cast<double>(read.options.most_raise));
-        }
         return read;
     }();
-    return kSettings;
+    if (kept.on && !was_on) {
+        get_log("building_relief: on - strength %.2f, at most %.1f units in, %.1f out",
+                static_cast<double>(kept.options.strength), static_cast<double>(kept.options.most_recess),
+                static_cast<double>(kept.options.most_raise));
+    }
+    return kept;
 }
 
 // The textures' structures (attached as their dictionaries load; forgotten when they are destroyed).

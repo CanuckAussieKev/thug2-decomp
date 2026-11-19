@@ -21,6 +21,11 @@
 namespace audio {
 
 // The muted output over `output` (made on first use, over the output given then; never destroyed).
+// (round CS: app/ installs it always; muted while sound::audio_muted() was set at start, then as set_output_muted says
+// - [features] mute_audio changed while the game runs: engine/config/settings_live.h. Unmuted it forwards every call
+// as it is, noting each voice's volume to put it back.)
 Device& muted_device(Device& output);
+// Muted or not from now on: the audio session, and each voice's volume - silent, or as the game last set it.
+void set_output_muted(bool muted);
 
 } // namespace audio

@@ -259,13 +259,15 @@ void options_screen(Ctx& ctx, float window_width, float window_height)
             x += w + kChoiceGap;
         }
         bottom = y0 - kPanelStackGap;
-        // When it's seen ("Restart to apply" - yellow once changed; nothing for a live one), its ini key only behind
-        // [frontend] show_ini_keys=1, what it does (when it has a line).
+        // When it's seen ("Restart to apply" - yellow once changed; "Reloads the level"; nothing for a live one), its ini
+        // key only behind [frontend] show_ini_keys=1, what it does (when it has a line).
         const bool pending = restart_pending(ctx.extras->restart_pending_, spec, option);
-        // (a live one too while the renderer can't change it now - restart_pending_)
-        const std::string when = spec.apply == options::Apply::kRelaunch || pending
-                                     ? std::string(text_tools::kRestartToApply)
-                                     : std::string();
+        std::string when;
+        if (spec.apply == options::Apply::kRelaunch || pending) {
+            when = text_tools::kRestartToApply;
+        } else if (spec.apply == options::Apply::kReload) {
+            when = text_tools::kReloadsLevel;
+        }
         const std::string where =
             ctx.extras->show_ini_keys_ ? std::string("[") + spec.section + "] " + spec.key : std::string();
         if (!when.empty() || !where.empty()) {

@@ -90,9 +90,18 @@ float test_height(const void* /*context*/, float u, float /*v*/)
     return kMiddle + (kMiddle * std::sin(u * kRidges * std::numbers::pi_v<float> * 2));
 }
 
+// (round CS) The settings as the model has them now: read again whenever its running values are (a change is put to use
+// by loading the level again - Apply::kReload: every mesh of the level made with the same).
 const Settings& settings()
 {
-    static const Settings kSettings = [] {
+    static Settings kept;
+    static uint64_t seen = ~uint64_t{0};
+    if (seen == config::running_refreshes()) {
+        return kept;
+    }
+    seen = config::running_refreshes();
+    const bool was_on = kept.on;
+    kept = [] {
         // (the settings model's running values - engine/config/settings_state.h: a start-up setting, rt_displacement
         // out of effect, 0, without height maps or the test pattern)
         const config::Resolution& in_effect = config::running();
@@ -109,7 +118,11 @@ const Settings& settings()
         read.options.smooth_strength =
             std::clamp(in_effect.number("rt_tess_smooth_strength", tess::kDefaultSmoothStrength), 0.0F, 1.0F);
         read.log_meshes = in_effect.on("tess_log");
-        if (read.on) {
+        return read;
+    }();
+    if (kept.on && !was_on) {
+        const Settings& read = kept;
+        {
             get_log("rt_tessellation: on - level up to %d, deviation at most %.2f, displacement %.2f%s",
                     read.options.max_level, static_cast<double>(read.options.max_deviation),
                     static_cast<double>(read.options.height.scale), read.test_heights ? " (test heights)" : "");
@@ -117,9 +130,8 @@ const Settings& settings()
                 get_log("rt_tess_smooth: on - strength %.2f", static_cast<double>(read.options.smooth_strength));
             }
         }
-        return read;
-    }();
-    return kSettings;
+    }
+    return kept;
 }
 
 struct Totals {

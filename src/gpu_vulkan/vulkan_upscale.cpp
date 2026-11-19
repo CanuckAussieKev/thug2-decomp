@@ -183,6 +183,11 @@ struct PrepareConstants {
 
 struct UpscaleState {
     UpscaleSettings settings;
+    // (round CS) the device made ready for the upscalers this machine has (set_upscalers_ready): their instance and
+    // device additions asked for and the depth surfaces samplable whatever the setting, so one is turned on, changed or
+    // turned off while the game runs
+    bool ready = false;
+    bool dlss_ready = false;
     std::unique_ptr<UpscaleProvider> provider;
     bool provider_tried = false;
     Extent provider_output{};
@@ -845,7 +850,7 @@ public:
     void instance_extensions(std::vector<const char*>* names) override
     {
         // (Streamline also for frame generation's DLSS-G and Reflex - vulkan_framegen.h)
-        dlss_ = dlss_context_additions() != nullptr && (wants_dlss() || frame_generation_wants_dlss() ||
+        dlss_ = dlss_context_additions() != nullptr && (wants_dlss() || upscale().dlss_ready || frame_generation_wants_dlss() ||
                                                         frame_generation_settings_locked().reflex != Reflex::kOff);
         if (dlss_) {
             dlss_context_additions()->instance_extensions(names);
@@ -858,7 +863,7 @@ public:
         }
         // (frame generation's FSR: its present queues)
         frame_generation_device_wants(physical, wants);
-        if (upscale().settings.upscaler == Upscaler::kOff) {
+        if (upscale().settings.upscaler == Upscaler::kOff && !upscale().ready) {
             return; // (Reflex alone: none of the upscalers' shader features)
         }
         derivatives_ = {};
@@ -932,7 +937,9 @@ ContextAdditions* upscale_context_additions()
 {
     static UpscaleAdditions additions;
     // (frame generation or Reflex alone asks for them too - vulkan_framegen.h)
-    return upscale().settings.upscaler == Upscaler::kOff && !frame_generation_wants_context() ? nullptr : &additions;
+    return upscale().settings.upscaler == Upscaler::kOff && !upscale().ready && !frame_generation_wants_context()
+               ? nullptr
+               : &additions;
 }
 
 float upscale_ratio(UpscaleQuality quality)
@@ -1012,6 +1019,25 @@ void set_upscale_settings(const UpscaleSettings& settings)
 }
 
 const UpscaleSettings& upscale_settings_locked() { return upscale().settings; }
+
+void set_upscalers_ready(bool ready, bool dlss)
+{
+    upscale().ready = ready;
+    upscale().dlss_ready = ready && dlss;
+}
+
+bool dlss_ready_locked() { return upscale().dlss_ready; }
+
+void release_unused_upscaler(Backend& state)
+{
+    UpscaleState& own = upscale();
+    if (own.settings.upscaler == Upscaler::kOff && own.provider) {
+        own.provider->release(state);
+        own.provider.reset();
+        own.provider_tried = false;
+        get_log("vulkan: upscaler: off - its provider released");
+    }
+}
 
 UpscaleSettings upscale_settings()
 {
@@ -1399,7 +1425,7 @@ uint64_t upscale_passes() { return upscale().passes; }
 
 VkImageUsageFlags upscale_depth_usage(const Backend& state, VkFormat format)
 {
-    if (upscale().settings.upscaler == Upscaler::kOff) {
+    if (upscale().settings.upscaler == Upscaler::kOff && !upscale().ready) {
         return 0;
     }
     VkFormatProperties properties{};

@@ -5,7 +5,11 @@
 
 #include <windows.h>
 #include "base/core/checked_index.h"
+#include <atomic>
 #include <condition_variable>
+#include <cstdint>
+
+#include "platform/run_log.h"
 #include <deque>
 #include <mutex>
 #include <string>
@@ -36,6 +40,13 @@ PlatformConfigState& platform_config_state()
 {
     static core::NoDestroy<PlatformConfigState> state;
     return state.get();
+}
+
+// NOT ORIGINAL - the game's writes of the settings file so far (forget_cached_reads; settings_writes).
+std::atomic<uint64_t>& writes_counted()
+{
+    static std::atomic<uint64_t> writes{0};
+    return writes;
 }
 
 // NOT ORIGINAL grouping - the settings reads' answers (platform_config.h; were calls to the profile API). Made on first
@@ -154,6 +165,19 @@ void forget_cached_reads()
     cache.answers_.clear();
     cache.jobs_.clear();
     ++cache.generation_;
+    writes_counted().fetch_add(1, std::memory_order_release);
+}
+
+uint64_t settings_writes() { return writes_counted().load(std::memory_order_acquire); }
+
+int LiveInt::get()
+{
+    const uint64_t writes = settings_writes();
+    if (seen_.load(std::memory_order_acquire) != writes) {
+        value_.store(config_int(section_, key_, fallback_), std::memory_order_relaxed);
+        seen_.store(writes, std::memory_order_release);
+    }
+    return value_.load(std::memory_order_relaxed);
 }
 
 int cached_profile_int(const char* path, const char* section, const char* key, int fallback)

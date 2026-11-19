@@ -21,12 +21,11 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
-#include "engine/config/ini_text.h"
+#include "engine/config/settings_live.h"
 #include "engine/ext/extension.h"
 #include "engine/file/disk.h"
 #include "engine/file/disk_files.h"
 #include "engine/gfx/day_clock.h"
-#include "engine/gfx/graphics_options.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/light_sets.h"
 #include "engine/gfx/rt_checks.h"
@@ -35,6 +34,7 @@
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 
 namespace devtools::rt_check {
@@ -43,7 +43,6 @@ namespace rt = render::rt;
 
 namespace {
 
-constexpr std::size_t kIniChunk = 4096; // (`rt set`: the ini read a piece at a time)
 
 constexpr uint64_t kSummaryFrames = 600; // a summary line this often
 constexpr int kLoggedViolations = 200;   // violations logged in full; the rest counted
@@ -767,8 +766,8 @@ std::string sun_command(const std::string& file, std::istringstream& in)
 
 bool asked()
 {
-    static const bool kOn = config_int("debug", "rt_contract_check", 0) != 0;
-    return kOn;
+    static build_info::LiveInt on{"debug", "rt_contract_check", 0}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    return on.on();
 }
 
 std::string console_command(const std::string& arguments)
@@ -833,35 +832,17 @@ std::string console_command(const std::string& arguments)
         return rt::world_census_text() + "rt census: " + rt::light_census_text(rt::take_light_census()) + "\n";
     }
     if (verb == "set") {
-        // (the light energy audit's matched captures: a [Graphics] setting written to the ini and put to use at once,
-        // as the Options screen does - only one that changes while the game runs)
+        // (the light energy audit's matched captures: a [Graphics] setting written to the ini and put to use - the one
+        // path every change takes, engine/config/settings_live.h, as the console's `set`)
         std::string value;
         in >> value;
         if (file.empty() || value.empty()) {
             return "rt set <[Graphics] key> <value>";
         }
-        const std::string path = game_folder_path("thug2-decomp.ini");
-        std::string ini;
-        {
-            const fs::OwnedStream reading = fs::open_stream(path.c_str(), "rb", fs::StreamSharing::kSecure);
-            std::array<char, kIniChunk> chunk{};
-            for (size_t got = 0;
-                 reading && (got = fs::disk().stream_read(reading.get(), chunk.data(), 1, chunk.size())) > 0;) {
-                ini.append(chunk.data(), got);
-            }
-        }
-        ini = config::ini_set(ini, {.section = "Graphics", .key = file}, value);
-        {
-            const fs::OwnedStream writing = fs::open_stream(path.c_str(), "wb", fs::StreamSharing::kSecure);
-            if (!writing || fs::disk().stream_write(writing.get(), ini.data(), 1, ini.size()) != ini.size()) {
-                return "rt set: the ini couldn't be written";
-            }
-        }
-        const bool live = render::graphics_options::reload_live(file.c_str());
-        get_log("rt: set %s=%s (%s)", file.c_str(), value.c_str(), live ? "in effect" : "at the next start");
-        return text::format("%s=%s %s", file.c_str(), value.c_str(), live ? "in effect" : "at the next start");
-    }
-    if (verb == "summary" || verb.empty()) {
+        const config::live::Result result = config::live::set("Graphics/" + file, value);
+        get_log("rt: set - %s", result.text.c_str());
+        return "rt set: " + result.text;
+    }    if (verb == "summary" || verb.empty()) {
         if (rt::ray_tracing() != &checker()) {
             return "the contract check isn't on ([debug] rt_contract_check=1)";
         }

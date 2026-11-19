@@ -3,6 +3,7 @@
 #include "app/extensions.h"
 
 #include "app/no_editor.h"
+#include "app/settings_appliers.h"
 #include "app/settings_report.h"
 #include "engine/sys/editor_mode.h"
 #include "platform/app_window.h"
@@ -22,6 +23,7 @@
 #include "frontend/mouse_menus.h"
 #include "frontend/new_frontend_extension.h"
 #include "game/commands/career_complete.h"
+#include "game/front_end/level_reload.h"
 #include "game/front_end/start_level.h"
 #include "game/rider/paint_brushes.h"
 #include "game/rider/thaw_bmx.h"
@@ -82,6 +84,7 @@ void register_extensions()
     ext::add(editor());
     ext::add(sys::debug_mode::extension());
     ext::add(frontend::begin_level::extension());
+    ext::add(frontend::level_reload::extension()); // (round CS: a setting read as a level loads, changed while it runs)
     // (the split comparison before the demos: its views after the editor's, its divider and labels drawn before a demo's
     // video takes its picture - devtools/compare_split.h)
     ext::add(devtools::compare_split::extension());
@@ -101,6 +104,7 @@ void register_extensions()
     ext::add(devtools::rt_check::extension());
     ext::add(devtools::fps_counter::extension()); // (over the frame; the console still over it)
     ext::add(devtools::console::extension()); // (last: drawn over everything, the others' frames)
+    install_setting_appliers(); // (round CS: who puts each setting changed while the game runs to use)
 }
 
 // The order the start-up has always registered them in (each makes its symbols in the script's tables in turn).

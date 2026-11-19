@@ -161,6 +161,14 @@ public:
         present_parameters_.BackBufferHeight = size.height;
     }
 
+    void set_multisample(uint32_t samples, uint32_t quality) override
+    {
+        present_parameters_.MultiSampleType = static_cast<D3DMULTISAMPLE_TYPE>(samples);
+        present_parameters_.MultiSampleQuality = quality;
+    }
+
+    void set_windowed(bool windowed) override { present_parameters_.Windowed = windowed ? TRUE : FALSE; }
+
     void shutdown() override
     {
         if (state().d3d_device()) {

@@ -707,9 +707,19 @@ void check_setting(const Setting& setting, std::set<std::string>* slots, std::st
             add(name + ": a need has no words (only one setting's or one capability's are made)");
         }
     }
-    if (setting.apply == Apply::kLive && setting.effect == Effect::kNone && std::strcmp(setting.section, "Graphics") == 0 &&
-        setting.group == Group::kNone) {
-        add(name + ": live without the renderer's part it changes");
+    // (round CS: a live setting names who puts it to use - the game installs an applier for each owner,
+    // engine/config/settings_live.h; a setting read only at start says why)
+    if (setting.apply == Apply::kRelaunch && setting.retired == nullptr && setting.restart == nullptr) {
+        add(name + ": read only at start-up without saying why (restart)");
+    }
+    if (setting.apply == Apply::kLive && setting.owner == Owner::kNone) {
+        add(name + ": live without an owner to put it to use");
+    }
+    if ((setting.owner == Owner::kRenderer) != (setting.effect != Effect::kNone)) {
+        add(name + ": the renderer's part it changes and its owner disagree");
+    }
+    if (setting.apply != Apply::kRelaunch && setting.restart != nullptr) {
+        add(name + ": says why it waits for a restart, but doesn't");
     }
 }
 

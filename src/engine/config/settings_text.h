@@ -364,6 +364,17 @@ inline constexpr const char* kLevelNotTakenApart = "This level's lighting couldn
 inline constexpr const char* kNeedsNetworkGame = "Needs an online game";
 inline constexpr const char* kNotInstalled = "Not installed";
 inline constexpr const char* kNoVulkanGpu = "Direct3D 9 - no Vulkan GPU here";
+// (round CS) Why a setting waits for the next start (Setting::restart): what is made only as the game starts.
+inline constexpr const char* kRestartRenderer = "The renderer is picked as the game starts";
+inline constexpr const char* kRestartDevice = "Set when the graphics device is made";
+inline constexpr const char* kRestartFrameGeneration = "Set up with the screen as the game starts";
+inline constexpr const char* kRestartBikeRide = "The bike's ride is set as the game starts";
+inline constexpr const char* kRestartDpi = "Windows sets the game's scaling as it starts";
+inline constexpr const char* kRestartStartUp = "Only used as the game starts";
+inline constexpr const char* kRestartMenus = "The menus are built as the game starts";
+inline constexpr const char* kRestartScripts = "The game's scripts load as it starts";
+inline constexpr const char* kRestartParts = "The parts list loads as the game starts";
+inline constexpr const char* kRestartOnline = "Online is set up as the game starts";
 inline constexpr const char* kRetired = "No longer used";
 inline constexpr const char* kRetiredShafts = "Light shafts are part of Volumetric fog now";
 inline constexpr const char* kRetiredPhysical = "The light is physical now"; // (the physical air - README)

@@ -32,6 +32,7 @@ endif()
 
 add_executable(thug2 WIN32
     extensions.cpp
+    settings_appliers.cpp
     no_editor.cpp
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp ENABLE_EXPORTS ON)

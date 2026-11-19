@@ -154,7 +154,8 @@ if(TARGET thug2_base)
         "${PROJECT_SOURCE_DIR}/src/frontend/new_frontend_options.cpp"
         "${PROJECT_SOURCE_DIR}/src/engine/config/settings_model.cpp"
         "${PROJECT_SOURCE_DIR}/src/engine/config/settings_resolve.cpp"
-        "${PROJECT_SOURCE_DIR}/src/engine/config/ini_text.cpp")
+        "${PROJECT_SOURCE_DIR}/src/engine/config/ini_text.cpp"
+        "${PROJECT_SOURCE_DIR}/src/engine/config/settings_values.cpp")
     target_link_libraries(thug2_options_check PRIVATE thug2_base)
     target_compile_definitions(thug2_options_check PRIVATE THUG2_README="${PROJECT_SOURCE_DIR}/README.md")
 endif()

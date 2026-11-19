@@ -127,6 +127,11 @@ public:
     // NOT ORIGINAL - the back buffer's size for the next reset (the editor mode's resizable window - the main loop's
     // resize: frame_loop::Hub::reset_device_if_lost); the other settings stay.
     virtual void set_back_buffer_size(const GpuBackBufferSize& size) = 0;
+    // NOT ORIGINAL - (round CS) the back buffer's multisampling and window mode for the next reset ([Graphics] msaa,
+    // AntiAliasing, Windowed changed while the game runs - the display made again: engine/sys/mlp.h
+    // request_display_reset); the other settings stay.
+    virtual void set_multisample(uint32_t samples, uint32_t quality) = 0;
+    virtual void set_windowed(bool windowed) = 0;
     // NOT ORIGINAL - [Graphics] present_mode changed while the game runs (GpuSettings::present_mode; 0 is vsync): true
     // when the device takes it now (Vulkan: its swap chain made again before the next frame); false: from the next start.
     virtual bool set_present_mode(uint32_t mode)

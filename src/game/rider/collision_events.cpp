@@ -36,6 +36,7 @@
 #include "engine/ext/extension.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
@@ -672,9 +673,9 @@ void get_emit(int before)
 
     event.number = ++collision_events_state().events_;
     event.level = get_level_name();
-    static const bool kShots = config_int("debug", "collision_event_screenshots", 1) != 0;
+    static build_info::LiveInt shots{"debug", "collision_event_screenshots", 1}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
     event.screenshot = "-";
-    if (kShots) {
+    if (shots.on()) {
         std::array<char, kNoteBytes> note{};
         text::format_to(note, "collision event %d", event.number);
         event.screenshot = ext::request_event_shot(note.data()) ? "requested" : "busy";
@@ -846,8 +847,8 @@ const char* choose_reason(bool uber_frig, const char* path, float ground_min_y)
 
 bool get_on()
 {
-    static const bool kOn = config_int("debug", "collision_events", 0) != 0;
-    return kOn;
+    static build_info::LiveInt on{"debug", "collision_events", 0}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    return on.on();
 }
 
 void note_path(SkaterPhysicsModule* component, RouteWay path, const maths::Vec4& /*unused*/)

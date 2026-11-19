@@ -1,4 +1,5 @@
 // NOT ORIGINAL - where a frame's time goes: see frame_profile.h.
+#include "platform/platform_config.h"
 #include "platform/frame_profile.h"
 
 #include <excpt.h>
@@ -518,8 +519,8 @@ void watch_main_loop(DWORD thread_id)
 
 int level()
 {
-    static const int kLevel = std::clamp(config_int("debug", "frame_profile", 0), 0, 2);
-    return kLevel;
+    static build_info::LiveInt level{"debug", "frame_profile", 0}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    return std::clamp(level.get(), 0, 2);
 }
 
 int slot(const char* name)

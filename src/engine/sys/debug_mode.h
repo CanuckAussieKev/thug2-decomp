@@ -46,7 +46,7 @@ class Struct;
 //   next time of day (UserViewerTriangle).
 namespace sys::debug_mode {
 
-bool& is_switched_on();
+bool is_switched_on();
 // CD: false in debug mode (but for the start-up scripts), else true (the original's stub).
 bool cfunc_cd(script::Struct* params, script::Context context);
 // NotCD: CD's opposite (the original: false).

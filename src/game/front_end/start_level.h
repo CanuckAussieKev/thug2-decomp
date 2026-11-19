@@ -77,6 +77,10 @@ bool read_in(const char* name, std::string* why);
 // the level select's). `edited_copy`: the level editor's edited copy of it, as the level select's EDITED LEVELS entry
 // picks it (the edited_layout flag). False - logged, and why in `why` - as read_in.
 THUG2_API bool read_in_load(uint32_t load, bool edited_copy, std::string* why);
+// NOT ORIGINAL - (round CS) the level whose load script's checksum is `load` loaded again in the game mode it is in (the
+// level select's level_select_change_level, as read_in_load runs it, without its switch to free skate):
+// game/front_end/level_reload.h. False - why in `why` - as read_in_load.
+bool load_again(uint32_t load, std::string* why);
 // NOT ORIGINAL - told each time read_in / read_in_load start a level, before its scripts are launched (`load`: its
 // load script's checksum): the demos seed the random numbers there and count their frames from it (devtools/demo.h).
 // One listener (null: none).

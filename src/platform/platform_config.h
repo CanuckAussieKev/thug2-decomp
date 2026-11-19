@@ -2,8 +2,12 @@
 
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
+#include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <string>
+
+#include "base/core/api.h"
 
 // The PC settings: thug2-decomp.ini next to the exe ([features] and the others). Window, graphics, input, glyph, online and logging options are read from its
 // sections below at start-up. (Not the game's own registry settings.)
@@ -29,6 +33,29 @@ const char* executable_directory();
 // thread of its own - a settings file changed by hand shows within a second -, and forget_cached_reads() (the game
 // has just written the file) makes the next read the file's.
 void forget_cached_reads();
+// NOT ORIGINAL - the game's own writes of the settings file so far (each forget_cached_reads: the console's `set`, the
+// Options screen - engine/config/settings_live.h): what a setting read once watches to read itself again.
+uint64_t settings_writes();
+
+// NOT ORIGINAL - a [section] key=<int> read once, and again after each of the game's writes of the settings file: an
+// owner's switch that follows the console and the Options screen at once (engine/config/settings_live.h) without a read
+// of the file at every use. Thread-safe; constant-initialised (a function's static, as the settings read once were).
+class LiveInt {
+public:
+    constexpr LiveInt(const char* section, const char* key, int fallback)
+        : section_(section), key_(key), fallback_(fallback)
+    {
+    }
+    THUG2_API int get();
+    bool on() { return get() != 0; }
+
+private:
+    const char* section_;
+    const char* key_;
+    int fallback_;
+    std::atomic<uint64_t> seen_{~uint64_t{0}};
+    std::atomic<int> value_{0};
+};
 // GetPrivateProfileInt of `path`, cached (the reads below, and run_log's config_int).
 int cached_profile_int(const char* path, const char* section, const char* key, int fallback);
 // GetPrivateProfileString of `path`, cached: the characters copied into `out` (at most `size` with the end).

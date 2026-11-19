@@ -25,10 +25,8 @@
 #include <array>
 #include "base/core/checksums.h"
 #include "game/front_end/front_end.h"
-#include "game/front_end/live_pause.h"
 #include "game/skate/play_trackers.h"
 #include "engine/ui/ui_backend.h"
-#include "frontend/mouse_menus.h"
 #include "engine/ui/menu_reading.h"
 #include "game/front_end/menu_pad_event.h"
 #include "frontend/new_frontend_draw.h"
@@ -37,11 +35,11 @@
 #include "frontend/new_frontend_model.h"
 #include "frontend/new_frontend_options.h"
 #include "engine/config/ini_text.h"
+#include "engine/config/settings_live.h"
 #include "engine/config/settings_model.h"
 #include "engine/config/settings_state.h"
 #include "frontend/new_frontend_text.h"
 #include "engine/ext/extension.h"
-#include "engine/audio/continue_music.h"
 #include "game/front_end/start_level.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
@@ -61,9 +59,7 @@
 #include <gsl/pointers>
 #include "base/core/format.h"
 #include "base/core/no_destroy.h"
-#include "engine/gfx/graphics_options.h"
 #include "engine/gfx/renderer.h"
-#include "engine/gfx/texture_sets.h"
 #include "engine/gfx/engine_parts.h"
 #include "frontend/new_frontend_internal.h"
 
@@ -358,33 +354,15 @@ void load_option_values()
     menu_state().set_option_states(options::row_states(config::resolve(inputs)));
 }
 
-// A changed setting put to use: a live one at once (its switch set, or the renderer's effect read again); one read at
-// start-up marked "Restart to apply" while it differs from what the game started with - and so is a live graphics
-// setting the renderer can't change now (on Direct3D 9, or before the effect's reader is there).
-void use_option(int option, const char* value)
+// (round CS) A changed setting put to use the one way every change takes (engine/config/settings_live.h: written, then
+// its owner puts it to use - at once, by loading the level again once the game is resumed, or at the next start).
+// One read only at start-up is marked "Restart to apply" while it differs from what the game started with.
+void note_option_used(int option, const char* value)
 {
     const options::Spec& spec = core::at(options::get_specs(), option);
-    bool live = spec.apply == options::Apply::kLive;
-    if (live) {
-        const bool on = std::strcmp(value, "0") != 0;
-        if (std::strcmp(spec.key, "texture_set") == 0) {
-            live = render::texture_sets::request_from_ini(); // (the level's textures read again at the next frame)
-        } else if (std::strcmp(spec.section, "Graphics") == 0) {
-            live = render::graphics_options::reload_live(spec.key);
-        } else if (std::strcmp(spec.key, "mouse_menus") == 0) {
-            mouse_menus::is_switched_on() = on;
-        } else if (bool* feature = ext::feature_switch(spec.key)) {
-            *feature = on; // (the restart tester's, the level editor's)
-        } else if (std::strcmp(spec.key, "continue_music") == 0) {
-            audio::continue_music::is_switched_on() = on;
-        } else if (std::strcmp(spec.key, "live_pause") == 0) {
-            modules::live_pause::is_switched_on() = on;
-        } else if (std::strcmp(spec.key, "respect_locks") == 0) {
-            menu_state().set_views(get_views(menu_state().levels_purpose() == LevelsFor::kNet));
-        }
-    }
     if (std::cmp_less(option, edit_session().restart_pending_.size())) {
-        core::at(edit_session().restart_pending_, option) = !live && core::at(edit_session().start_values_, option) != value;
+        core::at(edit_session().restart_pending_, option) =
+            spec.apply == options::Apply::kRelaunch && core::at(edit_session().start_values_, option) != value;
     }
 }
 
@@ -413,20 +391,9 @@ void apply_option(const ActStep& action)
     } else {
         writes.emplace_back(option, value);
     }
-    const std::string path = ini_path();
-    const std::string text = read_text(path);
-    std::string changed = text;
-    for (const auto& [index, written] : writes) {
-        const options::Spec& set = core::at(specs, index);
-        changed = options::ini_set(changed, {.section = set.section, .key = set.key}, written);
-    }
-    if (!write_atomically(path, changed)) {
-        get_log("new front end: couldn't write %s ([%s] %s=%s)", path.c_str(), spec.section, spec.key, value);
-        edit_session().options_note_ = text_tools::kCouldntSave;
-        return;
-    }
-    build_info::forget_cached_reads(); // (the settings reads are cached: platform/platform_config.h)
-    edit_session().options_note_.clear();
+    const std::string text = read_text(ini_path());
+    std::vector<std::pair<int, std::string>> changes;
+    std::vector<std::pair<int, const char*>> changed;
     for (const auto& [index, written] : writes) {
         const options::Spec& set = core::at(specs, index);
         std::string before;
@@ -434,8 +401,23 @@ void apply_option(const ActStep& action)
         if (index != option && options::choice_of(set, before, present) == options::choice_of(set, written, true)) {
             continue; // (a preset's key that already had its value)
         }
-        get_log("new front end: options - [%s] %s=%s written to %s", set.section, set.key, written, path.c_str());
-        use_option(index, written);
+        changes.emplace_back(set.setting, written);
+        changed.emplace_back(index, written);
+    }
+    const config::live::Result result = config::live::set_all(changes);
+    if (!result.ok && changes.size() == changed.size() && result.text.starts_with("couldn't write")) {
+        get_log("new front end: options - [%s] %s=%s: %s", spec.section, spec.key, value, result.text.c_str());
+        edit_session().options_note_ = text_tools::kCouldntSave;
+        return;
+    }
+    edit_session().options_note_.clear();
+    for (const auto& [index, written] : changed) {
+        const options::Spec& set = core::at(specs, index);
+        get_log("new front end: options - [%s] %s=%s", set.section, set.key, written);
+        note_option_used(index, written);
+    }
+    if (!result.text.empty()) {
+        get_log("new front end: options - %s", result.text.c_str());
     }
     if (spec.apply == options::Apply::kPreset) {
         get_log("new front end: options - graphics preset %s", core::at(spec.choices, choice).label);
@@ -450,6 +432,11 @@ void apply_option(const ActStep& action)
         }
     }
 }
+} // namespace
+
+void refresh_level_views() { menu_state().set_views(get_views(menu_state().levels_purpose() == LevelsFor::kNet)); }
+
+namespace {
 
 // --- the state machine ---
 

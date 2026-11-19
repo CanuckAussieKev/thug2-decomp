@@ -3,6 +3,7 @@
 #include "engine/config/settings_state.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -25,6 +26,7 @@ struct SettingsState {
     Inputs running_inputs;
     Resolution running;
     IniValues overrides; // (set_overrides)
+    uint64_t refreshes = 0; // (round CS: refresh_running's count - running_refreshes)
 };
 
 SettingsState& settings_state()
@@ -165,7 +167,10 @@ void refresh_running()
     SettingsState& state = settings_state();
     state.running_inputs = make_running_inputs();
     state.running = resolve(state.running_inputs);
+    ++state.refreshes;
 }
+
+uint64_t running_refreshes() { return settings_state().refreshes; }
 
 Resolution running_with(const std::vector<std::pair<std::string, std::string>>& graphics_overrides)
 {

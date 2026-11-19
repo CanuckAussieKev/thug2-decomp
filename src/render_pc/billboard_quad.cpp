@@ -12,6 +12,7 @@
 #include "base/maths/vec4.h"
 #include "render_pc/render_state.h"
 #include "engine/gfx/screen.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine.h"
 #include "base/core/checked_index.h"
@@ -255,8 +256,8 @@ void QuadSprite::draw()
     }
     // Diagnostic: thug2-decomp.ini [features] debug_sprites=1 logs, in the front end, each sprite (once per position)
     // that reaches past the 4:3 layout's left or right edge, with the screen x it gets.
-    static const bool kDebugSprites = config_int("features", "debug_sprites", 0) != 0;
-    if (kDebugSprites && front_end_widescreen) {
+    static build_info::LiveInt debug_sprites{"features", "debug_sprites", 0}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    if (debug_sprites.on() && front_end_widescreen) {
         double reach_left = left + x;
         double reach_right = static_cast<double>(right) + x;
         if (rotation != 0.0F) {

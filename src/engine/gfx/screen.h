@@ -36,7 +36,7 @@ float desired_aspect_ratio();
 // thug2-decomp.ini [features] widescreen_menus (default 1): in the front end the 3D scene behind the menus fills
 // the window (widescreen field of view, no pillarbox bars) while the 2D menu layout stays 4:3 and centred. With 0,
 // the front end is pillarboxed 4:3 as in PartyMod. Read from the ini once; self-tests set it for their run.
-bool& widescreen_menus();
+bool widescreen_menus();
 // Whether that applies right now: the setting is on and we're in the front end.
 bool get_front_end_widescreen();
 // The aspect the 3D view is fitted to: the window's shape when get_front_end_widescreen(), else desired_aspect_ratio().

@@ -233,7 +233,11 @@ public:
     {
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
-        return state.device_made && finish_work(state) && state.context.remake() && reset_device_bindings(state);
+        if (!state.device_made || !finish_work(state)) {
+            return false;
+        }
+        release_unused_upscaler(state); // (round CS: the upscaler turned off while the game runs)
+        return state.context.remake() && reset_device_bindings(state);
     }
 
     // (the buffers and textures live on through a focus change and a reset: GpuContext::loses_device_objects)
@@ -246,6 +250,23 @@ public:
         const std::scoped_lock lock(state.mutex);
         state.settings.width = size.width;
         state.settings.height = size.height;
+    }
+
+    // (round CS: the back buffer and its depth made again with them by the next reset - reset_device_bindings)
+    void set_multisample(uint32_t samples, uint32_t quality) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        state.settings.samples = samples;
+        state.settings.sample_quality = quality;
+    }
+
+    // (the window's own mode is SDL's: the swap chain follows its size)
+    void set_windowed(bool windowed) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        state.settings.windowed = windowed;
     }
 
     // NOT ORIGINAL - [Graphics] present_mode while the game runs: the swap chain made again with it before the next frame.
@@ -316,6 +337,7 @@ void configure(const Choices& choices)
     state.options.crash_markers = choices.crash_markers ? CrashMarkerChoice::kBest : CrashMarkerChoice::kOff;
     state.options.on_message = log_message;
     state.cache_folder = choices.cache_folder;
+    set_upscalers_ready(choices.upscalers, choices.dlss);
 }
 
 void set_context_options(const ContextOptions& options, SDL_Window* window)

@@ -40,6 +40,9 @@ bool& using_keyboard();
 // port's control data from the keyboard (port 0) and the port's controller; rumble on the controller playing as a port
 // (os_layer::set_actuators).
 input::Source& sdl_source();
+// NOT ORIGINAL - (round CS) [Miscellaneous] UsePS2Controls, UIControls and [features] cursor_by_device,
+// single_player_any_pad read again while the game runs (engine/config/settings_live.h).
+void reread_input_settings();
 
 // NOT ORIGINAL - whether the on-screen keyboard is up and whether a menu, dialog box or the quit dialog is on screen
 // (the front end sets them; the input reads them).

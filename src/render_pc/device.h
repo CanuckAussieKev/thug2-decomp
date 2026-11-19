@@ -29,6 +29,10 @@ void sound_device_found(const char* description);
 void create_render_targets();
 // 0x004D7AF0: release them (before a reset).
 void release_render_targets();
+// NOT ORIGINAL - (round CS) render::Device::apply_display_settings: the display's settings read again before a reset -
+// the drawing's options (engine/gfx/settings.h), the backend's (graphics_options::reload_display: the upscaler), the
+// window (platform/sdl_window.h apply_window_settings) and the back buffer's size, samples and window mode.
+void apply_display_settings();
 // 0x004D7B60: the gamma (Settings\Gamma R, G, B in the registry; 0.25 each without) applied.
 void load_gamma();
 // 0x004D89C0: the disc read error screen - never returns.

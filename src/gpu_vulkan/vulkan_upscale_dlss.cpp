@@ -74,8 +74,9 @@ std::vector<sl::Feature>& loaded_features()
 // Whether the upscaler may be DLSS (dlss, auto): DLSS's features loaded.
 bool upscaler_wants_streamline()
 {
+    // (round CS: or the device made ready for DLSS whatever the setting - vulkan_upscale.h set_upscalers_ready)
     const Upscaler upscaler = upscale_settings_locked().upscaler;
-    return upscaler == Upscaler::kDlss || upscaler == Upscaler::kAuto;
+    return upscaler == Upscaler::kDlss || upscaler == Upscaler::kAuto || dlss_ready_locked();
 }
 
 void on_log(sl::LogType type, const char* message)

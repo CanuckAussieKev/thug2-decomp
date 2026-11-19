@@ -447,6 +447,28 @@ bool read_in_load(uint32_t load, bool edited_copy, std::string* why)
     return true;
 }
 
+bool load_again(uint32_t load, std::string* why)
+{
+    const char* name = script::look_up_hash_name(load);
+    const std::string level = name != nullptr ? std::string(name) : text::format("%08X", load);
+    if (!is_script(load) || !scene_installed_in(level_info_of(load))) {
+        if (why) {
+            *why = level + " can't be loaded again";
+        }
+        return false;
+    }
+    get_log("level reload: %s loaded again (its game mode kept)", level.c_str());
+    if (load_listener() != nullptr) {
+        load_listener()(load);
+    }
+    gsl::owner<script::Struct*> params = script::new_struct();
+    params->put_name_key(checksums::Name{name_hash("level")}, load);
+    script::spawn_script(name_hash("level_select_change_level"), params);
+    params->get_clear();
+    script::delete_struct(params);
+    return true;
+}
+
 namespace {
 class StartLevelExtension final : public ext::Extension {
 public:

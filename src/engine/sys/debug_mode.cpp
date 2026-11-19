@@ -19,6 +19,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/script/script_tables.h"
 #include "engine/script/context.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "engine/objects/movie_manager.h"
 
@@ -82,10 +83,10 @@ bool& started()
 
 } // namespace
 
-bool& is_switched_on()
+bool is_switched_on()
 {
-    static bool on = config_int("features", "debug_mode", 0) != 0;
-    return on;
+    static build_info::LiveInt on{"features", "debug_mode", 0}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    return on.on();
 }
 
 bool cfunc_cd(script::Struct* /*params*/, script::Context context)
@@ -100,11 +101,13 @@ bool cfunc_not_cd(script::Struct* /*params*/, script::Context context)
 
 void install()
 {
+    // (round CS: always - the commands answer as the original's while the switch is off, so it can change while the
+    // game runs; the menus built after it changes follow it)
+    get_point("CD", &cfunc_cd);
+    get_point("NotCD", &cfunc_not_cd);
     if (!is_switched_on()) {
         return;
     }
-    get_point("CD", &cfunc_cd);
-    get_point("NotCD", &cfunc_not_cd);
     get_log("debug mode: on (CD false / NotCD true after start-up: the developers' menus - DEBUG OPTIONS in the pause "
             "menu - and the viewer: F9 free camera)");
 }

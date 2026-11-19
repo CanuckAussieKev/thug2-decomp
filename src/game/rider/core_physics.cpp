@@ -29,6 +29,7 @@
 #include "game/rider/thaw_bmx.h"
 #include "game/rider/trick_component.h"
 #include "engine/sys/game_clock.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
@@ -200,8 +201,8 @@ struct RailBoostLog {
 
 void log_rail_boost(script::Script* script, float before, float after, float height)
 {
-    static const bool kOn = config_int("features", "debug_rail_speed", 0) != 0;
-    if (!kOn || !script) {
+    static build_info::LiveInt on{"features", "debug_rail_speed", 0}; // (round CS: read again after the game writes the settings file - build_info::LiveInt) (a log only)
+    if (!on.on() || !script) {
         return;
     }
     static const auto kLoops = std::to_array<uint32_t>({checksums::hash_from_text("RailAccelerate2"),

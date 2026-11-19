@@ -282,4 +282,46 @@ HWND create_sdl_window(WindowApi api)
     return handle;
 }
 
+ClientSize apply_window_settings()
+{
+    SDL_Window* window = sdl_window_state().window_;
+    if (window == nullptr || app_window::requested()) {
+        return {};
+    }
+    // (Windowed as the file has it now - load_window_settings only ever turns it on)
+    sdl_window_state().windowed_ = build_info::fetch_flag(build_info::kGraphics, "Windowed", false) || platform::batch_run();
+    load_window_settings();
+    enforce_max_resolution();
+    if (sdl_window_state().client_width_ == 0 || sdl_window_state().client_height_ == 0) {
+        if (const SDL_DisplayMode* desktop = SDL_GetDesktopDisplayMode(SDL_GetDisplayForWindow(window))) {
+            sdl_window_state().client_width_ = desktop->w;
+            sdl_window_state().client_height_ = desktop->h;
+        }
+    }
+    sdl_window_state().client_width_ = std::max(sdl_window_state().client_width_, kMinClientWidth);
+    sdl_window_state().client_height_ = std::max(sdl_window_state().client_height_, kMinClientHeight);
+    if (sdl_window_state().windowed_) {
+        SDL_SetWindowFullscreen(window, false);
+        SDL_SetWindowBordered(window, !sdl_window_state().borderless_);
+        SDL_SetWindowSize(window, sdl_window_state().client_width_, sdl_window_state().client_height_);
+        const int position = window_position();
+        SDL_SetWindowPosition(window, position, position);
+    } else {
+        choose_fullscreen_mode(window);
+    }
+    SDL_SyncWindow(window);
+    ClientSize size;
+    SDL_GetWindowSizeInPixels(window, &size.width, &size.height);
+    if (platform::test_workspace()) {
+        // (a workspace's game stays behind the user's windows: platform/test_workspace.h)
+        if (const HWND handle = sdl_window_state().game_window_) {
+            SetWindowPos(handle, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+    }
+    sdl_window_state().client_width_ = size.width;
+    sdl_window_state().client_height_ = size.height;
+    log_window_size(window);
+    return size;
+}
+
 } // namespace sys

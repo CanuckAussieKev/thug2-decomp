@@ -35,6 +35,7 @@
 #include "game/rider/thaw_bmx.h"
 #include "engine/sys/game_clock.h"
 #include "game/skate/point_tally.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/trick_component.h"
@@ -906,8 +907,8 @@ void turn_on_ground(SkaterPhysicsModule* core)
     state.steer_blend_ = bike::steer_blend(rate, sharp);
     {
         // ([debug] thaw_bmx_steer=1, ours: a line each ground frame - riding backwards and the turn's lean)
-        static const bool kLog = config_int("debug", "thaw_bmx_steer", 0) != 0;
-        if (kLog) {
+        static build_info::LiveInt log{"debug", "thaw_bmx_steer", 0}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+        if (log.on()) {
             const maths::Vec4& v = object_of(core)->vel();
             const maths::Vec4& facing = core::at(object_of(core)->basis_frame().row, 2);
             get_log("thaw_bmx steer: speed %.0f along %.2f stick %.0f rate %.3f blend %.2f in %.2f anim %d manual %d",
@@ -1432,8 +1433,8 @@ WheelGround wheel_ground_check(SkaterPhysicsModule* core)
     // Off the ground: no wheel down, or only the trailing one (the leading wheel over an edge).
     const bool backwards = moving_backwards(core);
     if ((!front.hit && !rear.hit) || (front.hit && !rear.hit && backwards) || (!front.hit && rear.hit && !backwards)) {
-        static const bool kLog = config_int("debug", "thaw_bmx_wheels", 0) != 0;
-        if (kLog) {
+        static build_info::LiveInt log{"debug", "thaw_bmx_wheels", 0}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+        if (log.on()) {
             const maths::Vec4& position = object->at_point();
             get_log(
                 "thaw_bmx wheels off: pos %.1f %.1f %.1f speed %.1f%s | front %d why %d dist %.2f reach %.2f turn %.3f "

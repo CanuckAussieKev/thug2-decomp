@@ -36,6 +36,15 @@ SDL_Window* sdl_window();
 // Not PartyMod's - another SDL window of the game's by its id (a level editor panel's own window, which Dear ImGui's
 // SDL3 backend made and names by id): null when there is none.
 SDL_Window* sdl_window_by_id(uint32_t id);
+// NOT ORIGINAL - (round CS) [Graphics] ResolutionX / ResolutionY / Windowed / Borderless read again while the game runs
+// (engine/config/settings_live.h - the display made again, render::Device::apply_display_settings): the window given
+// its new size, full screen or not, its border, centred again on its display (WindowDisplay); its client size in pixels
+// returned - what the back buffer is made at. An application's window (app_window.h) keeps its own size: 0x0.
+struct ClientSize {
+    int width = 0;
+    int height = 0;
+};
+ClientSize apply_window_settings();
 // Typed text from the window (SDL's text input events: the on-screen keyboard's typing, the chat, the editor's
 // fields) - always on, as SDL 2 had it; SDL 3 starts with it off and Dear ImGui's backend turns it off when its own
 // text field is left. Called before each event pump.

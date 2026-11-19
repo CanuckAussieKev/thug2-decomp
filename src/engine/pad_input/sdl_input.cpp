@@ -1608,4 +1608,6 @@ input::Source& sdl_source()
     return source.get();
 }
 
+void reread_input_settings() { load_input_settings(); }
+
 } // namespace sio

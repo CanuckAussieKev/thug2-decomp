@@ -18,6 +18,7 @@
 
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
@@ -195,8 +196,8 @@ Snapshot take_snapshot(size_t line_count)
 
 bool is_switched_on()
 {
-    static const bool kEnabled = config_int("features", "loading_console", 1) != 0;
-    return kEnabled;
+    static build_info::LiveInt enabled{"features", "loading_console", 1}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    return enabled.on();
 }
 
 bool live_now() { return loading_console_state().active_; }

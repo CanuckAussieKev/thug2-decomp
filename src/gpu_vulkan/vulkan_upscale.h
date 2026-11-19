@@ -164,5 +164,14 @@ void set_upscale_jitter_terms(const UpscaleJitterTerms* terms);
 
 // Released with the device.
 void release_upscale(Backend& state);
+// (round CS) Before the instance: the device made ready for the upscalers this machine has (`ready` - the 64-bit game;
+// `dlss` - an NVIDIA RTX: Streamline's DLSS features loaded), whatever [Graphics] upscaler says now, so it can change
+// while the game runs (gpu_vulkan.h Choices). The caller holds the lock (configure).
+void set_upscalers_ready(bool ready, bool dlss);
+// (Streamline's: DLSS's features loaded though the upscaler isn't DLSS now) The caller holds the lock.
+[[nodiscard]] bool dlss_ready_locked();
+// (round CS) The upscaler turned off while the game runs: its provider and images given back (the display's reset,
+// after the device's work is done). The caller holds the lock.
+void release_unused_upscaler(Backend& state);
 
 } // namespace render::vulkan

@@ -47,6 +47,10 @@ struct Choices {
     bool crash_markers = true; // (round GD) [debug] gpu_crash_markers: the passes' GPU crash markers recorded
     // (round OM) [debug] rt_opacity_micromaps: the cut-outs' alpha baked into opacity micromaps where the device has them
     bool opacity_micromaps = true;
+    // (round CS) the device made ready for the upscalers this machine has - the 64-bit game (upscalers), an NVIDIA RTX
+    // (dlss: Streamline's DLSS features loaded) - so [Graphics] upscaler can change while the game runs
+    bool upscalers = false;
+    bool dlss = false;
 };
 void configure(const Choices& choices);
 

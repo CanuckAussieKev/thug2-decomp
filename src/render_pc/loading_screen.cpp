@@ -23,6 +23,7 @@
 #include "render_pc/load_cover.h"
 #include "render_pc/pc_texture.h"
 #include "render_pc/render_state.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "engine/sys/game_config.h"
 #include "base/core/checked_index.h"
@@ -108,8 +109,8 @@ SelectPicture& select_picture()
 bool is_select_name(const char* name) { return std::strncmp(name, kSelectPrefix.data(), sizeof(kSelectPrefix) - 1) == 0; }
 bool select_enabled()
 {
-    static const bool kOn = config_int("features", "level_select_loading_screens", 1) != 0;
-    return kOn;
+    static build_info::LiveInt on{"features", "level_select_loading_screens", 1}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    return on.on();
 }
 // "loadscrn_sel_load_bo__loadscrn_boston" -> "loadscrn_boston" (a name without the "__" is left as it is)
 const char* original_of(const char* name)

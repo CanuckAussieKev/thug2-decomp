@@ -158,6 +158,27 @@ std::string ini_set(const std::string& text, const IniKey& at, const std::string
     return out + "[" + at.section + "]" + eol + added + eol;
 }
 
+std::string ini_remove(const std::string& text, const IniKey& at)
+{
+    bool in_section = false;
+    for (const Seg& segment : get_lines(text)) {
+        const std::string line = text.substr(segment.start, segment.end - segment.start);
+        std::string name;
+        if (section_of(line, &name)) {
+            if (in_section) {
+                break; // (only the first section of the name)
+            }
+            in_section = get_same(name, at.section);
+            continue;
+        }
+        size_t eq = 0;
+        if (in_section && get_key_of(line, &name, &eq) && get_same(name, at.key)) {
+            return text.substr(0, segment.start) + text.substr(segment.next); // (the line and its break)
+        }
+    }
+    return text;
+}
+
 IniValues ini_values(const std::string& text)
 {
     IniValues values;

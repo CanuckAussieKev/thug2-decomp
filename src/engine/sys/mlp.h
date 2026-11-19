@@ -92,6 +92,11 @@ struct BackBufferSize {
     int height{};
 };
 void request_back_buffer_size(BackBufferSize size);
+// NOT ORIGINAL - (round CS) the display's settings changed while the game runs ([Graphics] msaa, AntiAliasing,
+// anisotropy, the window's, the upscaler's - engine/config/settings_live.h): read again by the next frame's reset
+// (render::Device::apply_display_settings), which makes the back buffer, its depth and the screen copies again at them
+// and the swap chain for the window - the level, its meshes and textures, stay as they are.
+void request_display_reset();
 
 // The singleton (0x00696D68, references 0x00696D6C). 0x0044F260: the first call with `create` makes it (0xCC
 // bytes, zeroed, on the current heap), every call takes a reference and returns it (null if there is none).

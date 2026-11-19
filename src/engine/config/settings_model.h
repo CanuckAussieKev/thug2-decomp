@@ -30,10 +30,14 @@ namespace config {
 enum class Kind : uint8_t { kSwitch, kChoice, kNumber, kText };
 
 // When a change is seen.
+// (round CS: every change goes through one path - engine/config/settings_live.h: written to the ini, then put to use as
+// its Apply says. kRelaunch is kept only for what nothing short of a new process can change - Setting::restart says why.)
 enum class Apply : uint8_t {
-    kLive,     // at once (the Options screen writes it and the game reads it again)
-    kRelaunch, // the next time the game starts (read once at start-up)
+    kLive,     // at once, in place (the owner reads it again: the renderer's part, the device's display, a switch)
+    kRelaunch, // the next time the game starts (read once at start-up: Setting::restart says why)
     kPreset,   // not a key of its own: a choice sets several others (graphics_preset - presets())
+    kReload,   // (round CS) the level loaded again, the skater put back where he stood: read as a level loads (its
+               // meshes built from it); offline only - the level's run (score, goals, peds, the clock) starts again
 };
 
 // The Options screen's tabs, in their order (kNone: not offered - the ini's alone).
@@ -91,6 +95,24 @@ enum class Effect : uint8_t {
     kRain,  // (added by the rain)
 };
 inline constexpr int kEffectCount = static_cast<int>(Effect::kRain) + 1;
+
+// (round CS) Who puts a live setting to use (engine/config/settings_live.h: the game installs one applier for each -
+// app/settings_appliers.cpp, frontend/new_frontend_settings.cpp).
+enum class Owner : uint8_t {
+    kNone,
+    kRenderer, // the renderer's part, Setting::effect, read again (app/renderer_choice.cpp)
+    kDisplay,  // the display made again before the next frame: the back buffer, its samples and filtering, the
+               // window, the upscaler and frame generation (the device's reset - engine/sys/mlp.h)
+    kView,     // the drawing's own (PartyMod's distance clipping, fog, shadows, blur; the distance scales): read again
+    kPacing,   // the frame pacing and the frame-rate counter (engine/sys/frame_pacing.h)
+    kTextures, // the texture set (engine/gfx/texture_sets.h)
+    kCompare,  // the split comparison (devtools/compare_split.h)
+    kInput,    // PartyMod's input settings (engine/pad_input/sdl_input.h)
+    kGlyphs,   // the button glyphs (engine/gfx/glyphs.h)
+    kAudio,    // the sound muted or not (platform/mute_audio.h)
+    kSwitch,   // a switch its owner keeps (an extension's feature switch, the menus' mouse, the live pause...)
+    kSelf,     // its owner reads it again at its next use (build_info::LiveInt: nothing to do but write it)
+};
 
 // What the machine, the build and the game's data have (Capabilities), and the level's facts (LevelFacts).
 enum class Cap : uint8_t {
@@ -170,11 +192,15 @@ struct Setting {
     std::vector<Choice> choices;  // the Options screen's (a number's or a text's: the ones offered; others still read)
     Apply apply = Apply::kRelaunch;
     Effect effect = Effect::kNone;
+    Owner owner = Owner::kNone; // (round CS: a live setting's - kRenderer with an effect)
     bool open = false; // a choice setting that takes other values as written (tod's HH:MM, rt_sun_source's x,y,z)
     std::vector<Alias> aliases;
     std::vector<Need> needs;
     const char* off = nullptr; // its value while it isn't in effect (null: the value asked, out of effect)
     const char* retired = nullptr; // read no more: why (the row says so; never in effect)
+    // (round CS) Apply::kRelaunch's reason: why only a new process changes it (the Vulkan device, the process's DPI
+    // awareness, a start-up choice...) - every kRelaunch setting has one (check_model)
+    const char* restart = nullptr;
 };
 
 // A value one setting sets on another while `when` holds (the target's needs still apply: forced on, a relit mode with

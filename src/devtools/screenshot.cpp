@@ -760,8 +760,8 @@ bool get_snipping_takes_print_screen()
 
 bool is_switched_on()
 {
-    static const bool kEnabled = config_int("features", "screenshots", 1) != 0;
-    return kEnabled;
+    static build_info::LiveInt enabled{"features", "screenshots", 1}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    return enabled.on();
 }
 
 int get_key() { return screenshot_state().key_; }

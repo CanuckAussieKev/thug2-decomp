@@ -68,6 +68,9 @@ void get_scene_debug_info(script::Struct* info);
 WorldScene* build_world_scene(const char* name, TextureSet* textures, bool with_super_sectors);
 // 0x0048CCB0: a scene loaded from "levels\<name>\<name>.scn.<ext>" (with a vertex arena of its own when 0x00786AB6
 // is set) and registered (0x0048C560 - `unused` passed on, and not used there).
+// NOT ORIGINAL - (round CS) the level scenes (not skies) loaded so far, from a file or from memory: what tells a level loaded
+// again from the one before it (engine/gfx/day_clock.cpp; the same scene's checksum both times).
+uint64_t world_scene_loads();
 WorldScene* load_scene(const char* name, TextureSet* textures, bool with_super_sectors, bool is_sky, bool mesh_flag,
                        int unused);
 // 0x0048CD80: a scene loaded from geometry in memory (`size` bytes) and registered under `name` (the same way).

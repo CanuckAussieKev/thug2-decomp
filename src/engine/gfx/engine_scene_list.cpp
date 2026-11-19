@@ -299,6 +299,16 @@ WorldScene* build_world_scene(const char* name, TextureSet* textures, bool with_
     return scene;
 }
 
+namespace {
+uint64_t& scene_loads()
+{
+    static uint64_t loads = 0;
+    return loads;
+}
+} // namespace
+
+uint64_t world_scene_loads() { return scene_loads(); }
+
 // 0x0048CCB0
 WorldScene* load_scene(const char* name, TextureSet* textures, bool with_super_sectors, bool is_sky, bool mesh_flag,
                        int unused)
@@ -312,6 +322,7 @@ WorldScene* load_scene(const char* name, TextureSet* textures, bool with_super_s
     WorldScene* const scene = made; // (the scene list's)
     memory::pop_mem_profile();
     register_scene(scene, name, textures, 0, arena, unused);
+    scene_loads() += is_sky ? 0U : 1U; // (NOT ORIGINAL - world_scene_loads)
     return scene;
 }
 
@@ -324,6 +335,7 @@ WorldScene* load_named_scene_from_memory(const char* name, const uint8_t* data, 
     WorldScene* const scene = made; // (the scene list's)
     memory::pop_mem_profile();
     register_scene(scene, name, textures, 0, nullptr, unused);
+    scene_loads() += is_sky ? 0U : 1U; // (NOT ORIGINAL - world_scene_loads)
     return scene;
 }
 

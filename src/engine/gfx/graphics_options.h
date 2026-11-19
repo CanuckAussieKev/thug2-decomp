@@ -59,6 +59,11 @@ using LiveReload = bool (*)(const char* key);
 void set_live_reload(LiveReload reload);
 // The key's new value from the ini put to use now; false when nothing did (no renderer that changes it live).
 bool reload_live(const char* key);
+// (round CS) The backend's display settings read again - on Vulkan the upscaler (app/renderer_choice.cpp installs it);
+// called by the display's reset (render::Device::apply_display_settings) before the back buffer's samples are chosen.
+using DisplayReload = void (*)();
+void set_display_reload(DisplayReload reload);
+void reload_display();
 
 // --- A split comparison (devtools/compare_split.h: [Graphics] compare_split, the demo viewer's Compare panel) ---
 

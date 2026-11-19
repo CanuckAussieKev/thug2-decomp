@@ -23,6 +23,8 @@
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/settings.h"
+#include "platform/run_log.h"
 #include "render_pc/outline_draw.h"
 #include "render_pc/pc_gamma.h"
 #include "render_pc/render_state.h"
@@ -438,6 +440,40 @@ void create_render_targets()
         adapter_info().screen_surface_format_ = desc.format;
     }
     apply_render_state();
+}
+
+void apply_display_settings()
+{
+    // (the settings model's running values: read again by settings_live before the reset was asked for)
+    load_graphics_settings();
+    write_graphics_settings();
+    // (the backend's: on Vulkan the upscaler, set before the samples are chosen - none while upscaling)
+    graphics_options::reload_display();
+    GpuContext& context = gpu_context();
+    const GpuSettings now = context.settings();
+    // (the window's size, full screen and border: the back buffer follows its client size)
+    const sys::ClientSize client = sys::apply_window_settings();
+    if (client.width > 0 && client.height > 0) {
+        context.set_back_buffer_size({.width = static_cast<uint32_t>(client.width), .height = static_cast<uint32_t>(client.height)});
+    }
+    context.set_windowed(sys::get_windowed());
+    // (as create_device asks for them: AntiAliasing's 2 samples, or msaa's count - none the device can't make)
+    graphics_options::choose_multisample(now.colour_format, now.depth_format, sys::get_windowed());
+    uint32_t samples = renderer().antialiasing() ? 2U : 0U;
+    uint32_t quality = 0;
+    if (graphics_options::chosen_samples() != 0) {
+        samples = static_cast<uint32_t>(graphics_options::chosen_samples());
+        quality = graphics_options::chosen_quality();
+    } else if (samples != 0 && context.sample_quality_levels({.samples = samples,
+                                                               .colour_format = now.colour_format,
+                                                               .depth_format = now.depth_format,
+                                                               .windowed = sys::get_windowed()}) == 0) {
+        samples = 0;
+    }
+    context.set_multisample(samples, quality);
+    get_log("display: settings read again - %ux%u%s, %u samples, anisotropy %d", context.settings().width,
+            context.settings().height, sys::get_windowed() ? " windowed" : " full screen", samples,
+            graphics_options::get_pull().anisotropy);
 }
 
 bool make_view_targets(uint32_t width, uint32_t height)
