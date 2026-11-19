@@ -5948,7 +5948,31 @@ One light list, one way to sample it:
   only ReSTIR GI on (119 a frame with GI's light zeroed and the lamps by the passes), and go with both by the passes. The specks on the kickers in front
   the bank (round NK's build) likewise come from each of ReSTIR DI, GI's diffuse and GI's specular on its own, and the
   specular reuse doesn't change them - a common cause in that surface's path through the shading / Ray Reconstruction is
-  suspected, not found yet.
+  suspected, not found yet. (Found in round SK, below: neither - the reflections pass.)
+
+### The reflections' hits lit as GI's secondary vertices are (round SK)
+- **The specks on BO's kickers and ledges at night were the reflections pass's.** Those surfaces carry the game's shine
+  (an environment-mapped pass: reflectivity 0.19, no surface map - the lacquer material, a near-mirror): the pass traces
+  one mirror ray a pixel and, in a view ReSTIR GI lit, lights its hit by the light list (list_hit_light - round WF). That
+  next-event sample was one local light picked by power from the whole list (the pool of round OM was GI's only): a small
+  lamp near the hit in about one pick in hundreds, its light then that many times its share - a bright pixel, new each
+  frame, added to the colour after the shading. Not RR's, not a material's: specks with DLSS SR as with RR (1232 / 1232 a
+  frame), with the roughness 1 / F0 0.04 / no normal map / no decal layer / the original textures / rt_pbr 0 / rt_detail
+  0 (1050 - 1273), gone with rt_reflections 0 (6.8). Zeroing ReSTIR DI's or GI's outputs never touched them - the reason
+  round WS found "three estimators" each making them.
+- **One way of sampling the list from a surface** (vulkan_light_list.h): FrameLightList carries the pool ReSTIR GI read
+  (`pool`: its address, on, the local group's share), and every pass that lights a surface from the list - GI's secondary
+  vertices, the reflections' hits, the front layer - reads it through `light_pool_reader_glsl`: the local lights by RIS
+  over 8 of the pool's picks (round DD's) instead of one pick by power.
+- Tried and not kept: the candidates weighed by the hit's whole BSDF toward the ray's origin (RTXDI's target) in place
+  of the cosine - no measurable change (the glossy-wall night in the GI check: mean and flicker the same; the ledge
+  within run-to-run noise).
+- **Measured** (THUG2-4, the user's two spots, held cameras, 1920 x 1080 window / 1280 x 720 render, DLSS Q + RR, 50
+  frames; tools/game/speck_count.ts - a pixel over its 5 x 5 median and its own median over the series by 30 / 255):
+  kickers 1232 -> 12 specks a frame (per-pixel std 4.33 -> 1.48); ledge 595 -> 47 (its right part 431 -> 0; the left
+  part's remaining ones are the reflections' light from local lamps the pool's 8 picks by power rarely hold - gone with
+  the local lights off, not with the disc, the sky or the emitting triangles off; next: the light grid's cells (ReGIR,
+  round PT4c - ReSTIR DI's) as the secondary and reflection hits' candidates).
 
 ### What is drawn apart, in the rays (round PG)
 

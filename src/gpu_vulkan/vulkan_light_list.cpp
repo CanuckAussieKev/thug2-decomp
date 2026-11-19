@@ -386,6 +386,15 @@ std::string_view light_instances_glsl() { return kInstancesGlsl; }
 
 std::string_view emitter_scan_glsl() { return kScanGlsl; }
 
+std::string light_pool_reader_glsl(std::string_view pool)
+{
+    const std::string p(pool);
+    return "#define LIGHT_POOL_SIZE " + std::to_string(kLightPoolSize) +
+           "u\nlayout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer LightPoolWords { uvec4 words[]; };\n"
+           "#define light_pool (LightPoolWords(" + p + ".xy).words)\n#define LL_POOL (" + p + ".z != 0u)\n"
+           "#define LL_POOL_SHARE uintBitsToFloat(" + p + ".w)\n";
+}
+
 std::string_view light_sample_glsl()
 {
     static constexpr std::string_view kSource = R"(

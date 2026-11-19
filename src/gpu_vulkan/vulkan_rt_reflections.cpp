@@ -804,8 +804,9 @@ struct ListBlock {
     std::array<float, 4> sky{};
     std::array<float, 4> eye{};
     std::array<float, 4> cache_cells{};
+    std::array<uint32_t, 4> pool{}; // (round SK) FrameLightList::pool - the local lights resampled as GI's
 };
-static_assert(sizeof(ListBlock) == 7 * 16, "the shader's ListBlock (std140)");
+static_assert(sizeof(ListBlock) == 8 * 16, "the shader's ListBlock (std140)");
 
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 constexpr uint32_t kPushBytes = 16; // the apply's rect, the check's count
@@ -940,6 +941,7 @@ layout(std140, set = 0, binding = 22) uniform ListBlock {
     vec4 sky;        // x 1 / the sky grid's luminance integral
     vec4 eye;        // xyz the camera the cache is keyed from, w the frame's pre-exposure
     vec4 cache_cells; // x the angle a cache cell spans
+    uvec4 pool;       // (round SK) the local lights' presampled pool (light_pool_reader_glsl): address, on, share
 } list;
 #define LIST_INSTANCE_ADDRESS list.instances.xy
 #define LIST_INSTANCES list.instances.z
@@ -1035,6 +1037,7 @@ std::string compute_source(const char* body, bool multisampled, bool materials, 
         source += "const float CACHE_CELL_LEAST = " + std::to_string(kRadianceCacheCellLeast) + ";\n";
         source += light_instances_glsl();
         source += rt::lights::kLightListGlsl;
+        source += light_pool_reader_glsl("list.pool"); // (round SK: the local lights resampled as GI's)
         source += local_light_glsl();
         source += light_sample_glsl();
         source += kListHitGlsl;
@@ -1685,6 +1688,7 @@ ListBlock list_block_of(const FrameLightList& frame_list, const SceneView& scene
     block.eye = {core::at(frame_list.eye, 0), core::at(frame_list.eye, 1), core::at(frame_list.eye, 2),
                  rt::frame_pre_exposure()};
     block.cache_cells = {frame_list.cache_cells, 0.0F, 0.0F, 0.0F};
+    block.pool = frame_list.pool;
     return block;
 }
 
@@ -1976,6 +1980,15 @@ bool make_rt_reflection_listed_traces(Backend& state, std::string* error)
                                                      : why;
     }
     return made;
+}
+
+std::array<uint32_t, 4> rt_reflection_list_pool(const FrameLightList& list) { return list_block_of(list, SceneView{}, 0).pool; }
+
+bool rt_reflection_listed_traces_resample_pool()
+{
+    const std::string source = compute_source(kTraceBody, false, true, false, true);
+    return source.find(light_pool_reader_glsl("list.pool")) != std::string::npos &&
+           source.find("uvec4 pool;") != std::string::npos;
 }
 
 bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
