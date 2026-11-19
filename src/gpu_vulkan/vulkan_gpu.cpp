@@ -36,6 +36,7 @@
 #include "gpu_vulkan/vulkan_jpeg.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_pipeline_count.h"
 #include "gpu_vulkan/vulkan_hdr.h"
 #include "gpu_vulkan/vulkan_rt_effects.h"
 #include "gpu_vulkan/vulkan_rt_lights.h"
@@ -1235,6 +1236,8 @@ public:
         const std::scoped_lock lock(state.mutex);
         set_cel_source_locked(state, source);
     }
+    // NOT ORIGINAL - (round LS) the pipelines the device has made (vulkan_pipeline_count.h).
+    [[nodiscard]] uint64_t pipelines_made() const override { return vulkan::pipelines_made(); }
     long save_surface_jpeg(const char* file, GpuSurface* surface) override
     {
         const std::scoped_lock lock(backend().mutex);

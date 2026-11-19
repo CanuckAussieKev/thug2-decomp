@@ -32,6 +32,7 @@ add_library(thug2_render_pc STATIC
     pc_lights.cpp
     primitive_states.cpp
     loading_screen.cpp
+    load_cover.cpp
     pc_mesh.cpp
     pc_mesh_life.cpp
     pc_mesh_load.cpp

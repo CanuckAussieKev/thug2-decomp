@@ -154,12 +154,21 @@ void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /
     WaitForSingleObject(screen_2d().screen_mutex(), INFINITE);
     gpu().begin_scene();
     render::draw_loading_screen_picture(); // the picture, full screen
+    draw_progress_bar(static_cast<double>(screen_2d().tick_seconds()) + screen_2d().elapsed_seconds());
+    // Not original - the loading console (nothing unless a loading screen is up with [features] loading_console on).
+    gfx::loading_console::draw_panel();
+    gpu().end_scene();
+    gpu().present();
+    ReleaseMutex(screen_2d().screen_mutex());
+}
 
+// (0x004B6FF0's middle) The bar at `elapsed` seconds (kept as its time), over what the scene holds.
+void draw_progress_bar(double elapsed)
+{
     // (x87 at double precision: the intermediate results unrounded, as in the original - only the ones it stores
     // are floats)
     const double x_scale = static_cast<double>(renderer().back_buffer_width()) * kPer640;               // 1 / 640
     auto y_scale = static_cast<float>(static_cast<double>(renderer().back_buffer_height()) * kPer480);  // 1 / 480
-    const double elapsed = static_cast<double>(screen_2d().tick_seconds()) + screen_2d().elapsed_seconds();
     screen_2d().set_elapsed_seconds(static_cast<float>(elapsed));
     double fraction = elapsed / screen_2d().total_seconds();
     fraction = std::min(fraction, 1.0);
@@ -197,11 +206,6 @@ void __stdcall draw_loading_screen_frame(unsigned int /*unused*/, unsigned int /
     // what isn't filled yet - from the fill's end to the frame's right edge, the frame's height: its colour again
     draw_quad(static_cast<float>(filled), top_f, frame_right_f, bottom_f, border_argb(), border_argb());
     gpu().set_render_state(GpuRenderState::kZEnable, 1);
-    // Not original - the loading console (nothing unless a loading screen is up with [features] loading_console on).
-    gfx::loading_console::draw_panel();
-    gpu().end_scene();
-    gpu().present();
-    ReleaseMutex(screen_2d().screen_mutex());
 }
 
 } // namespace render

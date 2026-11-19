@@ -22,6 +22,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "gpu_vulkan/vulkan_loader.h"
+#include "gpu_vulkan/vulkan_pipeline_count.h"
 
 namespace render::vulkan {
 
@@ -655,6 +656,7 @@ bool Context::create_device()
         return fail("vkCreateDevice", result);
     }
     volkLoadDevice(device_);
+    count_pipeline_creation(); // (round LS: the pipelines made counted - vulkan_pipeline_count.h)
     vkGetDeviceQueue(device_, queue_family_, 0, &queue_);
     // (NOT ORIGINAL - round GD: every queue made, for a lost device's markers)
     all_queues_.assign(1, queue_);

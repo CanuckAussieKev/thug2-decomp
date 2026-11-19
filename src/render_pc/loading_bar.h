@@ -19,6 +19,11 @@ void update_loading_bar_colors();
 void __stdcall draw_loading_screen_frame(unsigned int id, unsigned int message, DWORD_PTR user, DWORD_PTR /*unused*/,
                                          DWORD_PTR /*unused*/);
 
+// The loading bar alone (0x004B6FF0's middle): its time set to `elapsed` seconds and the bar drawn by it over what the
+// scene holds (its frame, the gradient, the part not reached yet; the level select pictures' plate) - inside a scene,
+// with the loading screen's lock. (Also the cover over a level's first frames: render_pc/load_cover.h.)
+void draw_progress_bar(double elapsed);
+
 // The bar's settings: position, size (width, height), border, and the three colours (r, g, b, 0x80).
 
 } // namespace render
