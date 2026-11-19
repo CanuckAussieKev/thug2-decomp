@@ -10,7 +10,9 @@
 // a vertex buffer of its own made through the Gpu (dynamic; grown by doubling, never shrunk while the batch lives), the
 // vertices past this frame's made inactive (a position not a number: no triangle there - the structure's build leaves
 // them out), registered once with rt::Geometry::rebuilt - built anew each frame (a refit would keep the tree of the
-// triangles that have gone). A batch not given in a frame is released (its mesh removed, its buffer released).
+// triangles that have gone). A batch not given for kKeepRounds commits in a row is released (its mesh removed, its buffer
+// released) - one that only blinks out of view for a while (a particle system the view culls) keeps its buffer and its
+// structure's memory: no allocation churn.
 
 #include <cstdint>
 #include <span>
@@ -40,10 +42,14 @@ public:
     // Every batch released (a device reset; `rt` null - nothing to remove from).
     void release_all(Gpu& gpu, RayTracing* rt);
     [[nodiscard]] std::size_t size() const { return slots_.size(); }
+    // (the log's) batches made and released, ever
+    [[nodiscard]] uint64_t made() const { return made_; }
+    [[nodiscard]] uint64_t released() const { return released_; }
     // A batch's mesh: whether `mesh` is one of the store's (for tools that describe a hit).
     [[nodiscard]] bool owns(MeshId mesh) const;
 
     static constexpr uint32_t kLeastVertices = 192; // a batch's buffer at least this many vertices (64 triangles)
+    static constexpr uint64_t kKeepRounds = 120;    // a batch not given this many commits in a row released (2 s)
 
 private:
     struct Key {
@@ -65,6 +71,8 @@ private:
 
     std::unordered_map<Key, Slot, KeyHash> slots_;
     uint64_t round_ = 0;
+    uint64_t made_ = 0;
+    uint64_t released_ = 0;
 };
 
 // The vertices a batch's buffer holds for `count` triangles' vertices: the least power of two from kLeastVertices.

@@ -1,5 +1,6 @@
 #include "engine/gfx/rt_apart.h"
 
+#include <algorithm>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -72,6 +73,7 @@ void ApartStore::commit(std::span<const Batch> batches, Gpu& gpu, RayTracing& rt
         const uint32_t capacity = apart_capacity(triangles_vertices);
         if (!made && (!same_layout(slot.geometry, batch.layout) || slot.capacity < capacity)) {
             release(slot, gpu, &rt); // (grown, or another layout: made again)
+            ++released_;
         }
         const bool fresh = slot.buffer == nullptr;
         if (fresh) {
@@ -84,6 +86,7 @@ void ApartStore::commit(std::span<const Batch> batches, Gpu& gpu, RayTracing& rt
                 continue;
             }
             slot.capacity = capacity;
+            ++made_;
         }
         void* data = nullptr;
         if (gpu.lock_vertex_buffer(slot.buffer, 0, 0, &data, gpu_value::kLockDiscard) != gpu_value::kResultOk ||
@@ -126,8 +129,9 @@ void ApartStore::commit(std::span<const Batch> batches, Gpu& gpu, RayTracing& rt
         meshes->push_back(slot.id);
     }
     for (auto it = slots_.begin(); it != slots_.end();) {
-        if (it->second.round != round_) {
+        if (it->second.round + kKeepRounds <= round_) {
             release(it->second, gpu, &rt);
+            ++released_;
             it = slots_.erase(it);
         } else {
             ++it;
@@ -145,15 +149,7 @@ void ApartStore::release_all(Gpu& gpu, RayTracing* rt)
 
 bool ApartStore::owns(MeshId mesh) const
 {
-    if (mesh == 0) {
-        return false;
-    }
-    for (const auto& [key, slot] : slots_) {
-        if (slot.id == mesh) {
-            return true;
-        }
-    }
-    return false;
+    return mesh != 0 && std::ranges::any_of(slots_, [mesh](const auto& entry) { return entry.second.id == mesh; });
 }
 
 } // namespace render::rt

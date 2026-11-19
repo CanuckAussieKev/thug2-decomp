@@ -188,11 +188,11 @@ void billboard_drawn(const MeshRef* mesh, std::span<const uint8_t> vertices)
         return;
     }
     draw->fvf = mesh->fvf();
-    const auto triangle = [&](uint16_t a, uint16_t b, uint16_t c) {
-        if (a == b || b == c || a == c) {
+    const auto triangle = [&](uint16_t first, uint16_t second, uint16_t third) {
+        if (first == second || second == third || first == third) {
             return; // (a strip's joins)
         }
-        for (const uint16_t corner : {a, b, c}) {
+        for (const uint16_t corner : {first, second, third}) {
             append_vertex(draw, vertices, corner);
         }
     };

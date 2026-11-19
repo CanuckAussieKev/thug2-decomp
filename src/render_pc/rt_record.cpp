@@ -167,6 +167,7 @@ struct State {
         std::array<std::array<rt::MaterialId, scatter::kRayShades>, scatter::kRayParts> materials{};
         bool tried = false; // (made once a device; not again after a failure)
         std::vector<uint32_t> items; // (the frame's, reused)
+        std::array<std::vector<uint32_t>, std::size_t{scatter::kRayParts} * scatter::kRayShades> runs; // (by part, shade)
         // each item's transform, made once a scatter (the items never move)
         std::shared_ptr<const scatter::Scatter> placed_for;
         std::vector<std::array<std::array<float, 4>, 3>> placed;
@@ -2277,21 +2278,29 @@ void record_clutter(rt::RayTracing& rt)
     std::vector<rt::Instance>& out = rt::frame_record().instances;
     out.reserve(out.size() + (items.size() * 2));
     constexpr uint32_t kFlags = rt::kObject | rt::kDrawnApart | rt::kOpaque | rt::kCastsShadow;
+    // in runs of one part and shade (one mesh, one material: the TLAS's writer takes a run without a lookup)
+    for (std::vector<uint32_t>& run : st.clutter.runs) {
+        run.clear();
+    }
     for (const uint32_t index : items) {
         const scatter::Item& item = core::at(made->items, index);
         const auto kind = static_cast<scatter::ItemKind>(
             std::min<uint32_t>((item.packed >> scatter::kItemKindShift) & 0xFU, scatter::kItemKinds - 1));
-        const std::array<std::array<float, 4>, 3>& rows = core::at(st.clutter.placed, index);
         const uint32_t shade = scatter::ray_shade(item);
         for (const uint32_t part : scatter::ray_parts_of(kind)) {
-            const rt::MeshId mesh = core::at(st.clutter.meshes, part);
-            if (mesh == 0) {
-                continue;
+            core::at(st.clutter.runs, (part * scatter::kRayShades) + shade).push_back(index);
+        }
+    }
+    for (uint32_t part = 0; part < scatter::kRayParts; ++part) {
+        const rt::MeshId mesh = core::at(st.clutter.meshes, part);
+        for (uint32_t shade = 0; shade < scatter::kRayShades && mesh != 0; ++shade) {
+            const rt::MaterialId material = core::at(core::at(st.clutter.materials, part), shade);
+            for (const uint32_t index : core::at(st.clutter.runs, (part * scatter::kRayShades) + shade)) {
+                out.push_back({.mesh = mesh,
+                               .material = material,
+                               .flags = kFlags,
+                               .object_to_world = core::at(st.clutter.placed, index)});
             }
-            out.push_back({.mesh = mesh,
-                           .material = core::at(core::at(st.clutter.materials, part), shade),
-                           .flags = kFlags,
-                           .object_to_world = rows});
         }
     }
 }
@@ -2327,12 +2336,15 @@ void record_apart(rt::RayTracing& rt)
     std::vector<rt::MaterialId> materials;
     for (const Group& group : groups) {
         rt::Geometry layout;
-        if (!rt::set_vertex_attributes(group.fvf, &layout)) {
-            continue;
-        }
-        layout.vertex_stride = group.stride;
-        const rt::MaterialId material = material_id(group.material, rt);
+        layout.vertex_stride = group.stride; // (first: the attributes that fit within it are taken)
+        const bool laid_out = rt::set_vertex_attributes(group.fvf, &layout);
+        const rt::MaterialId material = laid_out ? material_id(group.material, rt) : 0;
         if (material == 0) {
+            static core::NoDestroy<std::unordered_set<uint64_t>> told; // (each format and stride once)
+            if (told.get().insert((uint64_t{group.fvf} << 32U) | group.stride).second) {
+                get_log("rt: drawn apart - a draw left out of the rays: vertex format %X, stride %u, %s", group.fvf,
+                        group.stride, laid_out ? "no material" : "its format has no position the rays read");
+            }
             continue;
         }
         const rt::Material& surface = st.materials.at(group.material).material;
@@ -2355,6 +2367,19 @@ void record_apart(rt::RayTracing& rt)
     }
     std::vector<rt::MeshId> meshes;
     st.apart.commit(batches, gpu(), rt, &meshes);
+    // (what is in the rays, now and then: the draws kept, their triangles and meshes, and the clutter's instances)
+    constexpr uint64_t kLogEvery = 600;
+    if (st.frame % kLogEvery == 0 && (!draws.empty() || !st.clutter.items.empty())) {
+        std::size_t triangles = 0;
+        for (const rt::ApartStore::Batch& batch : batches) {
+            triangles += batch.layout.vertex_stride > 0 ? batch.vertices.size() / batch.layout.vertex_stride / 3 : 0;
+        }
+        get_log("rt: drawn apart in the rays - %zu particle / billboard draws, %zu triangles in %zu meshes (%zu kept; %llu "
+                "made, %llu released ever); %zu clutter items within the range",
+                draws.size(), triangles, batches.size(), st.apart.size(),
+                static_cast<unsigned long long>(st.apart.made()), static_cast<unsigned long long>(st.apart.released()),
+                st.clutter.items.size());
+    }
     maths::Mat4 identity;
     identity.reset_to_identity();
     const std::array<std::array<float, 4>, 3> rows = rt::object_to_world_rows(identity.floats());

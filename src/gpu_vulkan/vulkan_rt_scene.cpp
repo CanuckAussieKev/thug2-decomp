@@ -539,6 +539,8 @@ struct Scene {
     std::unordered_map<rt::MaterialId, float> alpha_refs; // each material's alpha reference (0..1), from set_material
     std::unordered_set<rt::MaterialId> reflective;        // (R5's reflections) the materials with a reflectivity
     std::unordered_map<rt::MeshId, GpuVertexBuffer*> light_streams; // (the light energy audit) set_light_stream's
+    std::vector<VkAccelerationStructureInstanceKHR> instance_scratch; // (round PG: write_instances' - reused)
+    std::vector<GeometryRecord> row_scratch;
     std::array<FrameScene, Frames::kSlots> frames{};
     uint32_t current = 0; // the slot of the last TLAS built
     bool any_built = false;
@@ -1450,6 +1452,9 @@ void plan_micromaps(Backend& state, Scene& made, const rt::FrameRecord& record)
         return verdict != MicromapVerdict::kWaiting;
     });
     for (const rt::Instance& given : record.instances) {
+        if ((given.flags & rt::kDrawnApart) != 0U) {
+            continue; // (round PG: an object's - never a micromap; thousands of clutter instances, no lookup each)
+        }
         const auto found = made.meshes.find(given.mesh);
         if (found == made.meshes.end()) {
             continue;
@@ -1682,9 +1687,12 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
     frame.meshes.clear();
     frame.meshes.reserve(record.instances.size());
     frame.reflective = 0;
-    std::vector<VkAccelerationStructureInstanceKHR> instances;
+    // (round PG: the scene's own, kept from frame to frame - thousands of clutter instances made no new memory a frame)
+    std::vector<VkAccelerationStructureInstanceKHR>& instances = made.instance_scratch;
+    instances.clear();
     instances.reserve(record.instances.size());
-    std::vector<GeometryRecord> rows;
+    std::vector<GeometryRecord>& rows = made.row_scratch;
+    rows.clear();
     rows.reserve(record.instances.size());
     // (the objects' shadows) the objects' lights, each where its instances' rows point
     const std::size_t lights = std::min(record.object_lights.size(), static_cast<std::size_t>(frame.capacity));
@@ -1708,17 +1716,34 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
     // (round PG) a mesh's row made once a frame - every instance of it has the same one but for its flags (the clutter:
     // thousands of instances of a few meshes)
     std::unordered_map<rt::MeshId, std::pair<const Mesh*, GeometryRecord>> made_rows;
+    // (the run of instances of one mesh and material before - the clutter's, emitted in such runs: no lookups)
+    const std::pair<const Mesh*, GeometryRecord>* last_row = nullptr;
+    rt::MeshId last_mesh = 0;
+    uint64_t last_material = std::numeric_limits<uint64_t>::max();
+    bool last_reflective = false;
+    bool last_tested = false;
+    uint32_t last_flags = 0;
     for (const rt::Instance& given : record.instances) {
-        auto [kept, fresh] = made_rows.try_emplace(given.mesh);
-        if (fresh) {
-            const auto found = made.meshes.find(given.mesh);
-            kept->second.first = found == made.meshes.end() ? nullptr : &found->second;
-            kept->second.second = geometry_record_of(state, made, given, kept->second.first);
+        if (last_row == nullptr || given.mesh != last_mesh) {
+            auto [kept, fresh] = made_rows.try_emplace(given.mesh);
+            if (fresh) {
+                const auto found = made.meshes.find(given.mesh);
+                kept->second.first = found == made.meshes.end() ? nullptr : &found->second;
+                kept->second.second = geometry_record_of(state, made, given, kept->second.first);
+            }
+            last_row = &kept->second;
+            last_mesh = given.mesh;
         }
-        const Mesh* const mesh = kept->second.first;
-        instances.push_back(instance_of(given, mesh, alpha_tested_for(made, given)));
+        if (given.material != last_material || given.flags != last_flags) {
+            last_material = given.material;
+            last_flags = given.flags;
+            last_reflective = made.reflective.contains(given.material);
+            last_tested = alpha_tested_for(made, given);
+        }
+        const Mesh* const mesh = last_row->first;
+        instances.push_back(instance_of(given, mesh, last_tested));
         frame.meshes.push_back(given.mesh);
-        rows.push_back(kept->second.second);
+        rows.push_back(last_row->second);
         if ((rows.back().flags & kGeometryLive) != 0) {
             rows.back().instance_flags = given.flags;
         }
@@ -1727,7 +1752,7 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
             rows.back().object_light_address = address_words(lights_address + (VkDeviceAddress{given.light} * kLightBytes));
             rows.back().flags |= kGeometryObjectLight;
         }
-        if ((rows.back().flags & kGeometryLive) != 0 && made.reflective.contains(given.material)) {
+        if ((rows.back().flags & kGeometryLive) != 0 && last_reflective) {
             ++frame.reflective;
         }
     }
