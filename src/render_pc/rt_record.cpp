@@ -2258,7 +2258,8 @@ bool clutter_ready(rt::RayTracing& rt)
 // (rt::kDrawnApart: a light ray's and a secondary ray's occluder, never a camera ray's), opaque, casting.
 void record_clutter(rt::RayTracing& rt)
 {
-    static const bool kWanted = build_info::fetch_flag("debug", "rt_clutter", true);
+    static build_info::LiveInt wanted{"debug", "rt_clutter", 1}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    const bool kWanted = wanted.on();
     State& st = state();
     const std::shared_ptr<const scatter::Scatter> made = scatter_world::current();
     if (!kWanted || made == nullptr || made->items.empty() || !st.camera_known || !clutter_ready(rt)) {

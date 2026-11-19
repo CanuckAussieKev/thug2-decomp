@@ -36,7 +36,7 @@ class Struct;
 //     when switched off or without the skate module.
 namespace frontend::career_complete {
 
-bool& is_switched_on();
+bool is_switched_on();
 
 bool cfunc_available(script::Struct* params, script::Context context); // Career100_Available
 bool cfunc_apply(script::Struct* params, script::Context context);     // Career100_Apply

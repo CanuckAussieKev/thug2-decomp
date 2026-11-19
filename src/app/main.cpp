@@ -145,9 +145,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // (app/renderer_choice.h; Direct3D 9's today).
     app::install_renderer();
     // NOT ORIGINAL: the sound output the engine plays on (engine/audio/audio_device.h): DirectSound's - or, with
-    // [features] mute_audio=1, the muted output over it (engine/audio/muted_device.h).
-    audio::install_device(sound::audio_muted() ? audio::muted_device(audio::dsound::device())
-                                               : audio::dsound::device());
+    // [features] mute_audio=1, the muted output over it (engine/audio/muted_device.h). (Round CS: always over it - it
+    // forwards every call unmuted - so the switch can change while the game runs.)
+    audio::install_device(audio::muted_device(audio::dsound::device()));
     // NOT ORIGINAL: the level editor mutes the audio session while it edits (editor/level_editor_shell.cpp), and
     // Windows keeps that mute for the exe's next run: cleared here unless this run is muted itself.
     if (!sound::audio_muted() && sound::audio_session_muted()) {

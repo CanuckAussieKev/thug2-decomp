@@ -140,6 +140,10 @@ public:
     virtual void restore_device_objects() = 0;
     // The device reset with its present parameters; false if that failed (it is tried again next frame).
     virtual bool reset() = 0;
+    // NOT ORIGINAL - (round CS) the display's settings read again for the reset that follows (engine/sys/mlp.h
+    // request_display_reset): the drawing's options (PartyMod's, anisotropy, msaa), the backend's (the upscaler), the
+    // window (its size, full screen, border) and the back buffer's size and samples that follow from them.
+    virtual void apply_display_settings() = 0;
 
     // --- resources: made (null without memory) and given back; as the engine's own types (the backend's objects
     // derive from them) ---

@@ -9,6 +9,7 @@
 // ones read at start-up only (Apply::kRelaunch: the device was made for them) - so a setting changed for the next start
 // never changes what the running renderer is told.
 
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -45,6 +46,9 @@ void set_overrides(IniValues values);
 [[nodiscard]] const Inputs& running_inputs();
 // The ini read again (a setting changed while the game runs); the start-up ones stay as they were.
 void refresh_running();
+// (round CS) How many times running() was made so far: what an owner that keeps its settings (read as a level loads -
+// Apply::kReload) compares to read them again.
+[[nodiscard]] uint64_t running_refreshes();
 // The running inputs with ([Graphics] key, value) pairs put over them (a split comparison's side B).
 [[nodiscard]] Resolution running_with(const std::vector<std::pair<std::string, std::string>>& graphics_overrides);
 

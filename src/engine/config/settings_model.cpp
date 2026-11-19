@@ -48,15 +48,36 @@ public:
         return std::move(*this);
     }
     // Put to use at once: the renderer's part `effect` read again.
-    Decl&& live(Effect effect = Effect::kNone) &&
+    Decl&& live(Effect effect) &&
     {
         setting_.apply = Apply::kLive;
         setting_.effect = effect;
+        setting_.owner = Owner::kRenderer;
+        return std::move(*this);
+    }
+    // (round CS) Put to use at once by `owner` (not the renderer's parts).
+    Decl&& live(Owner owner) &&
+    {
+        setting_.apply = Apply::kLive;
+        setting_.owner = owner;
         return std::move(*this);
     }
     Decl&& preset() &&
     {
         setting_.apply = Apply::kPreset;
+        return std::move(*this);
+    }
+    // (round CS) Put to use by loading the level again (read as a level loads).
+    Decl&& reload() &&
+    {
+        setting_.apply = Apply::kReload;
+        return std::move(*this);
+    }
+    // (round CS) Read only when the game starts - why nothing short of a new process changes it.
+    Decl&& restart(const char* why) &&
+    {
+        setting_.apply = Apply::kRelaunch;
+        setting_.restart = why;
         return std::move(*this);
     }
     Decl&& need(Cond cond, const char* reason = nullptr) &&
@@ -183,6 +204,7 @@ std::vector<Decl> declarations()
 {
     using G = Group;
     using E = Effect;
+    using O = Owner;
     using K = Kind;
     return {
         // ===== Graphics: the preset, the renderer (app/renderer_choice.h), the frame pacing (engine/sys/frame_pacing.h),
@@ -194,24 +216,26 @@ std::vector<Decl> declarations()
         gfx("renderer", K::kChoice, "vulkan")
             .tab(G::kGraphics, t::kOptRenderer, t::kOptRendererHelp)
             .pick({{.value = "vulkan", .label = "Vulkan", .needs = {{.cond = has(Cap::kVulkan), .reason = t::kNoVulkanGpu}}, .instead = "d3d9"},
-                   c("d3d9", "Direct3D 9")}),
+                   c("d3d9", "Direct3D 9")})
+            .restart(t::kRestartRenderer),
         gfx("ray_tracing", K::kSwitch, "0")
             .tab(G::kGraphics, t::kOptRayTracing, t::kOptRayTracingHelp)
             .need(vulkan(), t::kNeedsVulkan)
             .need(has(Cap::kRayQueries))
-            .need(has(Cap::k64Bit)),
+            .need(has(Cap::k64Bit))
+            .restart(t::kRestartDevice),
         // (engine/gfx/texture_sets.h: the upscaled sets tools/pipeline/hd_textures/base.ts installs - offered when installed)
         gfx("texture_set", K::kChoice, "original")
             .tab(G::kGraphics, t::kOptTextureSet, t::kOptTextureSetHelp)
             .pick({c("original", t::kTextureSetOriginal),
                    {.value = "pbrify", .label = "PBRify", .needs = {{.cond = installed("pbrify"), .reason = t::kNotInstalled}}},
                    {.value = "seedvr2", .label = "SeedVR2", .needs = {{.cond = installed("seedvr2"), .reason = t::kNotInstalled}}}})
-            .live(),
+            .live(O::kTextures),
         gfx("max_fps", K::kChoice, "0")
             .tab(G::kGraphics, t::kOptMaxFps, t::kOptMaxFpsHelp)
             .pick({c("0", t::kMaxFpsOriginal), c("120", "120"), c("144", "144"), c("165", "165"), c("240", "240"), c("uncapped", t::kMaxFpsUncapped)})
             .open()
-            .live(),
+            .live(O::kPacing),
         // (frame generation and Reflex: gpu_vulkan/vulkan_framegen.h - FSR's makes 2x at most, DLSS-G's 4x on an RTX 50)
         gfx("frame_generation", K::kChoice, "off")
             .tab(G::kGraphics, t::kOptFrameGeneration, t::kOptFrameGenerationHelp)
@@ -221,90 +245,103 @@ std::vector<Decl> declarations()
                    {.value = "4x", .label = "4x", .needs = {{.cond = all({has(Cap::kRtx50), negate(asked_is("frame_generation_provider", {"fsr"}))}), .reason = t::kMultiNeedsRtx50}}, .instead = "2x"}})
             .need(vulkan(), t::kNeedsVulkan)
             .need(has(Cap::k64Bit))
-            .off("off"),
+            .off("off")
+            .restart(t::kRestartFrameGeneration),
         gfx("frame_generation_provider", K::kChoice, "auto")
             .pick({c("auto", t::kAuto),
                    {.value = "dlss", .label = "DLSS", .needs = {{.cond = has(Cap::kRtx40), .reason = t::kDlssgNeedsRtx40}}, .instead = "fsr"},
                    c("fsr", "FSR")})
             .need(is_not("frame_generation", {"off"}))
-            .off("auto"),
+            .off("auto")
+            .restart(t::kRestartFrameGeneration),
         gfx("reflex", K::kChoice, "off")
             .tab(G::kGraphics, t::kOptReflex, t::kOptReflexHelp)
             .pick({c("off", t::kOff), c("on", t::kOn), c("boost", t::kReflexBoost)})
             .need(vulkan(), t::kNeedsVulkan)
             .need(has(Cap::k64Bit))
             .need(has(Cap::kNvidia))
-            .off("off"),
+            .off("off")
+            .restart(t::kRestartFrameGeneration),
         gfx("present_mode", K::kChoice, "vsync")
             .tab(G::kGraphics, t::kOptPresentMode, t::kOptPresentModeHelp)
             .pick({c("vsync", t::kOn), c("mailbox", t::kPresentMailbox), c("immediate", t::kPresentImmediate)})
-            .live(),
+            .live(O::kPacing),
         // (the frame-rate counter: devtools/fps_counter.h)
-        gfx("show_fps", K::kSwitch, "0").tab(G::kGraphics, t::kOptShowFps, t::kOptShowFpsHelp).live(),
+        gfx("show_fps", K::kSwitch, "0").tab(G::kGraphics, t::kOptShowFps, t::kOptShowFpsHelp).live(O::kPacing),
         gfx("anisotropy", K::kNumber, "0")
             .tab(G::kGraphics, t::kOptAnisotropy, t::kOptAnisotropyHelp)
-            .pick({c("0", t::kOff), c("2", "2x"), c("4", "4x"), c("8", "8x"), c("16", "16x")}),
+            .pick({c("0", t::kOff), c("2", "2x"), c("4", "4x"), c("8", "8x"), c("16", "16x")})
+            .live(O::kDisplay),
         // (multisampling: off while upscaling - the upscaler's back buffer is single-sampled)
         gfx("msaa", K::kNumber, "0")
             .tab(G::kGraphics, t::kOptMsaa, t::kOptMsaaHelp)
             .pick({c("0", t::kOff), c("2", "2x"), c("4", "4x"), c("8", "8x")})
             .need(is("upscaler", {"off"}), t::kOffWhileUpscaling)
-            .off("0"),
+            .off("0")
+            .live(O::kDisplay),
         gfx("draw_distance_scale", K::kNumber, "1")
             .tab(G::kGraphics, t::kOptDrawDistance, t::kOptDrawDistanceHelp)
-            .pick({c("1", "1x"), c("1.5", "1.5x"), c("2", "2x"), c("3", "3x")}),
+            .pick({c("1", "1x"), c("1.5", "1.5x"), c("2", "2x"), c("3", "3x")})
+            .live(O::kView),
         gfx("lod_distance_scale", K::kNumber, "1")
             .tab(G::kGraphics, t::kOptLodDistance, t::kOptLodDistanceHelp)
-            .pick({c("1", "1x"), c("1.5", "1.5x"), c("2", "2x"), c("3", "3x")}),
-        gfx("rt_tessellation", K::kSwitch, "0").tab(G::kGraphics, t::kOptTessellation, t::kOptTessellationHelp),
+            .pick({c("1", "1x"), c("1.5", "1.5x"), c("2", "2x"), c("3", "3x")})
+            .live(O::kView),
+        gfx("rt_tessellation", K::kSwitch, "0").tab(G::kGraphics, t::kOptTessellation, t::kOptTessellationHelp).reload(),
         gfx("rt_tess_max_deviation", K::kNumber, "2")
             .tab(G::kGraphics, t::kOptTessDeviation, t::kOptTessDeviationHelp)
             .pick({c("1", "1"), c("2", "2"), c("3", "3"), c("4", "4")})
-            .need(on("rt_tessellation")),
+            .need(on("rt_tessellation"))
+            .reload(),
         // (smooth_tess.h "Smoothing": rails and poles rounded, hard edges kept by the meshes' normals)
-        gfx("rt_tess_smooth", K::kSwitch, "0").tab(G::kGraphics, t::kOptTessSmooth, t::kOptTessSmoothHelp).need(on("rt_tessellation")),
+        gfx("rt_tess_smooth", K::kSwitch, "0").tab(G::kGraphics, t::kOptTessSmooth, t::kOptTessSmoothHelp).need(on("rt_tessellation")).reload(),
         gfx("rt_tess_smooth_strength", K::kNumber, "1")
             .tab(G::kGraphics, t::kOptTessSmoothStrength, t::kOptTessSmoothStrengthHelp)
             .pick({c("0.5", "50%"), c("0.75", "75%"), c("1", "100%")})
-            .need(on("rt_tess_smooth")),
-        gfx("rt_tess_level", K::kNumber, "3").need(on("rt_tessellation")),
-        gfx("rt_tess_test_heights", K::kSwitch, "0").need(on("rt_tessellation")),
+            .need(on("rt_tess_smooth"))
+            .reload(),
+        gfx("rt_tess_level", K::kNumber, "3").need(on("rt_tessellation")).reload(),
+        gfx("rt_tess_test_heights", K::kSwitch, "0").need(on("rt_tessellation")).reload(),
         gfx("rt_displacement", K::kNumber, "0")
             .need(on("rt_tessellation"))
             .need(any({has(Cap::kHeightMaps), on("rt_tess_test_heights")}), t::kNeedsHeightMaps)
-            .off("0"),
+            .off("0")
+            .reload(),
         // (added by building relief: facade_relief.h - the building fronts' windows, sills and bands as geometry, made at
         // load from the facade structures beside the level textures)
         gfx("building_relief", K::kSwitch, "1")
             .tab(G::kGraphics, t::kOptBuildingRelief, t::kOptBuildingReliefHelp)
             .need(vulkan(), t::kNeedsVulkan)
             .need(has(Cap::kReliefMaps))
-            .off("0"),
+            .off("0")
+            .reload(),
         gfx("building_relief_strength", K::kNumber, "1")
             .tab(G::kGraphics, t::kOptBuildingReliefStrength)
             .pick({c("0.5", t::kLow), c("1", t::kMedium), c("1.5", t::kHigh)})
-            .need(on("building_relief")),
+            .need(on("building_relief"))
+            .reload(),
         // PartyMod's (engine/gfx/settings.cpp, platform/sdl_window.cpp)
-        gfx("ResolutionX", K::kNumber, "0"),
-        gfx("ResolutionY", K::kNumber, "0"),
-        gfx("dpi_aware", K::kSwitch, "1"),
-        gfx("Windowed", K::kSwitch, "0"),
-        gfx("Borderless", K::kSwitch, "0"),
+        gfx("ResolutionX", K::kNumber, "0").live(O::kDisplay),
+        gfx("ResolutionY", K::kNumber, "0").live(O::kDisplay),
+        gfx("dpi_aware", K::kSwitch, "1").restart(t::kRestartDpi),
+        gfx("Windowed", K::kSwitch, "0").live(O::kDisplay),
+        gfx("Borderless", K::kSwitch, "0").live(O::kDisplay),
         gfx("AntiAliasing", K::kSwitch, "0")
             .need(is("upscaler", {"off"}), t::kOffWhileUpscaling)
-            .need(is("msaa", {"0"}), t::kMsaaIsUsed),
-        gfx("HQShadows", K::kSwitch, "0"),
-        gfx("DistanceClipping", K::kSwitch, "0"),
-        gfx("ClippingDistance", K::kNumber, "100").need(on("DistanceClipping")),
-        gfx("Fog", K::kSwitch, "0"),
-        gfx("DisableBlur", K::kSwitch, "1"),
-        gfx("OcclusionCulling", K::kSwitch, "1"),
-        gfx("vulkan_device", K::kNumber, "-1").need(vulkan(), t::kNeedsVulkan),
-        gfx("vulkan_validation", K::kSwitch, "0").need(vulkan(), t::kNeedsVulkan),
+            .need(is("msaa", {"0"}), t::kMsaaIsUsed)
+            .live(O::kDisplay),
+        gfx("HQShadows", K::kSwitch, "0").live(O::kView),
+        gfx("DistanceClipping", K::kSwitch, "0").live(O::kView),
+        gfx("ClippingDistance", K::kNumber, "100").need(on("DistanceClipping")).live(O::kView),
+        gfx("Fog", K::kSwitch, "0").live(O::kView),
+        gfx("DisableBlur", K::kSwitch, "1").live(O::kView),
+        gfx("OcclusionCulling", K::kSwitch, "1").live(O::kView),
+        gfx("vulkan_device", K::kNumber, "-1").need(vulkan(), t::kNeedsVulkan).restart(t::kRestartDevice),
+        gfx("vulkan_validation", K::kSwitch, "0").need(vulkan(), t::kNeedsVulkan).restart(t::kRestartDevice),
         // (the split comparison: devtools/compare_split.h - Direct3D 9 draws both sides the same)
-        gfx("compare_split", K::kSwitch, "0").need(vulkan(), t::kNeedsVulkan),
-        gfx("compare_divider", K::kNumber, "0.5").need(on("compare_split")),
-        gfx("compare_labels", K::kSwitch, "1").need(on("compare_split")),
+        gfx("compare_split", K::kSwitch, "0").need(vulkan(), t::kNeedsVulkan).live(O::kCompare),
+        gfx("compare_divider", K::kNumber, "0.5").need(on("compare_split")).live(O::kCompare),
+        gfx("compare_labels", K::kSwitch, "1").need(on("compare_split")).live(O::kCompare),
 
         // ===== Lighting: the sun every effect lights by (engine/gfx/rt_scene.h scene_sun), the time of day
         // (engine/gfx/rt_daylight.h), shadows (gpu_vulkan/vulkan_rt_shadows.h), occlusion and bounce light
@@ -1010,101 +1047,108 @@ std::vector<Decl> declarations()
                    c("fsr", "FSR")})
             .need(vulkan(), t::kNeedsVulkan)
             .need(has(Cap::k64Bit))
-            .off("off"),
+            .off("off")
+            .live(O::kDisplay),
         gfx("upscale_quality", K::kChoice, "quality")
             .tab(G::kUpscaling, t::kOptUpscaleQuality, t::kOptUpscaleQualityHelp)
             .pick({c("dlaa", "DLAA"), c("quality", "Quality"), c("balanced", "Balanced"), c("performance", "Perf"), c("ultra", "Ultra perf")})
             .alias("native", "dlaa")
-            .need(is_not("upscaler", {"off"})),
+            .need(is_not("upscaler", {"off"}))
+            .live(O::kDisplay),
         gfx("ray_reconstruction", K::kSwitch, "0")
             .tab(G::kUpscaling, t::kOptRayReconstruction, t::kOptRayReconstructionHelp)
             .need(dlss_upscaling(), t::kNeedsDlss)
-            .need(ray_tracing()),
-        gfx("upscale_sharpness", K::kNumber, "0").need(fsr_upscaling(), t::kNeedsFsr),
-        gfx("fsr_version", K::kNumber, "0").need(fsr_upscaling(), t::kNeedsFsr),
+            .need(ray_tracing())
+            .live(O::kDisplay),
+        gfx("upscale_sharpness", K::kNumber, "0").need(fsr_upscaling(), t::kNeedsFsr).live(O::kDisplay),
+        gfx("fsr_version", K::kNumber, "0").need(fsr_upscaling(), t::kNeedsFsr).live(O::kDisplay),
 
         // ===== Interface, Gameplay, Online, Mods, Sound: the game's features ([features] and others)
-        feature("new_frontend", K::kSwitch, "0").tab(G::kInterface, t::kOptNewFrontend, t::kOptNewFrontendHelp),
-        feature("hd_ui", K::kSwitch, "0").tab(G::kInterface, t::kOptHdUi, t::kOptHdUiHelp),
-        feature("mouse_menus", K::kSwitch, "1").tab(G::kInterface, t::kOptMouse, t::kOptMouseHelp).live(),
-        feature("loading_console", K::kSwitch, "1").tab(G::kInterface, t::kOptLoadingConsole, t::kOptLoadingConsoleHelp),
+        feature("new_frontend", K::kSwitch, "0").tab(G::kInterface, t::kOptNewFrontend, t::kOptNewFrontendHelp).restart(t::kRestartMenus),
+        feature("hd_ui", K::kSwitch, "0").tab(G::kInterface, t::kOptHdUi, t::kOptHdUiHelp).restart(t::kRestartMenus),
+        feature("mouse_menus", K::kSwitch, "1").tab(G::kInterface, t::kOptMouse, t::kOptMouseHelp).live(O::kSwitch),
+        feature("loading_console", K::kSwitch, "1").tab(G::kInterface, t::kOptLoadingConsole, t::kOptLoadingConsoleHelp).live(O::kSelf),
         // (game/front_end/live_pause.h)
         feature("live_pause", K::kChoice, "1")
             .tab(G::kGameplay, t::kOptLivePause, t::kOptLivePauseHelp)
             .pick({c("0", t::kOptLivePauseFreeze), c("1", t::kOptLivePauseLive)})
-            .live(),
-        feature("skip_intro_movies", K::kSwitch, "0").tab(G::kGameplay, t::kOptSkipIntro, t::kOptSkipIntroHelp),
-        feature("restart_tester", K::kSwitch, "1").tab(G::kGameplay, t::kOptRestartTester, t::kOptRestartTesterHelp).live(),
-        feature("screenshots", K::kSwitch, "1").tab(G::kGameplay, t::kOptScreenshots, t::kOptScreenshotsHelp),
+            .live(O::kSwitch),
+        feature("skip_intro_movies", K::kSwitch, "0").tab(G::kGameplay, t::kOptSkipIntro, t::kOptSkipIntroHelp).restart(t::kRestartStartUp),
+        feature("restart_tester", K::kSwitch, "1").tab(G::kGameplay, t::kOptRestartTester, t::kOptRestartTesterHelp).live(O::kSwitch),
+        feature("screenshots", K::kSwitch, "1").tab(G::kGameplay, t::kOptScreenshots, t::kOptScreenshotsHelp).live(O::kSelf),
         Decl("frontend", "respect_locks", K::kChoice, "0")
             .tab(G::kGameplay, t::kOptLocks, t::kOptLocksHelp)
             .pick({c("0", t::kOptLocksAll), c("1", t::kOptLocksUnlocked)})
-            .live(),
+            .live(O::kSwitch),
         Decl("Miscellaneous", "OnlineGameName", K::kChoice, "")
             .tab(G::kOnline, t::kOptIdentity, t::kOptIdentityHelp)
             .pick({c("", t::kIdentityThug2), c("thugpro", t::kIdentityThugpro)})
-            .open(),
-        Decl("online", "thugpro_peer", K::kSwitch, "0").tab(G::kOnline, t::kOptThugproChat, t::kOptThugproChatHelp),
+            .open()
+            .restart(t::kRestartOnline),
+        Decl("online", "thugpro_peer", K::kSwitch, "0").tab(G::kOnline, t::kOptThugproChat, t::kOptThugproChatHelp).live(O::kSelf),
         feature("thugpro_parts", K::kChoice, "1")
             .tab(G::kOnline, t::kOptThugproParts, t::kOptThugproPartsHelp)
-            .pick({c("0", t::kOff), c("1", t::kOptThugproPartsHidden), c("2", t::kOptThugproPartsShown)}),
-        feature("anteara_mod", K::kSwitch, "0").tab(G::kMods, t::kOptAnteara, t::kOptAntearaHelp),
-        feature("thaw_bmx", K::kSwitch, "0").tab(G::kMods, t::kOptBmx, t::kOptBmxHelp),
-        feature("debug_mode", K::kSwitch, "0").tab(G::kMods, t::kOptDebug, t::kOptDebugHelp),
+            .pick({c("0", t::kOff), c("1", t::kOptThugproPartsHidden), c("2", t::kOptThugproPartsShown)})
+            .restart(t::kRestartParts),
+        feature("anteara_mod", K::kSwitch, "0").tab(G::kMods, t::kOptAnteara, t::kOptAntearaHelp).restart(t::kRestartScripts),
+        feature("thaw_bmx", K::kSwitch, "0").tab(G::kMods, t::kOptBmx, t::kOptBmxHelp).restart(t::kRestartScripts),
+        feature("debug_mode", K::kSwitch, "0").tab(G::kMods, t::kOptDebug, t::kOptDebugHelp).live(O::kSelf),
         // (engine/audio/continue_music.h)
-        feature("continue_music", K::kSwitch, "0").tab(G::kSound, t::kOptContinueMusic, t::kOptContinueMusicHelp).live(),
+        feature("continue_music", K::kSwitch, "0").tab(G::kSound, t::kOptContinueMusic, t::kOptContinueMusicHelp).live(O::kSwitch),
         // [features] the ini's alone
-        feature("mute_audio", K::kSwitch, "0"),
-        feature("widescreen_menus", K::kSwitch, "1"),
-        feature("cursor_by_device", K::kSwitch, "1"),
-        feature("single_player_any_pad", K::kSwitch, "1"),
-        feature("editor_ui", K::kSwitch, "1"),
-        feature("debug_editor", K::kSwitch, "0"),
-        feature("start_level", K::kText, ""),
-        feature("edit_level", K::kText, ""),
-        feature("start_at", K::kText, "").need(is_not("start_level", {""}), t::kNeedsStartLevel),
-        feature("level_select_loading_screens", K::kSwitch, "1"),
-        feature("thaw_bmx_wheels", K::kSwitch, "1").need(on("thaw_bmx")),
-        feature("thaw_bmx_shadow", K::kSwitch, "1").need(on("thaw_bmx")),
-        feature("ts_scripts", K::kSwitch, "0"),
-        feature("language", K::kText, "").need(on("ts_scripts"), t::kNeedsUnpackedScripts),
-        feature("create_100_cas", K::kSwitch, "1"),
-        feature("allow_multiple_instances", K::kSwitch, "0"),
-        feature("automation", K::kSwitch, "0"),
-        feature("debug_rail_speed", K::kSwitch, "0"),
-        feature("debug_collision", K::kSwitch, "0"),
-        feature("debug_sprites", K::kSwitch, "0"),
+        // (round CS: each read again at its next use, or put to use by its owner - engine/config/settings_live.h; the
+        // rest read only as the game starts, each saying why)
+        feature("mute_audio", K::kSwitch, "0").live(O::kAudio),
+        feature("widescreen_menus", K::kSwitch, "1").live(O::kSelf),
+        feature("cursor_by_device", K::kSwitch, "1").live(O::kInput),
+        feature("single_player_any_pad", K::kSwitch, "1").live(O::kInput),
+        feature("editor_ui", K::kSwitch, "1").live(O::kSelf),
+        feature("debug_editor", K::kSwitch, "0").live(O::kSelf),
+        feature("start_level", K::kText, "").restart(t::kRestartStartUp),
+        feature("edit_level", K::kText, "").restart(t::kRestartStartUp),
+        feature("start_at", K::kText, "").need(is_not("start_level", {""}), t::kNeedsStartLevel).restart(t::kRestartStartUp),
+        feature("level_select_loading_screens", K::kSwitch, "1").live(O::kSelf),
+        feature("thaw_bmx_wheels", K::kSwitch, "1").need(on("thaw_bmx")).restart(t::kRestartBikeRide),
+        feature("thaw_bmx_shadow", K::kSwitch, "1").need(on("thaw_bmx")).live(O::kSelf),
+        feature("ts_scripts", K::kSwitch, "0").restart(t::kRestartScripts),
+        feature("language", K::kText, "").need(on("ts_scripts"), t::kNeedsUnpackedScripts).restart(t::kRestartScripts),
+        feature("create_100_cas", K::kSwitch, "1").live(O::kSelf),
+        feature("allow_multiple_instances", K::kSwitch, "0").restart(t::kRestartStartUp),
+        feature("automation", K::kSwitch, "0").restart(t::kRestartStartUp),
+        feature("debug_rail_speed", K::kSwitch, "0").live(O::kSelf),
+        feature("debug_collision", K::kSwitch, "0").live(O::kSelf),
+        feature("debug_sprites", K::kSwitch, "0").live(O::kSelf),
         // [debug]
-        debug("collision_events", K::kSwitch, "0"),
-        debug("collision_event_screenshots", K::kSwitch, "1").need(on("collision_events")),
-        debug("frame_profile", K::kSwitch, "0"),
-        debug("gpu_crash_markers", K::kSwitch, "1"),
-        debug("latency_probe", K::kSwitch, "0"),
-        debug("load_test", K::kNumber, "0"),
-        debug("rt_contract_check", K::kSwitch, "0").need(ray_tracing()),
-        debug("rt_opacity_micromaps", K::kSwitch, "1").need(ray_tracing()),
-        debug("rt_clutter", K::kSwitch, "1").need(ray_tracing()),
-        debug("rt_particles", K::kSwitch, "1").need(ray_tracing()),
-        debug("rt_lights_log", K::kSwitch, "0").need(is_not("rt_lights", {"0"})),
-        debug("rt_water_view", K::kSwitch, "0").need(on("rt_water")),
-        debug("rt_water_materials", K::kSwitch, "0").need(on("rt_water")),
-        debug("tess_log", K::kSwitch, "0").need(on("rt_tessellation")),
-        debug("thaw_bmx_steer", K::kSwitch, "0").need(on("thaw_bmx")),
-        debug("thaw_bmx_wheels", K::kSwitch, "0").need(on("thaw_bmx")),
-        debug("soft_bounds", K::kSwitch, "0"),
+        debug("collision_events", K::kSwitch, "0").live(O::kSelf),
+        debug("collision_event_screenshots", K::kSwitch, "1").need(on("collision_events")).live(O::kSelf),
+        debug("frame_profile", K::kSwitch, "0").live(O::kSelf),
+        debug("gpu_crash_markers", K::kSwitch, "1").restart(t::kRestartDevice),
+        debug("latency_probe", K::kSwitch, "0").restart(t::kRestartStartUp),
+        debug("load_test", K::kNumber, "0").live(O::kSelf),
+        debug("rt_contract_check", K::kSwitch, "0").need(ray_tracing()).live(O::kSelf),
+        debug("rt_opacity_micromaps", K::kSwitch, "1").need(ray_tracing()).restart(t::kRestartDevice),
+        debug("rt_clutter", K::kSwitch, "1").need(ray_tracing()).live(O::kSelf),
+        debug("rt_particles", K::kSwitch, "1").need(ray_tracing()).live(O::kSelf),
+        debug("rt_lights_log", K::kSwitch, "0").need(is_not("rt_lights", {"0"})).live(E::kLights),
+        debug("rt_water_view", K::kSwitch, "0").need(on("rt_water")).live(E::kWater),
+        debug("rt_water_materials", K::kSwitch, "0").need(on("rt_water")).live(O::kSelf),
+        debug("tess_log", K::kSwitch, "0").need(on("rt_tessellation")).reload(),
+        debug("thaw_bmx_steer", K::kSwitch, "0").need(on("thaw_bmx")).live(O::kSelf),
+        debug("thaw_bmx_wheels", K::kSwitch, "0").need(on("thaw_bmx")).live(O::kSelf),
+        debug("soft_bounds", K::kSwitch, "0").restart(t::kRestartStartUp),
         // [Miscellaneous] PartyMod's, and the online identity
-        Decl("Miscellaneous", "UsePS2Controls", K::kSwitch, "1"),
-        Decl("Miscellaneous", "UIControls", K::kSwitch, "1"),
-        Decl("Miscellaneous", "PreferGlyphs", K::kSwitch, "0"),
-        Decl("Miscellaneous", "GlyphStyle", K::kNumber, "1"),
-        Decl("Miscellaneous", "OnlineDomain", K::kText, "openspy.net"),
-        Decl("Miscellaneous", "OnlineGameKey", K::kText, ""),
-        Decl("Miscellaneous", "Debug", K::kSwitch, "0"),
-        // [demo] a demo saved as a video (devtools/demo_video.h)
-        Decl("demo", "video_fps", K::kNumber, "60"),
-        Decl("demo", "video_quality", K::kNumber, "80"),
-        Decl("demo", "video_codec", K::kText, "auto"),
-        Decl("demo", "video_scale", K::kNumber, "100"),
+        Decl("Miscellaneous", "UsePS2Controls", K::kSwitch, "1").live(O::kInput),
+        Decl("Miscellaneous", "UIControls", K::kSwitch, "1").live(O::kInput),
+        Decl("Miscellaneous", "PreferGlyphs", K::kSwitch, "0").live(O::kGlyphs),
+        Decl("Miscellaneous", "GlyphStyle", K::kNumber, "1").live(O::kGlyphs),
+        Decl("Miscellaneous", "OnlineDomain", K::kText, "openspy.net").restart(t::kRestartOnline),
+        Decl("Miscellaneous", "OnlineGameKey", K::kText, "").restart(t::kRestartOnline),
+        Decl("Miscellaneous", "Debug", K::kSwitch, "0").restart(t::kRestartStartUp),
+        // [demo] a demo saved as a video (devtools/demo_video.h: read as each video is made)
+        Decl("demo", "video_fps", K::kNumber, "60").live(O::kSelf),
+        Decl("demo", "video_quality", K::kNumber, "80").live(O::kSelf),
+        Decl("demo", "video_codec", K::kText, "auto").live(O::kSelf),
+        Decl("demo", "video_scale", K::kNumber, "100").live(O::kSelf),
     };
 }
 

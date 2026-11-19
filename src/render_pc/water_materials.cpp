@@ -53,8 +53,8 @@ bool drawn_as_surface(const MaterialRef* material)
 // [debug] rt_water_materials=1: each moving material's passes, once (the survey of which surfaces count).
 void log_material(const MaterialRef* material, bool water)
 {
-    static const bool kWanted = build_info::fetch_flag("debug", "rt_water_materials", false);
-    if (!kWanted) {
+    static build_info::LiveInt wanted{"debug", "rt_water_materials", 0}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    if (!wanted.on()) {
         return;
     }
     static std::unordered_set<uint64_t> logged; // (by checksum and name: a level loaded again isn't logged again)

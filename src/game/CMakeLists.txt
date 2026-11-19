@@ -18,6 +18,7 @@ add_library(thug2_game STATIC
     front_end/live_pause.cpp
     front_end/menu_pad_event.cpp
     front_end/start_level.cpp
+    front_end/level_reload.cpp
     commands/career_complete.cpp
     commands/node_hooks.cpp
     skate/edited_copy_career.cpp

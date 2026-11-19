@@ -31,6 +31,7 @@
 #include "tests/no_error_dialogs.h"
 #include "base/core/checked_index.h"
 #include "engine/config/ini_text.h"
+#include "engine/config/settings_live.h"
 #include "engine/config/settings_model.h"
 #include "engine/config/settings_text.h"
 #include "frontend/new_frontend_options.h"
@@ -308,14 +309,104 @@ void check_tables()
                    key + " isn't a camera effect");
         }
     }
-    // (a live [Graphics] setting names the part of the renderer it changes; one read at start-up names none it reads
-    // again)
+    // (round CS: a live setting names who puts it to use - the renderer's part when it is the renderer's; one read
+    // only at start-up says why)
     for (const config::Setting& setting : config::settings()) {
-        if (std::strcmp(setting.section, "Graphics") == 0 && setting.apply == config::Apply::kLive &&
-            setting.group == config::Group::kNone) {
-            expect(setting.effect != config::Effect::kNone, name_of(setting) + " is live: it names its renderer part");
+        if (setting.apply == config::Apply::kLive) {
+            expect(setting.owner != config::Owner::kNone, name_of(setting) + " is live: it names its owner");
+            expect((setting.owner == config::Owner::kRenderer) == (setting.effect != config::Effect::kNone),
+                   name_of(setting) + ": a renderer part only with the renderer as its owner");
+        }
+        if (setting.apply == config::Apply::kRelaunch && setting.retired == nullptr) {
+            expect(setting.restart != nullptr && *setting.restart != '\0', name_of(setting) + " waits for a restart: it says why");
         }
     }
+}
+
+// (round CS) Every setting reached by its names and every value the Options screen offers taken as written - the
+// console's and the automation's `set` / `get` / `toggle` (engine/config/settings_live.h: find_named, check_value); the
+// ini writer's removal keeping the rest of the file; the settings that wait for a restart printed.
+void check_live()
+{
+    const std::vector<config::Setting>& all = config::settings();
+    std::string restarts;
+    for (size_t i = 0; i < all.size(); ++i) {
+        const config::Setting& setting = core::at(all, i);
+        const std::string name = name_of(setting);
+        const std::string slash = std::string(setting.section) + "/" + setting.key;
+        const int by_slash = config::live::find_named(slash, nullptr);
+        expect(by_slash == static_cast<int>(i), slash + " is found by section/key");
+        expect(config::live::find_named("[" + std::string(setting.section) + "]" + setting.key, nullptr) == static_cast<int>(i),
+               name + " is found by [section]key");
+        const int by_key = config::live::find_named(setting.key, nullptr);
+        expect(by_key >= 0 && std::strcmp(core::at(all, by_key).key, setting.key) == 0, name + " is found by its key");
+        if (setting.apply == config::Apply::kRelaunch && setting.retired == nullptr) {
+            restarts += "  " + slash + " - " + (setting.restart != nullptr ? setting.restart : "") + "\n";
+        }
+        std::string normal;
+        std::string why;
+        if (setting.retired != nullptr || setting.apply == config::Apply::kPreset) {
+            expect(!config::live::check_value(setting, setting.fallback, &normal, &why) && !why.empty(),
+                   name + " can't be set (retired or the preset's): said why");
+            continue;
+        }
+        for (const config::Choice& choice : setting.choices) {
+            expect(config::live::check_value(setting, choice.value, &normal, &why) &&
+                       (setting.kind == config::Kind::kNumber ? same_value(normal, choice.value) : normal == choice.value),
+                   name + " takes " + choice.value + (why.empty() ? "" : " (" + why + ")"));
+        }
+        expect(config::live::check_value(setting, setting.fallback, &normal, &why) || setting.kind == config::Kind::kNumber,
+               name + " takes its default");
+        switch (setting.kind) {
+        case config::Kind::kSwitch: {
+            // (a toggle: on and off as the console writes them, and back)
+            std::string on;
+            std::string off;
+            expect(config::live::check_value(setting, "on", &on, &why) && on == "1", name + ": on is 1");
+            expect(config::live::check_value(setting, "OFF", &off, &why) && off == "0", name + ": off is 0");
+            expect(!config::live::check_value(setting, "maybe", &normal, &why) && !why.empty(), name + ": maybe refused");
+            const config::IniKey at{.section = setting.section, .key = setting.key};
+            const std::string turned_on = config::ini_set("[x]\r\na=1\r\n", at, on);
+            std::string read_on;
+            std::string read_off;
+            const bool was_on = config::ini_get(turned_on, at, &read_on) && config::truthy(read_on);
+            const bool now_off = config::ini_get(config::ini_set(turned_on, at, off), at, &read_off) && !config::truthy(read_off);
+            expect(was_on && now_off, name + " toggles on and back off");
+            break;
+        }
+        case config::Kind::kNumber:
+            expect(config::live::check_value(setting, "1.5", &normal, &why) && normal == "1.5", name + " takes a number");
+            expect(!config::live::check_value(setting, "far", &normal, &why), name + ": a word refused");
+            break;
+        case config::Kind::kChoice:
+            if (!setting.open) {
+                expect(!config::live::check_value(setting, "no_such_choice", &normal, &why) && !why.empty(),
+                       name + ": a value that is no choice refused");
+            }
+            break;
+        case config::Kind::kText:
+            break;
+        }
+    }
+    std::string why;
+    expect(config::live::find_named("Graphics/no_such_key", &why) < 0 && !why.empty(), "an unknown key is refused");
+    // (the one writer: a key removed - its default - and set, every other line, comment and line ending kept)
+    for (const char* eol : {"\r\n", "\n"}) {
+        const std::string e = eol;
+        const std::string text = "; settings" + e + "[Graphics]" + e + "msaa=4" + e + "; a comment" + e + "rt_ao=1" + e + e +
+                                 "[features]" + e + "new_frontend=1" + e;
+        const std::string removed = config::ini_remove(text, {.section = "Graphics", .key = "msaa"});
+        expect(removed == "; settings" + e + "[Graphics]" + e + "; a comment" + e + "rt_ao=1" + e + e + "[features]" + e +
+                              "new_frontend=1" + e,
+               "a key removed, the rest as it was (" + std::string(e == "\n" ? "LF" : "CRLF") + ")");
+        expect(config::ini_remove(text, {.section = "Graphics", .key = "upscaler"}) == text, "a key not there: nothing removed");
+        expect(config::ini_remove(text, {.section = "features", .key = "msaa"}) == text, "a key of another section: kept");
+        const std::string set = config::ini_set(removed, {.section = "Graphics", .key = "msaa"}, "8");
+        expect(set.find("msaa=8" + e) != std::string::npos && set.find(e == "\n" ? "\r" : "\x01") == std::string::npos,
+               "set again with the file's own line ending");
+        expect(!set.starts_with("\xEF\xBB\xBF"), "no byte-order mark added");
+    }
+    std::printf("settings read only at start-up (they say why):\n%s", restarts.c_str());
 }
 
 void check_ini()
@@ -1159,6 +1250,7 @@ int main(int argc, char** argv)
     check_capabilities();
     check_machines();
     check_forces_and_conflicts();
+    check_live();
     std::printf("options check: %d checks, %d failed\n", check_state().checked, check_state().failures);
     return check_state().failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

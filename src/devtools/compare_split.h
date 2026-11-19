@@ -34,6 +34,9 @@ namespace devtools::compare_split {
 ext::Extension& extension();
 
 bool is_on();
+// (round CS) [Graphics] compare_split, compare_divider, compare_labels and [Compare] read again (at start-up, and when
+// one changes while the game runs - engine/config/settings_live.h).
+void read_settings();
 // On (side B's settings made from the overrides) or off (A's put back).
 void set_on(bool on);
 float divider();

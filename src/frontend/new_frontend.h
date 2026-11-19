@@ -71,6 +71,8 @@ namespace frontend::new_frontend {
 
 // [features] new_frontend (read once).
 bool& is_switched_on();
+// (round CS) [frontend] respect_locks changed: the level select's lists made again (engine/config/settings_live.h).
+void refresh_level_views();
 // [features] new_frontend as the ini has it (read once): the data overlay's front_end folder - the main menu's scripts
 // the new front end's menus are made with - is searched first. Also in the level editor's editor mode
 // (engine/sys/editor_mode.h), where the new front end itself is off: the same main menu underneath.

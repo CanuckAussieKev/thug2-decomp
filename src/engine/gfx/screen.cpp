@@ -9,6 +9,7 @@
 #include "engine/gfx/game_view.h"
 #include "engine/gfx/settings.h"
 #include "engine/script/context.h"
+#include "platform/platform_config.h"
 #include "platform/sdl_window.h"
 #include "platform/run_log.h"
 #include "engine/gfx/game_hooks.h"
@@ -88,10 +89,10 @@ float desired_aspect_ratio()
     return static_cast<float>(shape.width) / static_cast<float>(shape.height);
 }
 
-bool& widescreen_menus()
+bool widescreen_menus()
 {
-    static bool on = config_int("features", "widescreen_menus", 1) != 0;
-    return on;
+    static build_info::LiveInt on{"features", "widescreen_menus", 1}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    return on.on();
 }
 
 bool get_front_end_widescreen() { return widescreen_menus() && current_level() == 0; }

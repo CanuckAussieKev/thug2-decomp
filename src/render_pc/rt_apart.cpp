@@ -102,8 +102,8 @@ void set_particle_passes(bool inside)
 
 bool wanted()
 {
-    static const bool kOn = build_info::fetch_flag("debug", "rt_particles", true);
-    return kOn && rt::ray_tracing() != nullptr;
+    static build_info::LiveInt on{"debug", "rt_particles", 1}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    return on.on() && rt::ray_tracing() != nullptr;
 }
 
 bool capturing()

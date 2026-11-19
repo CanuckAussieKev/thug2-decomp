@@ -24,9 +24,7 @@
 #include "devtools/demo.h"
 #include "devtools/demo_viewer.h"
 #include "engine/ext/extension.h"
-#include "engine/config/ini_text.h"
-#include "engine/file/disk_files.h"
-#include "engine/gfx/graphics_options.h"
+#include "engine/config/settings_live.h"
 #include "engine/gfx/paint_trails.h"
 #include "engine/gfx/rt_path.h"
 #include "engine/gfx/texture_sets.h"
@@ -191,7 +189,7 @@ constexpr const char* kHelp = "scripts [text]  the scripts running (names holdin
                               "rt dump [file]  the last frame's ray-tracing record as JSON (game folder)\n"
                               "rt sun <x y z> | off  the ray-traced shadows' sun set by hand (toward it)\n"
                               "rt census       what lights the world's meshes, objects and particles (logged)\n"
-                              "rt set <key> <value>  a [Graphics] setting written and put to use\n"
+                              "rt set <key> <value>  a [Graphics] setting: as set Graphics/<key>\n"
                               "pt ref <samples> [EV100] [even] [only disc,sky,emit,lamps]  the path-traced reference (paused,\n"
                               "                camera still): EXR + PNG; only: those kinds of light counted;\n"
                               "                direct: the direct light alone (one bounce);\n"
@@ -200,6 +198,14 @@ constexpr const char* kHelp = "scripts [text]  the scripts running (names holdin
                               "restart         the skater at the level's next restart (F8)\n"
                               "textures [original | pbrify | seedvr2]  the texture set in use / switched (not saved)\n"
                               "paint [clear]   the paint trails' strokes and drops so far; clear: the paint wiped\n"
+                              "set <key> <value>  a setting changed: section/key, [section]key or key;\n"
+                              "                checked, written to the ini, put to use - at once, by loading\n"
+                              "                the level again (offline), or at the next start (says why)\n"
+                              "get <key>       its value, default, whether it is in effect and why\n"
+                              "toggle <key>    an on / off setting turned over\n"
+                              "reset <key>     back to its default (its ini line removed)\n"
+                              "settings [text] the settings (keys holding text) and their values\n"
+                              "restarts        the settings that wait for the next start, and why\n"
                               "help            this list";
 
 // --- the window ------------------------------------------------------------------------------------------------------
@@ -405,33 +411,41 @@ ConsoleExtension& the_extension()
     return console;
 }
 
-// `set <key> <value>`: a [Graphics] key written to thug2-decomp.ini and put to use the way the Options screen does it
-// (graphics_options::reload_live) - for tests that change settings while the game runs (the automation channel's
-// `console set tod dusk`).
-std::string set_graphics_key(const std::string& rest)
+// (round CS) The settings: every one of the settings model's, changed the one way the Options screen and the automation
+// change them (engine/config/settings_live.h: checked, written, put to use - at once, by loading the level again, or at
+// the next start).
+std::string settings_command(const std::string& command, const std::string& rest)
 {
     std::istringstream words(rest);
     std::string key;
+    words >> key;
     std::string value;
-    words >> key >> value;
-    if (key.empty() || value.empty()) {
-        return "set <key> <value>";
+    std::getline(words >> std::ws, value);
+    if (command == "settings") {
+        return config::live::list(rest);
     }
-    const std::string path = game_folder_path(build_info::kFileName);
-    std::string text;
-    if (!fs::read_text(path, &text)) {
-        return "set: couldn't read " + path;
+    if (command == "restarts") {
+        return config::live::restart_list();
     }
-    const fs::Written written = fs::write_text(path, config::ini_set(text, {.section = "Graphics", .key = key}, value));
-    if (!written.written || !written.closed) {
-        return "set: couldn't write " + path;
+    if (key.empty()) {
+        return command + " <key>" + (command == "set" ? " <value>" : "") + "  (settings lists the keys)";
     }
-    build_info::forget_cached_reads(); // (the settings reads are cached: platform/platform_config.h)
-    get_log("console: [Graphics] %s=%s written to %s", key.c_str(), value.c_str(), path.c_str());
-    const bool live = render::graphics_options::reload_live(key.c_str());
-    return "[Graphics] " + key + "=" + value + (live ? " - put to use" : " - at the next start");
+    if (command == "get") {
+        return config::live::get(key);
+    }
+    config::live::Result result;
+    if (command == "set") {
+        if (value.empty()) {
+            return "set <key> <value>  (get <key> shows its values)";
+        }
+        result = config::live::set(key, value);
+    } else if (command == "toggle") {
+        result = config::live::toggle(key);
+    } else {
+        result = config::live::reset(key);
+    }
+    return result.ok ? result.text : "refused: " + result.text;
 }
-
 } // namespace
 
 bool is_switched_on() { return switched(); }
@@ -518,8 +532,9 @@ std::string run_command(const std::string& line)
     if (command == "textures") {
         return render::texture_sets::console_command(rest);
     }
-    if (command == "set") {
-        return set_graphics_key(rest);
+    if (command == "set" || command == "get" || command == "toggle" || command == "reset" || command == "settings" ||
+        command == "restarts") {
+        return settings_command(command, rest);
     }
     return "unknown command: " + command + " (help lists them)";
 }

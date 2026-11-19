@@ -32,6 +32,7 @@
 #include "game/rider/thaw_bmx.h"
 #include "engine/sys/game_clock.h"
 #include "game/skate/skate_module.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
@@ -552,8 +553,8 @@ void* shadow_companion(void* caster_model)
     // THAW's bike casts a volume shadow of its own (bike_details: Volume_BMX_Shadow.shd - THUG2 can't read it); here
     // the bike is drawn into the rider's detailed shadow, so the two are one shadow along the rider's light (phase 4's
     // detailed shadow of the bike's own was cast straight down, apart from his). [features] thaw_bmx_shadow=0: none.
-    static const bool kShadow = config_int("features", "thaw_bmx_shadow", 1) != 0;
-    if (!is_switched_on() || !kShadow || !modules::Skate::sole()) {
+    static build_info::LiveInt shadow{"features", "thaw_bmx_shadow", 1}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    if (!is_switched_on() || !shadow.on() || !modules::Skate::sole()) {
         return nullptr;
     }
     auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());

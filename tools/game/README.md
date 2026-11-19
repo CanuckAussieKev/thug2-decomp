@@ -285,7 +285,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   `--scenario <file>`: the file's automation commands (a line each, `#` comments) instead of the skating, then quit -
   e.g. `tools/game/scenarios/live_settings_soak.txt` (with `--set Graphics.tod=night --set Graphics.tod_cycle=off
   --seconds 330`): the time of day set by hand four times, its clock started, the characters' shading changed six times
-  (`console set <key> <value>`: a [Graphics] key written to the ini and put to use as the Options screen does), then
+  (`console set <key> <value>`: any setting written to the ini and put to use as the Options screen does), then
   two minutes left alone with the clock running.
 - `node tools/game/soak_check.ts <game.log>` - whether a session stays as fast at its end as at its start: the
   renderer's windows (frame time, uploads, the ray-traced scene's BLAS builds and why they were asked for) over the level
@@ -406,6 +406,41 @@ After every run read `<folder>\thug2-decomp.log` (the run before is `thug2-decom
 also leaves `thug2-decomp-crash-<date>_<time>.txt`, its run's whole log, never overwritten): no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT / INVALID PARAMETER / PURE VIRTUAL CALL /
 ABORT / BUFFER OVERRUN DETECTED / GAME CRT MESSAGE.
 
+## Changing settings in one launch (bisecting)
+
+Every setting of `thug2-decomp.ini` changes through one path (src/engine/config/settings_live.h) - the console (` key),
+the automation channel's `console <command>` and the Options screen alike: looked up in the settings model, its value
+checked as the Options screen offers it, written to the ini (the line replaced, added or removed; comments, other lines
+and line endings kept), then put to use:
+
+- at once - the effects, the frame pacing, the upscaler, its quality and Ray Reconstruction, `msaa`, `AntiAliasing`,
+  `anisotropy`, `ResolutionX` / `ResolutionY` / `Windowed` / `Borderless` (the display is made again before the next
+  frame: the back buffer, its samples, the swap chain), PartyMod's drawing keys, the split comparison, the input and
+  glyph keys, `mute_audio` (a workspace's game stays muted), the [features] / [debug] switches;
+- by loading the level again (`rt_tessellation` and its knobs, `rt_displacement`, `building_relief`, `tess_log`): the
+  game's own level load, then the skater put back where he stood, facing the same way; offline only (refused online,
+  with the level editor open, in the front end), and the level's run starts again; asked for while paused it waits
+  for the game to run;
+- at the next start - the few that say why (`restarts` lists them: `renderer`, `ray_tracing`, frame generation and
+  Reflex, `vulkan_device`, `vulkan_validation`, `gpu_crash_markers`, `rt_opacity_micromaps`, `dpi_aware`, the start-up
+  choices).
+
+Commands (keys as `section/key`, `[section]key` or the key alone; `help` lists them):
+`set <key> <value>`, `get <key>` (value, default, in effect or why not, when a change is seen, the values),
+`toggle <key>`, `reset <key>` (back to the default: the line removed), `settings [text]`, `restarts`. In one launch:
+
+```
+console set upscaler off
+wait 120
+screenshot
+console set upscaler dlss
+console set ray_reconstruction 1
+wait 120
+screenshot
+console get msaa
+```
+
+Changing a setting never changes the game's simulation (its physics run exactly as the original's).
 ## relit_bake.ts - every level's relit data
 
 `node tools/game/relit_bake.ts --game <folder> [--levels all | BO,TR,...] [--skip-built] [--minutes 20] [--list]` makes

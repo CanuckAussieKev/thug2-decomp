@@ -95,6 +95,7 @@ public:
         render::gpu().reset_state_block();
         return reset;
     }
+    void apply_display_settings() override { render::apply_display_settings(); }
 
     // --- resources ---
     gsl::owner<WorldScene*> make_empty_scene(const char* name, TextureSet* textures, bool with_super_sectors) override

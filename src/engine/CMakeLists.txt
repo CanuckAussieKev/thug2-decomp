@@ -181,6 +181,8 @@ add_library(thug2_engine STATIC
     config/settings_resolve.cpp
     config/ini_text.cpp
     config/settings_state.cpp
+    config/settings_live.cpp
+    config/settings_values.cpp
     pad_input/key_names.cpp
     objects/anim_blender.cpp
     objects/ride_tracker.cpp

@@ -31,6 +31,7 @@ namespace {
 struct GraphicsOptionsState {
     Options options_{};
     LiveReload live_reload_ = nullptr;
+    DisplayReload display_reload_ = nullptr;
     CompareBackend compare_{};
 };
 
@@ -68,6 +69,15 @@ bool reload_live(const char* key)
     }
     const LiveReload reload = graphics_options_state().live_reload_;
     return reload != nullptr && key != nullptr && reload(key);
+}
+
+void set_display_reload(DisplayReload reload) { graphics_options_state().display_reload_ = reload; }
+
+void reload_display()
+{
+    if (const DisplayReload reload = graphics_options_state().display_reload_; reload != nullptr) {
+        reload();
+    }
 }
 
 void set_compare_backend(const CompareBackend& backend) { graphics_options_state().compare_ = backend; }

@@ -20,6 +20,7 @@
 #include "engine/sys/game_hooks.h"
 #include "engine/file/thugpro_cas.h"
 #include "engine/pad_input/device.h"
+#include "platform/platform_config.h"
 #include "platform/sdl_events.h"
 #include "engine/sys/stopwatch.h"
 #include "engine/sys/editor_mode.h"
@@ -70,6 +71,8 @@ struct MlpState {
     // NOT ORIGINAL: a back buffer size asked for (request_back_buffer_size; 0: none)
     int wanted_width_{};
     int wanted_height_{};
+    // NOT ORIGINAL - (round CS) the display's settings to read again at the next reset (request_display_reset)
+    bool display_wanted_{};
 };
 
 MlpState& mlp_state()
@@ -89,7 +92,8 @@ constexpr DWORD kLoadTestMilliseconds = 30;
 
 void load_test_stall()
 {
-    static const int kEvery = std::max(0, config_int("debug", "load_test", 0)); // (read once)
+    static build_info::LiveInt every_setting{"debug", "load_test", 0}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    const int kEvery = std::max(0, every_setting.get());
     static uint32_t loops = 0;
     if (kEvery > 0 && ++loops % static_cast<uint32_t>(kEvery) == 0) {
         Sleep(kLoadTestMilliseconds);
@@ -299,8 +303,15 @@ void Hub::reset_device_if_lost()
     render::device().release_device_objects();
     // Not original - a new back buffer size (request_back_buffer_size): the reset makes the back buffer at it.
     MlpState& state = mlp_state();
-    const bool resized = state.wanted_width_ > 0;
-    if (resized) {
+    // Not original - (round CS) the display's settings changed while the game runs (request_display_reset): read again -
+    // the window, the back buffer's size and samples, the upscaler - before the reset makes them.
+    const bool display = state.display_wanted_;
+    if (display) {
+        state.display_wanted_ = false;
+        render::device().apply_display_settings();
+    }
+    const bool resized = state.wanted_width_ > 0 || display;
+    if (state.wanted_width_ > 0) {
         render::gpu_context().set_back_buffer_size({.width = static_cast<uint32_t>(state.wanted_width_),
                                                     .height = static_cast<uint32_t>(state.wanted_height_)});
         sys::get_window_width() = state.wanted_width_;
@@ -318,6 +329,12 @@ void Hub::reset_device_if_lost()
         get_log("window: the back buffer is now %ux%u", render::gpu_context().settings().width,
                 render::gpu_context().settings().height);
     }
+}
+
+void request_display_reset()
+{
+    mlp_state().display_wanted_ = true;
+    render::engine_parts().set_device_lost(true);
 }
 
 void request_back_buffer_size(BackBufferSize size)

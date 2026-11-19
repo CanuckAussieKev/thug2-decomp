@@ -64,6 +64,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
@@ -83,8 +84,8 @@ constexpr std::size_t kSkaterNameBytes = 64;
 
 int get_mode()
 {
-    static const int kMode = config_int("features", "debug_collision", 0);
-    return kMode;
+    static build_info::LiveInt mode{"features", "debug_collision", 0}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    return mode.get();
 }
 
 const char* get_name_of(uint32_t checksum, char* buffer, size_t size)

@@ -391,9 +391,14 @@ The ini sits in the game folder. Every key is optional; the default applies when
 Graphics, Lighting, Surfaces, Sky, Colour, Camera, Style and Upscaling tabs - Camera: motion blur, depth of field and the grade; the Graphics tab's preset sets every effect at once:
 Original - all off; High - `ray_tracing`, `rt_shadows`, `rt_ao`, `rt_reflections`, `rt_sky`, `rt_sky_model`, `rt_sun`,
 `rt_fog` (its light shafts), `rt_bloom`, `rt_tessellation`; Ultra - every effect, `rt_relit`, `rt_pbr`
-and `rt_clouds` too; upscaling is left as it is). On Vulkan the effects' settings change at once; `renderer`,
-`ray_tracing`, `rt_tessellation`, the upscaling keys, `anisotropy`, `msaa` and the distance scales wait
-for the restart. Every setting is declared once in the settings model (`src/engine/config/settings_model.cpp`, `docs/design/settings.md`): what each one needs (other settings, the GPU, the 64-bit game, generated data), what turns it on and what works against it. The Options screen greys a setting that isn't in effect and says why ("Needs a ray tracing GPU"), shows the value in use when another setting sets it, and marks conflicts; the log and a screenshot's settings report say the same
+and `rt_clouds` too; upscaling is left as it is). Almost every setting changes while the game runs - from the
+Options screen or the console (`set`, `get`, `toggle`, `reset`, `settings`, `restarts`): the effects, the
+upscaler and its quality, Ray Reconstruction, `msaa`, `anisotropy`, the window's size and mode, the distance scales
+at once (the display is made again before the next frame); smooth curves (`rt_tessellation` and its knobs),
+`rt_displacement` and building relief by loading the level again and putting the skater back where he stood (offline
+only - the level's run starts again); the few read only as the game starts - `renderer`, `ray_tracing`, frame
+generation and Reflex, the Vulkan device's own, `dpi_aware`, the start-up choices - say why (`restarts` lists
+them). Every setting is declared once in the settings model (`src/engine/config/settings_model.cpp`, `docs/design/settings.md`): what each one needs (other settings, the GPU, the 64-bit game, generated data), what turns it on and what works against it. The Options screen greys a setting that isn't in effect and says why ("Needs a ray tracing GPU"), shows the value in use when another setting sets it, and marks conflicts; the log and a screenshot's settings report say the same
 
 | Key | Default | Effect |
 |---|---|---|

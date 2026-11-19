@@ -19,6 +19,7 @@
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "base/core/ints.h"
 #include "base/core/checked_index.h"
@@ -129,10 +130,10 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
 
 } // namespace
 
-bool& is_switched_on()
+bool is_switched_on()
 {
-    static bool on = config_int("features", "create_100_cas", 1) != 0;
-    return on;
+    static build_info::LiveInt on{"features", "create_100_cas", 1}; // (round CS: read again after the game writes the settings file - build_info::LiveInt)
+    return on.on();
 }
 
 bool cfunc_available(script::Struct* /*params*/, script::Context /*context*/) { return is_switched_on(); }

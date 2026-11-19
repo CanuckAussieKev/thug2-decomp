@@ -348,7 +348,7 @@ void read_frame_generation(const Resolution& in_effect)
 // NOT ORIGINAL - upscaling (gpu_vulkan/vulkan_upscale.h): DLSS / FSR from beside the exe. Read at start-up only (the
 // device's targets and the provider are made for it). Under frame generation with no upscaler asked for, the model has
 // it on at native size (DLAA / FSR's anti-aliasing: frame generation makes its frames from its motion vectors).
-void read_upscale(const Resolution& in_effect)
+render::vulkan::UpscaleSettings make_upscale(const Resolution& in_effect)
 {
     render::vulkan::UpscaleSettings upscale;
     if (!render::vulkan::parse_upscaler(in_effect.value("upscaler"), &upscale.upscaler)) {
@@ -360,7 +360,27 @@ void read_upscale(const Resolution& in_effect)
     upscale.ray_reconstruction = in_effect.on("ray_reconstruction");
     upscale.sharpness = in_effect.number("upscale_sharpness", 0.0F);
     upscale.fsr_major = static_cast<unsigned>(std::max(0, in_effect.integer("fsr_version", 0)));
-    render::vulkan::set_upscale_settings(upscale);
+    return upscale;
+}
+
+void read_upscale(const Resolution& in_effect) { render::vulkan::set_upscale_settings(make_upscale(in_effect)); }
+
+// (round CS) The display's settings read again while the game runs (graphics_options::reload_display - the display's
+// reset, engine/sys/mlp.h request_display_reset): the upscaler made again only when its settings changed (a fresh
+// start throws its history away).
+void reload_display()
+{
+    const Resolution& in_effect = config::running();
+    const render::vulkan::UpscaleSettings before = render::vulkan::upscale_settings();
+    const render::vulkan::UpscaleSettings after = make_upscale(in_effect);
+    if (before.upscaler == after.upscaler && before.quality == after.quality &&
+        before.ray_reconstruction == after.ray_reconstruction &&
+        before.sharpness == std::clamp(after.sharpness, 0.0F, 1.0F) &&
+        before.fsr_major == after.fsr_major) {
+        return; // (as it was: the provider's history kept)
+    }
+    render::vulkan::set_upscale_settings(after);
+    get_log("renderer: the upscaler's settings changed - %s, made again at the next frame", in_effect.value("upscaler").c_str());
 }
 
 // NOT ORIGINAL - per-pixel lighting and the surface maps beside the textures (gpu_vulkan/vulkan_surface.h)
@@ -849,7 +869,7 @@ void refresh_compare()
 // changes while it runs (it waits for the restart).
 bool reload_live_key(const char* key)
 {
-    const int index = config::find(build_info::kGraphics, key);
+    const int index = config::find(key); // ([Graphics]' and [debug]'s: rt_lights_log, rt_water_view)
     if (index < 0) {
         return false;
     }
@@ -895,11 +915,15 @@ void install_vulkan(const Resolution& in_effect)
                                .validation = in_effect.on("vulkan_validation"),
                                .ray_tracing = in_effect.on("ray_tracing"),
                                .crash_markers = in_effect.on("gpu_crash_markers"),
-                               .opacity_micromaps = in_effect.on("rt_opacity_micromaps")});
+                               .opacity_micromaps = in_effect.on("rt_opacity_micromaps"),
+                               // (round CS: ready for the upscalers this machine has, so they change while it runs)
+                               .upscalers = config::capabilities().x64,
+                               .dlss = config::capabilities().rtx > 0});
     read_frame_generation(in_effect);
     read_upscale(in_effect);
     read_all_effects(in_effect);
     render::graphics_options::set_live_reload(&reload_live_key);
+    render::graphics_options::set_display_reload(&reload_display);
     render::graphics_options::set_compare_backend(
         {.prepare = &compare_prepare, .apply = &compare_apply, .end = &compare_end});
     render::install_device(render::d3d9::device());

@@ -23,6 +23,9 @@ bool ini_get(const std::string& text, const IniKey& at, std::string* value);
 // kept), or a line added after the section's last line that isn't blank (a missing section added at the end) - every
 // other line, comment and unknown key as it was, the file's line ending kept (\r\n unless it only uses \n).
 std::string ini_set(const std::string& text, const IniKey& at, const std::string& value);
+// The text without `at`'s key line (the first of its section; the setting back at its default) - every other line,
+// comment and line ending as it was; the text as it was when there is none.
+std::string ini_remove(const std::string& text, const IniKey& at);
 // Every key=value of the text (the first of each, in the first section of each name), for the resolver.
 IniValues ini_values(const std::string& text);
 

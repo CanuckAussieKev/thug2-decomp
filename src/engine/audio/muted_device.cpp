@@ -3,7 +3,9 @@
 #include "engine/audio/muted_device.h"
 
 #include <cstdint>
+#include <mutex>
 #include <span>
+#include <unordered_map>
 
 #include <gsl/pointers>
 
@@ -20,17 +22,21 @@ class MutedDevice final : public Device {
 public:
     explicit MutedDevice(Device& output) : output_(&output) {}
 
-    // --- the output: the session muted while it is open ---
+    // --- the output: the session muted while it is open (and muted) ---
     SoundOutput* open(void* window) override
     {
         SoundOutput* const opened = output_->open(window);
-        sound::set_audio_session_muted(true); // before anything plays
+        if (muted()) {
+            sound::set_audio_session_muted(true); // before anything plays
+        }
         return opened;
     }
     void close(SoundOutput* output) override
     {
         output_->close(output);
-        sound::set_audio_session_muted(false); // or Windows would keep the session muted for the exe's next run
+        if (muted()) {
+            sound::set_audio_session_muted(false); // or Windows would keep the session muted for the exe's next run
+        }
     }
     void list_outputs(OutputListed listed) override { output_->list_outputs(listed); }
 
@@ -51,14 +57,23 @@ public:
     {
         output_->fill_buffer(buffer, samples);
     }
-    void release_buffer(SoundBuffer* buffer) override { output_->release_buffer(buffer); }
+    void release_buffer(SoundBuffer* buffer) override
+    {
+        {
+            const std::scoped_lock lock(mutex_);
+            asked_.erase(buffer);
+        }
+        output_->release_buffer(buffer);
+    }
     void release_buffer_3d(SoundBuffer3d* buffer) override { output_->release_buffer_3d(buffer); }
     bool play_buffer(SoundBuffer* buffer, bool looping) override { return output_->play_buffer(buffer, looping); }
     void stop_buffer(SoundBuffer* buffer) override { output_->stop_buffer(buffer); }
     bool buffer_finished(SoundBuffer* buffer) override { return output_->buffer_finished(buffer); }
-    void set_buffer_volume(SoundBuffer* buffer, int /*attenuation*/) override
+    void set_buffer_volume(SoundBuffer* buffer, int attenuation) override
     {
-        output_->set_buffer_volume(buffer, kSilentAttenuation);
+        const std::scoped_lock lock(mutex_);
+        asked_[buffer] = attenuation; // (what it plays at once unmuted)
+        output_->set_buffer_volume(buffer, muted_ ? kSilentAttenuation : attenuation);
     }
     void set_buffer_pan(SoundBuffer* buffer, int pan) override { output_->set_buffer_pan(buffer, pan); }
     void set_buffer_frequency(SoundBuffer* buffer, uint32_t frequency) override
@@ -82,18 +97,55 @@ public:
     bool resume_buffer(SoundBuffer* buffer) override { return output_->resume_buffer(buffer); }
 
     // --- the movies' and streams' sound: silent ---
-    int track_volume(int /*volume*/) override { return 0; }
+    int track_volume(int volume) override { return muted() ? 0 : output_->track_volume(volume); }
+
+    // (round CS) Muted or not from now on: the session, and every voice's volume as the game last asked for it.
+    void set_muted(bool muted)
+    {
+        const std::scoped_lock lock(mutex_);
+        if (muted == muted_) {
+            return;
+        }
+        muted_ = muted;
+        sound::set_audio_session_muted(muted);
+        for (const auto& [buffer, attenuation] : asked_) {
+            output_->set_buffer_volume(buffer, muted ? kSilentAttenuation : attenuation);
+        }
+    }
 
 private:
+    bool muted()
+    {
+        const std::scoped_lock lock(mutex_);
+        return muted_;
+    }
+
     gsl::not_null<Device*> output_;
+    std::mutex mutex_;
+    bool muted_ = sound::audio_muted();
+    std::unordered_map<SoundBuffer*, int> asked_; // (each voice's volume as the game set it last)
 };
+
+MutedDevice*& made_device()
+{
+    static MutedDevice* made = nullptr;
+    return made;
+}
 
 } // namespace
 
 Device& muted_device(Device& output)
 {
     static core::NoDestroy<MutedDevice> made(output);
+    made_device() = &made.get();
     return made.get();
+}
+
+void set_output_muted(bool muted)
+{
+    if (made_device() != nullptr) {
+        made_device()->set_muted(muted);
+    }
 }
 
 } // namespace audio

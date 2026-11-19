@@ -133,6 +133,8 @@ inline constexpr const char* kGameOptionsValue = "Sound, controls";
 inline constexpr const char* kGameOptionsHelp = "Sound, controls, display and more.";
 inline constexpr const char* kOpen = "Open";
 inline constexpr const char* kRestartToApply = "Restart to apply";
+// (round CS: a setting read as a level loads - the level loads again once you're back in it)
+inline constexpr const char* kReloadsLevel = "Reloads the level";
 inline constexpr const char* kCouldntSave = "Couldn't save settings.";
 inline constexpr const char* kOff = "Off";
 inline constexpr const char* kOn = "On";

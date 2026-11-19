@@ -42,6 +42,16 @@ is now (the Options screen's view, the settings report's). When the Options scre
 resolution is made again and every renderer part whose settings' effective values moved is read again - the key's own
 and any another rule moved with it.
 
+Changing a setting while the game runs (round CS, `settings_live.h`): one path for the console's `set` / `get` /
+`toggle` / `reset` / `settings` / `restarts`, the automation's `console <command>` and the Options screen - the key
+looked up in the model, its value checked as the screen offers it, the ini written by the one writer (`ini_set` /
+`ini_remove`: other lines, comments and line endings kept), then put to use by its `Apply`: `kLive` - the setting's
+`Owner` (each has one applier the game installs: `app/settings_appliers.cpp` - the renderer's part, the display made
+again before the next frame through the device's reset, PartyMod's drawing keys, a switch, `kSelf` for an owner that
+reads it again at its next use through `build_info::LiveInt`); `kReload` - the level loaded again where the player
+stands (`game/front_end/level_reload.h`; offline only); `kRelaunch` - only for what nothing short of a new process
+changes, each saying why (`Setting::restart`). The options check holds every live setting to an owner and every
+start-up one to a reason.
 ## The rules (what is enforced)
 
 - `ray_tracing` needs the Vulkan renderer, a ray tracing GPU and the 64-bit game. Shadows, occlusion, bounce light,

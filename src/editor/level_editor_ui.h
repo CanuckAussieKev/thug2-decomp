@@ -44,7 +44,7 @@ struct Fonts;
 namespace frontend::level_editor::ui {
 
 // [features] editor_ui (default 1; read once).
-bool& is_switched_on();
+bool is_switched_on();
 // The UI is up (between Start and Stop, enabled and started).
 bool underway();
 // The editor starting (LevelEditor_Start): ImGui made once, its backends started on the game's window and device.
