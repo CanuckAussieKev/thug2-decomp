@@ -176,11 +176,9 @@ uint local_place(float y)
 }
 )";
 
-// The fragment shader (vulkan_hdr.h's curve; tone_map_reference is its twin): reads the viewport's copy, writes the
-// colour target's rgb.
-constexpr const char* kFragmentBody = R"(
-layout(location = 0) out vec4 o_colour;
-
+// (round NK) The display's preferences after saturation and the tone curve, on an encoded colour (the fragment's tone
+// steps 5 - 6; also the meter's, which inverts them on grey for the key - vulkan_hdr.h "The metering").
+constexpr const char* kCurveGlsl = R"(
 float shoulder(float c)
 {
     if (c <= pc.shape.x) {
@@ -207,6 +205,33 @@ vec3 aces_fitted(vec3 x)
                   dot(vec3(-0.00327, -0.07276, 1.07602), v));
     return clamp(y, 0.0, 1.0);
 }
+
+// contrast about mid-grey, then the curve (pc.grade.z, pc.grade.w; pc.shape the curve's numbers) - encoded in and out
+vec3 curve_on_display(vec3 c)
+{
+    if (pc.grade.z != 1.0) {
+        c = 0.5 * pow(c / 0.5, vec3(pc.grade.z));
+    }
+    if (pc.grade.w < 0.5) {
+        return vec3(shoulder(c.r), shoulder(c.g), shoulder(c.b));
+    }
+    if (pc.grade.w < 1.5) {
+        return display_from_linear(min(aces(linear_from_display(c)) * pc.shape.z, vec3(1.0)));
+    }
+    return display_from_linear(aces_fitted(linear_from_display(c)));
+}
+
+// (round NK) A grey of linear light `x` (exposed) as the display shows it, linear (no grade table)
+float shown_grey(float x)
+{
+    return linear_from_display(curve_on_display(vec3(display_from_linear(x))).g);
+}
+)";
+
+// The fragment shader (vulkan_hdr.h's curve; tone_map_reference is its twin): reads the viewport's copy, writes the
+// colour target's rgb.
+constexpr const char* kFragmentBody = R"(
+layout(location = 0) out vec4 o_colour;
 
 // (round EX) The local exposure's factor (vulkan_hdr.h "Local exposure"; local_exposure_reference is its twin) for an
 // exposed luminance `y` at `p` (the pixel's centre in the viewport).
@@ -278,16 +303,7 @@ vec3 tone(vec3 c, vec2 p)
         float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
         c = max(vec3(luma) + (c - vec3(luma)) * pc.grade.y, vec3(0.0));
     }
-    if (pc.grade.z != 1.0) {
-        c = 0.5 * pow(c / 0.5, vec3(pc.grade.z));
-    }
-    if (pc.grade.w < 0.5) {
-        c = vec3(shoulder(c.r), shoulder(c.g), shoulder(c.b));
-    } else if (pc.grade.w < 1.5) {
-        c = display_from_linear(min(aces(linear_from_display(c)) * pc.shape.z, vec3(1.0)));
-    } else {
-        c = display_from_linear(aces_fitted(linear_from_display(c)));
-    }
+    c = curve_on_display(c);
     if (pc.lut.x >= 2.0) {
         c = graded(c);
     }
@@ -435,9 +451,22 @@ void main()
         // range its settings reach (CAMERA_LEAST_STOPS - CAMERA_MOST_STOPS)
         float mean = metered / METER_WHITE;
         float seen = max(mean, 1e-30);
-        // the key: middle grey x the compensation curve (Krawczyk's scene key over daylight's: the absolute luminance)
+        // the key: middle grey x the compensation curve (round NK - vulkan_hdr.h "The metering": Krawczyk's key for the
+        // absolute luminance in Reinhard's photographic operator, a / (1 + a) shown, over daylight's - the displayed
+        // grey that share of middle grey's through the curve in use, inverted by halving in stops)
         float adapted = 1.03 - 2.0 / (2.0 + log(seen * METER_WHITE + 1.0) / log(10.0));
-        float key = METER_KEY * adapted / METER_DAY_ADAPTED;
+        float wanted = shown_grey(METER_KEY) * (adapted / (1.0 + adapted)) / METER_DAY_SHOWN;
+        float key_low = KEY_LEAST_STOP;
+        float key_high = KEY_MOST_STOP;
+        for (int i = 0; i < KEY_HALVINGS; ++i) {
+            float middle = 0.5 * (key_low + key_high);
+            if (shown_grey(exp2(middle)) < wanted) {
+                key_low = middle;
+            } else {
+                key_high = middle;
+            }
+        }
+        float key = exp2(0.5 * (key_low + key_high));
         float target = clamp(clamp(log2(key / seen), CAMERA_LEAST_STOPS, CAMERA_MOST_STOPS), -pc.meter.w, pc.meter.w);
         int slot = int(pc.meter.x);
         float now = target;
@@ -948,6 +977,7 @@ VkPipeline pass_pipeline(Backend& state, VkFormat format, VkSampleCountFlagBits 
     source += pass_defines();
     source += kPassCommon;
     source += rt::kDisplayTransferGlsl;
+    source += kCurveGlsl;
     source += kFragmentBody;
     const VkShaderModule fragment = make_module(device, ShaderStage::kFragment, source, error);
     if (fragment == VK_NULL_HANDLE) {
@@ -1083,6 +1113,14 @@ double adaptation_at(double mean)
 {
     return 1.03 - (2.0 / (2.0 + std::log10((std::max(mean, 0.0) * meter_white()) + 1.0)));
 }
+// (round NK) Reinhard, Stark, Shirley and Ferwerda 2002's photographic operator, L / (1 + L), on a key: the share of white
+// it shows the scene's log average at - the operator Krawczyk's key was made for
+double reinhard_shown(double key) { return key / (1.0 + key); }
+// (round NK) the key's search (meter_key, the meter's twin): 2^kKeyLeastStop - 2^kKeyMostStop of exposed light, halved
+// kKeyHalvings times (48 stops / 2^40: far under a float's step)
+constexpr float kKeyLeastStop = -40.0F;
+constexpr float kKeyMostStop = 8.0F;
+constexpr int kKeyHalvings = 40;
 
 // A number as GLSL reads it (a float literal).
 std::string glsl_real(float value)
@@ -1107,7 +1145,10 @@ std::string pass_defines()
     define("METER_TAPS", std::to_string(kMeterTaps));
     define("METER_KEY", glsl_real(kMeterKey));
     define("METER_WHITE", glsl_real(static_cast<float>(meter_white())));
-    define("METER_DAY_ADAPTED", glsl_real(static_cast<float>(adaptation_at(kDaylightAverage))));
+    define("METER_DAY_SHOWN", glsl_real(static_cast<float>(reinhard_shown(adaptation_at(kDaylightAverage)))));
+    define("KEY_LEAST_STOP", glsl_real(kKeyLeastStop));
+    define("KEY_MOST_STOP", glsl_real(kKeyMostStop));
+    define("KEY_HALVINGS", std::to_string(kKeyHalvings));
     const std::array<float, 2> camera = camera_stops_range();
     define("CAMERA_LEAST_STOPS", glsl_real(std::get<0>(camera)));
     define("CAMERA_MOST_STOPS", glsl_real(std::get<1>(camera)));
@@ -1166,6 +1207,8 @@ VkPipeline compute_pipeline(Backend& state, ComputeKind kind, bool multisampled,
     source += kPassCommon;
     switch (kind) {
     case ComputeKind::kMeter:
+        source += rt::kDisplayTransferGlsl;
+        source += kCurveGlsl;
         source += kMeterBody;
         break;
     case ComputeKind::kLocalGrid:
@@ -2082,17 +2125,39 @@ std::vector<float> local_exposure_reference(uint32_t width, uint32_t height, con
     return factors;
 }
 
-float meter_key(float mean)
+float shown_grey(const ToneParameters& tone, float exposed)
 {
-    return kMeterKey * static_cast<float>(adaptation_at(static_cast<double>(mean)) / adaptation_at(kDaylightAverage));
+    ToneParameters curve = tone;
+    curve.scale = 1.0F;
+    curve.saturation = 1.0F;
+    const std::array<float, 3> shown = tone_map_reference(curve, nullptr, {exposed, exposed, exposed});
+    return rt::linear_from_display(core::at(shown, 1));
 }
 
-float meter_target_stops(float mean, float most_stops)
+float meter_shown_ratio(float mean)
+{
+    return static_cast<float>(reinhard_shown(adaptation_at(static_cast<double>(mean))) /
+                              reinhard_shown(adaptation_at(kDaylightAverage)));
+}
+
+float meter_key(float mean, const ToneParameters& tone)
+{
+    const float wanted = shown_grey(tone, kMeterKey) * meter_shown_ratio(mean);
+    float low = kKeyLeastStop;
+    float high = kKeyMostStop;
+    for (int i = 0; i < kKeyHalvings; ++i) {
+        const float middle = 0.5F * (low + high);
+        (shown_grey(tone, std::exp2(middle)) < wanted ? low : high) = middle;
+    }
+    return std::exp2(0.5F * (low + high));
+}
+
+float meter_target_stops(float mean, float most_stops, const ToneParameters& tone)
 {
     const float most = std::max(most_stops, 0.0F);
     const float seen = std::max(mean, 1e-30F);
     const std::array<float, 2> range = camera_stops_range(); // (round L: the camera's settings)
-    const float stops = std::clamp(std::log2(meter_key(seen) / seen), core::at(range, 0), core::at(range, 1));
+    const float stops = std::clamp(std::log2(meter_key(seen, tone) / seen), core::at(range, 0), core::at(range, 1));
     return std::clamp(stops, -most, most);
 }
 
@@ -2388,6 +2453,10 @@ bool record_meter_pass(Backend& state, const rt::ViewDrawn& view)
     constants.meter_rect = {static_cast<float>(left), static_cast<float>(top), static_cast<float>(width),
                             static_cast<float>(height)};
     constants.night = {rt::frame_pre_exposure(), 0.0F, 0.0F, 0.0F};
+    // (round NK) the curve the key is found through (the meter's shown_grey: contrast and the curve, as the tone pass)
+    const ToneParameters& tone = own.parameters;
+    constants.grade = {1.0F, 1.0F, tone.contrast, static_cast<float>(tone.curve)};
+    constants.shape = {tone.knee, tone.room, tone.aces_scale, 1.0F};
     VkCommandBuffer commands = outside_pass(state);
     copy_view(commands, colour, {left, top, width, height});
     PassBindings bindings;
