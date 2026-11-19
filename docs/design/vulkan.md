@@ -5873,6 +5873,24 @@ One light list, one way to sample it:
   read through its device address (GI's pushed set is full). The fog's haze is now run where the light list's emitting
   triangles alone light it (no sun, no analytic lamp: it was skipped).
 
+### Ray Reconstruction's inputs at the drawn size, local lights by RIS at GI's secondary vertices (round DD)
+- **Every Ray Reconstruction input an image of exactly the drawn size** (vulkan_upscale.cpp prepare): the transparency
+  layer (vulkan_surface_light.h surface_light_layer - the colour target's size and format) and ReSTIR GI's specular hit
+  distance (the light inputs' size) are copied into the upscaler's own images of the render size, the view at their
+  top-left, and tagged with that extent. Given the colour target's image tagged with the drawn sub-rectangle, DLSS-RR
+  laid the layer over its output twice - at its place and the whole image over the output: BO at night, every light cone
+  round the statue shown again at drawn / output of its place (thug2_vulkan_upscale_check measured 6.0 at the place and
+  2.1 at the ghost for a square of 8). The DLSS provider tags a transparency layer only when it is the drawn size.
+- **ReSTIR GI's next-event estimation: RIS over the local lights** (vulkan_light_list.h light_sample_glsl, LL_POOL):
+  the local group's light at a secondary vertex is chosen by resampled importance sampling (Talbot et al. 2005) over
+  8 of the presampled pool's picks (kLocalCandidates; RTXDI's ReSTIR GI takes 8 local light samples at its secondary
+  surfaces too), target = the light's luminance at the point x the receiver's cosine (unshadowed), one ray for the one
+  chosen; its weight = the candidates' mean weight over its target, x the group's share of the list's picks. One pick by
+  power alone gave a small or far emitter (a lit sign's or window's triangles) a pick probability far below its share
+  at the point: its rare picks were fireflies, reused by GI's reservoirs and kept by Ray Reconstruction (BO at night:
+  bright specks moving over the street, the bank's ceiling and the bus stop). Passes without the pool (the reflections'
+  list-lit hits, the front layer) keep one pick.
+
 ### What is drawn apart, in the rays (round PG)
 
 The last gap of stage 3: what the game draws in passes of its own after the ray-traced lighting - the clutter's items,

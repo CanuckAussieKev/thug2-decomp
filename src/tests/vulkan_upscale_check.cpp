@@ -20,7 +20,9 @@
 //     at 65 504 beside it: finite, over white, the floor kept. --rr-probe also prints the floor's out / in over noise,
 //     emitters' sizes and values and pre-exposure steps and drifts (what moves it). (Round AE) 40 small emitters while
 //     the pre-exposure drifts 0.1 % a frame: the frame's light and the emitters' surroundings' out / in within 2 % of the
-//     same scene held still; --rr-probe prints the frame's and the emitters' out / in too.
+//     same scene held still; --rr-probe prints the frame's and the emitters' out / in too. (Round DD) A transparency
+//     layer of the drawn size: its square shown at its place and not again at its drawn coordinates; one of the
+//     output's size isn't given.
 //   thug2_vulkan_upscale_check [--device N] [--display N] [--no-validation] [--dlss] [--rr-probe] [--quality ...]
 //                              [--save <folder>] (the round trip's pictures as .ppm)
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan or no upscaler for it.
@@ -1149,6 +1151,10 @@ struct RrResult {
     double frame_out = 0.0;
     double near_in = 0.0;
     double near_out = 0.0;
+    // (round DD) the transparency layer's square out: at its place (its centre scaled to the output) and where it would
+    // be shown if the layer's image were laid over the output whole (its drawn coordinates read as the output's)
+    double layer_at = 0.0;
+    double layer_ghost = 0.0;
 };
 
 // What Ray Reconstruction is given: a still floor - a checker of albedos lit by `level` x the albedo (its guide the
@@ -1168,7 +1174,13 @@ struct RrScene {
     float step = 1.0F;
     // (the camera adapting: every frame the light and the pre-exposure x `drift`)
     float drift = 1.0F;
+    // (round DD) a square of `layer_light` (alpha 1, premultiplied) in the transparency layer, `patch` drawn pixels wide,
+    // centred at kRrLayerAt of the drawn size; `layer_whole`: the layer an image of the output's size with the view in
+    // its top-left (as the colour target is - the game gave that before round DD) instead of exactly the drawn size
+    float layer_light = 0.0F;
+    bool layer_whole = false;
 };
+constexpr std::array<double, 2> kRrLayerAt{0.6, 0.3};
 
 // kRrFrames frames of Ray Reconstruction on `scene`: the floor's mean luma in and out (pixels more than 3 emitter sizes
 // from every emitter), the middle emitter's centre out.
@@ -1225,6 +1237,28 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
     std::vector<float> normals(pixels * 4, 0.0F);
     std::vector<float> zeros(pixels * 4, 0.0F);
     const std::vector<float> depth(pixels, 0.5F);
+    // (round DD) the transparency layer: its square, in the layer image's own rows (the output's width when it is whole)
+    const uint32_t layer_width = scene.layer_whole ? kWidth : width;
+    const uint32_t layer_height = scene.layer_whole ? kHeight : height;
+    const double layer_cx = kRrLayerAt[0] * static_cast<double>(width);
+    const double layer_cy = kRrLayerAt[1] * static_cast<double>(height);
+    std::vector<float> layer(static_cast<std::size_t>(layer_width) * layer_height * 4, 0.0F);
+    if (scene.layer_light > 0.0F) {
+        for (uint32_t y = 0; y < height; ++y) {
+            for (uint32_t x = 0; x < width; ++x) {
+                const double off_x = std::abs(static_cast<double>(x) + 0.5 - layer_cx);
+                const double off_y = std::abs(static_cast<double>(y) + 0.5 - layer_cy);
+                if (std::max(off_x, off_y) >= half_patch) {
+                    continue;
+                }
+                const std::size_t index = ((static_cast<std::size_t>(y) * layer_width) + x) * 4;
+                core::at(layer, index) = scene.layer_light;
+                core::at(layer, index + 1) = scene.layer_light;
+                core::at(layer, index + 2) = scene.layer_light;
+                core::at(layer, index + 3) = 1.0F;
+            }
+        }
+    }
     const std::vector<float> reactive(pixels, 0.0F);
     std::vector<uint8_t> emitting(pixels, 0);
     for (uint32_t y = 0; y < height; ++y) {
@@ -1269,12 +1303,13 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
         const std::scoped_lock lock(state.mutex);
         render::vulkan::finish_work(state);
         for (const auto& [image, format] : made) {
-            ok = ok && rr_image(state, image, format, image == &images.output ? output : render_size);
+            const bool whole = image == &images.output || (image == &images.layer && scene.layer_whole);
+            ok = ok && rr_image(state, image, format, whole ? output : render_size);
         }
         make_colour();
         ok = ok && rr_fill(state, &images.colour, colour) && rr_fill(state, &images.albedo, albedo) &&
              rr_fill(state, &images.normals, normals) && rr_fill(state, &images.specular, zeros) &&
-             rr_fill(state, &images.motion, zeros) && rr_fill(state, &images.layer, zeros) &&
+             rr_fill(state, &images.motion, zeros) && rr_fill(state, &images.layer, layer) &&
              rr_fill(state, &images.depth, depth) && rr_fill(state, &images.reactive, reactive);
         const std::vector<float> clear_output(static_cast<std::size_t>(kWidth) * kHeight * 4, 0.0F);
         ok = ok && rr_fill(state, &images.output, clear_output);
@@ -1392,6 +1427,11 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
         result.frame_out = whole_out / (static_cast<double>(kWidth) * kHeight);
         result.near_in = near_count_in > 0 ? near_sum_in * static_cast<double>(scale) / static_cast<double>(near_count_in) : 0.0;
         result.near_out = near_count_out > 0 ? near_sum_out / static_cast<double>(near_count_out) : 0.0;
+        const auto output_pixel = [](double x, double y) {
+            return ((static_cast<std::size_t>(y) * kWidth) + static_cast<std::size_t>(x)) * 4;
+        };
+        result.layer_at = luma(output_pixel(layer_cx / ratio, layer_cy / ratio));
+        result.layer_ghost = luma(output_pixel(layer_cx, layer_cy));
         if (!emitters.empty()) {
             const auto& corner = emitters.front();
             const auto cx = static_cast<std::size_t>((static_cast<double>(corner[0]) + half_patch) / ratio);
@@ -1511,6 +1551,27 @@ void check_reconstruction_levels(render::vulkan::Backend& state, Tally* tally)
                               static_cast<double>(kRrHalfMost), emitter.patch_out, static_cast<double>(kRrToneWhite), kept));
 }
 
+// (round DD) The transparency layer is laid over the output once, where its transparencies are: given as an image of
+// exactly the drawn size, its square shows at its place scaled to the output and nowhere else (BO at night: every light
+// cone shown twice, the second at drawn / output of its place - the layer was the colour target's image, the output's
+// size, with the view in its top-left, tagged with that sub-rectangle: DLSS-RR showed it at its place and again, the whole
+// image laid over the output - measured: 6.0 at the place, 2.1 at the ghost). An image of another size isn't given to it
+// at all (UpscaleFrame::transparency: exactly the drawn size): no square anywhere, no ghost.
+void check_reconstruction_layer(render::vulkan::Backend& state, Tally* tally)
+{
+    constexpr float kLayerLight = 8.0F;
+    const RrResult exact = rr_floor(state, {.layer_light = kLayerLight});
+    tally->check(exact.ran && exact.finite && exact.layer_at >= 0.5 * kLayerLight && exact.layer_ghost < 1.0,
+                 text::format("a transparency layer of the drawn size: its square (%.1f) out %.2f at its place, %.3f where "
+                              "a whole-image layer would show it again",
+                              static_cast<double>(kLayerLight), exact.layer_at, exact.layer_ghost));
+    const RrResult whole = rr_floor(state, {.layer_light = kLayerLight, .layer_whole = true});
+    tally->check(whole.ran && whole.finite && whole.layer_at < 1.0 && whole.layer_ghost < 1.0,
+                 text::format("a transparency layer of the output's size (the view in its top-left) isn't given: out %.3f "
+                              "at the square's place, %.3f at its drawn coordinates",
+                              whole.layer_at, whole.layer_ghost));
+}
+
 enum class Opened : uint8_t { kYes, kNoDevice };
 
 Opened open_device(const Options& options, SDL_Window* window, const render::vulkan::UpscaleSettings& settings)
@@ -1587,6 +1648,7 @@ int run(const Options& options, SDL_Window* window)
                     probe_reconstruction(render::vulkan::backend());
                 }
                 check_reconstruction_levels(render::vulkan::backend(), &tally);
+                check_reconstruction_layer(render::vulkan::backend(), &tally);
                 render::vulkan::set_upscale_settings({});
             }
         }

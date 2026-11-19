@@ -89,6 +89,9 @@ struct RestirGiOverrides {
     bool permutation = true;
     bool boiling_filter = true;
     bool cache = true; // (round MB) the secondary vertices' further bounces from the radiance cache (false: one bounce)
+    // (round DD) the local lights' RIS candidates a next-event sample takes from the pool (0: the game's; 1: one pick
+    // by power alone, as before round DD)
+    uint32_t local_candidates = 0;
     uint32_t seed = 0;
 };
 void set_restir_gi_overrides(const RestirGiOverrides& overrides);

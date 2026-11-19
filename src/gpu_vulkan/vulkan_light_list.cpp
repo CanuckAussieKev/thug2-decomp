@@ -389,6 +389,9 @@ std::string_view emitter_scan_glsl() { return kScanGlsl; }
 std::string_view light_sample_glsl()
 {
     static constexpr std::string_view kSource = R"(
+#ifndef LL_LOCAL_CANDIDATES
+#define LL_LOCAL_CANDIDATES 8u // (round DD) the local lights' candidates a sample resamples (the pool's - LL_POOL)
+#endif
 // The disc's light the clouds let through to `at` (their shadow map - the shadows pass's clouds_through); 1 without it.
 float sun_kept(vec3 at)
 {
@@ -457,12 +460,41 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
     // of the group by power and a uniform point on it, as local_light_at's - its pdf the group's; x the group's share of
     // the full list's picks (LL_POOL_SHARE) it is the pdf of the pick above. The same distribution; the triangle's corners,
     // instance and emission texel not read here.
+    // (round DD) Resampled importance sampling over LL_LOCAL_CANDIDATES of them (Talbot et al. 2005 - what RTXDI's
+    // ReSTIR GI does for its secondary surfaces' local lights, and the fog's list_lights here): each a pool slot, weighed
+    // toward the light it sends to `p` (its luminance x the receiver's cosine - unshadowed), one chosen and its ray
+    // traced. One pick by power alone left the light of a small or far emitter with a pick probability far below its
+    // share here - its rare picks fireflies (BO at night: bright specks over the street, the bank's ceiling and the bus
+    // stop, moving frame to frame - ReSTIR GI's samples reused, and Ray Reconstruction keeps such outliers).
     if (LL_POOL) {
-        uint slot = min(uint(u1 * float(LIGHT_POOL_SIZE)), LIGHT_POOL_SIZE - 1u);
-        if (!light_seen_from(light_pool_read(slot), p, l) || !(l.pdf > 0.0)) {
+        float wsum = 0.0;
+        float chosen_target = 0.0;
+        LocalLight c;
+        for (uint k = 0u; k < LL_LOCAL_CANDIDATES; ++k) {
+            float uk = k == 0u ? u1 : path_next(rng);
+            float uc = path_next(rng);
+            uint slot = min(uint(uk * float(LIGHT_POOL_SIZE)), LIGHT_POOL_SIZE - 1u);
+            if (!light_seen_from(light_pool_read(slot), p, c) || !(c.pdf > 0.0)) {
+                continue;
+            }
+            // (the receiver's side as the sample below is kept: above both normals)
+            float cosine = surface ? (dot(c.dir, ng) > 0.0 && dot(c.dir, n) > 1.0e-4 ? dot(c.dir, n) : 0.0) : 1.0;
+            float target = path_luma(c.light) * cosine;
+            float w = target / c.pdf;
+            if (!(w > 0.0) || isinf(w)) {
+                continue;
+            }
+            wsum += w;
+            if (uc * wsum < w) {
+                l = c;
+                chosen_target = target;
+            }
+        }
+        if (!(chosen_target > 0.0)) {
             return vec3(0.0);
         }
-        l.pdf *= LL_POOL_SHARE;
+        // (the estimate's weight: the candidates' mean weight over the chosen one's target, in place of 1 / its pdf)
+        l.pdf = LL_POOL_SHARE * chosen_target * float(LL_LOCAL_CANDIDATES) / wsum;
     } else
 #endif
     if (!local_light_at(picked, count, vec2(u1, u2), p, l) || !(l.pdf > 0.0)) {

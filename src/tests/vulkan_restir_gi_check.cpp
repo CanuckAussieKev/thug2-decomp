@@ -16,6 +16,9 @@
 //     and the sky's radiance within 3 % (the light model's albedo with its multiple-scattering compensation: 1);
 //   - (round CW) a layer painted on that floor (alpha-blended, 0.8 units over it): the paint is the pixel's surface - the
 //     sky's light on it within 3 % of the bare floor's (it was black: the floor under it found, shaded by the paint);
+//   - (round DD) a night lit by a far floodlight and six small lamps by the wall (1/200 of its power each): the
+//     secondary vertices' local lights by RIS over 8 of the pool's picks - the floor's mean the reference's (within 3 %,
+//     as one pick's), its flicker frame to frame under 0.75 x one pick's;
 //   - disocclusion: the camera swapped between two views every frame (history across the other view): within 2 %;
 //   - no estimate NaN or infinite; the validation layer silent; the passes' device time printed.
 //   thug2_vulkan_restir_gi_check [--device N] [--display N] [--no-validation]
@@ -665,6 +668,8 @@ struct RunPlan {
     uint32_t spatial = 0xFFU;
     bool temporal = true;
     bool cache = true; // (round MB) the radiance cache's further bounces
+    uint32_t local_candidates = 0; // (round DD) the secondary vertices' local lights' RIS candidates (0: the game's)
+    bool boiling_filter = true;    // (round DD) RTXDI's boiling filter (off: the estimate unbiased)
     std::function<Vec3(int)> camera;
     std::function<bool(int)> counted;
     std::function<void(const vk::RestirGiAccumulation&)> each_frame; // (round BR: read back every counted frame when set)
@@ -691,6 +696,8 @@ Answer restir_gi(render::Gpu& gpu, const Targets& targets, std::span<const Scene
         overrides.spatial = plan.spatial;
         overrides.temporal = plan.temporal;
         overrides.cache = plan.cache;
+        overrides.local_candidates = plan.local_candidates;
+        overrides.boiling_filter = plan.boiling_filter;
         overrides.seed = 977U + (static_cast<uint32_t>(batch) * 104729U);
         vk::set_restir_gi_overrides(overrides);
         vk::forget_restir_gi_history();
@@ -757,6 +764,115 @@ rt::Emitter lamp_at(const Vec3& at, float intensity, float core)
 }
 
 // --- the checks --------------------------------------------------------------------------------------------------------------
+
+// (round DD) How a series of frames flickers over a region: the share of pixel-frames over 4 x their pixel's mean over
+// the frames (single bright pixels - what a denoiser passes as sparkle) and each pixel's deviation over its mean.
+struct Flicker {
+    double over_share = 1.0;
+    double variation = 0.0;
+    std::size_t pixels = 0;
+};
+Flicker flicker_of(const std::vector<std::vector<float>>& series, const Region& region)
+{
+    Flicker out;
+    std::size_t over = 0;
+    std::size_t samples = 0;
+    double variation = 0.0;
+    for (std::size_t i = 0; i < series.size(); ++i) {
+        const std::vector<float>& s = core::at(series, i);
+        if (core::at(region, i) == 0 || s.size() < 2) {
+            continue;
+        }
+        double mean = 0.0;
+        for (const float x : s) {
+            mean += x;
+        }
+        mean /= static_cast<double>(s.size());
+        if (!(mean > 0.0)) {
+            continue;
+        }
+        double spread = 0.0;
+        for (const float x : s) {
+            spread += (x - mean) * (x - mean);
+            over += x > 4.0 * mean ? 1U : 0U;
+        }
+        samples += s.size();
+        variation += std::sqrt(spread / static_cast<double>(s.size())) / mean;
+        ++out.pixels;
+    }
+    out.over_share = samples > 0 ? static_cast<double>(over) / static_cast<double>(samples) : 1.0;
+    out.variation = out.pixels > 0 ? variation / static_cast<double>(out.pixels) : 0.0;
+    return out;
+}
+
+// (round DD) A night lit by lamps of very different power - one far floodlight with nearly all of it, six small lamps in
+// front of the wall (each 1/200 of the flood's): the wall the floor's indirect rays meet is lit mostly by the small
+// ones. The secondary vertices' next-event estimation picked one local light by power: a small lamp in about one pick in
+// 200, its light then x 200 - the fireflies (BO at night: bright specks over the street, the bank's ceiling, the bus
+// stop - the triangles of its lit signs and windows). With RIS over 8 of the pool's picks toward the light each sends
+// to the point (RTXDI's ReSTIR GI's local light samples at its secondary surfaces) the floor flickers far less, and its
+// mean is the reference's (unbiased) as one pick's is.
+void check_local_candidates(render::Gpu& gpu, const Targets& targets, const std::array<SceneMesh, 3>& meshes,
+                            Tally* tally, bool* read, uint32_t* not_finite)
+{
+    text::print("lamps of very different power at night (a floodlight far off, six small lamps by the wall):\n");
+    const std::array<SceneMesh, 2> floor_wall{meshes.at(0), meshes.at(2)};
+    const std::span<const SceneMesh> scene(floor_wall);
+    Lighting night;
+    night.sky = {0.002F, 0.002F, 0.003F};
+    night.sun_light = {0.0F, 0.0F, 0.0F};
+    night.lamps = {lamp_at({-2500.0, 800.0, -2500.0}, 4.0F, 100.0F)};
+    for (int k = 0; k < 6; ++k) {
+        night.lamps.push_back(lamp_at({-300.0 + (120.0 * k), 40.0, kWallZ - 30.0}, 2.0F, 10.0F));
+    }
+    const Region floor = floor_region(kEyeA);
+    const std::size_t pixels = static_cast<std::size_t>(kWidth) * kHeight;
+    const auto run = [&](uint32_t candidates, bool boiling, Flicker* flicker) {
+        std::vector<std::vector<float>> series(pixels);
+        RunPlan plan;
+        plan.batches = 16;
+        plan.frames = 128;
+        plan.camera = [](int /*frame*/) { return kEyeA; };
+        plan.counted = [](int /*frame*/) { return true; };
+        plan.local_candidates = candidates;
+        plan.boiling_filter = boiling;
+        plan.each_frame = [&series](const vk::RestirGiAccumulation& one) {
+            for (std::size_t i = 0; i < series.size() && i < one.last.size(); ++i) {
+                const std::array<float, 3>& c = core::at(one.last, i);
+                const double value = luma({core::at(c, 0), core::at(c, 1), core::at(c, 2)});
+                core::at(series, i).push_back(static_cast<float>(value));
+            }
+        };
+        const Answer got = restir_gi(gpu, targets, scene, night, plan, floor, read);
+        *not_finite += got.not_finite;
+        *flicker = flicker_of(series, floor);
+        return got;
+    };
+    Flicker one_flicker;
+    Flicker ris_flicker;
+    Flicker unfiltered_flicker;
+    const Answer one = run(1, true, &one_flicker);
+    const Answer ris = run(0, true, &ris_flicker);
+    const Answer unfiltered = run(0, false, &unfiltered_flicker);
+    const Answer reference = reference_gi(gpu, targets, scene, kEyeA, night, floor, 32, read);
+    *not_finite += reference.not_finite;
+    // (the boiling filter drops the reservoirs far over their group's - the fireflies' light: biased low, the more the
+    // more fireflies; without it the estimate is the reference's)
+    tally->check(*read && agrees(unfiltered.mean, reference.mean, kLooseAgreement) &&
+                     std::abs(ris.mean - reference.mean) < std::abs(one.mean - reference.mean),
+                 text::format("the floor's indirect light: RIS over 8 picks %.6f +- %.6f without the boiling filter (%+.2f %%; "
+                              "within 3 %%), with it %.6f (%+.2f %%), one pick with it %.6f +- %.6f (%+.2f %%: the fireflies "
+                              "it drops); the reference %.6f +- %.6f",
+                              unfiltered.mean, unfiltered.sigma, percent(unfiltered.mean, reference.mean), ris.mean,
+                              percent(ris.mean, reference.mean), one.mean, one.sigma, percent(one.mean, reference.mean),
+                              reference.mean, reference.sigma));
+    tally->check(*read && ris_flicker.pixels > 1000 && ris_flicker.variation < 0.75 * one_flicker.variation &&
+                     ris_flicker.over_share <= one_flicker.over_share,
+                 text::format("its flicker frame to frame: each pixel's variation %.3f of its mean with RIS over 8 picks, %.3f "
+                              "with one (under 0.75 x); %.3f %% / %.3f %% of the pixel-frames over 4 x their mean - %zu pixels",
+                              ris_flicker.variation, one_flicker.variation, 100.0 * ris_flicker.over_share,
+                              100.0 * one_flicker.over_share, ris_flicker.pixels));
+}
 
 // (round OM - vulkan_restir_di.h SharedPrimary) One primary surface a view: ReSTIR DI on beside ReSTIR GI (its check's
 // variant - the same camera rays through the pixels' centres), GI run twice from the same start (its random numbers the
@@ -1013,6 +1129,9 @@ void check_device(render::Gpu& gpu, Tally* tally)
                                   static_cast<double>(kGlossySparkle), kSparkleFrames, 100.0 * over_share, mean_variation,
                                   counted_pixels));
     }
+
+    // (round DD) many lights of very different power: the secondary vertices' local lights by RIS over the pool's picks
+    check_local_candidates(gpu, targets, meshes, tally, &read, &not_finite);
 
     // 2. disocclusion: the camera between two views every frame
     text::print("disocclusion (the camera swapped between two views every frame):\n");

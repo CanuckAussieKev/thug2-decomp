@@ -579,26 +579,22 @@ public:
         sl::Resource normals = frame.normal_roughness != nullptr ? streamline_resource(*frame.normal_roughness) : sl::Resource{};
         // (path tracing, stage 5) the specular rays' hit distance (ReSTIR GI's; world units, the view at its rect)
         sl::Resource specular_hit = frame.specular_hit != nullptr ? streamline_resource(*frame.specular_hit) : sl::Resource{};
-        const sl::Extent hit_extent{.top = core::at(frame.specular_hit_at, 1),
-                                    .left = core::at(frame.specular_hit_at, 0),
-                                    .width = frame.render.width,
-                                    .height = frame.render.height};
         sl::Resource transparency = frame.transparency != nullptr ? streamline_resource(*frame.transparency) : sl::Resource{};
-        const sl::Extent layer_extent{.top = core::at(frame.transparency_at, 1),
-                                      .left = core::at(frame.transparency_at, 0),
-                                      .width = frame.render.width,
-                                      .height = frame.render.height};
         if (ray_reconstruction_) {
             tags.emplace_back(&albedo, sl::kBufferTypeAlbedo, kKept, &render);
             tags.emplace_back(&specular, sl::kBufferTypeSpecularAlbedo, kKept, &render);
             tags.emplace_back(&normals, sl::kBufferTypeNormalRoughness, kKept, &render);
             if (frame.specular_hit != nullptr) {
-                tags.emplace_back(&specular_hit, sl::kBufferTypeSpecularHitDistance, kKept, &hit_extent);
+                tags.emplace_back(&specular_hit, sl::kBufferTypeSpecularHitDistance, kKept, &render);
             }
             // (round RG) the transparency layer (NVIDIA's DLSS-RR Integration Guide 3.4.10): the transparencies kept out of
             // the colour, upscaled and laid over the denoised picture (zeros on a frame without one)
-            if (frame.transparency != nullptr) {
-                tags.emplace_back(&transparency, sl::kBufferTypeTransparencyLayer, kKept, &layer_extent);
+            // (round DD) only an image of exactly the drawn size: given a larger one tagged with the drawn sub-rectangle,
+            // DLSS-RR lays it over its output twice - at its place, and its whole image over the output (the view shown
+            // again at drawn / output of its place; thug2_vulkan_upscale_check)
+            if (frame.transparency != nullptr && frame.transparency->extent.width == frame.render.width &&
+                frame.transparency->extent.height == frame.render.height) {
+                tags.emplace_back(&transparency, sl::kBufferTypeTransparencyLayer, kKept, &render);
             }
         }
         auto* commands = same_address<sl::CommandBuffer*>(frame.commands);
