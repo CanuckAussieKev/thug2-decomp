@@ -101,6 +101,9 @@ constexpr uint32_t kSpecularRayWords = 2;
 constexpr uint32_t kSpatialNeighbours = 2;
 constexpr uint32_t kMostSpatial = 4;
 constexpr uint32_t kHistoryCap = 20;
+// (round DD) the local lights' candidates a next-event sample resamples (vulkan_light_list.h light_sample_glsl: RIS over
+// the presampled pool's picks - RTXDI's ReSTIR GI takes 8 local light samples at its secondary surfaces too)
+constexpr uint32_t kLocalCandidates = 8;
 constexpr float kSpatialRadius = 24.0F;
 constexpr float kNormalAgreement = 0.9F;
 constexpr float kPlaneShare = 0.02F;
@@ -1255,6 +1258,7 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
     source += "layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer LightPoolWords { uvec4 "
               "words[]; };\n#define light_pool (LightPoolWords(pass.pool.xy).words)\n#define LL_POOL (pass.pool.z != "
               "0u)\n#define LL_POOL_SHARE uintBitsToFloat(pass.pool.w)\n";
+    source += "#define LL_LOCAL_CANDIDATES pass.params.x\n"; // (round DD: the local lights' RIS candidates)
     source += local_light_glsl();
     if (which == Shader::kSky) {
         source += sky_grid_glsl();
@@ -2168,7 +2172,8 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
                 ensure_buffer(state, &own.counters, 16, storage, BufferPlace::kDevice) &&
                 (!check || ensure_buffer(state, &own.sums, pixels * 2 * 16, storage, BufferPlace::kDevice)) &&
                 (check || ensure_image(state, &own.specular_hit, VK_FORMAT_R16_SFLOAT, extent,
-                                       VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT));
+                                       VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+                                           VK_IMAGE_USAGE_TRANSFER_SRC_BIT));
     for (std::size_t k = 0; k < 2 && made; ++k) {
         made = ensure_buffer(state, &core::at(own.at, k), pixels * 16, storage, BufferPlace::kDevice) &&
                ensure_buffer(state, &core::at(own.more, k), pixels * 16, storage, BufferPlace::kDevice);
@@ -2208,7 +2213,9 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
                            (!check || own.overrides.boiling_filter ? kFlagBoiling : 0U) |
                            (!check || own.overrides.cache ? kFlagCache : 0U);
     block.counts = {own.entries, static_cast<uint32_t>(local.lamp_list.size()), static_cast<uint32_t>(own.frames), flags};
-    block.params = {0U, std::min(spatial, kMostSpatial), kHistoryCap, check ? own.overrides.seed : 0x6C8E9CF5U};
+    const uint32_t candidates =
+        check && own.overrides.local_candidates != 0U ? own.overrides.local_candidates : kLocalCandidates;
+    block.params = {candidates, std::min(spatial, kMostSpatial), kHistoryCap, check ? own.overrides.seed : 0x6C8E9CF5U};
     block.tune = {kSpatialRadius, kNormalAgreement, kPlaneShare, kSkyShare};
     block.force = {own.overrides.roughness, own.overrides.f0, own.overrides.albedo_scale, check ? 1.0F : 0.0F};
     block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),

@@ -202,7 +202,11 @@ struct UpscaleState {
     Image specular;
     Image normals;
     Image no_guides; // (round V: a 1x1 RGBA32UI of zeros bound when the view's surfaces wrote no guides)
-    Image no_layer;  // (round RG: Ray Reconstruction's transparency layer when the view drew none - zeros)
+    // (round RG) Ray Reconstruction's transparency layer as the upscaler gives it: (round DD) the view's layer copied
+    // into an image of exactly the drawn size - zeros when the view drew none
+    Image layer;
+    // (round DD) ReSTIR GI's specular hit distance likewise copied into an image of exactly the drawn size
+    Image specular_hit;
     bool reconstruct = false; // DLSS runs with Ray Reconstruction
     bool terms_set = false; // (the check's alternatives)
     UpscaleJitterTerms jitter_terms;
@@ -728,6 +732,22 @@ void blit(VkCommandBuffer commands, const Image& from, const std::array<int32_t,
     vkCmdBlitImage(commands, from.image, from.layout, to.image, to.layout, 1, &region, VK_FILTER_NEAREST);
 }
 
+// (round DD) The view's rectangle of `from` copied to the top-left of `to` (the same format, no scaling).
+void copy_rect(VkCommandBuffer commands, const Image& from, const std::array<uint32_t, 4>& rect, const Image& to,
+               const Extent& size)
+{
+    const VkImageSubresourceLayers layers{
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1};
+    const VkImageCopy region{.srcSubresource = layers,
+                             .srcOffset = {.x = static_cast<int32_t>(core::at(rect, 0)),
+                                           .y = static_cast<int32_t>(core::at(rect, 1)),
+                                           .z = 0},
+                             .dstSubresource = layers,
+                             .dstOffset = {.x = 0, .y = 0, .z = 0},
+                             .extent = {.width = size.width, .height = size.height, .depth = 1}};
+    vkCmdCopyImage(commands, from.image, from.layout, to.image, to.layout, 1, &region);
+}
+
 // The upscaler's view listener.
 class UpscaleListener final : public rt::ViewListener {
 public:
@@ -1118,7 +1138,8 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         (!own.reconstruct || (ensure_image(state, &own.albedo, kHdrWorkFormat, whole, kWorkUsage) &&
                               ensure_image(state, &own.specular, kHdrWorkFormat, whole, kWorkUsage) &&
                               ensure_image(state, &own.normals, kHdrWorkFormat, whole, kWorkUsage) &&
-                              ensure_image(state, &own.no_layer, kHdrWorkFormat, whole, kWorkUsage))) &&
+                              ensure_image(state, &own.layer, kHdrWorkFormat, render, kWorkUsage) &&
+                              ensure_image(state, &own.specular_hit, VK_FORMAT_R16_SFLOAT, render, kWorkUsage))) &&
         ensure_image(state, &own.no_guides, VK_FORMAT_R32G32B32A32_UINT, Extent{.width = 1, .height = 1},
                      VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
     if (!made) {
@@ -1151,7 +1172,7 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         Memory::transition(commands, guides, VK_IMAGE_LAYOUT_GENERAL, true);
     }
     if (own.reconstruct) {
-        for (Image* image : {&own.albedo, &own.specular, &own.normals, &own.no_layer}) {
+        for (Image* image : {&own.albedo, &own.specular, &own.normals}) {
             Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL);
         }
         // (no specular albedo: zeros)
@@ -1160,7 +1181,6 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
         vkCmdClearColorImage(commands, own.specular.image, VK_IMAGE_LAYOUT_GENERAL, &zero, 1, &all);
         vkCmdClearColorImage(commands, own.no_guides.image, VK_IMAGE_LAYOUT_GENERAL, &zero, 1, &all);
-        vkCmdClearColorImage(commands, own.no_layer.image, VK_IMAGE_LAYOUT_GENERAL, &zero, 1, &all);
     }
     const VkImageLayout depth_resting = depth->layout;
     depth_barrier(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
@@ -1239,18 +1259,41 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
         frame.specular_albedo = &own.specular;
         frame.normal_roughness = &own.normals;
         // (path tracing, stage 5) the specular hit distance ReSTIR GI traced for this view
-        frame.specular_hit = restir_gi_specular_hit(state);
-        if (frame.specular_hit != nullptr) {
-            Memory::transition(commands, frame.specular_hit, VK_IMAGE_LAYOUT_GENERAL, true);
-            frame.specular_hit_at = {core::at(drawn, 0), core::at(drawn, 1)};
+        // ((round DD) copied into an image of exactly the drawn size, as the transparency layer below: DLSS-RR reads its
+        // inputs by their images' extents)
+        if (Image* const hit = restir_gi_specular_hit(state); hit != nullptr) {
+            Memory::transition(commands, hit, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            Memory::transition(commands, &own.specular_hit, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            copy_rect(commands, *hit, drawn, own.specular_hit, render);
+            Memory::transition(commands, hit, VK_IMAGE_LAYOUT_GENERAL, true);
+            Memory::transition(commands, &own.specular_hit, VK_IMAGE_LAYOUT_GENERAL, true);
+            frame.specular_hit = &own.specular_hit;
+            frame.specular_hit->used = state.frames.serial();
         }
         // (round RG) the view's transparencies, drawn into Ray Reconstruction's transparency layer - zeros when it
-        // drew none (tagged every frame: no earlier frame's taken)
+        // drew none (tagged every frame: no earlier frame's taken). (Round DD) Given as an image of exactly the drawn
+        // size, the view at its top-left: given the colour target's image (the output's size, the view in its top-left
+        // render.width x render.height) tagged with that sub-rectangle, DLSS-RR laid it over its output twice - at its
+        // place and as a whole image over the output: every cone and glow shown again at drawn / output of its place.
         Image* const layer = surface_light_layer(state);
-        frame.transparency = layer != nullptr ? layer : &own.no_layer;
-        Memory::transition(commands, frame.transparency, VK_IMAGE_LAYOUT_GENERAL, true);
-        frame.transparency_at = layer != nullptr ? std::array<uint32_t, 2>{core::at(drawn, 0), core::at(drawn, 1)}
-                                                 : std::array<uint32_t, 2>{0, 0};
+        Memory::transition(commands, &own.layer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        if (layer != nullptr) {
+            Memory::transition(commands, layer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            // (a blit: its format is the colour target's)
+            blit(commands, *layer, rect_of(drawn, render), own.layer,
+                 {0, 0, static_cast<int32_t>(render.width), static_cast<int32_t>(render.height)});
+            Memory::transition(commands, layer, VK_IMAGE_LAYOUT_GENERAL, true);
+        } else {
+            const VkClearColorValue zero{};
+            const VkImageSubresourceRange all{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                              .baseMipLevel = 0,
+                                              .levelCount = 1,
+                                              .baseArrayLayer = 0,
+                                              .layerCount = 1};
+            vkCmdClearColorImage(commands, own.layer.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &zero, 1, &all);
+        }
+        Memory::transition(commands, &own.layer, VK_IMAGE_LAYOUT_GENERAL, true);
+        frame.transparency = &own.layer;
         frame.transparency->used = state.frames.serial();
     }
     frame.render = render;
@@ -1418,7 +1461,8 @@ void release_upscale(Backend& state)
     own.sampler = VK_NULL_HANDLE;
     if (state.memory.ready()) {
         for (Image* image : {&own.colour, &own.depth, &own.motion, &own.reactive, &own.output, &own.albedo,
-                             &own.specular, &own.normals, &own.no_guides, &own.no_layer, &state.motion.image}) {
+                             &own.specular, &own.normals, &own.no_guides, &own.layer, &own.specular_hit,
+                             &state.motion.image}) {
             state.memory.destroy_image(image);
         }
     }

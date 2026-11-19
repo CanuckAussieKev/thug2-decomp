@@ -70,14 +70,13 @@ struct UpscaleFrame {
     Image* specular_albedo = nullptr;
     Image* normal_roughness = nullptr;
     // (path tracing, stage 5) the specular rays' hit distance (R16F, world units - ReSTIR GI's,
-    // vulkan_restir_gi.h restir_gi_specular_hit; null without it), the view at specular_hit_at (its top-left texel)
+    // vulkan_restir_gi.h restir_gi_specular_hit; null without it). (Round DD) Exactly the drawn size, as every input.
     Image* specular_hit = nullptr;
-    std::array<uint32_t, 2> specular_hit_at{};
     // (round RG) Ray Reconstruction's transparency layer (vulkan_surface_light.h surface_light_layer: what the view's
     // transparencies laid over its surfaces, kept out of `colour`; RGBA premultiplied, alpha what they hide; null:
-    // none), the view at transparency_at (its top-left texel)
+    // none). (Round DD) Exactly the drawn size (`render`), the view at its top-left: a larger image tagged with the drawn
+    // sub-rectangle DLSS-RR lays over its output a second time, whole.
     Image* transparency = nullptr;
-    std::array<uint32_t, 2> transparency_at{};
 };
 
 // How the offset a provider is told (UpscaleFrame::jitter) is made from the projection's jitter j (pixels) and the
