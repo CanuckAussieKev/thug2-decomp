@@ -21,6 +21,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
 #include "engine/file/disk.h"
+#include "engine/gfx/level_cover.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
@@ -632,6 +633,14 @@ struct HdrState {
     // (round AE) the slot the view being drawn was metered into before the upscaler (record_meter_pass), taken by its
     // tone-mapping pass; -1 none
     int view_slot = -1;
+    // (round LS2 - exposure_settled) the frame of the last metered pass; whether the passes are a covered level's first
+    // frames (engine/gfx/level_cover.h covered) and the frame the first of them was recorded in; the target the last
+    // readout asked about had
+    uint64_t metered_frame = 0;
+    bool cover_metering = false;
+    uint64_t cover_first_frame = 0;
+    float settle_last_target = 0.0F;
+    bool settle_target_known = false;
 };
 
 // (path tracing, stage 1 - P5) The manual exposure (set_manual_ev100): any thread.
@@ -1278,8 +1287,11 @@ void record_meter(VkCommandBuffer commands, VkPipeline pipeline, std::size_t slo
     // another lighting, not a moment before this one: it starts again at its target, and follows the picture without
     // adapting while the world's light is still being made for the cut (cut_settling) - as the passes' histories start
     // again at a camera cut (vulkan_rt_history.h). The clock running is no cut: the eye adapts to it as it goes.
+    // (round LS2) A level's first frames under the loading screen (level_cover.h covered) are a view not shown yet - UE5
+    // starts a new view's eye adaptation at its target (on a camera cut, a level loaded): each of them starts at its
+    // target, so the first frame shown is exposed where the eye settles, with no adaptation after.
     const uint64_t cut = rt::day_light().cut;
-    if (cut != slot.cut || rt::cut_settling()) {
+    if (cut != slot.cut || rt::cut_settling() || level_cover::covered()) {
         seconds = 0.0;
         slot.cut = cut;
     }
@@ -2156,6 +2168,49 @@ bool last_metered_ev100(Backend& state, float* ev100)
     return true;
 }
 
+bool settled_reading(const SettleReading& reading)
+{
+    if (!std::isfinite(reading.stops) || !std::isfinite(reading.target) || !(reading.metered_with > 0.0F)) {
+        return false;
+    }
+    const bool at_target = std::abs(reading.stops - reading.target) <= kSettledStops;
+    const bool exposed_there = !reading.pre_follows || std::abs(std::log2(reading.metered_with) - reading.stops) <= kSettledStops;
+    const bool steady = reading.last_known && std::abs(reading.target - reading.last_target) <= kSettledStops;
+    return at_target && exposed_there && steady;
+}
+
+bool exposure_settled(Backend& state)
+{
+    HdrState& own = hdr();
+    const ManualExposure manual = manual_exposure();
+    if (!own.settings.on || own.failed || manual.on || !(own.settings.exposure_adapt > 0.0F) ||
+        own.meter_read.mapped == nullptr || own.last_slot < 0 || own.metered_frame != state.frames.frame()) {
+        return true; // (nothing metered: nothing to settle)
+    }
+    if (!own.cover_metering || state.frames.completed_frame() < own.cover_first_frame) {
+        return false; // (the readout not of a covered pass yet)
+    }
+    constexpr std::size_t kVec4 = 4;
+    constexpr std::size_t kSlotBytes = kVec4 * sizeof(float);
+    const auto slot = static_cast<std::size_t>(own.last_slot);
+    std::array<float, kVec4> values{};
+    std::array<float, kVec4> readout{};
+    vmaInvalidateAllocation(state.memory.allocator(), own.meter_read.allocation, 0, VK_WHOLE_SIZE);
+    const std::span<const uint8_t> mapped(static_cast<const uint8_t*>(own.meter_read.mapped),
+                                          static_cast<std::size_t>(own.meter_read.bytes));
+    std::memcpy(values.data(), mapped.subspan(slot * kSlotBytes, kSlotBytes).data(), kSlotBytes);
+    std::memcpy(readout.data(), mapped.subspan((kMeterSlots + slot) * kSlotBytes, kSlotBytes).data(), kSlotBytes);
+    const SettleReading reading{.stops = core::at(values, 1),
+                                .target = core::at(values, 3),
+                                .metered_with = core::at(readout, 2),
+                                .pre_follows = rt::day_light().on,
+                                .last_known = own.settle_target_known,
+                                .last_target = own.settle_last_target};
+    own.settle_last_target = reading.target;
+    own.settle_target_known = std::isfinite(reading.target);
+    return settled_reading(reading);
+}
+
 bool read_meter(Backend& state, const std::array<uint32_t, 4>& rect, MeterReading* reading)
 {
     const HdrState& own = hdr();
@@ -2341,6 +2396,15 @@ bool record_meter_pass(Backend& state, const rt::ViewDrawn& view)
                               static_cast<uint32_t>(bindings.writes.size()), bindings.writes.data());
     const std::size_t slot = meter_slot_of(shown, colour->extent);
     own.last_slot = static_cast<int>(slot);
+    // (round LS2) the covered frames' passes noted for exposure_settled: the readout is one of theirs once the frame of
+    // the first of them is finished
+    own.metered_frame = state.frames.frame();
+    const bool covered = level_cover::covered();
+    if (covered && !own.cover_metering) {
+        own.cover_first_frame = own.metered_frame;
+        own.settle_target_known = false;
+    }
+    own.cover_metering = covered;
     follow_camera(state, slot);
     log_readout(state, slot, core::at(constants.night, 0));
     record_meter(commands, meter, slot, &constants);

@@ -54,6 +54,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/level_cover.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
@@ -1068,6 +1069,153 @@ void check_meter_source(render::Gpu& gpu, Tally* tally)
     gpu.release_surface(target);
 }
 
+// (round LS2) A covered pass (a level's first frames under the loading screen - engine/gfx/level_cover.h): the view
+// metered, then - as the frame's end asks it, before the frame is ended - whether the exposure is settled.
+struct CoveredPass {
+    bool ran = false;
+    bool settled = false;
+};
+CoveredPass covered_pass(render::Gpu& gpu, GpuSurface* target, std::array<uint32_t, 4> rect)
+{
+    CoveredPass out;
+    gpu.begin_scene();
+    gpu.set_render_target(0, target);
+    gpu.set_depth_surface(nullptr);
+    const uint64_t before = vk::tone_map_passes();
+    render::rt::world_view_drawn(view_of(rect));
+    out.ran = vk::tone_map_passes() - before == 1;
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        out.settled = vk::exposure_settled(state);
+    }
+    gpu.end_scene();
+    out.ran = out.ran && gpu.present() == value::kResultOk; // (the frame ended: its readout becomes the finished frame's)
+    std::vector<uint8_t> bytes;
+    out.ran = out.ran && vk::read_surface(target, &bytes);
+    return out;
+}
+
+// (round LS2) The camera's exposure settled under the cover: the rule's cases, then a still night street whose first
+// frame is pre-exposed far from its camera (no reading yet: the light on the ground's rule), the frame pre-exposed every
+// pass by the camera read back (rt::latch_pre_exposure - the game's render-only frames): settled within the cover, the
+// eye then at its target, and no ramp after the reveal (the passes after it adapt by their time, from there).
+void check_cover_exposure(render::Gpu& gpu, Tally* tally)
+{
+    text::print("the camera's exposure under the loading screen (round LS2):\n");
+    {
+        const vk::SettleReading at{.stops = 3.0F, .target = 3.02F, .metered_with = std::exp2(3.05F), .pre_follows = true,
+                                   .last_known = true, .last_target = 3.0F};
+        vk::SettleReading off = at;
+        off.metered_with = 1.0F;
+        vk::SettleReading unfollowed = off;
+        unfollowed.pre_follows = false;
+        constexpr float kHalfStop = 0.5F;
+        constexpr float kStop = 1.0F;
+        vk::SettleReading moving = at;
+        moving.last_target = at.target - kHalfStop;
+        vk::SettleReading first = at;
+        first.last_known = false;
+        vk::SettleReading adapting = at;
+        adapting.stops = at.stops - kStop;
+        tally->check(vk::settled_reading(at) && !vk::settled_reading(off) && vk::settled_reading(unfollowed) &&
+                         !vk::settled_reading(moving) && !vk::settled_reading(first) && !vk::settled_reading(adapting),
+                     "the settled rule: the camera at its target, the frame exposed there (when the pre-exposure follows "
+                     "it), the target steady - each within a tenth of a stop");
+    }
+    GpuSurface* target = make_target(gpu, value::kFormatA16B16G16R16F, 0, true);
+    if (target == nullptr) {
+        tally->check(false, "a float target for the cover's meter");
+        return;
+    }
+    vk::set_hdr_lut({});
+    vk::set_hdr_settings({.on = true, .local_exposure = false});
+    const std::array<uint32_t, 4> whole{0, 0, kWidth, kHeight};
+    const std::size_t pixels = static_cast<std::size_t>(kWidth) * kHeight;
+    constexpr float kStreet = 0.005F; // cd/m^2
+    constexpr float kLamplit = 24.0F;
+    constexpr uint32_t kPatch = 40;
+    const float white = meter_white_cd();
+    std::vector<float> physical(pixels);
+    for (uint32_t y = 0; y < kHeight; ++y) {
+        for (uint32_t x = 0; x < kWidth; ++x) {
+            const bool patch = x >= 16 && x < 16 + kPatch && y >= 16 && y < 16 + kPatch;
+            core::at(physical, (static_cast<std::size_t>(y) * kWidth) + x) = (patch ? kLamplit : kStreet) / white;
+        }
+    }
+    render::rt::DayLight night;
+    night.on = true;
+    constexpr float kDayLux = 2.0e4F; // (the ground's rule for the first frame: a day's - far from the street's camera)
+    night.illuminance_lux = kDayLux;
+    constexpr uint64_t kCut = 31;
+    night.cut = kCut;
+    render::rt::set_camera_exposure(0.0F);
+    night.pre_exposure = render::rt::pre_exposure_for(night);
+    render::rt::set_day_light(night);
+    render::rt::note_cut_shown(kCut);
+    constexpr auto kGap = std::chrono::milliseconds(600); // (past the meter's longest gap: a slot starts again)
+    std::this_thread::sleep_for(kGap);
+    constexpr auto kFrame = std::chrono::milliseconds(8);
+    constexpr int kMostPasses = 120; // (about a second of frames: the cover's guard is ten)
+    render::level_cover::set_covered(true);
+    const auto pass_at = [&]() {
+        render::rt::latch_pre_exposure(); // (the render-only frame's latch)
+        const float pre = render::rt::frame_pre_exposure();
+        std::vector<float> wanted(pixels);
+        for (std::size_t i = 0; i < pixels; ++i) {
+            core::at(wanted, i) = core::at(physical, i) * pre;
+        }
+        const bool filled = fill_picture(gpu, target, grey_picture(wanted));
+        return filled;
+    };
+    const float first_pre = render::rt::frame_pre_exposure();
+    int settled_at = -1;
+    bool ran = true;
+    for (int pass = 0; pass < kMostPasses && ran && settled_at < 0; ++pass) {
+        const bool filled = pass_at();
+        const CoveredPass covered = covered_pass(gpu, target, whole);
+        ran = filled && covered.ran;
+        if (covered.settled) {
+            settled_at = pass;
+        }
+        std::this_thread::sleep_for(kFrame);
+    }
+    vk::MeterReading reveal;
+    const bool read = vk::read_meter(vk::backend(), whole, &reveal);
+    render::level_cover::set_covered(false);
+    // the frames shown after it: the eye adapting by their time - from its target, so it stays there
+    float least = std::numeric_limits<float>::max();
+    float most = -std::numeric_limits<float>::max();
+    constexpr int kShown = 40;
+    for (int pass = 0; pass < kShown && ran; ++pass) {
+        const bool filled = pass_at();
+        const Metered shown = meter_pass(gpu, target, whole);
+        ran = filled && shown.ran;
+        least = std::min(least, shown.reading.stops);
+        most = std::max(most, shown.reading.stops);
+        std::this_thread::sleep_for(kFrame);
+    }
+    const float last_pre = render::rt::pre_exposure_for(night);
+    render::rt::set_day_light({});
+    render::rt::set_camera_exposure(0.0F);
+    constexpr float kFarOff = 2.0F; // (stops: the first frame's pre-exposure far from the camera it settles at)
+    tally->check(ran && read && settled_at >= 0 && std::abs(reveal.stops - reveal.target) <= vk::kSettledStops &&
+                     std::abs(std::log2(first_pre) - reveal.stops) > kFarOff,
+                 text::format("a still night street under the cover: the first frame pre-exposed x %.4g (%+.2f stops "
+                              "from the camera it settles at), settled at the covered pass %d; the camera %+.3f stops, "
+                              "its target %+.3f",
+                              static_cast<double>(first_pre),
+                              static_cast<double>(std::log2(first_pre) - reveal.stops), settled_at,
+                              static_cast<double>(reveal.stops), static_cast<double>(reveal.target)));
+    tally->check(ran && read && most - least <= vk::kSettledStops && std::abs(least - reveal.stops) <= vk::kSettledStops &&
+                     std::abs(most - reveal.stops) <= vk::kSettledStops,
+                 text::format("after the reveal (%d frames): the camera %+.3f - %+.3f stops (at the reveal %+.3f) - no "
+                              "ramp; the pre-exposure %.5g",
+                              kShown, static_cast<double>(least), static_cast<double>(most),
+                              static_cast<double>(reveal.stops), static_cast<double>(last_pre)));
+    gpu.release_surface(target);
+}
+
 void check_camera(render::Gpu& gpu, Tally* tally)
 {
     text::print("the camera (round EX: histogram auto exposure, local exposure, ACES):\n");
@@ -1915,6 +2063,7 @@ int run(const Options& options, SDL_Window* window)
     check_meter(gpu, values, &tally);
     check_camera(gpu, &tally);
     check_meter_source(gpu, &tally);
+    check_cover_exposure(gpu, &tally);
     check_multisampled(gpu, &tally);
     check_back_buffer(gpu, &tally);
     check_linear_blend(gpu, &tally);

@@ -34,6 +34,7 @@
 #include "engine/gfx/render_camera.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/rt_checks.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
@@ -1515,8 +1516,15 @@ void relit_work(rt::RayTracing& rt)
 {
     State& st = state();
     rt::note_census_frame(); // (the light energy audit's census: the frames its counts are over)
-    if (relit_bake::requested() || (!rt::relit_settings().on && st.relit_idle)) {
+    if (relit_bake::requested()) {
         return; // (the relit bake: the buffers keep the bake - relit_bake.h)
+    }
+    if (!rt::relit_settings().on && st.relit_idle) {
+        // (round LS2) nothing relit - no store of the world's light to write toward a lighting's cut: the world shows a
+        // cut's light at once (rt_daylight.h note_cut_shown - as rt_relit_world::update says on its ways out). It said
+        // nothing here before: a cut stayed "settling" its whole kCutMostSeconds with relit off
+        rt::note_cut_shown(rt::day_light().cut);
+        return;
     }
     const std::vector<rt_relit_world::WorldMesh> world = world_meshes();
     const bool ready = !st.world.empty() && st.settled_key == st.scene_key &&

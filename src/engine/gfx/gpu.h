@@ -666,6 +666,10 @@ public:
     // NOT ORIGINAL - (round LS) how many pipelines the backend has made so far: a frame that made none drew only from
     // what was ready (render_pc/load_cover.h - the loading screen kept until then). Direct3D 9 makes none: always 0.
     [[nodiscard]] virtual uint64_t pipelines_made() const { return 0; }
+    // NOT ORIGINAL - (round LS2) whether the camera's exposure has settled for the frame being drawn (asked at its end):
+    // the auto exposure's eye at its target and the frame exposed there - another of the level's readiness terms
+    // (render_pc/load_cover.h). Direct3D 9 meters nothing: always settled.
+    [[nodiscard]] virtual bool exposure_settled() { return true; }
 
 private:
     GpuStateBlock block_;

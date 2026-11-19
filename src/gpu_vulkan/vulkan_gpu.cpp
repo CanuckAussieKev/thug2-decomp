@@ -1238,6 +1238,13 @@ public:
     }
     // NOT ORIGINAL - (round LS) the pipelines the device has made (vulkan_pipeline_count.h).
     [[nodiscard]] uint64_t pipelines_made() const override { return vulkan::pipelines_made(); }
+    // NOT ORIGINAL - (round LS2) the camera's exposure settled (vulkan_hdr.h exposure_settled).
+    [[nodiscard]] bool exposure_settled() override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        return vulkan::exposure_settled(state);
+    }
     long save_surface_jpeg(const char* file, GpuSurface* surface) override
     {
         const std::scoped_lock lock(backend().mutex);

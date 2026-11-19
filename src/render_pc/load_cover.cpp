@@ -9,9 +9,12 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/gpu.h"
+#include "engine/gfx/level_cover.h"
 #include "engine/gfx/loading_console.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/screen_2d.h"
+#include "engine/sys/stopwatch.h"
 #include "platform/run_log.h"
 #include "render_pc/loading_bar.h"
 #include "render_pc/loading_console_panel.h"
@@ -34,6 +37,9 @@ struct Cover {
     Clock::time_point bar_time;    // the bar's time last moved on
     uint64_t pipelines_before = 0; // the pipelines made when the last frame's cover was drawn (or at the hide)
     uint32_t frames = 0;           // the frames covered
+    uint64_t steps_at_hide = 0;    // (round LS2) the simulation's steps (frame_clock's vblanks) at the original's hide
+    bool light_noted = false;      // (round LS2) the console told the level's first light is ready
+    bool exposure_noted = false;   // ... and the camera's exposure settled
 };
 
 Cover& cover()
@@ -52,6 +58,7 @@ void screen_shown(bool kept, bool blank, bool dialog)
     own.covering = false; // (a new loading screen: the last level's first frames are over)
     own.shown = !kept && !dialog;
     own.blank = blank;
+    level_cover::set_covered(false);
 }
 
 void screen_hidden()
@@ -67,6 +74,10 @@ void screen_hidden()
     own.bar_time = own.since;
     own.pipelines_before = gpu().pipelines_made();
     own.frames = 0;
+    own.steps_at_hide = frame_clock::fetch_retrace_count();
+    own.light_noted = false;
+    own.exposure_noted = false;
+    level_cover::set_covered(true); // (the main loop holds the simulation from its next loop - level_cover.h)
 }
 
 void loading_frame() { (void)rt_relit_world::hold_first_light(true); }
@@ -84,12 +95,36 @@ bool frame_covered()
     const uint64_t made = gpu().pipelines_made();
     const bool drew_from_ready = made == own.pipelines_before;
     const bool movie = engine_parts().current_movie() != nullptr;
-    const bool ready = movie || (drew_from_ready && !light_held);
+    // (round LS2) the world shows the level's light: its first light, and the lighting's cut shown (rt_daylight.h
+    // cut_settling - the stores still being written for the light the clock published, at most kCutMostSeconds)
+    const bool lit = !light_held && !rt::cut_settling();
+    // (round LS2) the camera's exposure settled - asked once the light is ready: before it the picture still changes
+    const bool exposure = lit && gpu().exposure_settled();
+    const bool ready = movie || (drew_from_ready && lit && exposure);
     const double seconds = seconds_since(own.since);
+    if (lit && !own.light_noted) {
+        own.light_noted = true;
+        gfx::loading_console::get_note("first frames: the first light ready (%.0f ms)", seconds * kMillisecondsPerSecond);
+    }
+    if (exposure && !own.exposure_noted) {
+        own.exposure_noted = true;
+        gfx::loading_console::get_note("first frames: the camera's exposure settled (%.0f ms)",
+                                       seconds * kMillisecondsPerSecond);
+    }
     if (ready || seconds >= kMostSeconds) {
         own.covering = false;
-        get_log("loading screen: the level shown %.0f ms after the original's hide, %u frames covered - %s", seconds * kMillisecondsPerSecond,
-                own.frames - 1, ready ? "ready" : "not ready (shown as it is)");
+        level_cover::set_covered(false); // (the simulation's next step on the next loop: the player's first control)
+        const uint64_t steps = frame_clock::fetch_retrace_count() - own.steps_at_hide;
+        const char* why = "not ready: the camera's exposure";
+        if (!lit) {
+            why = "not ready: its first light";
+        } else if (!drew_from_ready) {
+            why = "not ready: still making pipelines";
+        }
+        get_log("loading screen: the level shown %.0f ms after the original's hide, %u frames covered, %llu simulation "
+                "steps under them - %s",
+                seconds * kMillisecondsPerSecond, own.frames - 1, static_cast<unsigned long long>(steps),
+                ready ? "ready" : why);
         gfx::loading_console::level_shown();
         return false;
     }

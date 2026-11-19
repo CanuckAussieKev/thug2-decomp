@@ -311,6 +311,12 @@ void pre_expose(DayLight* light);
 // The frame's pre-exposure (1 while the clock is off) - what the passes that add light of their own multiply by, and the
 // meter divides out.
 [[nodiscard]] float frame_pre_exposure();
+// (round LS2) A render-only frame (engine/sys/mlp.cpp: [Graphics] max_fps's frames between the steps, and the level's
+// first frames drawn under the loading screen while the simulation is held - engine/gfx/level_cover.h): the frame's
+// pre-exposure latched again from the camera's exposure now (pre_exposure_for of the published light), as a step's
+// publishing latches it - every frame drawn is pre-exposed by the camera of the frames before it, whether a step ran
+// before it or not. The light itself is the step's (unchanged: no new serial, no relight).
+void latch_pre_exposure();
 // (round S2) The world shows the cut's light: what draws the level's light from a store of its own (the relit world:
 // its colours written over frames toward a light) says so once its store holds the light of `cut` - at once when it
 // doesn't light the level. cut_settling: the published light's cut not shown yet (at most kCutMostSeconds after it

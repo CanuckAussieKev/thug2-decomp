@@ -869,6 +869,17 @@ void set_day_light(const DayLight& light)
     slot.light.serial = serial;
 }
 
+void latch_pre_exposure()
+{
+    Published& slot = published();
+    const std::scoped_lock lock(slot.mutex);
+    if (!slot.light.on) {
+        return;
+    }
+    const float pre = pre_exposure_for(slot.light);
+    slot.frame_pre = std::isfinite(pre) && pre > 0.0F ? pre : 1.0F;
+}
+
 void note_cut_shown(uint64_t cut)
 {
     Published& slot = published();

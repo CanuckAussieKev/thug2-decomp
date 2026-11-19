@@ -210,6 +210,8 @@ void prepare_input();
 void menu_frame(modules::FrontEnd* front_end);
 // The extension that owns the game (the first whose owns_game is true), or none.
 Extension* game_owner();
+// The game reads no key or controller: an extension has them all (blocks_game_input), or a level's first frames are
+// under the loading screen (engine/gfx/level_cover.h covered - no control until the level is shown).
 bool game_input_blocked();
 void before_draw_world();
 void place_camera(gfx::ViewCam* camera, int viewport);
