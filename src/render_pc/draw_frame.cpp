@@ -41,6 +41,7 @@
 #include "engine/gfx/flexible_particle_manager.h"
 #include "render_pc/geom.h"
 #include "render_pc/glow.h"
+#include "render_pc/rt_apart.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/lens_flare.h"
 #include "render_pc/sub_mesh.h"
@@ -978,6 +979,7 @@ void draw_viewport(int index)
         // Not original - ray tracing's record (rt_record.h): the viewport's camera; the frame's first begins the
         // frame (the TLAS) before the world is drawn. Original behaviour: nothing.
         rt_record::camera_chosen(index);
+        rt_apart::view_begins(index); // (round PG: the first viewport's particles and billboards kept for the rays)
         // Not original - the listeners told the view begins (rt_scene.h; the upscaler's motion vectors). Original
         // behaviour: nothing.
         if (rt::view_listened()) {
@@ -1103,8 +1105,10 @@ void draw_viewport(int index)
     rt_record::set_world_passes(false);
     issue_occlusion_queries();
     set_render_state(RenderStateId::kZWrite, 0);
+    rt_apart::set_particle_passes(true); // (not original - round PG: the particles' draws kept for the rays, rt_apart.h)
     flexible_particle_manager()->render_systems(index > 0);
     objects::particle_hub()->draw_particles();
+    rt_apart::set_particle_passes(false);
     weather()->render(); // (through the jump 0x004A10A0)
     {
         // (not original: what the weather puts in the air - the volumetric light's street air, rt_volume_light.h)

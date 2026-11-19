@@ -60,6 +60,9 @@ namespace render::vulkan {
 struct Backend;
 
 inline constexpr uint32_t kReflectionMask = 0x01 | 0x02 | 0x04; // (world, objects, alpha-tested)
+// (round PG) the reflected rays' (not the camera's): + what is drawn apart (vulkan_rt_scene.h kMaskDrawnApart - the
+// clutter, particles, billboards are seen in a reflection; the camera's ray finds the pixel's own surface without them)
+inline constexpr uint32_t kReflectedRayMask = kReflectionMask | 0x08;
 inline constexpr float kReflectionDistance = 20000.0F;         // how far a reflection ray looks (world units)
 // (added for the surface reflections; round M) the roughest surface-map texel the pass traces: its reflection fades out
 // from 0.75 of it to it, and the surface's own shading (ff_shaders.cpp surface_finish) takes the light store's estimate of

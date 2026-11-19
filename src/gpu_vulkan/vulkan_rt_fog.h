@@ -78,10 +78,11 @@ inline constexpr uint32_t kFogMaxHistory = 12; // frames
 // (added by the distinct shafts) the history held within this many deviations of its 3 x 3 neighbours' mean (step 2)
 inline constexpr float kFogHistorySpread = 1.5F;
 inline constexpr uint32_t kFogViewSlots = 4;
-inline constexpr uint32_t kFogMask = 0x01 | 0x02; // (world, objects: what shadows the fog)
+// (world, objects: what shadows the fog; round PG: what is drawn apart - the clutter, particles, billboards)
+inline constexpr uint32_t kFogMask = 0x01 | 0x02 | 0x08;
 // (added by the volumetric light) with the material table and the frame's geometry the cut-outs too, by their alpha
 // (vulkan_rt_scene.h cutout_rays_glsl: light through foliage, fences and grates - the one lighting path's test)
-inline constexpr uint32_t kFogCutoutMask = 0x01 | 0x02 | 0x04;
+inline constexpr uint32_t kFogCutoutMask = 0x01 | 0x02 | 0x04 | 0x08;
 // (round WF) the most candidates a step pair of the march resamples from the light list (rt_fog_quality's most)
 inline constexpr uint32_t kFogMostCandidates = 8;
 inline constexpr float kFogAmbientShare = 0.5F;   // a above

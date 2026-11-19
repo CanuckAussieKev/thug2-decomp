@@ -148,7 +148,7 @@ layout(set = 0, binding = 7, rgba16f) uniform writeonly image2D o_sun;
 layout(set = 0, binding = 8, r32f) uniform readonly image2D h_depth;
 layout(set = 0, binding = 9, rgba16f) uniform readonly image2D h_light;
 layout(set = 0, binding = 10, rgba16f) uniform readonly image2D h_sun;
-const uint FRONT_RAYS = 7u; // (the light rays' kinds: the world, the objects, the cut-outs - ReSTIR GI's)
+const uint FRONT_RAYS = 15u; // (the light rays' kinds: the world, the objects, the cut-outs, drawn apart - ReSTIR GI's)
 
 vec3 good3(vec3 x) { return any(isnan(x)) || any(isinf(x)) ? vec3(0.0) : x; }
 vec3 world_at(vec2 pixel, float depth)

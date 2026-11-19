@@ -180,6 +180,9 @@ inline std::string flags_problem(uint32_t flags)
     if ((flags & kAddsLight) != 0U && (!blended || tested)) {
         return "adds light but not transparent (or alpha-tested)"; // (round PT-B: rt_surface_class.h kAddsLight)
     }
+    if ((flags & kDrawnApart) != 0U && !object) {
+        return "drawn apart but not an object"; // (round PG: the clutter, particles, billboards are objects)
+    }
     return "";
 }
 

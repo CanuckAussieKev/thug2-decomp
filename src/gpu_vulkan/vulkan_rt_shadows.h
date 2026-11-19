@@ -31,6 +31,7 @@
 //     kMaskWorld   0x01  opaque level geometry that casts shadows      - always traced
 //     kMaskObjects 0x02  opaque objects: the skater, peds, vehicles    - traced with rt_shadow_objects=1
 //     0x04               alpha-tested casters (foliage, fences, a cannon's spoked wheels) - traced by their alpha
+//     0x08               (round PG) drawn apart: the clutter's items, the particles, the billboards - always traced
 //     0x80               transparent / never a shadow caster           - never traced
 //   The first hit ends the ray. The alpha-tested casters (added: their shadows were missing - a Boston cannon's wheels
 //   cast only their rims, leaving a gap between the wheels' shadows and the barrel's) count where their material's

@@ -124,7 +124,8 @@ endif()
 if(TARGET thug2_base)
     add_executable(thug2_scatter_check scatter_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/scatter.cpp"
                                        "${PROJECT_SOURCE_DIR}/src/engine/gfx/air_volume.cpp"
-                                       "${PROJECT_SOURCE_DIR}/src/engine/gfx/scatter_art.cpp")
+                                       "${PROJECT_SOURCE_DIR}/src/engine/gfx/scatter_art.cpp"
+                                       "${PROJECT_SOURCE_DIR}/src/engine/gfx/scatter_rays.cpp")
     target_link_libraries(thug2_scatter_check PRIVATE thug2_base)
 endif()
 

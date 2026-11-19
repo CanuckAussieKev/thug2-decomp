@@ -19,6 +19,7 @@
 #include "render_pc/simple_material.h"
 #include "engine/gfx/texture_dict.h"
 #include "render_pc/dynamic_vertices.h"
+#include "render_pc/rt_apart.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/mesh_formats.h"
@@ -602,6 +603,7 @@ void PcParticleSystem::draw()
             gpu().set_stream_source(0, buffer, 0, sizeof(ParticleVertex));
             gpu().set_indices(quad_index_buffer());
             gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, quads * 4, 0, quads * 2);
+            rt_apart::quads_drawn(first_vertex, quads * 2); // (not original - round PG: kept for the rays)
         }
     }
 }

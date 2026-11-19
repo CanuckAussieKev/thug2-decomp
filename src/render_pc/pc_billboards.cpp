@@ -27,6 +27,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/rt_light_census.h"
+#include "render_pc/rt_apart.h"
 #include "render_pc/rt_relit_world.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
@@ -280,6 +281,9 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         into += rest;
         from += rest;
     }
+    // Not original - (round PG) the card as turned for this camera kept for the rays (rt_apart.h). Original behaviour:
+    // nothing.
+    rt_apart::billboard_drawn(mesh, std::span<const uint8_t>(into_block, vertex_bytes));
     get_vertex_buffer(mesh, 0)->get_unlock();
     gpu().set_stream_source(0, get_vertex_buffer(mesh, 0)->buffer(), 0, mesh->stride());
     // (the index buffer's Direct3D buffer, +0xC: through the getter 0x00492E50 folded with others)

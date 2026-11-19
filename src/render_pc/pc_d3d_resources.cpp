@@ -8,10 +8,13 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "render_pc/dynamic_vertices.h"
+#include "render_pc/rt_apart.h"
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <span>
+#include <vector>
 #include "render_pc/device.h"
 #include "base/core/checked_index.h"
 #include <unordered_map>
@@ -35,6 +38,11 @@ struct PlatformD3dState {
     uint32_t dynamic_vertices_used_{};
     uint32_t dynamic_vertices_size_{};
     render::GpuQuery* query_in_progress_{};
+    // NOT ORIGINAL - (round PG) while the particles' draws are kept for the rays (render_pc/rt_apart.h) their vertices
+    // are written here (the processor's own memory) and copied into the buffer at the unlock: the buffer's memory is
+    // made for writing in order, and reading it back is slow
+    std::vector<uint8_t> staging_;
+    bool staged_ = false;
 };
 
 PlatformD3dState& platform_d3d_state()
@@ -122,6 +130,20 @@ long create_quad_index_buffer(uint32_t quads)
     return render::gpu().unlock_index_buffer(render::quad_index_buffer());
 }
 
+// Where the writer of the vertices from start (bytes) is handed: the locked buffer - or (not original, round PG)
+// while the particles' draws are kept for the rays, the processor's own copy of it (staging_), copied into the buffer at the
+// unlock.
+void* handed_out(uint32_t start)
+{
+    PlatformD3dState& st = platform_d3d_state();
+    st.staged_ = render::rt_apart::capturing() && dynamic_vertices_locked() != nullptr;
+    if (!st.staged_) {
+        return std::span<uint8_t>(dynamic_vertices_locked(), dynamic_vertices_size()).subspan(start).data();
+    }
+    st.staging_.resize(dynamic_vertices_size());
+    return std::span<uint8_t>(st.staging_).subspan(start).data();
+}
+
 // 0x005F4740
 void* lock_dynamic_vertices(uint32_t count, uint32_t stride, render::GpuVertexBuffer** buffer, VertexRoom vertex_room)
 {
@@ -140,7 +162,7 @@ void* lock_dynamic_vertices(uint32_t count, uint32_t stride, render::GpuVertexBu
             *room = dynamic_vertices_size() / stride;
         }
         *first_vertex = 0;
-        return dynamic_vertices_locked();
+        return handed_out(0);
     }
     *first_vertex = first;
     dynamic_vertices_used() = start;
@@ -150,12 +172,29 @@ void* lock_dynamic_vertices(uint32_t count, uint32_t stride, render::GpuVertexBu
     void* locked = dynamic_vertices_locked(); // (left as it was if the lock writes nothing)
     render::gpu().lock_vertex_buffer(dynamic_vertices(), 0, 0, &locked, render::gpu_value::kLockNoOverwrite);
     dynamic_vertices_locked() = static_cast<uint8_t*>(locked);
-    return std::span<uint8_t>(dynamic_vertices_locked(), dynamic_vertices_size()).subspan(start).data();
+    return handed_out(start);
 }
 
 // 0x005F4800
 void unlock_dynamic_vertices(uint32_t count, uint32_t stride)
 {
+    // Not original - (round PG) a particle draw's vertices kept for the rays (render_pc/rt_apart.h) before the buffer
+    // is let go of. Original behaviour: nothing.
+    PlatformD3dState& st = platform_d3d_state();
+    if (st.staged_) {
+        st.staged_ = false;
+        const std::size_t bytes = std::size_t{count} * stride;
+        if (dynamic_vertices_locked() != nullptr && stride > 0 &&
+            dynamic_vertices_used() + bytes <= dynamic_vertices_size()) {
+            const std::span<const uint8_t> written =
+                std::span<const uint8_t>(st.staging_).subspan(dynamic_vertices_used(), bytes);
+            std::memcpy(std::span<uint8_t>(dynamic_vertices_locked(), dynamic_vertices_size())
+                            .subspan(dynamic_vertices_used(), bytes)
+                            .data(),
+                        written.data(), bytes);
+            render::rt_apart::vertices_unlocked(written, dynamic_vertices_used() / stride, stride);
+        }
+    }
     render::gpu().unlock_vertex_buffer(dynamic_vertices());
     dynamic_vertices_locked() = nullptr;
     dynamic_vertices_used() = ((count * stride) + dynamic_vertices_used() + kVertexAlignSlack) & ~kVertexAlignMask;
