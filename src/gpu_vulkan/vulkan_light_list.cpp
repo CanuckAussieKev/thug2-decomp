@@ -225,7 +225,8 @@ SceneLighting scene_lighting(bool every_lamp_analytic, bool keep_dark)
         out.table_input = input;
         out.cloud_frame = rt_sky_frame();
         out.clouds = out.cloud_frame.clouds;
-        out.table_factor = (out.clouds || !day.on ? 1.0F : day.cloud_sky) / input.exposure;
+        out.table_share = out.clouds || !day.on ? 1.0F : day.cloud_sky;
+        out.table_factor = out.table_share / input.exposure;
     }
     const std::shared_ptr<const rt::LevelEmitters> level = rt::level_emitters();
     const float open = rt::open_sky_lamps(day, level.get());
@@ -533,11 +534,23 @@ struct LocalLight {
     float pdf;
 };
 float local_light_offset(vec3 p) { return 0.02 + 2.0e-5 * max(abs(p.x), max(abs(p.y), abs(p.z))); }
-bool local_light_at(uint e, uint count, vec2 uv, vec3 at, out LocalLight l)
+// (round PF) A point of a local light as the list picks it - its entry `e`, and `uv` the point on a triangle: what of it
+// doesn't depend on who looks (a triangle's point y, its normal, its emission there and the pdf per unit of its area; a
+// lamp's record index and the entry's pdf). local_light_at = this + light_seen_from; the presampled pool (below) keeps it.
+struct LightPick {
+    vec3 y;
+    vec3 n;
+    vec3 emitted;
+    float pdf;     // (0: no light here)
+    uint lamp;     // (a lamp's record; LIGHT_PICK_TRIANGLE: a triangle's point)
+};
+const uint LIGHT_PICK_TRIANGLE = 0xFFFFFFFFu;
+LightPick no_light_pick() { return LightPick(vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), 0.0, LIGHT_PICK_TRIANGLE); }
+LightPick light_pick_at(uint e, uint count, vec2 uv)
 {
-    l = LocalLight(vec3(0.0), vec3(0.0, 1.0, 0.0), 0.0, 0.0);
+    LightPick p = no_light_pick();
     if (e >= count) {
-        return false;
+        return p;
     }
     LightEntry entry = light_entries[e];
     uint kind = light_kind(entry.payload);
@@ -546,7 +559,7 @@ bool local_light_at(uint e, uint count, vec2 uv, vec3 at, out LocalLight l)
         uvec4 listed = emitter_entries[index];
         HitVertices tri;
         if (!hit_vertices(listed.x, listed.y, tri)) {
-            return false;
+            return p;
         }
         mat4x3 to_world = instance_transform(listed.x);
         vec3 a = to_world * vec4(tri.position[0], 1.0);
@@ -555,53 +568,117 @@ bool local_light_at(uint e, uint count, vec2 uv, vec3 at, out LocalLight l)
         vec3 across = cross(b - a, c - a);
         float twice = length(across);
         if (!(twice > 0.0)) {
-            return false;
+            return p;
         }
         vec3 bc = path_triangle_point(uv.x, uv.y);
-        vec3 y = a * bc.x + b * bc.y + c * bc.z;
-        vec3 to = y - at;
+        vec3 emitted;
+        if (!hit_emission(listed.x, listed.y, instance_material(listed.x), bc.yz, emitted)) {
+            return p;
+        }
+        p.y = a * bc.x + b * bc.y + c * bc.z;
+        p.n = across / twice;
+        p.emitted = emitted;
+        p.pdf = entry.pdf / (0.5 * twice);
+        return p;
+    }
+    if (kind == LIGHT_LAMP) {
+        p.lamp = index;
+        p.pdf = entry.pdf;
+    }
+    return p;
+}
+// The light a picked point sends `at` (LocalLight, as local_light_at's).
+bool light_seen_from(LightPick p, vec3 at, out LocalLight l)
+{
+    l = LocalLight(vec3(0.0), vec3(0.0, 1.0, 0.0), 0.0, 0.0);
+    if (!(p.pdf > 0.0)) {
+        return false;
+    }
+    if (p.lamp == LIGHT_PICK_TRIANGLE) {
+        vec3 to = p.y - at;
         float d2 = dot(to, to);
         float d = sqrt(d2);
         if (!(d > 0.0)) {
             return false;
         }
         vec3 dir = to / d;
-        float cos_there = abs(dot(across / twice, dir));
+        float cos_there = abs(dot(p.n, dir));
         if (!(cos_there > 0.0)) {
             return false;
         }
-        vec3 emitted;
-        if (!hit_emission(listed.x, listed.y, instance_material(listed.x), bc.yz, emitted)) {
-            return false;
-        }
-        l.light = max(emitted, vec3(0.0)) * (cos_there / d2);
+        l.light = max(p.emitted, vec3(0.0)) * (cos_there / d2);
         l.dir = dir;
-        l.reach = max(d * 0.999 - local_light_offset(y), 0.0);
-        l.pdf = entry.pdf / (0.5 * twice);
+        l.reach = max(d * 0.999 - local_light_offset(p.y), 0.0);
+        l.pdf = p.pdf;
         return max(l.light.r, max(l.light.g, l.light.b)) > 0.0;
     }
-    if (kind == LIGHT_LAMP) {
-        LightRecord lamp = lamps[index];
-        vec3 from;
-        lamp_geometry(lamp, at, vec3(0.0), from); // (where its light comes from - the point's own: no facing yet)
-        vec3 to = from - at;
-        float d = length(to);
-        if (!(d > 0.0)) {
-            return false;
-        }
-        vec3 dir = to / d;
-        float g = lamp_geometry(lamp, at, dir, from);
-        if (!(g > 0.0)) {
-            return false;
-        }
-        l.light = max(lamp.colour.rgb, vec3(0.0)) * (PATH_PI * g);
-        l.dir = dir;
-        l.reach = max(d - lamp.at.w, 0.0);
-        l.pdf = entry.pdf;
-        return max(l.light.r, max(l.light.g, l.light.b)) > 0.0;
+    LightRecord lamp = lamps[p.lamp];
+    vec3 from;
+    lamp_geometry(lamp, at, vec3(0.0), from); // (where its light comes from - the point's own: no facing yet)
+    vec3 to = from - at;
+    float d = length(to);
+    if (!(d > 0.0)) {
+        return false;
     }
-    return false;
+    vec3 dir = to / d;
+    float g = lamp_geometry(lamp, at, dir, from);
+    if (!(g > 0.0)) {
+        return false;
+    }
+    l.light = max(lamp.colour.rgb, vec3(0.0)) * (PATH_PI * g);
+    l.dir = dir;
+    l.reach = max(d - lamp.at.w, 0.0);
+    l.pdf = p.pdf;
+    return max(l.light.r, max(l.light.g, l.light.b)) > 0.0;
 }
+bool local_light_at(uint e, uint count, vec2 uv, vec3 at, out LocalLight l)
+{
+    return light_seen_from(light_pick_at(e, count, uv), at, l);
+}
+
+// (round PF - NVIDIA RTXDI's presampled light tiles: Wyman and Panteleev 2021, "Rearchitecting spatiotemporal resampling
+// for production") The pool: LIGHT_POOL_SIZE picks of the local group made once a frame (light_pool_write - an entry by
+// power, a uniform point on a triangle, as local_light_at's), two uvec4 each: y and the pdf (a lamp: its record index in
+// x, the pdf negative), the emission and the normal (octahedral, 16-bit). A pass that resamples many candidates a point
+// (the fog's) takes them from here - a random slot each, the same distribution as a pick of its own - and reads two words
+// instead of the triangle's corners, its instance and its emission texel. The caller declares `uvec4 light_pool[]`.
+#ifdef LIGHT_POOL_SIZE
+vec2 light_pool_oct(vec3 n)
+{
+    n /= abs(n.x) + abs(n.y) + abs(n.z);
+    vec2 w = (1.0 - abs(n.yx)) * vec2(n.x >= 0.0 ? 1.0 : -1.0, n.y >= 0.0 ? 1.0 : -1.0);
+    return n.z >= 0.0 ? n.xy : w;
+}
+vec3 light_pool_unoct(vec2 e)
+{
+    vec3 n = vec3(e.x, e.y, 1.0 - abs(e.x) - abs(e.y));
+    if (n.z < 0.0) {
+        n.xy = (1.0 - abs(n.yx)) * vec2(n.x >= 0.0 ? 1.0 : -1.0, n.y >= 0.0 ? 1.0 : -1.0);
+    }
+    return normalize(n);
+}
+#ifdef LIGHT_POOL_WRITE
+void light_pool_write(uint slot, LightPick p)
+{
+    bool lamp = p.lamp != LIGHT_PICK_TRIANGLE;
+    light_pool[2u * slot] = lamp ? uvec4(p.lamp, 0u, 0u, floatBitsToUint(-p.pdf))
+                                 : uvec4(floatBitsToUint(p.y), floatBitsToUint(p.pdf));
+    light_pool[2u * slot + 1u] = uvec4(floatBitsToUint(p.emitted), packSnorm2x16(light_pool_oct(p.n)));
+}
+#else
+LightPick light_pool_read(uint slot)
+{
+    uvec4 w0 = light_pool[2u * slot];
+    uvec4 w1 = light_pool[2u * slot + 1u];
+    float pdf = uintBitsToFloat(w0.w);
+    if (pdf < 0.0) {
+        return LightPick(vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), -pdf, w0.x);
+    }
+    return LightPick(uintBitsToFloat(w0.xyz), light_pool_unoct(unpackSnorm2x16(w1.w)), uintBitsToFloat(w1.xyz), pdf,
+                     LIGHT_PICK_TRIANGLE);
+}
+#endif
+#endif
 )";
     return kSource;
 }

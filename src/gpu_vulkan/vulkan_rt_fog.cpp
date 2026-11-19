@@ -21,6 +21,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
+#include "engine/gfx/gpu_markers.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_light_list.h"
@@ -383,10 +384,12 @@ vec3 list_lights(vec3 at, vec3 direction, ivec2 p, int i, out vec3 rayleigh)
     bool have = false;
     for (uint k = 0u; k < candidates; ++k) {
         uint salt = 0x1000u + k * 4u;
+        // (round PF) a slot of the presampled pool: a pick by power and a point on it, made for the frame (RTXDI's
+        // presampled tiles) - the same distribution as picking here, two words read instead of the light's triangle
         float u = hash01(p, fog.flags.w, i, salt);
-        vec2 uv = vec2(hash01(p, fog.flags.w, i, salt + 1u), hash01(p, fog.flags.w, i, salt + 2u));
         LocalLight l;
-        if (!local_light_at(light_pick(u, count), count, uv, at, l) || !(l.pdf > 0.0)) {
+        if (!light_seen_from(light_pool_read(min(uint(u * float(LIGHT_POOL_SIZE)), LIGHT_POOL_SIZE - 1u)), at, l) ||
+            !(l.pdf > 0.0)) {
             continue;
         }
         float target = dot(l.light, LUMA) * phase(dot(direction, l.dir));
@@ -1175,7 +1178,8 @@ constexpr uint32_t kBindingEmitters = 17;   // (round WF) ... its emitting trian
 constexpr uint32_t kBindingLampRecords = 18; // ... its lamps' records
 constexpr uint32_t kBindingMembership = 19;  // ... the instances' first triangles
 constexpr uint32_t kBindingSlots = 20;       // ... per triangle its place in the list + 1
-constexpr uint32_t kBindingCount = 21;
+constexpr uint32_t kBindingLightPool = 21;   // (round PF) ... its presampled pool (kLightPoolSize picks)
+constexpr uint32_t kBindingCount = 22;
 constexpr uint32_t kMaterialSet = 1; // (CUTOUTS: the material table's set)
 
 // The march's variants (bits): a multisampled depth, the sky model's haze, the cut-outs and water (the material table
@@ -1423,6 +1427,10 @@ std::string source_of(const char* body, bool traces, bool multisampled, uint32_t
         source += "const uint SKY_HEIGHT = " + std::to_string(rt::lights::kSkyGridHeight) + "u;\n";
         source += light_instances_glsl();
         source += rt::lights::kLightListGlsl;
+        // (round PF) the candidates from the presampled pool (vulkan_light_list.h kLightPoolSize)
+        source += "#define LIGHT_POOL_SIZE " + std::to_string(kLightPoolSize) + "u\n";
+        source += "layout(std430, set = 0, binding = " + std::to_string(kBindingLightPool) +
+                  ") readonly buffer LightPool { uvec4 light_pool[]; };\n";
         source += local_light_glsl();
     }
     if (traces && (variant & kVariantClouds) != 0) {
@@ -1476,7 +1484,8 @@ bool make_layouts(Backend& state, std::string* error)
         } else if (binding == kBindingBlock) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         } else if (binding == kBindingGeometry || binding == kBindingLights || binding == kBindingEmitters ||
-                   binding == kBindingLampRecords || binding == kBindingMembership || binding == kBindingSlots) {
+                   binding == kBindingLampRecords || binding == kBindingMembership || binding == kBindingSlots ||
+                   binding == kBindingLightPool) {
             type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         }
         core::at(bindings, binding) = {.binding = binding,
@@ -2104,12 +2113,12 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
         add(kBindingGeometry, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER).pBufferInfo = &geometry;
     }
     const auto whole = [](VkBuffer buffer) { return VkDescriptorBufferInfo{.buffer = buffer, .offset = 0, .range = VK_WHOLE_SIZE}; };
-    const std::array<VkDescriptorBufferInfo, 5> lists{whole(own.local.table), whole(own.local.emitters),
-                                                       whole(own.local.lamps), whole(own.local.membership),
-                                                       whole(own.local.slots)};
+    const std::array<VkDescriptorBufferInfo, 6> lists{whole(own.local.table),      whole(own.local.emitters),
+                                                       whole(own.local.lamps),      whole(own.local.membership),
+                                                       whole(own.local.slots),      whole(own.local.light_pool)};
     if (bound.lights) {
-        const std::array<uint32_t, 5> places{kBindingLights, kBindingEmitters, kBindingLampRecords, kBindingMembership,
-                                             kBindingSlots};
+        const std::array<uint32_t, 6> places{kBindingLights,     kBindingEmitters, kBindingLampRecords,
+                                             kBindingMembership, kBindingSlots,    kBindingLightPool};
         for (std::size_t i = 0; i < places.size(); ++i) {
             add(core::at(places, i), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER).pBufferInfo = &core::at(lists, i);
         }
@@ -2344,7 +2353,7 @@ void read_lights(Backend& state, VkCommandBuffer commands)
     own.lights = restir_local_lights(state, commands, lighting, &own.local) && own.local.entries > 0 &&
                  own.local.table != VK_NULL_HANDLE && own.local.emitters != VK_NULL_HANDLE &&
                  own.local.lamps != VK_NULL_HANDLE && own.local.membership != VK_NULL_HANDLE &&
-                 own.local.slots != VK_NULL_HANDLE;
+                 own.local.slots != VK_NULL_HANDLE && own.local.light_pool != VK_NULL_HANDLE;
     own.lights_before = own.lights;
     own.lights_frame = own.lights ? state.frame : 0;
 }
@@ -2924,6 +2933,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                         error.c_str());
             }
         } else {
+            const FrameStep step(state.frames, commands, gpu_markers::section::kFogMap); // (round PF)
             dispatch(commands, map_pass,
                      {.scene = true, .cutouts = own.cutouts, .air_map = &own.air_map, .block = block_info},
                      {.width = own.air_map.extent.width, .height = own.air_map.extent.height});
@@ -2953,6 +2963,8 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         const uint32_t now = slot->current;
         const uint32_t before = now ^ 1U;
         // 1. the march
+        std::optional<FrameStep> step;
+        step.emplace(state.frames, commands, gpu_markers::section::kFogMarch); // (round PF)
         dispatch(commands, march,
                  {.scene = true,
                   .cloud_map = own.have_cloud,
@@ -2966,6 +2978,8 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                   .block = block_info},
                  low);
         // 2. the history
+        step.reset();
+        step.emplace(state.frames, commands, gpu_markers::section::kFogHistory);
         history = &core::at(slot->histories, now);
         history_info = &core::at(slot->history_info, now);
         dispatch(commands, own.temporal,
@@ -2983,6 +2997,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     const Image* rays = &slot->rays.front();
     constexpr float kRaysOnScreen = 1.5F; // (rays.w 1: the light in front - 2 behind)
     if (core::at(own.rays, 3) > 0.0F && core::at(own.rays, 3) < kRaysOnScreen) {
+        const FrameStep step(state.frames, commands, gpu_markers::section::kFogRays); // (round PF)
         const Extent half = rays_extent(clipped.rect);
         Image* const first = &slot->rays.front();
         Image* const second = &slot->rays.back();
@@ -3007,6 +3022,8 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         depth_barrier(commands, depth, depth->resting, false);
         return false;
     }
+    std::optional<FrameStep> composite_step;
+    composite_step.emplace(state.frames, commands, gpu_markers::section::kFogComposite); // (round PF)
     record_composite(commands, drawn, colour,
                      {.depth = depth,
                       .in = history,
@@ -3016,6 +3033,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                       .lit = &slot->raw_lit,
                       .block = block_info},
                      clipped.rect);
+    composite_step.reset();
     if (timing) {
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timer, (pair * 2) + 1);
         ++own.timed;

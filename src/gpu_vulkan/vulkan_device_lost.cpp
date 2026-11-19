@@ -90,7 +90,8 @@ const char* markers_text(const Backend& state)
 
 void install_crash_markers(Backend& state)
 {
-    gpu_markers::set_sink(state.frames.markers().on() ? &pass_marked : nullptr);
+    // (round PF: the marks also time every pass with frame_profile on - vulkan_pass_profile.h)
+    gpu_markers::set_sink(state.frames.markers().on() || state.frames.passes_timed() ? &pass_marked : nullptr);
     const CrashDiagnostics& has = state.context.crash_diagnostics();
     get_log("vulkan: GPU crash diagnostics - markers: %s; the driver's fault report: %s%s; memory budget: %s",
             markers_text(state), has.device_fault ? "VK_EXT_device_fault" : "not offered",

@@ -35,6 +35,10 @@ struct SceneLighting {
     bool table = false;
     AtmosphereInput table_input;
     float table_factor = 1.0F;      // x the table: 1 / its exposure (x the kept sky without drawn clouds)
+    // (round PF) the factor less the table's exposure - what the sky's light is, whatever the camera's exposure: what a
+    // sky made once from the table (ReSTIR GI's grid) is keyed by (the table is drawn again at each exposure; its light
+    // x table_factor stays the same)
+    float table_share = 1.0F;
     bool clouds = false;            // the sky's grid marches the drawn clouds
     RtSkyFrame cloud_frame;         // (their parameters - the sky pass's last)
     std::vector<rt::Emitter> lamps; // the analytic ones (x their switches) and the frame record's point lights
@@ -108,7 +112,12 @@ struct SkyGridInputs {
 // `lighting`'s lamps (the frame's, or a check's) whether or not the DI passes run this frame: a finished scan taken into
 // use, a new one recorded into `commands` when the world or its lamps' own surfaces changed. The caller holds the lock.
 // False: none (no scene, no material table, the scan can't be made).
+// (round PF - NVIDIA RTXDI's presampled light tiles) The pool of picks of the local group made once a submission
+// (local_light_glsl's light_pool_read: kLightPoolWords 32-bit words a pick) - RTXDI's 128 tiles of 1024.
+inline constexpr uint32_t kLightPoolSize = 128U * 1024U;
+inline constexpr uint32_t kLightPoolWords = 8;
 struct RestirLocalLights {
+    VkBuffer light_pool = VK_NULL_HANDLE; // (round PF) the presampled pool (kLightPoolSize picks)
     VkBuffer emitters = VK_NULL_HANDLE;   // the list (the header + entries above)
     VkBuffer lamps = VK_NULL_HANDLE;      // a LightRecord per lamp
     VkBuffer membership = VK_NULL_HANDLE; // the instances' first triangles (the scan's)

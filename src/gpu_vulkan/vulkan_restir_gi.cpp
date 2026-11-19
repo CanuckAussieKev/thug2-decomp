@@ -18,6 +18,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
+#include "engine/gfx/gpu_markers.h"
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
@@ -1639,7 +1640,10 @@ uint64_t sky_key_of(const SceneLighting& lighting)
     key = mix_floats(key, lighting.sky);
     key = mix(key, lighting.table ? 1U : 0U);
     key = mix(key, lighting.clouds ? 1U : 0U);
-    key = mix(key, std::bit_cast<uint32_t>(lighting.table_factor));
+    // (round PF) the table's light in the global unit, not its exposure: the camera's exposure moves every frame at night,
+    // and the grid was made again every other frame for the same sky (its alias tables built on the main thread - 17 %
+    // of its time)
+    key = mix(key, std::bit_cast<uint32_t>(lighting.table_share));
     return mix_floats(key, lighting.table_input.sun);
 }
 
@@ -2256,6 +2260,7 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
     if ((flags & kFlagCache) != 0U) {
         // (round MB) the radiance cache: its update paths (one a block of pixels), then each entry's frame - before the
         // temporal pass reads it at its secondary vertices
+        const FrameStep step(state.frames, commands, gpu_markers::section::kGiCache); // (round PF)
         const uint32_t blocks_x = (width + kCacheBlock - 1) / kCacheBlock;
         const uint32_t blocks_y = (height + kCacheBlock - 1) / kCacheBlock;
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -2271,15 +2276,21 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
     if (timed) {
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, own.timing.pool, (slot * kTimingStamps) + 1);
     }
-    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
-                      core::at(own.temporal, (check ? 2U : 0U) + (map_now ? 1U : 0U)));
-    vkCmdDispatch(commands, groups_x, groups_y, 1);
-    barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
-    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.spatial, check ? 1U : 0U));
-    vkCmdDispatch(commands, groups_x, groups_y, 1);
-    barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT);
+    {
+        const FrameStep step(state.frames, commands, gpu_markers::section::kGiTemporal); // (round PF)
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
+                          core::at(own.temporal, (check ? 2U : 0U) + (map_now ? 1U : 0U)));
+        vkCmdDispatch(commands, groups_x, groups_y, 1);
+        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    }
+    {
+        const FrameStep step(state.frames, commands, gpu_markers::section::kGiSpatial);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.spatial, check ? 1U : 0U));
+        vkCmdDispatch(commands, groups_x, groups_y, 1);
+        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT);
+    }
     if (timed) {
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timing.pool, (slot * kTimingStamps) + 2);
         core::at(own.timing.pending, slot) = state.frames.serial();

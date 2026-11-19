@@ -25,6 +25,7 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_pipelines.cpp
     vulkan_frames.cpp
     vulkan_crash_markers.cpp
+    vulkan_pass_profile.cpp
     vulkan_device_lost.cpp
     vulkan_draws.cpp
     vulkan_gpu.cpp

@@ -18,6 +18,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
+#include "engine/gfx/gpu_markers.h"
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
@@ -70,7 +71,8 @@ constexpr uint32_t kBindingCounters = 18;
 constexpr uint32_t kBindingBounds = 19;
 constexpr uint32_t kBindingCells = 20;
 constexpr uint32_t kBindingSpecularOut = 21; // (round BR)
-constexpr uint32_t kBindingCount = 22;
+constexpr uint32_t kBindingLightPool = 22;   // (round PF) the presampled pool (vulkan_light_list.h kLightPoolSize)
+constexpr uint32_t kBindingCount = 23;
 constexpr uint32_t kMaterialSet = 1;
 
 constexpr uint32_t kGroupSide = 8;
@@ -903,7 +905,26 @@ void main()
 #endif
 )";
 
-enum class Shader : uint8_t { kScan, kTemporal, kSpatial, kBounds, kCells };
+// (round PF) The presampled pool's pass (one invocation a slot): a pick of the local group by power and a uniform point
+// on a triangle - local_light_at's - kept for the passes that resample many candidates (vulkan_light_list.h
+// light_pool_read).
+constexpr const char* kPoolBody = R"(
+layout(local_size_x = 64) in;
+void main()
+{
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= LIGHT_POOL_SIZE) {
+        return;
+    }
+    uint rng = path_sequence_start(i % 4096u, i / 4096u, pass.counts.z, pass.params.w);
+    float u = path_next(rng);
+    vec2 uv = vec2(path_next(rng), path_next(rng));
+    uint count = pass.counts.x;
+    light_pool_write(i, count == 0u ? no_light_pick() : light_pick_at(light_pick(u, count), count, uv));
+}
+)";
+
+enum class Shader : uint8_t { kScan, kTemporal, kSpatial, kBounds, kCells, kPool };
 
 std::string shader_source(Shader which, bool check)
 {
@@ -917,6 +938,7 @@ std::string shader_source(Shader which, bool check)
     case Shader::kBounds: source += "#define PASS_BOUNDS\n"; break;
     case Shader::kCells: source += "#define PASS_CELLS\n"; break;
     case Shader::kScan: break;
+    case Shader::kPool: break;
     }
     source += "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
     source += "#define THUG2_MATERIAL_SET 1\n";
@@ -937,7 +959,13 @@ std::string shader_source(Shader which, bool check)
     source += kCommon;
     source += light_instances_glsl();
     source += rt::lights::kLightListGlsl;
-    if (which == Shader::kScan) {
+    if (which == Shader::kPool) {
+        source += "#define LIGHT_POOL_SIZE " + std::to_string(kLightPoolSize) + "u\n#define LIGHT_POOL_WRITE\n";
+        source += "layout(std430, set = 0, binding = " + std::to_string(kBindingLightPool) +
+                  ") writeonly buffer LightPool { uvec4 light_pool[]; };\n";
+        source += local_light_glsl();
+        source += kPoolBody;
+    } else if (which == Shader::kScan) {
         source += emitter_scan_glsl();
     } else if (which == Shader::kBounds || which == Shader::kCells) {
         source += kGridBody;
@@ -1070,6 +1098,11 @@ struct RestirState {
     std::array<VkPipeline, 2> spatial{};
     VkPipeline bounds_pass = VK_NULL_HANDLE; // (round PT4c) the light grid's
     VkPipeline cells_pass = VK_NULL_HANDLE;
+    VkPipeline pool_pass = VK_NULL_HANDLE; // (round PF) the presampled pool's
+    DeviceBuffer light_pool;
+    uint64_t pool_serial = 0;    // the submission its picks were last made in
+    uint64_t pool_table = 0;     // ... from this table
+    uint32_t pool_seed = 0;
     DeviceBuffer bounds;
     DeviceBuffer cells;
     bool failed = false;
@@ -1241,7 +1274,10 @@ bool ensure_scan(Backend& state, std::string* error)
     if (own.scan == VK_NULL_HANDLE) {
         own.scan = make_compute(device, own.layout, shader_source(Shader::kScan, false), error);
     }
-    return own.scan != VK_NULL_HANDLE;
+    if (own.scan != VK_NULL_HANDLE && own.pool_pass == VK_NULL_HANDLE) {
+        own.pool_pass = make_compute(device, own.layout, shader_source(Shader::kPool, false), error);
+    }
+    return own.scan != VK_NULL_HANDLE && own.pool_pass != VK_NULL_HANDLE;
 }
 
 bool ensure_pipelines(Backend& state, bool check, std::string* error)
@@ -1399,6 +1435,7 @@ bool record_scan(Backend& state, RestirState& own, VkCommandBuffer commands, con
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0, static_cast<uint32_t>(writes.size()),
                               writes.data());
     if (total > 0) {
+        const FrameStep step(state.frames, commands, gpu_markers::section::kDiGrid); // (round PF)
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.scan);
         const auto groups = static_cast<uint32_t>((total + kScanGroup - 1) / kScanGroup);
         const uint32_t groups_x = std::min(groups, kMostGroupsX);
@@ -1614,6 +1651,79 @@ bool keep_local_lights(Backend& state, RestirState& own, VkCommandBuffer command
 
 } // namespace
 
+// (round PF) The presampled pool made for this submission's passes (once a submission, again when the table changes):
+// the earlier readers waited for, the picks made, the readers after it wait for them. False: no buffer.
+bool keep_light_pool(Backend& state, RestirState& own, VkCommandBuffer commands, const SceneView& scene,
+                     const DeviceBuffer& list)
+{
+    constexpr VkDeviceSize kBytes = VkDeviceSize{kLightPoolSize} * kLightPoolWords * sizeof(uint32_t);
+    if (!ensure_buffer(state, &own.light_pool, kBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kDevice)) {
+        return false;
+    }
+    if (own.entries == 0 || (own.pool_serial == state.frames.serial() && own.pool_table == own.table_key)) {
+        return true;
+    }
+    RestirBlock block;
+    block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),
+                       static_cast<uint32_t>(scene.instances_address >> 32U), 0U, 0U};
+    block.counts = {own.entries, own.lamp_count, static_cast<uint32_t>(state.frames.serial()), 0U};
+    block.params = {0U, 0U, 0U, ++own.pool_seed * 0x9E3779B9U};
+    std::array<uint8_t, sizeof(RestirBlock)> bytes{};
+    std::memcpy(bytes.data(), &block, sizeof(block));
+    const std::optional<RingSpan> span = state.ring.copy(bytes, kUniformAlignment);
+    if (!span) {
+        return true; // (the pool as it was)
+    }
+    const VkWriteDescriptorSetAccelerationStructureKHR scene_info{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+        .pNext = nullptr,
+        .accelerationStructureCount = 1,
+        .pAccelerationStructures = &scene.tlas};
+    const auto whole = [](const DeviceBuffer& buffer) {
+        return VkDescriptorBufferInfo{.buffer = buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
+    };
+    const VkDescriptorBufferInfo geometry_info{.buffer = scene.geometry, .offset = 0, .range = scene.geometry_bytes};
+    const VkDescriptorBufferInfo block_info{.buffer = span->buffer, .offset = span->offset, .range = sizeof(RestirBlock)};
+    const std::array<VkDescriptorBufferInfo, 6> buffers{whole(own.lights), whole(list),       whole(own.lamps),
+                                                        whole(own.membership), whole(own.slots), whole(own.light_pool)};
+    const std::array<uint32_t, 6> buffer_bindings{kBindingLights,     kBindingEmitters, kBindingLamps,
+                                                  kBindingMembership, kBindingSlots,    kBindingLightPool};
+    std::array<VkWriteDescriptorSet, 9> writes{};
+    const auto write = [&writes](std::size_t at, uint32_t binding, VkDescriptorType type, const VkDescriptorBufferInfo* info,
+                                 const void* next) {
+        VkWriteDescriptorSet& one = core::at(writes, at);
+        one.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        one.pNext = next;
+        one.dstBinding = binding;
+        one.descriptorCount = 1;
+        one.descriptorType = type;
+        one.pBufferInfo = info;
+    };
+    write(0, kBindingScene, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, nullptr, &scene_info);
+    write(1, kBindingGeometry, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &geometry_info, nullptr);
+    write(2, kBindingBlock, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &block_info, nullptr);
+    for (std::size_t i = 0; i < buffers.size(); ++i) {
+        write(3 + i, core::at(buffer_bindings, i), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &core::at(buffers, i), nullptr);
+    }
+    const FrameStep step(state.frames, commands, gpu_markers::section::kLightPool);
+    // (the last submission's readers of the pool, and the scan's list / the scene's build, before the picks)
+    barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    const VkDescriptorSet material_set = state.materials.descriptor_set();
+    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1, &material_set, 0,
+                            nullptr);
+    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0, static_cast<uint32_t>(writes.size()),
+                              writes.data());
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.pool_pass);
+    vkCmdDispatch(commands, (kLightPoolSize + kScanGroup - 1) / kScanGroup, 1, 1);
+    barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_ACCESS_SHADER_READ_BIT);
+    own.pool_serial = state.frames.serial();
+    own.pool_table = own.table_key;
+    return true;
+}
+
 bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLighting& lighting, RestirLocalLights* out)
 {
     RestirState& own = restir_state();
@@ -1624,6 +1734,10 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
         return false;
     }
     const DeviceBuffer& list = core::at(own.emitters, static_cast<std::size_t>(std::max(own.list_now, 0)));
+    if (!keep_light_pool(state, own, commands, scene, list)) {
+        return false;
+    }
+    out->light_pool = own.light_pool.buffer;
     out->emitters = list.buffer;
     out->lamps = own.lamps.buffer;
     out->membership = own.membership.buffer;
@@ -2017,6 +2131,7 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     const uint32_t groups_x = (width + kGroupSide - 1) / kGroupSide;
     const uint32_t groups_y = (height + kGroupSide - 1) / kGroupSide;
     if (grid) {
+        const FrameStep step(state.frames, commands, gpu_markers::section::kDiGrid); // (round PF)
         // (round PT4c) the light grid: the entries' bounds, then every cell's slots
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.bounds_pass);
         vkCmdDispatch(commands, (own.entries + kScanGroup - 1) / kScanGroup, 1, 1);
@@ -2030,14 +2145,20 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
     }
-    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.temporal, variant));
-    vkCmdDispatch(commands, groups_x, groups_y, 1);
-    barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
-    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.spatial, variant));
-    vkCmdDispatch(commands, groups_x, groups_y, 1);
-    barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
-            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT);
+    {
+        const FrameStep step(state.frames, commands, gpu_markers::section::kDiTemporal); // (round PF)
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.temporal, variant));
+        vkCmdDispatch(commands, groups_x, groups_y, 1);
+        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    }
+    {
+        const FrameStep step(state.frames, commands, gpu_markers::section::kDiSpatial);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.spatial, variant));
+        vkCmdDispatch(commands, groups_x, groups_y, 1);
+        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT);
+    }
     if (timed) {
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timing.pool, (slot * 2) + 1);
         core::at(own.timing.pending, slot) = state.frames.serial();
@@ -2085,7 +2206,7 @@ void release_restir_di(Backend& state)
             }
         }
     }
-    for (VkPipeline pipeline : {own.scan, own.bounds_pass, own.cells_pass}) {
+    for (VkPipeline pipeline : {own.scan, own.bounds_pass, own.cells_pass, own.pool_pass}) {
         if (pipeline != VK_NULL_HANDLE) {
             vkDestroyPipeline(device, pipeline, nullptr);
         }
@@ -2102,7 +2223,7 @@ void release_restir_di(Backend& state)
     for (DeviceBuffer* buffer : {&core::at(own.emitters, 0), &core::at(own.emitters, 1), &own.membership, &own.slots,
                                  &own.read_back, &own.lights, &own.lamps, &own.reservoirs_a, &own.reservoirs_b,
                                  &core::at(own.at, 0), &core::at(own.at, 1), &core::at(own.more, 0), &core::at(own.more, 1),
-                                 &own.sums, &own.counters, &own.bounds, &own.cells}) {
+                                 &own.sums, &own.counters, &own.bounds, &own.cells, &own.light_pool}) {
         state.memory.destroy_buffer(buffer);
     }
     const RestirOverrides overrides = own.overrides;
