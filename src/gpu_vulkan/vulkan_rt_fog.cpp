@@ -862,7 +862,11 @@ void main()
 constexpr const char* kTemporalBody = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(set = 0, binding = 2, rgba16f) uniform writeonly image2D o_out;
+#ifndef FAST_HISTORY
 layout(set = 0, binding = 3, rgba32f) uniform writeonly image2D o_info;
+// (round NK) the fast history just written (this frame's: the clamp's neighbourhood)
+layout(set = 0, binding = FAST_BINDING, rgba16f) uniform readonly image2D u_fast;
+#endif
 layout(set = 0, binding = 4, rgba16f) uniform readonly image2D u_in;
 layout(set = 0, binding = 5, rgba32f) uniform readonly image2D u_in_info;
 layout(set = 0, binding = 6, rgba16f) uniform readonly image2D u_history;
@@ -885,31 +889,6 @@ void main()
     vec4 now = imageLoad(u_in, q);
     vec4 info = imageLoad(u_in_info, q);
     float distance = info.x;
-    // this frame's spread around the texel: what the history may be. (Changed by the distinct shafts:) the neighbours'
-    // mean +- HISTORY_SPREAD x their deviation, inside their least and most - a history that has moved off a beam's edge
-    // (a camera turning, the light moving) is held to what this frame shows there, not to the whole 3 x 3's range
-    vec4 low = now;
-    vec4 high = now;
-    vec4 sum = vec4(0.0);
-    vec4 squares = vec4(0.0);
-    float counted = 0.0;
-    for (int dy = -1; dy <= 1; ++dy) {
-        for (int dx = -1; dx <= 1; ++dx) {
-            ivec2 n = q + ivec2(dx, dy);
-            if (inside_low(n)) {
-                vec4 v = imageLoad(u_in, n);
-                low = min(low, v);
-                high = max(high, v);
-                sum += v;
-                squares += v * v;
-                counted += 1.0;
-            }
-        }
-    }
-    vec4 middle = sum / counted;
-    vec4 deviation = sqrt(max(squares / counted - middle * middle, vec4(0.0)));
-    low = max(low, middle - HISTORY_SPREAD * deviation);
-    high = min(high, middle + HISTORY_SPREAD * deviation);
     vec4 history = now;
     float history_length = 0.0;
     if (fog.camera_before.w > 0.5) {
@@ -944,11 +923,46 @@ void main()
             }
         }
     }
+#ifdef FAST_HISTORY
+    // (round NK) the fast history: the same reprojection, at most FAST_LENGTH frames, never clamped - an estimate of the
+    // light now that is still a few frames' average (NRD ReLAX's fast history)
+    float fast_length = min(floor(history_length + 0.5) + 1.0, float(FAST_LENGTH));
+    imageStore(o_out, q, mix(history, now, 1.0 / fast_length));
+#else
+    // what the history may be: the fast history's neighbourhood - its 3 x 3 mean +- HISTORY_SPREAD deviations, inside
+    // its least and most (round NK - NRD ReLAX's history clamping: the box from the fast history, a few frames'
+    // average, not from this frame's march. Before, the box was this frame's own 3 x 3 of one noisy march: where its
+    // nine samples happened to miss the light the box shut on them and the history was thrown away - the grain of the
+    // dark air, flickering frame to frame, and its mean darkened. (Changed by the distinct shafts:) a history that has
+    // moved off a beam's edge (a camera turning, the light moving) is held to what the fast history shows there.
+    vec4 low = vec4(3.0e38);
+    vec4 high = vec4(-3.0e38);
+    vec4 sum = vec4(0.0);
+    vec4 squares = vec4(0.0);
+    float counted = 0.0;
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            ivec2 n = q + ivec2(dx, dy);
+            if (inside_low(n)) {
+                vec4 v = imageLoad(u_fast, n);
+                low = min(low, v);
+                high = max(high, v);
+                sum += v;
+                squares += v * v;
+                counted += 1.0;
+            }
+        }
+    }
+    vec4 middle = sum / counted;
+    vec4 deviation = sqrt(max(squares / counted - middle * middle, vec4(0.0)));
+    low = max(low, middle - HISTORY_SPREAD * deviation);
+    high = min(high, middle + HISTORY_SPREAD * deviation);
     history = clamp(history, low, high);
     history_length = min(floor(history_length + 0.5) + 1.0, float(fog.flags.z));
     vec4 result = mix(history, now, 1.0 / history_length);
     imageStore(o_out, q, result);
     imageStore(o_info, q, vec4(distance, history_length, info.y, info.z));
+#endif
 }
 )";
 
@@ -1186,7 +1200,8 @@ constexpr uint32_t kBindingLampRecords = 18; // ... its lamps' records
 constexpr uint32_t kBindingMembership = 19;  // ... the instances' first triangles
 constexpr uint32_t kBindingSlots = 20;       // ... per triangle its place in the list + 1
 constexpr uint32_t kBindingLightPool = 21;   // (round PF) ... its presampled pool (kLightPoolSize picks)
-constexpr uint32_t kBindingCount = 22;
+constexpr uint32_t kBindingFast = 22;        // (round NK) the fast history just written (the slow history's clamp)
+constexpr uint32_t kBindingCount = 23;
 constexpr uint32_t kMaterialSet = 1; // (CUTOUTS: the material table's set)
 
 // The march's variants (bits): a multisampled depth, the sky model's haze, the cut-outs and water (the material table
@@ -1208,7 +1223,7 @@ struct CompositePipeline {
 
 using Matrix = std::array<std::array<double, kMatrixSide>, kMatrixSide>;
 
-constexpr std::size_t kSlotImages = 9;
+constexpr std::size_t kSlotImages = 11;
 
 // A viewport's images and history.
 struct ViewSlot {
@@ -1220,6 +1235,7 @@ struct ViewSlot {
     Image raw_lit;                     // (round W2) step 1: the god rays' potential under the march's own shadow
     std::array<Image, 2> histories;    // step 2's, this frame's and the one before (by `current`)
     std::array<Image, 2> history_info; // likewise: the distance, the history's length
+    std::array<Image, 2> fast;         // (round NK) step 2's fast history, likewise (by `current`)
     std::array<Image, 2> rays;         // (added by the god rays) the rays' images (half the viewport's pixels), in turn
     Image* rays_written = nullptr; // the one the composite read last (read_rt_fog_image's kRays)
     uint32_t current = 0;
@@ -1262,6 +1278,7 @@ struct FogState {
     Image air_map;
     bool air_map_made = false;
     VkPipeline temporal = VK_NULL_HANDLE;
+    VkPipeline temporal_fast = VK_NULL_HANDLE; // (round NK: the fast history)
     std::vector<CompositePipeline> composites;
     std::vector<std::unique_ptr<ViewSlot>> slots;
     std::array<float, 3> to_sun{};
@@ -1403,6 +1420,8 @@ std::string source_of(const char* body, bool traces, bool multisampled, uint32_t
         source += "#define MULTISAMPLED\n";
     }
     source += "#define HISTORY_SPREAD " + std::to_string(kFogHistorySpread) + "\n";
+    source += "#define FAST_LENGTH " + std::to_string(kFogFastHistory) + "\n"; // (round NK)
+    source += "#define FAST_BINDING " + std::to_string(kBindingFast) + "\n";
     // (the god rays' peak's edge - the march, the rays' passes and the composite)
     source += "#define GOD_RAYS_CONE_COS " +
               std::to_string(std::cos(rt::kGodRayConeDegrees * std::numbers::pi / 180.0)) + "\n";
@@ -1600,6 +1619,14 @@ bool ensure_objects(Backend& state, std::string* error)
     }
     // (the march's variants are made on first use: march_pipeline)
     // (the temporal pass reads no depth: the single-sampled declaration is never bound)
+    if (own.temporal_fast == VK_NULL_HANDLE) {
+        std::string fast = source_of(kTemporalBody, false, false);
+        fast.insert(fast.find('\n') + 1, "#define FAST_HISTORY\n"); // (after #version)
+        own.temporal_fast = make_compute(device, own.layout, fast, error);
+        if (own.temporal_fast == VK_NULL_HANDLE) {
+            return false;
+        }
+    }
     own.temporal = make_compute(device, own.layout, source_of(kTemporalBody, false, false), error);
     return own.temporal != VK_NULL_HANDLE;
 }
@@ -1895,6 +1922,8 @@ std::array<Image*, kSlotImages> images_of(ViewSlot& slot)
             &slot.histories.back(),
             &slot.history_info.front(),
             &slot.history_info.back(),
+            &slot.fast.front(),
+            &slot.fast.back(),
             &slot.rays.front(),
             &slot.rays.back()};
 }
@@ -1969,6 +1998,7 @@ ViewSlot* slot_for(Backend& state, const std::array<uint32_t, 4>& rect, const Ex
     for (std::size_t i = 0; i < 2; ++i) {
         made = made && make_storage_image(state, VK_FORMAT_R16G16B16A16_SFLOAT, extent, &core::at(slot.histories, i)) &&
                make_storage_image(state, VK_FORMAT_R32G32B32A32_SFLOAT, extent, &core::at(slot.history_info, i)) &&
+               make_storage_image(state, VK_FORMAT_R16G16B16A16_SFLOAT, extent, &core::at(slot.fast, i)) &&
                make_storage_image(state, VK_FORMAT_R16G16B16A16_SFLOAT, rays_extent(rect), &core::at(slot.rays, i));
     }
     if (!made) {
@@ -2086,6 +2116,7 @@ struct PassBindings {
     const Image* in_info = nullptr;
     const Image* history = nullptr;
     const Image* history_info = nullptr;
+    const Image* fast = nullptr; // (round NK: the fast history just written - the slow history's clamp)
     const Image* air_map = nullptr; // (added by the distinct shafts)
     const Image* rays_in = nullptr; // (added by the god rays: read through the linear sampler)
     const Image* rays_out = nullptr;
@@ -2153,7 +2184,8 @@ void push_descriptors(VkCommandBuffer commands, VkPipelineBindPoint point, const
         info = {.sampler = own.linear_sampler, .imageView = bound.rays_in->view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
         add(kBindingRaysIn, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER).pImageInfo = &info;
     }
-    const std::array<std::pair<uint32_t, const Image*>, 9> storage{{{kBindingLit, bound.lit},
+    const std::array<std::pair<uint32_t, const Image*>, 10> storage{{{kBindingLit, bound.lit},
+                                                                    {kBindingFast, bound.fast},
                                                                     {kBindingRaysOut, bound.rays_out},
                                                                     {kBindingOut, bound.out},
                                                                     {kBindingOutInfo, bound.out_info},
@@ -2874,7 +2906,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     have_before = have_before && !cut;
     // (added by the first frame - vulkan_rt_history.h: a history that starts again is seeded with a full history's
     // frames of marches, so nothing fades in)
-    const uint32_t seeds = seed_frames(true, !have_before, kFogMaxHistory);
+    const uint32_t seeds = seed_frames(true, !have_before, kFogSeedFrames);
     // (added by the distinct shafts) the air's sun map's image (bound by every march; made this frame where the look
     // has a volume round the eye and a light)
     if (!ensure_air_map(state, commands, own.settings.map)) {
@@ -3005,6 +3037,16 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
         step.emplace(state.frames, commands, gpu_markers::section::kFogHistory);
         history = &core::at(slot->histories, now);
         history_info = &core::at(slot->history_info, now);
+        // (round NK) the fast history first (its lengths and distances the slow history's info before), then the slow
+        // one clamped to it
+        dispatch(commands, own.temporal_fast,
+                 {.out = &core::at(slot->fast, now),
+                  .in = &slot->raw,
+                  .in_info = &slot->raw_info,
+                  .history = &core::at(slot->fast, before),
+                  .history_info = &core::at(slot->history_info, before),
+                  .block = block_info},
+                 low);
         dispatch(commands, own.temporal,
                  {.out = history,
                   .out_info = history_info,
@@ -3012,6 +3054,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                   .in_info = &slot->raw_info,
                   .history = &core::at(slot->histories, before),
                   .history_info = &core::at(slot->history_info, before),
+                  .fast = &core::at(slot->fast, now),
                   .block = block_info},
                  low);
     }
@@ -3320,6 +3363,9 @@ void release_rt_fog(Backend& state)
         if (own.temporal != VK_NULL_HANDLE) {
             vkDestroyPipeline(device, own.temporal, nullptr);
         }
+        if (own.temporal_fast != VK_NULL_HANDLE) {
+            vkDestroyPipeline(device, own.temporal_fast, nullptr);
+        }
         for (const VkPipeline pipeline : own.rays_mask) {
             if (pipeline != VK_NULL_HANDLE) {
                 vkDestroyPipeline(device, pipeline, nullptr);
@@ -3368,6 +3414,7 @@ void release_rt_fog(Backend& state)
     own.layout_materials = VK_NULL_HANDLE;
     own.material_layout = VK_NULL_HANDLE;
     own.temporal = VK_NULL_HANDLE;
+    own.temporal_fast = VK_NULL_HANDLE;
     own.vertex = VK_NULL_HANDLE;
     own.layout = VK_NULL_HANDLE;
     own.set_layout = VK_NULL_HANDLE;

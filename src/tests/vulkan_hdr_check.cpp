@@ -526,7 +526,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         const bool filled = fill_grey(gpu, target, kHalfWhite);
         const Metered white = meter_pass(gpu, target, whole);
         const float mean = vk::meter_light({1.0F, 1.0F, 1.0F});
-        const float stops = vk::meter_target_stops(mean, vk::kMeterMostStops);
+        const float stops = vk::meter_target_stops(mean, vk::kMeterMostStops, parameters);
         const float factor = std::exp2(stops);
         const std::array<float, 3> mapped = vk::tone_map_reference(parameters, nullptr, {factor, factor, factor});
         const float shown = core::at(mapped, 0);
@@ -559,7 +559,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
     }
     // a mid-grey view (another viewport, its own slot): its stops the processor's, both ways
     const float grey_mean = vk::meter_light({0.5F, 0.5F, 0.5F});
-    const float grey_stops = vk::meter_target_stops(grey_mean, vk::kMeterMostStops);
+    const float grey_stops = vk::meter_target_stops(grey_mean, vk::kMeterMostStops, parameters);
     {
         const std::array<uint32_t, 4> left_half{0, 0, kWidth / 2, kHeight};
         const bool filled = fill_grey(gpu, target, kHalfGrey);
@@ -572,7 +572,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
                          std::abs(grey.shown - shown) < kStep + kSlack,
                      text::format("a mid-grey view (its own viewport): metered %.4f, the key %.3f - %.3f stops (%.3f), "
                                   "grey shown as %.4f (%.4f)",
-                                  static_cast<double>(grey.reading.mean), static_cast<double>(vk::meter_key(grey_mean)),
+                                  static_cast<double>(grey.reading.mean), static_cast<double>(vk::meter_key(grey_mean, parameters)),
                                   static_cast<double>(grey.reading.stops), static_cast<double>(grey_stops),
                                   static_cast<double>(grey.shown), static_cast<double>(shown)));
     }
@@ -582,7 +582,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         const bool filled = fill(gpu, target, values);
         const Metered before = meter_pass(gpu, target, whole);
         const float mean = processor_mean(values, whole);
-        const float stops = vk::meter_target_stops(mean, vk::kMeterMostStops);
+        const float stops = vk::meter_target_stops(mean, vk::kMeterMostStops, parameters);
         tally->check(filled && before.ran && std::abs(before.reading.mean - mean) < kTolerance * mean &&
                          std::abs(before.reading.target - stops) < kTolerance,
                      text::format("the random image: metered %.4f (the processor's %.4f; the histogram's 10%% - 90%% window), "
@@ -613,7 +613,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         std::this_thread::sleep_for(std::chrono::milliseconds(600));
         const bool filled = fill_grey(gpu, target, kHalfSixteen);
         const Metered bright = meter_pass(gpu, target, whole);
-        const float bright_stops = vk::meter_target_stops(kSixteen, vk::kMeterMostStops);
+        const float bright_stops = vk::meter_target_stops(kSixteen, vk::kMeterMostStops, parameters);
         tally->check(filled && bright.ran && std::abs(bright.reading.stops - bright_stops) < kTolerance &&
                          std::abs(bright.reading.mean - kSixteen) < kTolerance * kSixteen,
                      text::format("16 x white: metered %.1f (the histogram: no sample clamped), %.3f stops (%.3f)",
@@ -623,12 +623,12 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         std::this_thread::sleep_for(std::chrono::milliseconds(600));
         const bool dark_filled = fill_grey(gpu, target, kDark);
         const Metered dark = meter_pass(gpu, target, whole);
-        const float dark_stops = vk::meter_target_stops(dark.reading.mean, vk::kMeterMostStops);
+        const float dark_stops = vk::meter_target_stops(dark.reading.mean, vk::kMeterMostStops, parameters);
         tally->check(dark_filled && dark.ran && std::abs(dark.reading.stops - dark_stops) < kTolerance &&
-                         dark.reading.stops > 0.0F && vk::meter_key(dark.reading.mean) < vk::kMeterKey,
+                         dark.reading.stops > 0.0F && vk::meter_key(dark.reading.mean, parameters) < vk::kMeterKey,
                      text::format("a dark view: metered %.5f, up %.3f stops (%.3f); the key there %.4f (daylight's %.4f)",
                                   static_cast<double>(dark.reading.mean), static_cast<double>(dark.reading.stops),
-                                  static_cast<double>(dark_stops), static_cast<double>(vk::meter_key(dark.reading.mean)),
+                                  static_cast<double>(dark_stops), static_cast<double>(vk::meter_key(dark.reading.mean, parameters)),
                                   static_cast<double>(vk::kMeterKey)));
         // the pre-exposure: the same grey under a frame pre-exposed 64 x is metered as 1/64 of it
         constexpr float kPre = 64.0F;
@@ -640,7 +640,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         const bool pre_filled = fill_grey(gpu, target, kHalfGrey);
         const Metered pre = meter_pass(gpu, target, whole);
         render::rt::set_day_light({});
-        const float pre_stops = vk::meter_target_stops(0.5F / kPre, vk::kMeterMostStops);
+        const float pre_stops = vk::meter_target_stops(0.5F / kPre, vk::kMeterMostStops, parameters);
         tally->check(pre_filled && pre.ran && std::abs(pre.reading.mean - (0.5F / kPre)) < kTolerance * 0.5F / kPre &&
                          std::abs(pre.reading.stops - pre_stops) < kTolerance &&
                          std::abs(pre.reading.factor - (std::exp2(pre.reading.stops) / kPre)) <
@@ -694,7 +694,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
             const bool bright_again = fill_grey(gpu, target, kHalfSixteen);
             const Metered cut = meter_pass(gpu, target, whole);
             render::rt::set_day_light({});
-            const float bright_target = vk::meter_target_stops(kSixteen, vk::kMeterMostStops);
+            const float bright_target = vk::meter_target_stops(kSixteen, vk::kMeterMostStops, parameters);
             tally->check(dark_view && bright_view && dark_again && bright_again && dark_eye.ran && no_cut.ran &&
                              dark_eye_again.ran && cut.ran && std::abs(cut.reading.stops - bright_target) < kTolerance &&
                              no_cut.reading.stops > bright_target + 1.0F,
@@ -703,23 +703,27 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
                                       static_cast<double>(cut.reading.stops), static_cast<double>(bright_target),
                                       static_cast<double>(no_cut.reading.stops)));
         }
-        // (round L - a camera) the key law: night's exposure stays under day's (the view shown darker); the exposure
+        // (round L - a camera) the key law: night's exposure stays under day's (the view shown darker - round NK: as the
+        // curve shows it, linear display light); the exposure
         // within the camera's range - a starless overcast night beyond the least EV100 recorded darker, not brought up;
         // a view brighter than the most EV recorded brighter
         const float day_mean = 0.18F;
         const float night_mean = 0.18F * 2.5e-6F;  // (a full moon's light over the reference day's)
         const float starlit = 0.18F * 2.0e-9F;     // (a moonless, overcast night)
         const std::array<float, 2> range = vk::camera_stops_range();
-        const double day_shown = day_mean * std::exp2(vk::meter_target_stops(day_mean, vk::kMeterMostStops));
-        const double night_shown = night_mean * std::exp2(vk::meter_target_stops(night_mean, vk::kMeterMostStops));
-        const double starlit_shown = starlit * std::exp2(vk::meter_target_stops(starlit, vk::kMeterMostStops));
-        const float starlit_ev = vk::camera_ev100(vk::meter_target_stops(starlit, vk::kMeterMostStops));
-        const float glare_ev = vk::camera_ev100(vk::meter_target_stops(1.0e6F, vk::kMeterMostStops));
+        const double day_shown = vk::shown_grey(
+            parameters, day_mean * std::exp2(vk::meter_target_stops(day_mean, vk::kMeterMostStops, parameters)));
+        const double night_shown = vk::shown_grey(
+            parameters, night_mean * std::exp2(vk::meter_target_stops(night_mean, vk::kMeterMostStops, parameters)));
+        const double starlit_shown = vk::shown_grey(
+            parameters, starlit * std::exp2(vk::meter_target_stops(starlit, vk::kMeterMostStops, parameters)));
+        const float starlit_ev = vk::camera_ev100(vk::meter_target_stops(starlit, vk::kMeterMostStops, parameters));
+        const float glare_ev = vk::camera_ev100(vk::meter_target_stops(1.0e6F, vk::kMeterMostStops, parameters));
         tally->check(night_shown < 0.2 * day_shown && starlit_shown < night_shown &&
                          std::abs(starlit_ev - vk::kCameraLeastEv100) < 1e-3F &&
                          std::abs(glare_ev - vk::kCameraMostEv100) < 1e-3F &&
-                         vk::meter_target_stops(starlit, vk::kMeterMostStops) ==
-                             vk::meter_target_stops(starlit * 0.1F, vk::kMeterMostStops),
+                         vk::meter_target_stops(starlit, vk::kMeterMostStops, parameters) ==
+                             vk::meter_target_stops(starlit * 0.1F, vk::kMeterMostStops, parameters),
                      text::format("the camera: an 18%% day shown %.4f, a full moon's night %.4f (%.1f stops darker), a "
                                   "starless overcast night %.6f at EV100 %.2f (the camera's least %.1f: not brought further "
                                   "up); a glaring view at EV100 %.2f (its most %.1f); stops %.2f - %.2f",
@@ -730,7 +734,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         // every exposure the meter picks is within the camera's EV range
         bool in_range = true;
         for (float mean = 1.0e-12F; mean < 1.0e7F; mean *= 3.0F) {
-            const float ev = vk::camera_ev100(vk::meter_target_stops(mean, vk::kMeterMostStops));
+            const float ev = vk::camera_ev100(vk::meter_target_stops(mean, vk::kMeterMostStops, parameters));
             in_range = in_range && ev >= vk::kCameraLeastEv100 - 1e-3F && ev <= vk::kCameraMostEv100 + 1e-3F;
         }
         tally->check(in_range, "the exposure within the camera's EV100 range at every metered light (1e-12 - 1e7)");
@@ -744,7 +748,7 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
         const float k = y / ((6.0F * 0.2126F) + 0.7152F + 0.0722F); // (a red of luminance y: 6 : 1 : 1)
         const std::array<float, 3> red{6.0F * k, k, k};
         vk::ToneParameters exposed = camera;
-        exposed.scale = camera.scale * std::exp2(vk::meter_target_stops(y, vk::kMeterMostStops));
+        exposed.scale = camera.scale * std::exp2(vk::meter_target_stops(y, vk::kMeterMostStops, parameters));
         const std::array<float, 3> shown = vk::tone_map_reference(exposed, nullptr, red);
         const std::array<float, 3> day = vk::tone_map_reference(camera, nullptr, {0.6F, 0.1F, 0.1F});
         tally->check(shown[0] > 2.0F * shown[1] && shown[0] > 2.0F * shown[2] && std::abs(shown[1] - shown[2]) < 0.02F &&
@@ -1251,12 +1255,14 @@ void check_camera(render::Gpu& gpu, Tally* tally)
                                   static_cast<double>(exposed), static_cast<double>(day.shown),
                                   static_cast<double>(day.shown * kByteSteps), static_cast<double>(wanted)));
     }
-    // 2. a night street (0.005 cd/m^2) with two lamp-lit patches (24 cd/m^2, 12 stops up; 40 x 40 pixels, under a tenth
-    // of the view): the histogram's window leaves the patches out of the average (the street is exposed for); with the
-    // local exposure and ACES the patches stay below white and keep their detail - without, they clip
+    // 2. a night street (0.005 cd/m^2) with two lamp-lit patches (2.56 cd/m^2, 9 stops up - round NK: was 24, 12 stops,
+    // with the key before, ~2.4 stops darker at this street; the user's Boston spot's 99.5th percentile is 2.2 cd/m^2
+    // over a 0.11 street; 40 x 40 pixels, under a tenth of the view): the histogram's window leaves the patches out of
+    // the average (the street is exposed for); with the local exposure and ACES the patches stay below white and keep
+    // their detail - without, they clip
     constexpr float kPre = 65536.0F;
     constexpr float kStreet = 0.005F; // cd/m^2
-    constexpr float kLamplit = 24.0F;
+    constexpr float kLamplit = 2.56F;
     constexpr uint32_t kPatch = 40;
     const std::array<std::array<uint32_t, 2>, 2> patches{{{16, 16}, {200, 72}}};
     const auto in_patch = [&patches](uint32_t x, uint32_t y) {
@@ -1303,6 +1309,7 @@ void check_camera(render::Gpu& gpu, Tally* tally)
         int lit = 0;
         int clipped = 0;
         int clipped_without = 0;
+        float dimmest_without = 1.0F; // (round NK: the patches without the local exposure - nearer white)
         float brightest = 0.0F;
         float dimmest = 1.0F;
         float street_shown = 0.0F;
@@ -1316,16 +1323,18 @@ void check_camera(render::Gpu& gpu, Tally* tally)
                 ++lit;
                 clipped += value >= kClipped ? 1 : 0;
                 clipped_without += core::at(without.wanted, at(x, y)) >= kClipped ? 1 : 0;
+                dimmest_without = std::min(dimmest_without, core::at(without.wanted, at(x, y)));
                 brightest = std::max(brightest, value);
                 dimmest = std::min(dimmest, value);
             }
         }
-        tally->check(lit > 0 && clipped == 0 && clipped_without == lit && street_shown > 0.0F &&
+        tally->check(lit > 0 && clipped == 0 && dimmest_without > brightest && street_shown > 0.0F &&
                          street_shown < dimmest,
                      text::format("the patches below white with the local exposure (%d of %d at white; shown %.0f - "
-                                  "%.0f of 255), all at white without it (%d); the street shown %.0f",
+                                  "%.0f of 255), nearer white without it (from %.1f; %d at white); the street shown %.0f",
                                   clipped, lit, static_cast<double>(dimmest * kByteSteps),
-                                  static_cast<double>(brightest * kByteSteps), clipped_without,
+                                  static_cast<double>(brightest * kByteSteps),
+                                  static_cast<double>(dimmest_without * kByteSteps), clipped_without,
                                   static_cast<double>(street_shown * kByteSteps)));
         // 3. adaptation: from the night to a day-grey view with no gap - each pass's stops toward the target, never
         // past it, the distance shrinking (no overshoot, no oscillation)
@@ -1431,6 +1440,86 @@ void check_camera(render::Gpu& gpu, Tally* tally)
                                   static_cast<double>(core::at(high, 1) - core::at(low, 1)), static_cast<double>(limit),
                                   static_cast<double>(step), edge.off));
     }
+    gpu.release_surface(target);
+}
+
+// (round NK) The key before round NK: Krawczyk's key ratio on the scene light (a / a at the reference day's average).
+float old_key(float mean)
+{
+    const double white = meter_white_cd();
+    const auto key = [white](double m) { return 1.03 - (2.0 / (2.0 + std::log10((std::max(m, 0.0) * white) + 1.0))); };
+    return vk::kMeterKey * static_cast<float>(key(static_cast<double>(mean)) / key(0.18));
+}
+
+// (round NK) The compensation curve, display-referred (vulkan_hdr.h "The metering"): daylight keeps middle grey with any
+// curve and its exposure as before; a night street with ACES (the default) is shown as bright as the shoulder curve
+// (rt_tonemap 0) showed it before - not ACES's toe ~2 stops darker - and the meter's key is the processor's.
+void check_night_key(render::Gpu& gpu, Tally* tally)
+{
+    text::print("the compensation curve through the curve in use (round NK):\n");
+    const vk::ToneParameters aces = vk::tone_parameters({.on = true});
+    const vk::ToneParameters shoulder = vk::tone_parameters({.on = true, .tonemap = 0});
+    // daylight: the reference day's average at middle grey exactly; daylight scenes 2 stops either side within 0.06
+    // stops of the key before (Reinhard's a / (1 + a) compresses the brighter keys a little)
+    float worst = 0.0F;
+    for (float stops = -2.0F; stops <= 2.0F; stops += 0.5F) {
+        const float mean = 0.18F * std::exp2(stops);
+        worst = std::max({worst, std::abs(std::log2(vk::meter_key(mean, aces) / old_key(mean))),
+                          std::abs(std::log2(vk::meter_key(mean, shoulder) / old_key(mean)))});
+    }
+    const float day_aces = vk::meter_key(0.18F, aces);
+    const float day_shoulder = vk::meter_key(0.18F, shoulder);
+    tally->check(std::abs(day_aces - vk::kMeterKey) < 1e-4F && std::abs(day_shoulder - vk::kMeterKey) < 1e-4F &&
+                     worst < 0.06F,
+                 text::format("daylight unchanged: the reference day's key %.5f (ACES) / %.5f (shoulder), daylight "
+                              "scenes +-2 stops at most %.3f stops from the key before",
+                              static_cast<double>(day_aces), static_cast<double>(day_shoulder),
+                              static_cast<double>(worst)));
+    // a night street at the user's Boston spot (metered 0.11 cd/m^2): with ACES shown within 15 % (encoded) of the
+    // shoulder curve's picture with the key before (what the night looked like before ACES became the default)
+    GpuSurface* target = make_target(gpu, value::kFormatA16B16G16R16F, 0, true);
+    if (target == nullptr) {
+        tally->check(false, "a float target for the night key");
+        return;
+    }
+    const std::array<uint32_t, 4> whole{0, 0, kWidth, kHeight};
+    const std::size_t pixels = static_cast<std::size_t>(kWidth) * kHeight;
+    constexpr float kPre = 4096.0F;
+    const float white = meter_white_cd();
+    render::rt::DayLight night;
+    night.on = true;
+    night.pre_exposure = kPre;
+    constexpr uint64_t kNightCut = 21;
+    night.cut = kNightCut;
+    render::rt::set_day_light(night);
+    render::rt::note_cut_shown(kNightCut);
+    for (const float street : {0.11F, 0.005F}) {
+        vk::set_hdr_settings({.on = true});
+        std::this_thread::sleep_for(std::chrono::milliseconds(600));
+        const std::vector<float> grey = grey_picture(std::vector<float>(pixels, street / white * kPre));
+        const bool filled = fill_picture(gpu, target, grey);
+        const Metered seen = meter_pass(gpu, target, whole);
+        const float mean = picture_mean(grey, kPre);
+        const float key = vk::meter_key(mean, aces);
+        const float before_key = old_key(mean);
+        const std::array<float, 3> shoulder_shown = vk::tone_map_reference(shoulder, nullptr, {before_key, before_key, before_key});
+        const float before = core::at(shoulder_shown, 0);
+        const std::array<float, 3> aces_shown = vk::tone_map_reference(aces, nullptr, {before_key, before_key, before_key});
+        const float aces_before = core::at(aces_shown, 0);
+        const float shoulder_now = vk::meter_key(mean, shoulder);
+        tally->check(filled && seen.ran && std::abs(seen.reading.key - key) < 5e-3F * key &&
+                         std::abs(seen.shown - before) < 0.15F * before && seen.shown > 1.3F * aces_before,
+                     text::format("a night street at %.3g cd/m^2 with ACES: key %.4f (the processor's %.4f; %.2f stops "
+                                  "under middle grey), shown %.0f of 255 - the shoulder curve with the key before %.0f, "
+                                  "ACES with the key before %.0f; the shoulder curve's key now %.4f (before %.4f)",
+                                  static_cast<double>(mean * white), static_cast<double>(seen.reading.key),
+                                  static_cast<double>(key), static_cast<double>(std::log2(vk::kMeterKey / key)),
+                                  static_cast<double>(seen.shown * kByteSteps), static_cast<double>(before * kByteSteps),
+                                  static_cast<double>(aces_before * kByteSteps), static_cast<double>(shoulder_now),
+                                  static_cast<double>(before_key)));
+    }
+    render::rt::set_day_light({});
+    vk::set_hdr_settings({});
     gpu.release_surface(target);
 }
 
@@ -2062,6 +2151,7 @@ int run(const Options& options, SDL_Window* window)
     check_skips(gpu, values, &tally);
     check_meter(gpu, values, &tally);
     check_camera(gpu, &tally);
+    check_night_key(gpu, &tally);
     check_meter_source(gpu, &tally);
     check_cover_exposure(gpu, &tally);
     check_multisampled(gpu, &tally);

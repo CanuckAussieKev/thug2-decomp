@@ -133,10 +133,17 @@ void set_hdr_lut(GradeLut lut);
 //     meter_window_mean is its twin;
 //   - the target: that average at middle grey kMeterKey = 0.18 (Unreal's auto-exposure target, ACES's scene-referred
 //     middle grey - what the tone curve is calibrated for), times the exposure compensation curve keyed by the scene's
-//     luminance (Unreal's "exposure compensation curve" by average EV100; ours is Krawczyk, Myszkowski and Seidel 2005's
-//     key 1.03 - 2 / (2 + log10(L + 1)) over its value for an 18% world under the reference day - meter_key: a dim
-//     scene is exposed darker than middle grey, a night stays a night; one curve for every level, from the absolute
-//     luminance, no per-level value); stops = log2(key / L) within the camera's range (camera_stops_range: the exposure
+//     luminance (Unreal's "exposure compensation curve" by average EV100 - meter_key: a dim scene is exposed darker than
+//     middle grey, a night stays a night; one curve for every level, from the absolute luminance, no per-level value).
+//     (round NK) The curve is Krawczyk, Myszkowski and Seidel 2005's night model taken as published: their key
+//     a = 1.03 - 2 / (2 + log10(L + 1)) is the key of Reinhard et al. 2002's photographic operator L / (1 + L), which
+//     shows the scene's log average at a / (1 + a) of white - a DISPLAYED brightness. So the average is shown at that
+//     share of daylight's (meter_shown_ratio: a / (1 + a) over its value for an 18% world under the reference day -
+//     0.125 for a 0.1 cd/m^2 street, 1 for daylight) times what the curve in use shows middle grey at, and the key is
+//     the exposed light the curve shows there (shown_grey inverted by halving in stops). Before, the ratio of the keys
+//     themselves (0.078 at that street) scaled the scene light: right for a curve with a linear toe (rt_tonemap=0), but
+//     ACES's toe then showed the street ~4x darker. Daylight's average keeps middle grey 0.18 exactly, whatever the
+//     curve; stops = log2(key / L) within the camera's range (camera_stops_range: the exposure
 //     values its aperture, shutter and sensitivity reach - Unreal's min / max EV100) (meter_target_stops);
 //   - over time as a camera's auto exposure: exponential, kMeterDarkenSeconds toward darker, kMeterBrightenSeconds back
 //     (1 - 1/e of the way; meter_adapt - Unreal's "exponential" adaptation; no overshoot, so no oscillation: the meter
@@ -200,9 +207,16 @@ struct MeterHistogram {
 };
 void meter_count(MeterHistogram* histogram, float luminance, float weight);
 [[nodiscard]] float meter_window_mean(const MeterHistogram& histogram);
-// The key for a metered average (linear): kMeterKey x the compensation curve (the scene key over its daylight value).
-[[nodiscard]] float meter_key(float mean);
-[[nodiscard]] float meter_target_stops(float mean, float most_stops);
+// (round NK) A grey of exposed linear light `exposed` as `tone`'s curve shows it (linear display light: contrast and the
+// curve, no saturation, no grade table, no exposure) - the meter's shown_grey.
+[[nodiscard]] float shown_grey(const ToneParameters& tone, float exposed);
+// (round NK) The share of daylight's displayed middle grey a metered average is shown at: Reinhard's a / (1 + a) of
+// Krawczyk's key a for its luminance over the same for the reference day's (1 for daylight's average).
+[[nodiscard]] float meter_shown_ratio(float mean);
+// The key for a metered average (linear, exposed): the light `tone`'s curve shows at meter_shown_ratio x what it shows
+// kMeterKey at (the compensation curve: log2(key / kMeterKey) stops).
+[[nodiscard]] float meter_key(float mean, const ToneParameters& tone);
+[[nodiscard]] float meter_target_stops(float mean, float most_stops, const ToneParameters& tone);
 [[nodiscard]] float meter_adapt(float now_stops, float target_stops, float seconds);
 // The meter's state of the viewport `rect` of the target (read back: the check's) - false when it has none.
 struct MeterReading {
