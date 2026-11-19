@@ -138,6 +138,7 @@ add_library(thug2_engine STATIC
     gfx/rt_daylight.cpp
     gfx/rt_path.cpp
     gfx/rt_light_list.cpp
+    gfx/rt_apart.cpp
     gfx/rt_poses.cpp
     gfx/rt_light_census.cpp
     gfx/rt_light_field.cpp
@@ -168,6 +169,7 @@ add_library(thug2_engine STATIC
     gfx/paint_trails.cpp
     gfx/scatter.cpp
     gfx/scatter_art.cpp
+    gfx/scatter_rays.cpp
     gfx/sky_parts.cpp
     gfx/rt_cel.cpp
     gfx/ui_backend.cpp

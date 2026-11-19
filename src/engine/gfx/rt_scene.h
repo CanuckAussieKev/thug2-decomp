@@ -58,6 +58,9 @@ struct Geometry {
     // an object's pixel around it, not around the depth's flat, per-triangle normal.
     uint32_t normal_offset = 0;
     uint32_t normal_format = 0; // kAttributeNone or kNormalFloat3
+    // (round PG - with `dynamic`) its triangles are another set each time it changes (the frame's particles): every
+    // change is a build (made for a fast build), never a refit - a refit keeps the tree of triangles that have gone
+    bool rebuilt = false;
 };
 inline constexpr uint32_t kAttributeNone = 0;
 inline constexpr uint32_t kUvFloat2 = 1;
@@ -78,6 +81,11 @@ enum InstanceFlag : uint32_t {
     // (round PT-B - an instance's flags only, with kTransparent) blended so that it adds to or takes from what is behind
     // (rt_surface_class.h kAddsLight): no surface for a light ray (its own instance mask)
     kAddsLight = 1U << 8,
+    // (round PG - an instance's flags only, with kObject) drawn by a pass of its own after the ray-traced lighting - the
+    // clutter's items, the particles, the level's billboards (render_pc/rt_apart.h, scatter_world.h): an occluder and a
+    // surface for the light rays and the secondary rays (shadows, occlusion, bounce, reflections, the path tracer),
+    // never a camera ray's surface (its pixels are not in the depth those passes read)
+    kDrawnApart = 1U << 9,
 };
 
 // (the one lighting path - the objects' shadows) The game's lights an object is lit by (render_pc/pc_lights.cpp, as its

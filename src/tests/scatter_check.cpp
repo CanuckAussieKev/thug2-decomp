@@ -589,6 +589,112 @@ void layer_checks()
     expect(core::at(corner, 3) == 0 && core::at(corner, 0) == 255, "a clear texel: white, no coverage");
 }
 
+// (round PG) The clutter in the rays (scatter.h "the clutter in the rays"): the items whose instances are in the scene are
+// exactly those within the range (the game's LOD distance x lod_distance_scale) - none beyond it; each item's transform
+// places its mesh's vertices where the clutter's vertex shader does (its steps done here one by one: a pebble's
+// proportions, the tilt about x, the turn about y, the size, the root); the parts hold every triangle of their kind's
+// mesh (a can's body and label between them); each part's colour a colour.
+void ray_checks()
+{
+    std::vector<sc::Face> faces;
+    add_rectangle(&faces, -4000.0F, -4000.0F, 4000.0F, 4000.0F, 0.0F, sc::Surface::kDirt);
+    add_wall(&faces, -4000.0F, 4000.0F, 0.0F, 0.0F, 50.0F, sc::Surface::kBrick); // (a wall: leaves and litter by it)
+    const sc::Scatter made = sc::make_scatter({.faces = faces, .seed = 11, .clutter_density = 2.0F});
+    const sc::Vec3 camera{150.0F, 60.0F, -40.0F};
+    for (const float scale : {0.5F, 1.0F, 2.0F}) {
+        const float range = sc::kClutterLodDistance * scale;
+        std::vector<uint32_t> listed;
+        sc::ray_items(made, camera, range, &listed);
+        std::vector<bool> in(made.items.size(), false);
+        for (const uint32_t i : listed) {
+            in.at(i) = true;
+        }
+        std::size_t wrong = 0;
+        std::size_t within = 0;
+        for (std::size_t i = 0; i < made.items.size(); ++i) {
+            const sc::Vec3& root = made.items.at(i).root;
+            const float dx = root[0] - camera[0];
+            const float dy = root[1] - camera[1];
+            const float dz = root[2] - camera[2];
+            const bool reached = (dx * dx) + (dy * dy) + (dz * dz) < range * range;
+            within += reached ? 1U : 0U;
+            wrong += reached != in.at(i) ? 1U : 0U;
+        }
+        std::printf("      rays' clutter at lod_distance_scale %.1f (range %.0f): %zu of %zu items in the scene, %zu "
+                    "wrong\n",
+                    static_cast<double>(scale), static_cast<double>(range), listed.size(), made.items.size(), wrong);
+        expect(wrong == 0 && within == listed.size() && !listed.empty() && listed.size() < made.items.size(),
+               "rays' clutter: exactly the items within the range are in the scene - none beyond it");
+    }
+
+    // the transform against the vertex shader's steps
+    const std::vector<sc::MeshVertex> meshes = sc::make_meshes();
+    float worst = 0.0F;
+    std::size_t tried = 0;
+    for (std::size_t i = 0; i < made.items.size(); i += 37) {
+        const sc::Item& item = made.items.at(i);
+        const uint32_t kind = std::min<uint32_t>((item.packed >> sc::kItemKindShift) & 15U, 4U);
+        const float variant = static_cast<float>((item.packed >> sc::kItemVariantShift) & 15U) / 15.0F;
+        const float turn = static_cast<float>((item.packed >> sc::kItemFacingShift) & 255U) / 256.0F * 6.2831853F;
+        const float h = static_cast<float>((item.packed >> sc::kItemHashShift) & 255U) / 255.0F;
+        const std::array<std::array<float, 4>, 3> rows = sc::ray_item_transform(item);
+        for (uint32_t v = 0; v < sc::kMeshVertices; ++v) {
+            const sc::MeshVertex& m = meshes.at((kind * sc::kMeshVertices) + v);
+            float x = m.position[0];
+            float y = m.position[1];
+            float z = m.position[2];
+            if (kind == static_cast<uint32_t>(sc::ItemKind::kPebble)) {
+                x *= 0.75F + (0.5F * variant);
+                y *= 0.7F + (0.6F * h);
+                z *= 0.75F + (0.5F * ((variant * 5.3F) - std::floor(variant * 5.3F)));
+            }
+            const float ct = std::cos(item.tilt);
+            const float st = std::sin(item.tilt);
+            const float ty = (y * ct) - (z * st);
+            const float tz = (y * st) + (z * ct);
+            const float c = std::cos(turn);
+            const float s = std::sin(turn);
+            const std::array<float, 3> shader{item.root[0] + (((x * c) - (tz * s)) * item.size),
+                                              item.root[1] + (ty * item.size),
+                                              item.root[2] + (((x * s) + (tz * c)) * item.size)};
+            const std::array<float, 3> local{m.position[0], m.position[1], m.position[2]};
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                const std::array<float, 4>& row = rows.at(axis);
+                const float placed = (row[0] * local[0]) + (row[1] * local[1]) + (row[2] * local[2]) + row[3];
+                worst = std::max(worst, std::abs(placed - shader.at(axis))); // (units: the float rounding of a root ~4,000 out)
+            }
+        }
+        ++tried;
+    }
+    std::printf("      rays' clutter: %zu items' vertices placed as the vertex shader places them, worst %.2g "
+                "units\n",
+                tried, static_cast<double>(worst));
+    expect(tried > 10 && worst < 2e-3F, "rays' clutter: an item's transform is the vertex shader's placing");
+
+    // the parts: every triangle of a kind in its parts, a can's split between body and label
+    for (uint32_t kind = 0; kind < sc::kItemKinds; ++kind) {
+        std::size_t whole = 0;
+        for (uint32_t t = 0; t < sc::kMeshVertices / 3; ++t) {
+            const sc::MeshVertex& a = meshes.at((kind * sc::kMeshVertices) + (t * 3));
+            const sc::MeshVertex& b = meshes.at((kind * sc::kMeshVertices) + (t * 3) + 1);
+            whole += a.position != b.position ? 1U : 0U; // (a collapsed one's corners all at the origin)
+        }
+        std::size_t parts = 0;
+        for (const uint32_t part : sc::ray_parts_of(static_cast<sc::ItemKind>(kind))) {
+            const std::vector<sc::MeshVertex> triangles = sc::ray_part_triangles(meshes, part);
+            expect(!triangles.empty() && triangles.size() % 3 == 0, "rays' clutter: a part has triangles");
+            parts += triangles.size() / 3;
+            for (uint32_t shade = 0; shade < sc::kRayShades; ++shade) {
+                const sc::Vec3 colour = sc::ray_part_colour(part, shade);
+                expect(std::ranges::all_of(colour, [](float c) { return c > 0.0F && c <= 1.0F; }),
+                       "rays' clutter: a part's colour is a colour");
+            }
+        }
+        expect(parts == whole, "rays' clutter: a kind's parts hold every triangle of its mesh");
+    }
+    expect(sc::ray_parts_of(sc::ItemKind::kCan).size() == 2, "rays' clutter: a can is its body and its label");
+}
+
 int main(int argc, char** argv)
 {
     tests::no_error_dialogs();
@@ -608,6 +714,7 @@ int main(int argc, char** argv)
         winding_checks();
         air_checks();
         layer_checks();
+        ray_checks(); // (round PG)
         std::printf("%s: %d failure(s)\n", failures() == 0 ? "ok" : "FAILED", failures());
         return failures() == 0 ? 0 : 1;
     }

@@ -33,7 +33,8 @@ namespace render::vulkan {
 
 struct Backend;
 
-inline constexpr uint32_t kLightsShadowMask = 0x01 | 0x02 | 0x04; // (+ the cut-outs, by their alpha)
+// (+ the cut-outs, by their alpha; round PG: what is drawn apart - the clutter, particles, billboards)
+inline constexpr uint32_t kLightsShadowMask = 0x01 | 0x02 | 0x04 | 0x08;
 inline constexpr uint32_t kLightsSurfaceMask = 0x01 | 0x02 | 0x04; // (the camera's ray: + the alpha-tested)
 inline constexpr unsigned kMostShadowedLights = 8;
 

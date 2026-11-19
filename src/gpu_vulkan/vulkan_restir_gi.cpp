@@ -275,8 +275,9 @@ const uint FLAG_PERMUTE = 16u;
 const uint FLAG_BOILING = 32u;
 const uint FLAG_CACHE = 64u;
 const uint MOST_SPATIAL = 4u;
-const uint LIGHT_RAYS = 7u;           // world, objects, alpha-tested (the reference's rays)
-const uint LIGHT_RAYS_ON_OBJECT = 5u; // (an object's pixel: the world's alone - its low-poly body doesn't shadow itself)
+const uint LIGHT_RAYS = 15u;          // world, objects, alpha-tested, drawn apart (round PG) - the reference's rays
+const uint LIGHT_RAYS_ON_OBJECT = 13u; // (an object's pixel: the world's and what is drawn apart - its low-poly body
+                                       // doesn't shadow itself)
 const float GI_REACH = 1.0e6;
 const float GI_MISS_DISTANCE = 65504.0; // (Ray Reconstruction's hit distance where the ray met nothing)
 const uint KIND_NONE = 0u;

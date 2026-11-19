@@ -71,6 +71,7 @@ struct State {
     bool made = false;
     bool sink_was = false;
     uint64_t air = 0; // (round W2) the air volume's serial it was made with (0: none)
+    std::shared_ptr<const scatter::Scatter> handed; // (round PG) what the Sink has now (current())
 };
 
 State& state()
@@ -270,6 +271,7 @@ void make(scatter::Sink& sink, float decals, float clutter, const std::vector<sc
             away.far_from_wall, away.ramp, away.drop, away.rail, away.stairs, away.covered, away.no_air);
     }
     const bool empty = made->decals.empty() && made->items.empty();
+    state().handed = empty ? nullptr : made;
     sink.set_scatter(empty ? nullptr : std::move(made));
 }
 
@@ -281,7 +283,7 @@ void frame()
     State& st = state();
     if (sink == nullptr) {
         if (st.sink_was) {
-            st = State{};
+            st = State{}; // (the scatter let go of too)
         }
         return;
     }
@@ -292,6 +294,7 @@ void frame()
     if (!(decals > 0.0F) && !(clutter > 0.0F)) {
         if (st.made) {
             sink->set_scatter(nullptr);
+            st.handed = nullptr;
             st.made = false;
         }
         return;
@@ -305,6 +308,7 @@ void frame()
     if (!air_world::settled()) {
         if (st.made && key != st.key) {
             sink->set_scatter(nullptr); // (another level's: none until this one's air is known)
+            st.handed = nullptr;
             st.made = false;
         }
         return;
@@ -318,5 +322,7 @@ void frame()
         make(*sink, decals, clutter, rails);
     }
 }
+
+std::shared_ptr<const scatter::Scatter> current() { return state().handed; }
 
 } // namespace render::scatter_world

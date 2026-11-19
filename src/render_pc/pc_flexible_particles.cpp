@@ -16,6 +16,7 @@
 #include "render_pc/render_state.h"
 #include "render_pc/simple_material.h"
 #include "render_pc/dynamic_vertices.h"
+#include "render_pc/rt_apart.h"
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/mesh_formats.h"
@@ -419,6 +420,7 @@ void PcNewFlatParticles::render()
             gpu().set_stream_source(0, buffer, 0, sizeof(QuadVertex));
             gpu().set_indices(quad_index_buffer());
             gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, quads * 4, 0, quads * 2);
+            rt_apart::quads_drawn(first_vertex, quads * 2); // (not original - round PG: kept for the rays)
             renderer().count_draw(quads * 2);
         }
     }
@@ -593,6 +595,7 @@ void PcFlatRibbonParticles::draw_ribbons(const std::array<double, 3>& view_z, ui
         gpu().set_stream_source(0, buffer, 0, sizeof(TrailVertex));
         gpu().set_indices(quad_index_buffer());
         gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
+        rt_apart::quads_drawn(first_vertex, triangles); // (not original - round PG: kept for the rays)
         renderer().count_draw(triangles);
     }
 }
@@ -708,6 +711,7 @@ void PcFlatRibbonParticles::render()
         gpu().set_stream_source(0, buffer, 0, sizeof(QuadVertex));
         gpu().set_indices(quad_index_buffer());
         gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
+        rt_apart::quads_drawn(first_vertex, triangles); // (not original - round PG: kept for the rays)
         renderer().count_draw(triangles);
     }
 }
@@ -1069,6 +1073,7 @@ void PcRibbonParticles::render()
         gpu().set_stream_source(0, buffer, 0, stride);
         gpu().set_indices(quad_index_buffer());
         gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
+        rt_apart::quads_drawn(first_vertex, triangles); // (not original - round PG: kept for the rays)
         renderer().count_draw(triangles);
     }
 }
@@ -1233,6 +1238,7 @@ void PcRibbonTrailParticles::render()
         gpu().set_stream_source(0, buffer, 0, sizeof(TrailVertex));
         gpu().set_indices(quad_index_buffer());
         gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
+        rt_apart::quads_drawn(first_vertex, triangles); // (not original - round PG: kept for the rays)
         renderer().count_draw(triangles);
     }
 }
@@ -1393,6 +1399,7 @@ void PcShadedParticles::render()
         gpu().set_stream_source(0, buffer, 0, sizeof(QuadVertex));
         gpu().set_indices(quad_index_buffer());
         gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
+        rt_apart::quads_drawn(first_vertex, triangles); // (not original - round PG: kept for the rays)
         renderer().count_draw(triangles);
     }
 }
@@ -1529,6 +1536,7 @@ void PcSmoothParticles::render()
         }
         gpu().set_stream_source(0, buffer, 0, sizeof(QuadVertex));
         gpu().draw(GpuPrimitive::kTriangleList, first_vertex, triangles);
+        rt_apart::list_drawn(first_vertex, triangles * 3); // (not original - round PG: kept for the rays)
         renderer().count_draw(triangles);
     }
 }
@@ -1680,6 +1688,7 @@ void PcSmoothRibbonParticles::render()
         gpu().set_stream_source(0, buffer, 0, sizeof(TrailVertex));
         gpu().set_indices(quad_index_buffer());
         gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
+        rt_apart::quads_drawn(first_vertex, triangles); // (not original - round PG: kept for the rays)
         renderer().count_draw(triangles);
     }
 }
@@ -1876,6 +1885,7 @@ void PcSmoothStarParticles::render()
         gpu().set_stream_source(0, buffer, 0, sizeof(TrailVertex));
         gpu().set_indices(quad_index_buffer());
         gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
+        rt_apart::quads_drawn(first_vertex, triangles); // (not original - round PG: kept for the rays)
         renderer().count_draw(triangles);
     }
 }
@@ -2045,6 +2055,7 @@ void PcStarParticles::render()
         gpu().set_stream_source(0, buffer, 0, sizeof(TrailVertex));
         gpu().set_indices(quad_index_buffer());
         gpu().draw_indexed(GpuPrimitive::kTriangleList, static_cast<int32_t>(first_vertex), 0, vertices, 0, triangles);
+        rt_apart::quads_drawn(first_vertex, triangles); // (not original - round PG: kept for the rays)
         renderer().count_draw(triangles);
     }
 }
@@ -2322,6 +2333,7 @@ void PcGlowRibbonTrailParticles::render()
     os_layer::unlock_dynamic_vertices(total_vertices, sizeof(TrailVertex));
     gpu().set_stream_source(0, buffer, 0, sizeof(TrailVertex));
     gpu().draw(GpuPrimitive::kTriangleList, first_vertex, total_triangles);
+    rt_apart::list_drawn(first_vertex, total_triangles * 3); // (not original - round PG: kept for the rays)
     gpu().set_render_state(GpuRenderState::kAlphaBlendEnable, 1);
     renderer().count_draw(total_triangles);
 }

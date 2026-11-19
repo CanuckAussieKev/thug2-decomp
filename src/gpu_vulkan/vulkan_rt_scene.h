@@ -44,6 +44,13 @@ inline constexpr uint32_t kMaskNoShadow = 0x80;    // kTransparent (not cut out)
                                                    // (round PT-B: ray_light, rt_surface_class.h kSeenThrough)
 inline constexpr uint32_t kMaskAddsLight = 0x40;   // (round PT-B) kAddsLight: no surface for a light ray (light passes it
                                                    // whole); only a path's rays and the camera's probes ask for it
+// (round PG) rt::kDrawnApart, solid or cut out (by its alpha, as kMaskAlphaTested): the clutter's items, the particles,
+// the billboards - drawn by passes of their own after the ray-traced lighting, so in the light rays' and the secondary
+// rays' masks (the sun's and the lamps' shadows, the occlusion, the bounce, the reflected rays, the fog's light, the path
+// tracer) and never in a camera ray's (their pixels aren't in the depth the passes read). A seen-through one is
+// kMaskNoShadow as any other (with the instance flag: seen_through takes it when the ray's mask has kMaskDrawnApart;
+// drawn_kept never), an added one kMaskAddsLight.
+inline constexpr uint32_t kMaskDrawnApart = 0x08;
 // An instance's custom index is its material id (rayQueryGetIntersectionInstanceCustomIndexEXT), 24 bits; its
 // instance index (rayQueryGetIntersectionInstanceIdEXT) its place in the frame record's instances. Instances flagged
 // kOpaque are forced opaque, the others forced non-opaque (a query sees them as candidates: alpha, R3); back faces are

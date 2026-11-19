@@ -88,7 +88,7 @@ void main()
 
 // Step 1. The pass's block: to_world (pixel x, pixel y, depth, 1) -> world (the target's pixels); camera: its position
 // (w: the depth sample's offset from the pixel's centre, y); params: y the rays' length, z the start's offset scale, w
-// the depth sample's offset (x) - x spare; rect: the viewport; extra: x the mask, y the directional lights;
+// the depth sample's offset (x) - x spare; rect: the viewport; extra: x the mask (the camera's ray), y the directional lights, z (round PG) the reflected rays' and their sun rays' mask;
 // ambient: the ambient light (w: the angle a pixel spans, radians); then the directional lights (the way they travel).
 constexpr const char* kTraceBody = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
@@ -227,7 +227,7 @@ float sun_seen(vec3 point, vec3 n, float travelled)
     }
     vec3 origin = point + n * (pass.params.z * (1.0 + travelled * 0.0005 + travelled * travelled * 6e-8));
     rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsTerminateOnFirstHitEXT, uint(pass.extra.x) & 0xFFu, origin, 0.0,
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsTerminateOnFirstHitEXT, uint(pass.extra.z) & 0xFFu, origin, 0.0,
                           pass.sun.xyz, pass.sun.w);
     while (rayQueryProceedEXT(query)) {
         if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
@@ -363,7 +363,7 @@ vec3 own_environment(uint instance, uint primitive, vec2 barycentrics, HitVertic
 // far (the footprint's).
 vec4 reflected(vec3 origin, vec3 direction, float travelled)
 {
-    uint mask = uint(pass.extra.x) & 0xFFu;
+    uint mask = uint(pass.extra.z) & 0xFFu; // (round PG: the reflected rays' mask - kReflectedRayMask)
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, mask, origin, 0.0, direction, pass.params.y);
     while (rayQueryProceedEXT(query)) {
@@ -1849,7 +1849,8 @@ TraceBlock trace_block(const Matrix& to_world, const rt::ViewDrawn& view, const 
         }
     }
     block.ambient.back() = angle;
-    block.extra = {static_cast<int32_t>(kReflectionMask), static_cast<int32_t>(lights), 0, 0};
+    block.extra = {static_cast<int32_t>(kReflectionMask), static_cast<int32_t>(lights),
+                   static_cast<int32_t>(kReflectedRayMask), 0};
     // (round W2: yzw and surface.x the rain's rings on standing water - vulkan_rain.h rain_ripples_now, the wet trace's)
     const std::array<float, 4> rings = rain_ripples_now();
     block.rays = {static_cast<float>(kRoughRays), core::at(rings, 0), core::at(rings, 1), core::at(rings, 2)};

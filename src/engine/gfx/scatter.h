@@ -287,6 +287,43 @@ struct MeshVertex {
 };
 [[nodiscard]] std::vector<MeshVertex> make_meshes();
 
+// --- the clutter in the rays (round PG; scatter_rays.cpp) ------------------------------------------------------------
+// The clutter is an instanced mesh in the ray-traced scene as in the raster (UE's instanced static meshes, RTX Remix's
+// instances): one bottom-level structure per item kind's part (kRayParts: each kind's body; a can's printed label its
+// own), an instance per item within the game's LOD distance of its small objects (kClutterLodDistance x [Graphics]
+// lod_distance_scale - the raster's range) - an occluder for the light rays and a surface for the secondary rays; never
+// a camera ray's (rt::kDrawnApart). Its proxy for the rays: the item's mesh as the raster places it - its tilt, turn,
+// size and a pebble's own proportions - without the wind's bend (a few units at most, on a leaf's edge or a weed's
+// stem), and its material a flat colour (kRayShades of each part: the item's own colour by its colour hash, the
+// raster's own_colour at the shade's middle) - no texture, as the raster has none.
+
+// The game's lod_dist2 for an object that names none (engine/objects/suspend_component.cpp: lod_dist1's 50 feet + 75
+// feet, in inches - world units): the distance its small level objects are drawn to - x [Graphics] lod_distance_scale
+// (graphics_options::get_scaled), the raster's and the rays' range alike.
+inline constexpr float kClutterLodDistance = (50.0F + 75.0F) * 12.0F;
+
+inline constexpr uint32_t kRayParts = kItemKinds + 1; // each kind's body, then the can's label
+inline constexpr uint32_t kRayCanLabel = kItemKinds;
+inline constexpr uint32_t kRayShades = 4;             // an item's colour hash in this many shades
+// An item's mesh part: its kind's body (its kind's number) or the can's label (kRayCanLabel).
+// The part's triangles (from make_meshes: its kind's, those of the part - a can's label only in kRayCanLabel; the
+// collapsed ones left out), three vertices each.
+[[nodiscard]] std::vector<MeshVertex> ray_part_triangles(std::span<const MeshVertex> meshes, uint32_t part);
+// The parts an item of `kind` is made of (the can: body and label).
+[[nodiscard]] std::span<const uint32_t> ray_parts_of(ItemKind kind);
+// The shade (0 - kRayShades - 1) of an item's colour hash (bits 24-31 of its packed word).
+[[nodiscard]] uint32_t ray_shade(const Item& item);
+// A part's colour at a shade, display-referred as the game's textures are (the material's colour - the hit shaders
+// decode it): the clutter's vertex shader's own_colour at the shade's middle (a pebble the gravel's albedo there).
+[[nodiscard]] Vec3 ray_part_colour(uint32_t part, uint32_t shade);
+// The item's object-to-world rows (x' = row . (x, y, z, 1)): the clutter's vertex shader's placing (vulkan_scatter.cpp
+// kItemVertexBody - a pebble's proportions, the tilt about its x, the turn about y, its size, its root) without the
+// wind's bend.
+[[nodiscard]] std::array<std::array<float, 4>, 3> ray_item_transform(const Item& item);
+// The items whose instances are in the frame's scene: every one within `range` of `camera` (tiles beyond it skipped
+// whole), in the scatter's order.
+void ray_items(const Scatter& made, const Vec3& camera, float range, std::vector<uint32_t>* out);
+
 // --- the backend -------------------------------------------------------------------------------------------------
 
 class Sink {

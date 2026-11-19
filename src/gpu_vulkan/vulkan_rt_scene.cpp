@@ -437,6 +437,7 @@ layout(local_size_x = 64) in;
 struct Ray { vec4 origin_t_min; vec4 direction_t_max; uvec4 cull_mask; }; // (cull_mask.y: 1 - the cut-outs by alpha)
 struct Hit { float t; uint instance; uint custom_index; uint primitive; vec2 barycentrics; uint flags; uint pad; };
 const uint PROBE_OBJECT_FLAG = 32u; // (rt::kObject)
+const uint PROBE_APART_FLAG = 512u; // (round PG: rt::kDrawnApart)
 layout(std430, set = 0, binding = 1) readonly buffer Rays { Ray rays[]; };
 layout(std430, set = 0, binding = 2) writeonly buffer Hits { Hit hits[]; };
 layout(push_constant) uniform Count { uint count; } given;
@@ -452,10 +453,12 @@ void main()
     rayQueryInitializeEXT(query, u_scene, cutouts ? gl_RayFlagsNoneEXT : gl_RayFlagsOpaqueEXT, ray.cull_mask.x & 0xFFu,
                           ray.origin_t_min.xyz, ray.origin_t_min.w, ray.direction_t_max.xyz, ray.direction_t_max.w);
     while (rayQueryProceedEXT(query)) {
-        // (the cut-outs: the one lighting path's test - vulkan_rt_scene.h cutout_rays_glsl -; an object's never)
+        // (the cut-outs: the one lighting path's test - vulkan_rt_scene.h cutout_rays_glsl -; an object's never - but
+        // (round PG) one drawn apart by it, as every light ray takes it: kMaskDrawnApart, which the bake never asks for)
         if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
             uint instance = rayQueryGetIntersectionInstanceIdEXT(query, false);
-            if ((geometry_record(instance).instance_flags & PROBE_OBJECT_FLAG) == 0u &&
+            uint kinds = geometry_record(instance).instance_flags;
+            if (((kinds & PROBE_OBJECT_FLAG) == 0u || (kinds & PROBE_APART_FLAG) != 0u) &&
                 cutout_kept(instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
                             rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
                             rayQueryGetIntersectionBarycentricsEXT(query, false))) {
@@ -536,6 +539,8 @@ struct Scene {
     std::unordered_map<rt::MaterialId, float> alpha_refs; // each material's alpha reference (0..1), from set_material
     std::unordered_set<rt::MaterialId> reflective;        // (R5's reflections) the materials with a reflectivity
     std::unordered_map<rt::MeshId, GpuVertexBuffer*> light_streams; // (the light energy audit) set_light_stream's
+    std::vector<VkAccelerationStructureInstanceKHR> instance_scratch; // (round PG: write_instances' - reused)
+    std::vector<GeometryRecord> row_scratch;
     std::array<FrameScene, Frames::kSlots> frames{};
     uint32_t current = 0; // the slot of the last TLAS built
     bool any_built = false;
@@ -857,6 +862,9 @@ VkAccelerationStructureGeometryKHR triangles_of(Backend& state, const Mesh& mesh
 
 VkBuildAccelerationStructureFlagsKHR blas_flags(const Mesh& mesh)
 {
+    if (mesh.geometry.dynamic && mesh.geometry.rebuilt) {
+        return VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR; // (round PG: built anew at each change)
+    }
     return mesh.geometry.dynamic ? (VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR |
                                     VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR)
                                  : (VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR |
@@ -1290,6 +1298,11 @@ InstanceShape shape_of(const rt::Instance& given, bool alpha_tested)
     } else if ((given.flags & rt::kObject) != 0) {
         mask = kMaskObjects;
     }
+    // (round PG) drawn apart (clutter, particles, billboards): its solid and cut-out kinds a mask of their own - a light
+    // ray's and a secondary ray's, never a camera ray's; seen-through and added ones keep theirs
+    if ((given.flags & rt::kDrawnApart) != 0 && mask != kMaskAddsLight && mask != kMaskNoShadow) {
+        mask = kMaskDrawnApart;
+    }
     const bool opaque = (given.flags & rt::kOpaque) != 0 ||
                         ((given.flags & rt::kTransparent) == 0 && (given.flags & rt::kAlphaTested) != 0 && !alpha_tested);
     return {.mask = mask, .opaque = opaque};
@@ -1439,6 +1452,9 @@ void plan_micromaps(Backend& state, Scene& made, const rt::FrameRecord& record)
         return verdict != MicromapVerdict::kWaiting;
     });
     for (const rt::Instance& given : record.instances) {
+        if ((given.flags & rt::kDrawnApart) != 0U) {
+            continue; // (round PG: an object's - never a micromap; thousands of clutter instances, no lookup each)
+        }
         const auto found = made.meshes.find(given.mesh);
         if (found == made.meshes.end()) {
             continue;
@@ -1671,9 +1687,12 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
     frame.meshes.clear();
     frame.meshes.reserve(record.instances.size());
     frame.reflective = 0;
-    std::vector<VkAccelerationStructureInstanceKHR> instances;
+    // (round PG: the scene's own, kept from frame to frame - thousands of clutter instances made no new memory a frame)
+    std::vector<VkAccelerationStructureInstanceKHR>& instances = made.instance_scratch;
+    instances.clear();
     instances.reserve(record.instances.size());
-    std::vector<GeometryRecord> rows;
+    std::vector<GeometryRecord>& rows = made.row_scratch;
+    rows.clear();
     rows.reserve(record.instances.size());
     // (the objects' shadows) the objects' lights, each where its instances' rows point
     const std::size_t lights = std::min(record.object_lights.size(), static_cast<std::size_t>(frame.capacity));
@@ -1694,18 +1713,46 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
     }
     const VkDeviceAddress lights_address =
         lights > 0 ? address_of(made.device, frame.object_lights.buffer) : VkDeviceAddress{0};
+    // (round PG) a mesh's row made once a frame - every instance of it has the same one but for its flags (the clutter:
+    // thousands of instances of a few meshes)
+    std::unordered_map<rt::MeshId, std::pair<const Mesh*, GeometryRecord>> made_rows;
+    // (the run of instances of one mesh and material before - the clutter's, emitted in such runs: no lookups)
+    const std::pair<const Mesh*, GeometryRecord>* last_row = nullptr;
+    rt::MeshId last_mesh = 0;
+    uint64_t last_material = std::numeric_limits<uint64_t>::max();
+    bool last_reflective = false;
+    bool last_tested = false;
+    uint32_t last_flags = 0;
     for (const rt::Instance& given : record.instances) {
-        const auto found = made.meshes.find(given.mesh);
-        const Mesh* const mesh = found == made.meshes.end() ? nullptr : &found->second;
-        instances.push_back(instance_of(given, mesh, alpha_tested_for(made, given)));
+        if (last_row == nullptr || given.mesh != last_mesh) {
+            auto [kept, fresh] = made_rows.try_emplace(given.mesh);
+            if (fresh) {
+                const auto found = made.meshes.find(given.mesh);
+                kept->second.first = found == made.meshes.end() ? nullptr : &found->second;
+                kept->second.second = geometry_record_of(state, made, given, kept->second.first);
+            }
+            last_row = &kept->second;
+            last_mesh = given.mesh;
+        }
+        if (given.material != last_material || given.flags != last_flags) {
+            last_material = given.material;
+            last_flags = given.flags;
+            last_reflective = made.reflective.contains(given.material);
+            last_tested = alpha_tested_for(made, given);
+        }
+        const Mesh* const mesh = last_row->first;
+        instances.push_back(instance_of(given, mesh, last_tested));
         frame.meshes.push_back(given.mesh);
-        rows.push_back(geometry_record_of(state, made, given, mesh));
+        rows.push_back(last_row->second);
+        if ((rows.back().flags & kGeometryLive) != 0) {
+            rows.back().instance_flags = given.flags;
+        }
         if ((rows.back().flags & kGeometryLive) != 0 && given.light < lights) {
             constexpr VkDeviceAddress kLightBytes = kObjectLightFloats * sizeof(float);
             rows.back().object_light_address = address_words(lights_address + (VkDeviceAddress{given.light} * kLightBytes));
             rows.back().flags |= kGeometryObjectLight;
         }
-        if ((rows.back().flags & kGeometryLive) != 0 && made.reflective.contains(given.material)) {
+        if ((rows.back().flags & kGeometryLive) != 0 && last_reflective) {
             ++frame.reflective;
         }
     }
@@ -1981,7 +2028,11 @@ void VulkanRayTracing::update_mesh(rt::MeshId mesh, const rt::Geometry& geometry
         // buffers, or one moved in an arena - hold a newer pose: refitted, as mesh_changed does. Before, only the
         // buffer was swapped and the structure kept the pose it was built with.
         found->second.geometry = geometry;
-        found->second.needs_refit = true;
+        if (geometry.rebuilt) {
+            found->second.needs_build = true; // (round PG: another set of triangles in the same buffers' shape)
+        } else {
+            found->second.needs_refit = true;
+        }
         return;
     }
     register_mesh(state, made, mesh, geometry);
@@ -2064,7 +2115,10 @@ void VulkanRayTracing::mesh_changed(rt::MeshId mesh)
         return;
     }
     Mesh& entry = found->second;
-    if (entry.geometry.dynamic && entry.built) {
+    if (entry.geometry.dynamic && entry.geometry.rebuilt) {
+        entry.needs_build = true; // (round PG: another set of triangles - built anew, the structure's memory kept)
+        entry.refused = false;
+    } else if (entry.geometry.dynamic && entry.built) {
         entry.needs_refit = true;
     } else {
         entry.needs_build = true; // (a static mesh's vertices rewritten: built again)
@@ -2725,9 +2779,14 @@ vec3 hit_blend_transmittance(HitBlend b, float cos_theta)
 // kept - a road's painted crosswalk, 0.8 units over the asphalt - was missed: the ray found the asphalt under it, and the
 // light rays from there were shaded by the paint over it, texel by texel as its alpha (dark blotches over the paint).
 const uint RAY_DRAWN = 0x87u; // (kMaskWorld, kMaskObjects, kMaskAlphaTested, kMaskNoShadow - not kMaskAddsLight)
+const uint RAY_INSTANCE_APART = 512u; // (round PG: rt::kDrawnApart - drawn by a pass of its own, never the prepass's)
 bool drawn_kept(uint instance, uint primitive, uint id, vec2 barycentrics)
 {
-    if ((geometry_record(instance).instance_flags & HIT_INSTANCE_TRANSPARENT) == 0u) {
+    uint flags = geometry_record(instance).instance_flags;
+    if ((flags & RAY_INSTANCE_APART) != 0u) {
+        return false; // (round PG: a seen-through particle - the prepass never kept its pixels)
+    }
+    if ((flags & HIT_INSTANCE_TRANSPARENT) == 0u) {
         return cutout_kept(instance, primitive, id, barycentrics);
     }
     HitBlend b = hit_blend(instance, primitive, id, barycentrics);
@@ -2774,12 +2833,14 @@ const uint RAY_SEEN_THROUGH = 0x80u;  // (kMaskNoShadow)
 const uint RAY_WORLD_KINDS = 0x05u;   // (kMaskWorld, kMaskAlphaTested)
 const uint RAY_OBJECT_KINDS = 0x02u;  // (kMaskObjects)
 const uint RAY_INSTANCE_OBJECT = 32u; // (rt::kObject)
+const uint RAY_APART_KINDS = 0x08u;   // (round PG: kMaskDrawnApart - the seen-through ones drawn apart with them)
 vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach)
 {
     vec3 through = vec3(1.0);
     bool world = (mask & RAY_WORLD_KINDS) != 0u;
     bool objects = (mask & RAY_OBJECT_KINDS) != 0u;
-    if (reach <= 0.0 || !(world || objects)) {
+    bool apart = (mask & RAY_APART_KINDS) != 0u;
+    if (reach <= 0.0 || !(world || objects || apart)) {
         return through;
     }
     rayQueryEXT query;
@@ -2789,8 +2850,9 @@ vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach)
             continue;
         }
         uint i = rayQueryGetIntersectionInstanceIdEXT(query, false);
-        bool object =(geometry_record(i).instance_flags & RAY_INSTANCE_OBJECT) != 0u;
-        if (object ? !objects : !world) {
+        uint kinds = geometry_record(i).instance_flags;
+        bool object = (kinds & RAY_INSTANCE_OBJECT) != 0u;
+        if ((kinds & RAY_INSTANCE_APART) != 0u ? !apart : (object ? !objects : !world)) {
             continue;
         }
         uint p = rayQueryGetIntersectionPrimitiveIndexEXT(query, false);

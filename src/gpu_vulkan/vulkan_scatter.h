@@ -13,7 +13,10 @@
 // NOT ORIGINAL - decals and clutter (docs/design/vulkan.md "Decals and clutter"; [Graphics] rt_decals, clutter -
 // gpu_vulkan.h's ScatterSettings): marks and small props over the level's surfaces. render_pc reads the collision and
 // the rails and hands the decals and items over (engine/gfx/scatter.h - this file's Sink). Independent of ray tracing;
-// neither is ever in the acceleration structures, neither has collision.
+// neither has collision. The decals are material layers, never geometry in the acceleration structures; the clutter's
+// items are (round PG: render_pc/rt_record.cpp record_clutter - instances of a mesh per kind's part within the same
+// range, drawn apart: shadow and secondary rays meet them, never a camera ray). The item pass's own sun ray (kSunRayMask)
+// leaves them out, so an item never shadows itself.
 //
 // The decals' pass, per viewport, at opaque_drawn (rt::ViewOrder::kDecals: after the opaque world, the objects, the
 // sky, the ray-traced shadows, occlusion, bounce and lamps; before the reflections, the grass, the fog and the tone
@@ -51,9 +54,8 @@ struct Backend;
 inline constexpr float kDecalMatchShare = 0.003F;  // the depth under a decal fragment is its own within this share ...
 inline constexpr float kDecalMatchSlack = 1.0F;    // ... + this (world units: a wall standing in a decal takes at most
                                                    // its foot's width of this, along the view, of it)
-// The game's lod_dist2 for an object that names none (engine/objects/suspend_component.cpp: lod_dist1's 50 feet + 75
-// feet, in inches - world units): the distance its small level objects are drawn to.
-inline constexpr float kClutterLodDistance = (50.0F + 75.0F) * 12.0F;
+// The game's lod_dist2 for an object that names none (engine/gfx/scatter.h - the rays' clutter takes the same range).
+inline constexpr float kClutterLodDistance = scatter::kClutterLodDistance;
 inline constexpr float kClutterLeastPixels = 0.5F; // an item's height on screen (pixels) below which it is left out
 
 // What a view's decals and items are drawn with.

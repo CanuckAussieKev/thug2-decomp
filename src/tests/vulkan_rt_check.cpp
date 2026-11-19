@@ -39,8 +39,11 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_apart.h"
 #include "engine/gfx/rt_poses.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_surface_class.h"
+#include "engine/gfx/scatter.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -1491,6 +1494,309 @@ void check_micromaps(render::Gpu& gpu, Tally* tally, std::mt19937& random, uint6
     gpu.release_texture(texture);
 }
 
+// --- (round PG) what is drawn apart: particles, billboards, clutter -------------------------------------------------
+
+constexpr uint32_t kMaskApart = 0x08;       // (vulkan_rt_scene.h kMaskDrawnApart)
+constexpr uint32_t kMaskCameraRay = 0x87;   // (a camera ray's kinds: RAY_DRAWN)
+constexpr uint32_t kApartStride = 24;       // position, colour, UV - a particle quad's vertex
+constexpr float kApartQuad = 16.0F;         // a particle quad's side
+constexpr float kApartAbove = 10.0F;
+
+// A particle quad's two triangles (six vertices) at (x, z), y = 0, UV 0 - 1 across it, vertex alpha 0x80 (the drawn
+// alpha the texel's, as the game's pixel shader doubles it).
+void apart_quad(std::vector<uint8_t>* out, float x, float z)
+{
+    const std::array<std::array<float, 4>, 4> corners{{{x, z, 0.0F, 0.0F},
+                                                        {x + kApartQuad, z, 1.0F, 0.0F},
+                                                        {x + kApartQuad, z + kApartQuad, 1.0F, 1.0F},
+                                                        {x, z + kApartQuad, 0.0F, 1.0F}}};
+    for (const std::size_t corner : {0U, 1U, 2U, 0U, 2U, 3U}) {
+        const std::array<float, 4>& c = core::at(corners, corner);
+        std::array<uint8_t, kApartStride> vertex{};
+        put_float(vertex, 0, c[0]);
+        put_float(vertex, sizeof(float), 0.0F);
+        put_float(vertex, 2 * sizeof(float), c[1]);
+        const uint32_t colour = 0x80FFFFFFU;
+        std::memcpy(std::span(vertex).subspan(kMicroColourOffset, sizeof(colour)).data(), &colour, sizeof(colour));
+        put_float(vertex, kMicroUvOffset, c[2]);
+        put_float(vertex, kMicroUvOffset + sizeof(float), c[3]);
+        out->insert(out->end(), vertex.begin(), vertex.end());
+    }
+}
+
+// A ray straight down onto a particle quad at (x, z), at UV (u, v).
+TracedRay apart_ray(float x, float z, float u, float v, uint32_t mask, bool cutouts)
+{
+    return {.origin = {x + (u * kApartQuad), kApartAbove, z + (v * kApartQuad)},
+            .direction = {0.0F, -1.0F, 0.0F},
+            .t_min = 0.0F,
+            .t_max = 2.0F * kApartAbove,
+            .cull_mask = mask,
+            .cutouts = cutouts};
+}
+
+// (round PG - engine/gfx/rt_apart.h, render_pc/rt_record.cpp record_apart / record_clutter) Particles as a per-frame
+// mesh (the store's: built anew each frame) - a cut-out quad by the texture's alpha (the micromaps' disc: drawn in the
+// middle, empty in the corner), a blended one seen through by its coverage, an added one light that passes - each with
+// the instance flags the classification gives (rt_surface_class.h) and kDrawnApart: the light rays (kMaskDrawnApart)
+// meet them, a camera ray's kinds never; the next frame's quads somewhere else (more of them) are where the rays meet
+// them. And a clutter item (a can, turned, tilted, sized): its parts' meshes (scatter::ray_part_triangles) placed by
+// scatter::ray_item_transform, rays toward it compared with the processor's trace of the same triangles.
+void check_drawn_apart(render::Gpu& gpu, Tally* tally, uint64_t* frame)
+{
+    rt::RayTracing* const backend = rt::ray_tracing();
+    render::GpuTexture* texture = nullptr;
+    if (gpu.create_texture({.width = kMicroTexture,
+                            .height = kMicroTexture,
+                            .levels = 1,
+                            .usage = 0,
+                            .format = value::kFormatA8R8G8B8,
+                            .pool = value::kPoolManaged},
+                           &texture) != value::kResultOk ||
+        !fill_micro_texture(gpu, texture, false)) {
+        tally->check(false, "drawn apart: the texture made");
+        return;
+    }
+    constexpr uint32_t kBlendAlpha = 5;
+    constexpr uint32_t kBlendAdd = 1;
+    constexpr float kHalfRef = 0.5F;
+    constexpr float kVertexAlpha = 128.0F / 255.0F;
+    rt::Material cutout;
+    cutout.texture = texture;
+    cutout.flags = rt::kAlphaTested;
+    cutout.alpha_ref = kHalfRef;
+    rt::Material smoke;
+    smoke.texture = texture;
+    smoke.blend = kBlendAlpha;
+    smoke.flags = rt::kTransparent; // (render_pc's material_of: a blend with no real alpha test isn't kAlphaTested)
+    smoke.alpha_ref = kNoRejectAlphaRef;
+    smoke.least_texel_alpha = 0.0F;
+    rt::Material spark = smoke;
+    spark.blend = kBlendAdd;
+    const std::array<rt::Material, 3> surfaces{cutout, smoke, spark};
+    std::array<rt::MaterialId, 3> ids{};
+    std::array<uint32_t, 3> flags{};
+    for (std::size_t k = 0; k < surfaces.size(); ++k) {
+        core::at(ids, k) = rt::next_material_id();
+        backend->set_material(core::at(ids, k), core::at(surfaces, k));
+        const rt::SurfaceClass kind = rt::surface_class(core::at(surfaces, k), kVertexAlpha);
+        core::at(flags, k) = rt::kObject | rt::kDrawnApart | rt::surface_instance_flags(kind, core::at(surfaces, k));
+    }
+    tally->check(rt::surface_class(cutout, kVertexAlpha) == rt::SurfaceClass::kCutOut &&
+                     rt::surface_class(smoke, kVertexAlpha) == rt::SurfaceClass::kSeenThrough &&
+                     rt::surface_class(spark, kVertexAlpha) == rt::SurfaceClass::kAddsLight,
+                 "drawn apart: the particles' classes - cut-out, seen through, adds light");
+    rt::Geometry layout{.vertex_stride = kApartStride,
+                        .position_offset = 0,
+                        .uv_offset = kMicroUvOffset,
+                        .uv_format = rt::kUvFloat2,
+                        .colour_offset = kMicroColourOffset,
+                        .colour_format = rt::kColourA8R8G8B8,
+                        .uv_sets = 1};
+    constexpr std::array<float, 3> kAt{0.0F, 40.0F, 80.0F}; // (each kind's quad's x)
+    constexpr float kMoved = 200.0F;                        // (the next frame's quads)
+    rt::ApartStore store;
+    const auto commit = [&](bool moved) {
+        std::array<std::vector<uint8_t>, 3> bytes;
+        for (std::size_t k = 0; k < 3; ++k) {
+            apart_quad(&core::at(bytes, k), core::at(kAt, k) + (moved ? kMoved : 0.0F), 0.0F);
+            if (moved) {
+                apart_quad(&core::at(bytes, k), core::at(kAt, k) + kMoved, kApartQuad * 2.0F); // (one more)
+            }
+        }
+        std::vector<rt::ApartStore::Batch> batches;
+        for (std::size_t k = 0; k < 3; ++k) {
+            batches.push_back({.key = &core::at(ids, k), .layout_key = 0, .layout = layout, .vertices = core::at(bytes, k)});
+        }
+        std::vector<rt::MeshId> meshes;
+        store.commit(batches, gpu, *backend, &meshes);
+        std::vector<rt::Instance> instances;
+        for (std::size_t k = 0; k < meshes.size(); ++k) {
+            instances.push_back(micro_instance(core::at(meshes, k), core::at(ids, k), core::at(flags, k), 0.0F, 0.0F));
+        }
+        micro_frame(gpu, instances, frame);
+        return meshes.size() == 3 && std::ranges::all_of(meshes, [](rt::MeshId id) { return id != 0; });
+    };
+    const auto trace = [](const std::vector<TracedRay>& rays, std::vector<TracedHit>* hits) {
+        return render::vulkan::trace_rays_now(rays, hits) == render::vulkan::TraceResult::kTraced &&
+               hits->size() == rays.size();
+    };
+    constexpr float kMiddle = 0.5F;  // (the disc: alpha 255)
+    constexpr float kCorner = 0.9F;  // (outside it: alpha 0)
+    for (const bool moved : {false, true}) {
+        const bool made = commit(moved);
+        const float shift = moved ? kMoved : 0.0F;
+        std::vector<TracedRay> rays{
+            apart_ray(kAt[0] + shift, 0.0F, kMiddle, kMiddle, kMaskApart, true),     // 0 cut-out, drawn: blocked
+            apart_ray(kAt[0] + shift, 0.0F, kCorner, kCorner, kMaskApart, true),     // 1 cut-out, empty: passes
+            apart_ray(kAt[0] + shift, 0.0F, kMiddle, kMiddle, kMaskCameraRay, true), // 2 a camera ray's kinds: never
+            apart_ray(kAt[1] + shift, 0.0F, kMiddle, kMiddle, kMaskApart, true),     // 3 smoke, covered: share 0
+            apart_ray(kAt[1] + shift, 0.0F, kCorner, kCorner, kMaskApart, true),     // 4 smoke, empty: share 1
+            apart_ray(kAt[1] + shift, 0.0F, kMiddle, kMiddle, kMaskWorld, true),     // 5 the world's rays: not theirs
+            apart_ray(kAt[2] + shift, 0.0F, kMiddle, kMiddle, 0xBFU, true),          // 6 the spark: light passes
+            apart_ray(kAt[2] + shift, 0.0F, kMiddle, kMiddle, kMaskAddsLight, false), // 7 ... a path's ray meets it
+            apart_ray(kAt[0] + shift, kApartQuad * 2.0F, kMiddle, kMiddle, kMaskApart, true), // 8 the second quad
+            apart_ray(kAt[0] + (moved ? 0.0F : kMoved), 0.0F, kMiddle, kMiddle, kMaskApart, true), // 9 the other frame's
+        };
+        std::vector<TracedHit> hits;
+        const bool traced = made && trace(rays, &hits);
+        const auto hit = [&](std::size_t i) { return traced && core::at(hits, i).hit; };
+        const auto share = [&](std::size_t i) { return traced ? core::at(hits, i).seen_through : -1.0F; };
+        const char* when = moved ? "the next frame (moved, two quads each)" : "the first frame";
+        tally->check(hit(0) && std::abs(core::at(hits, 0).t - kApartAbove) < 1e-3F && !hit(1) && share(1) >= 1.0F,
+                     text::format("drawn apart, %s: a cut-out particle quad occludes a light ray by its alpha (drawn: hit "
+                                  "at %.3f; empty: %s)",
+                                  when, traced ? core::at(hits, 0).t : -1.0F, hit(1) ? "hit" : "passes"));
+        tally->check(traced && !hit(2), text::format("drawn apart, %s: a camera ray's kinds (0x87) never meet it", when));
+        tally->check(traced && !hit(3) && share(3) <= 0.0F && share(4) >= 1.0F && share(5) >= 1.0F,
+                     text::format("drawn apart, %s: a blended particle is seen through by its coverage (covered %.3f, "
+                                  "empty %.3f; the world's rays %.3f)",
+                                  when, share(3), share(4), share(5)));
+        tally->check(traced && !hit(6) && share(6) >= 1.0F && hit(7),
+                     text::format("drawn apart, %s: an added particle doesn't occlude (every light ray's kinds: %s, share "
+                                  "%.3f); a path's ray (0x40) meets it",
+                                  when, hit(6) ? "hit" : "passes", share(6)));
+        tally->check(moved ? (hit(8) && !hit(9)) : (!hit(8) && !hit(9)),
+                     text::format("drawn apart, %s: the triangles are this frame's (the extra quad %s, the other "
+                                  "frame's place %s)",
+                                  when, hit(8) ? "met" : "not met", hit(9) ? "met" : "empty"));
+    }
+    const render::vulkan::SceneStats before_release = render::vulkan::scene_stats();
+    store.release_all(gpu, backend);
+    micro_frame(gpu, {}, frame);
+    const render::vulkan::SceneStats after_release = render::vulkan::scene_stats();
+    tally->check(store.size() == 0 && after_release.meshes + 3 == before_release.meshes,
+                 text::format("drawn apart: the store's meshes released (%u -> %u)", before_release.meshes,
+                              after_release.meshes));
+
+    // a clutter item: a can (body and label), turned, tilted, sized, at a root
+    const std::vector<render::scatter::MeshVertex> kinds = render::scatter::make_meshes();
+    std::vector<render::scatter::MeshVertex> all;
+    std::vector<std::pair<uint32_t, uint32_t>> runs;
+    for (const uint32_t part : render::scatter::ray_parts_of(render::scatter::ItemKind::kCan)) {
+        const std::vector<render::scatter::MeshVertex> triangles = render::scatter::ray_part_triangles(kinds, part);
+        runs.emplace_back(static_cast<uint32_t>(all.size()), static_cast<uint32_t>(triangles.size()));
+        all.insert(all.end(), triangles.begin(), triangles.end());
+    }
+    constexpr uint32_t kMeshVertexBytes = sizeof(render::scatter::MeshVertex);
+    std::vector<uint8_t> bytes(all.size() * kMeshVertexBytes);
+    std::memcpy(bytes.data(), all.data(), bytes.size());
+    render::GpuVertexBuffer* buffer = nullptr;
+    if (runs.size() != 2 || all.empty() ||
+        gpu.create_vertex_buffer(static_cast<uint32_t>(bytes.size()), 0, 0, value::kPoolDefault, &buffer) !=
+            value::kResultOk ||
+        !fill_vertices(gpu, buffer, bytes, false)) {
+        tally->check(false, "drawn apart: the clutter's can made");
+        gpu.release_texture(texture);
+        return;
+    }
+    render::scatter::Item can;
+    can.root = {500.0F, 3.0F, -20.0F};
+    can.packed = (static_cast<uint32_t>(render::scatter::ItemKind::kCan) << render::scatter::kItemKindShift) |
+                 (5U << render::scatter::kItemVariantShift) | (77U << render::scatter::kItemFacingShift) |
+                 (200U << render::scatter::kItemHashShift);
+    can.size = 6.0F;
+    can.tilt = 1.2F;
+    const Transform rows = render::scatter::ray_item_transform(can);
+    rt::Material painted;
+    painted.colour = {0.6F, 0.6F, 0.62F, 1.0F};
+    const rt::MaterialId can_material = rt::next_material_id();
+    backend->set_material(can_material, painted);
+    std::vector<rt::MeshId> can_meshes;
+    std::vector<rt::Instance> can_instances;
+    std::vector<WorldTriangle> reference;
+    for (std::size_t part = 0; part < runs.size(); ++part) {
+        const auto [first, count] = core::at(runs, part);
+        const rt::MeshId id = rt::next_mesh_id();
+        backend->add_mesh(id, {.vertices = buffer,
+                               .vertex_offset = first * kMeshVertexBytes,
+                               .vertex_stride = kMeshVertexBytes,
+                               .vertex_count = count,
+                               .position_offset = 0,
+                               .vertex_buffer_bytes = static_cast<uint32_t>(bytes.size()),
+                               .normal_offset = offsetof(render::scatter::MeshVertex, normal),
+                               .normal_format = rt::kNormalFloat3});
+        can_meshes.push_back(id);
+        rt::Instance instance = micro_instance(id, can_material, rt::kObject | rt::kDrawnApart | rt::kOpaque |
+                                                                     rt::kCastsShadow, 0.0F, 0.0F);
+        instance.object_to_world = rows;
+        can_instances.push_back(instance);
+        for (uint32_t k = 0; k + 3 <= count; k += 3) {
+            const auto corner = [&](uint32_t at) {
+                const render::scatter::MeshVertex& v = core::at(all, first + at);
+                return transformed(rows, {v.position[0], v.position[1], v.position[2]});
+            };
+            reference.push_back({.a = corner(k), .b = corner(k + 1), .c = corner(k + 2),
+                                 .instance = static_cast<uint32_t>(part), .primitive = k / 3,
+                                 .material = can_material, .mask = kMaskApart});
+        }
+    }
+    for (int i = 0; i < 3; ++i) {
+        micro_frame(gpu, can_instances, frame);
+    }
+    // rays toward the sun's way - each aimed at a point of one of the can's triangles from 100 units back (a shadow ray
+    // seen from its other end), and as many beside it
+    const V3 toward{.x = 0.35, .y = -0.85, .z = 0.4};
+    const V3 unit = toward * (1.0 / length(toward));
+    std::mt19937 random(7);
+    std::uniform_int_distribution<std::size_t> pick(0, reference.size() - 1);
+    std::uniform_real_distribution<double> share_of(0.05, 0.9);
+    std::vector<TracedRay> rays;
+    for (int i = 0; i < 2048; ++i) {
+        const WorldTriangle& t = core::at(reference, pick(random));
+        double u = share_of(random);
+        double v = share_of(random);
+        if (u + v > 0.95) {
+            u = 0.95 - u * 0.5;
+            v = 0.95 - u - 0.01;
+        }
+        V3 target = t.a + ((t.b - t.a) * u) + ((t.c - t.a) * v);
+        if ((i % 4) == 3) {
+            target = target + V3{.x = 0.0, .y = 0.0, .z = 40.0}; // (well beside the can)
+        }
+        const V3 from = target - (unit * 100.0);
+        rays.push_back({.origin = {static_cast<float>(from.x), static_cast<float>(from.y), static_cast<float>(from.z)},
+                        .direction = {static_cast<float>(unit.x), static_cast<float>(unit.y), static_cast<float>(unit.z)},
+                        .t_min = 0.0F,
+                        .t_max = 200.0F,
+                        .cull_mask = (i % 8) == 1 ? 0x07U : kMaskApart,
+                        .cutouts = true});
+    }
+    std::vector<TracedHit> hits;
+    const bool traced = trace(rays, &hits);
+    int compared = 0;
+    int differ = 0;
+    int unclear = 0;
+    int hit_count = 0;
+    for (std::size_t i = 0; traced && i < rays.size(); ++i) {
+        const Reference expected = trace_reference(reference, core::at(rays, i));
+        const TracedHit& got = core::at(hits, i);
+        if (expected.unclear) {
+            ++unclear;
+            continue;
+        }
+        ++compared;
+        hit_count += got.hit ? 1 : 0;
+        const bool same = got.hit == expected.hit && (!got.hit || std::abs(got.t - expected.t) < 1e-2);
+        differ += same ? 0 : 1;
+    }
+    tally->check(traced && differ == 0 && hit_count > 0 && compared > 1000,
+                 text::format("drawn apart: a clutter item (a can, turned, tilted, sized) casts where its triangles are: "
+                              "%d rays compared with the processor's (%d hits), %d differ, %d too close to call; the "
+                              "world's and objects' kinds (0x07) never meet it",
+                              compared, hit_count, differ, unclear));
+    for (const rt::MeshId id : can_meshes) {
+        backend->remove_mesh(id);
+    }
+    for (const rt::MaterialId id : ids) {
+        backend->remove_material(id);
+    }
+    backend->remove_material(can_material);
+    micro_frame(gpu, {}, frame);
+    gpu.release_vertex_buffer(buffer);
+    gpu.release_texture(texture);
+}
+
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
     check_texel_alpha(tally); // (round PT-B)
@@ -1808,6 +2114,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 
     check_poses(gpu, tally, random, &frame);
     check_micromaps(gpu, tally, random, &frame); // (round OM)
+    check_drawn_apart(gpu, tally, &frame);       // (round PG)
     check_frame_lifetime(gpu, tally, random, &frame); // (round GF)
 
     // everything removed and released: the meshes' structures destroyed once their frames have run

@@ -210,8 +210,9 @@ const uint FLAG_ACCUMULATE = 4u;
 const uint FLAG_PERMUTE = 8u;
 const uint FLAG_BOILING = 16u;
 const uint MOST_SPATIAL = 4u;
-const uint LIGHT_RAYS = 7u;      // world, objects, alpha-tested (the reference's light rays)
-const uint LIGHT_RAYS_ON_OBJECT = 5u; // (an object's pixel: the world's alone - its low-poly body doesn't shadow itself)
+const uint LIGHT_RAYS = 15u;     // world, objects, alpha-tested, drawn apart (round PG) - the reference's light rays
+const uint LIGHT_RAYS_ON_OBJECT = 13u; // (an object's pixel: the world's and what is drawn apart - its low-poly body
+                                       // doesn't shadow itself)
 
 float ray_offset(vec3 p) { return 0.02 + 2.0e-5 * max(abs(p.x), max(abs(p.y), abs(p.z))); }
 vec3 world_at(vec2 pixel, float depth)

@@ -61,8 +61,9 @@ constexpr float kPerMille = 1000.0F; // (round O: the direct light's share in th
 static_assert(kRtAoRadius == rt::kLightFieldCell, "round O: the occlusion reaches one light field cell");
 // The indirect light's.
 constexpr float kMaxGiDistance = 5000.0F;
-constexpr uint32_t kGiMask = 0x01 | 0x02 | 0x04; // the bounce rays (and the surface's own): world, objects, alpha-tested
-constexpr uint32_t kGiSunMask = 0x01 | 0x02 | 0x04; // the rays toward the sun: world, objects, cut-outs by alpha
+// the bounce rays (and the surface's own): world, objects, alpha-tested, (round PG) drawn apart (kMaskDrawnApart)
+constexpr uint32_t kGiMask = 0x01 | 0x02 | 0x04 | 0x08;
+constexpr uint32_t kGiSunMask = 0x01 | 0x02 | 0x04 | 0x08; // the rays toward the sun: world, objects, cut-outs, apart
 constexpr float kSunDistance = 20000.0F;         // how far a ray toward the sun looks (world units)
 constexpr float kBounceSpread = 0.05F; // a bounce ray's footprint grows this much per unit (it stands for a wide cone)
 constexpr float kSmallestUnit = 1e-3F; // (the rays' noise unit, however dark the level's lights)
