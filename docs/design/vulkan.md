@@ -5945,7 +5945,10 @@ One light list, one way to sample it:
   roughness 0.35 / 0.25 the pixel-frames over 4 x their mean 0.22 % -> 0.00 %, each pixel's variation 0.47 -> 0.21 /
   0.37 -> 0.23; the mean the own rays' within 0.5 % still and 0.8 / 2.6 % with the camera orbiting. In the game BO's
   ledge specks are not GI's specular: they stay with GI's light (diffuse and specular) zeroed, with only ReSTIR DI or
-  only ReSTIR GI on (119 a frame with GI's light zeroed and the lamps by the passes), and go with both by the passes.
+  only ReSTIR GI on (119 a frame with GI's light zeroed and the lamps by the passes), and go with both by the passes. The specks on the kickers in front
+  the bank (round NK's build) likewise come from each of ReSTIR DI, GI's diffuse and GI's specular on its own, and the
+  specular reuse doesn't change them - a common cause in that surface's path through the shading / Ray Reconstruction is
+  suspected, not found yet.
 
 ### What is drawn apart, in the rays (round PG)
 
