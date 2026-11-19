@@ -104,8 +104,9 @@ void set_cel_world(const CelWorld& world);
 //   4: the sky's part of word 0's light (light - the rest is the bounce);
 //   5: the light the world is drawn with - tint x (word 0 + word 3 x N.L x word 1's a) + word 2 + word 7 (light: rt_relit.h
 //      relit_colour; kRelitColourLocation);
-//   6: the flags (D3DCOLOR): N.L toward the sun (red, x 255), the vertex's sky share K (green, x 255), 255 in blue: its
-//      emission is a lamp drawn in a texture (shown on the lamp texels alone - word 5 leaves it out), and in alpha 255
+//   6: the flags (D3DCOLOR): N.L toward the sun (red, x 255), the vertex's sky share K (green, x 255), in blue not 0: its
+//      emission is a lamp drawn in a texture (shown on the lamp texels alone - word 5 leaves it out; round FG: the byte is
+//      the bake's lamp-texel test, rt_lights.h lamp_texel_code - was 255), and in alpha 255
 //      the vertex has the stream, 128 the mesh is hidden (the bake's shadow drawn as geometry, an original light card),
 //      0 none (an animated vertex - the draw keeps the game's colour, the cel shader bands it);
 //   7: the vertex's own emission - a lamp's lit surface shows this radiance (light: rt_relit.h RelitVertex::emit).

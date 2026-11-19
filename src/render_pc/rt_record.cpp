@@ -1802,6 +1802,22 @@ float card_core_share(const MeshTriangles& tris, const std::array<uint32_t, 3>& 
     return samples > 0 ? static_cast<float>(lit) / static_cast<float>(samples) : 0.0F;
 }
 
+// (round FG) Whether a surface's lamp texels are told by its texels drawn solid alone: a blended surface that is no glow
+// and isn't drawn opaque (round indoor lamps - a fitting drawn with a soft-edged texture).
+bool lamp_texels_solid_only(const MeshRef* mesh, const MaterialRef* material, const rt::Material& made)
+{
+    if (additive_first_pass(material)) {
+        return false;
+    }
+    const uint32_t mode = blend_mode(material, 0);
+    const bool opaque = (made.flags & (rt::kTransparent | rt::kAlphaTested)) == 0U &&
+                        (mode == kBlendNone || mode == static_cast<uint32_t>(kBlendModeVertexTexAlpha));
+    // (round A3: a candidate's surface is drawn solid - not blended; an alpha test cuts its holes, not its light)
+    // (round PT-B: a blended surface drawn opaque too - rt_surface_class.h)
+    const bool solid = (made.flags & rt::kTransparent) == 0U || surface_class_of(mesh, made) == rt::SurfaceClass::kBlendedOpaque;
+    return !(opaque || solid);
+}
+
 void emitter_work()
 {
     State& st = state();
@@ -1873,19 +1889,11 @@ void emitter_work()
         }
         const bool glow = additive_first_pass(material);
         found.glow_meshes += glow ? 1 : 0;
-        const uint32_t mode = blend_mode(material, 0);
-        const bool opaque = (entry->second.material.flags & (rt::kTransparent | rt::kAlphaTested)) == 0U &&
-                            (mode == kBlendNone || mode == static_cast<uint32_t>(kBlendModeVertexTexAlpha));
-        // (round A3: a candidate's surface is drawn solid - not blended; an alpha test cuts its holes, not its light)
-        // (round PT-B: a blended surface drawn opaque too - rt_surface_class.h)
-        const rt::SurfaceClass surface_kind = surface_class_of(mesh, entry->second.material);
-        const bool solid = (entry->second.material.flags & rt::kTransparent) == 0U ||
-                           surface_kind == rt::SurfaceClass::kBlendedOpaque;
         // (round indoor lamps) a blended surface too, in the bake: its lamp texels drawn solid (lamp_texels) - a
         // fitting drawn with a soft-edged texture is a lamp's surface where its texels are opaque (Training's hanging
         // troffers: an alpha-blended mesh, all 617 of its blended meshes passed over before); never by its vertex
         // colours (a blended overlay's are often the white of no light at all - a light cone, a decal)
-        const bool blended = !glow && !(opaque || solid);
+        const bool blended = lamp_texels_solid_only(mesh, material, entry->second.material);
         if (!glow && !bake) {
             continue;
         }
@@ -2545,6 +2553,23 @@ std::string world_census()
         out += "\n";
     }
     return out;
+}
+
+uint8_t lamp_texel_code_of(const MeshRef* mesh)
+{
+    const MaterialRef* material = mesh != nullptr ? mesh->material() : nullptr;
+    if (material == nullptr) {
+        return rt::lamp_texel_code(rt::kLampTexelMostFloor, false);
+    }
+    State& st = state();
+    const auto entry = st.materials.find(material);
+    const bool solid_only = entry != st.materials.end() && lamp_texels_solid_only(mesh, material, entry->second.material);
+    std::unordered_map<const void*, TextureLook> one;
+    const TextureLook& look = texture_look(material, &one);
+    if (look.image.empty()) {
+        return rt::lamp_texel_code(rt::kLampTexelMostFloor, solid_only);
+    }
+    return rt::lamp_texel_code(rt::kTexelOverTexture * look.median, solid_only);
 }
 
 std::string describe_screen_point(float across, float down)

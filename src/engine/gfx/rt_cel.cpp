@@ -222,12 +222,12 @@ CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, co
     }
     const uint32_t flags = kCelHasStream | (to_byte(n_dot_l, kMaxByte) << kRedShift) |
                            (to_byte(std::clamp(vertex.sky, 0.0F, 1.0F), kMaxByte) << kGreenShift) |
-                           (vertex.emit_masked ? kByteMask : 0U);
+                           static_cast<uint32_t>(vertex.emit_texels); // (round FG: the lamp texels' coded test)
     return {store_light(parts.indirect), word(vertex.tint, kBytesPerLight, seen), store_light(lamps), store_light(sun),
             store_light(sky),
             // (a lamp drawn in a texture shows its emission on its lamp texels alone - the surface draws mask it; the
             // colour word, with no texels to mask by, leaves it out)
-            vertex.emit_masked ? store_light(relit_reflected(model, vertex, lighting)) : relit_colour(model, vertex, lighting),
+            vertex.emit_texels != 0 ? store_light(relit_reflected(model, vertex, lighting)) : relit_colour(model, vertex, lighting),
             flags, store_light(vertex.emit)};
 }
 

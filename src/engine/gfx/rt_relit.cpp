@@ -2874,6 +2874,16 @@ std::size_t relit_adopt_game_lights(std::vector<RelitLamp>* lamps)
             if (core::at(taken, hi) != 0 || !head_kind(head)) {
                 continue;
             }
+            // (round FG - the evidence a surface is the light's lit lamp) a light off at the bake's time (a night's) can't
+            // be seen lighting a surface the bake shows: that surface's bright texels or colours are its daylight look -
+            // paint, mortar, a sign - not the light's lamp (A3's rule: a bright surface is a lamp only where the bake shows
+            // its light or the artists marked it). Its head is a surface the artists made for the lit state - its night
+            // geometry - or a light card; else it stays the game's point light. Before, Boston's night window lights took
+            // the brick facades' mortar and stone as heads (rows of "tubes" 25 - 55 m long, 34 000 - 118 000 lm): the
+            // facades blown white with a speckle of lit texels, and a wall plaque at 53 000 cd/m^2 that grained the fog
+            if (off_in_bake && !head.other_state && head.kind != EmitterKind::kGlow) {
+                continue;
+            }
             const Vec3 apart = minus(head.position, light.position);
             const float distance = std::sqrt(dot(apart, apart));
             if (!(distance <= head.core + head.half_length + light_core)) {

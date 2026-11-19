@@ -2822,6 +2822,37 @@ void check_game_lights(Tally* tally)
                  text::format("one owner: the night's light carried by the night's glass (another state's surface), the "
                               "day's by the day's glass; a light with no head at it stays a light (%zu lamps, %zu at heads)",
                               lamps.size(), adopted));
+    {
+        // (round FG) a night light by a shown surface - a facade's bright mortar and stone (a long row of lamp texels, as
+        // Boston's window lights had taken), a wall plaque - takes neither (their brightness is the daylight look, no
+        // evidence of that light) and stays the game's point light; a light card shown by day is the artists' mark and
+        // is taken; a light on in the bake takes a shown surface as before
+        std::vector<rt::RelitLamp> night{
+            lamp_at(rt::EmitterKind::kTextured, {0.0F, 300.0F, 0.0F}, 40.0F, {0.9F, 0.9F, 0.9F}),  // a facade's texels
+            lamp_at(rt::EmitterKind::kSelfLit, {600.0F, 300.0F, 0.0F}, 10.0F, {0.9F, 0.9F, 0.9F}), // a pale wall's colours
+            lamp_at(rt::EmitterKind::kGlow, {1200.0F, 300.0F, 0.0F}, 10.0F, {0.9F, 0.9F, 0.9F}),   // a light card
+            lamp_at(rt::EmitterKind::kTextured, {1800.0F, 300.0F, 0.0F}, 10.0F, {0.9F, 0.9F, 0.9F}), // a lamp's glass
+            lamp_at(rt::EmitterKind::kPoint, {0.0F, 310.0F, 0.0F}, 50.0F, sodium),
+            lamp_at(rt::EmitterKind::kPoint, {600.0F, 305.0F, 0.0F}, 50.0F, sodium),
+            lamp_at(rt::EmitterKind::kPoint, {1200.0F, 305.0F, 0.0F}, 50.0F, sodium),
+            lamp_at(rt::EmitterKind::kPoint, {1800.0F, 305.0F, 0.0F}, 50.0F, sodium),
+        };
+        night[0].shape = rt::EmitterShape::kLine;
+        night[0].half_length = 500.0F;
+        for (std::size_t k = 4; k < night.size(); ++k) {
+            night[k].game_light = 0x100U + static_cast<uint32_t>(k);
+        }
+        night[7].game_on = 1.0F; // (the last on at the bake's time)
+        const std::size_t taken = rt::relit_adopt_game_lights(&night);
+        tally->check(taken == 2 && night.size() == 6 && night[0].game_light == 0U && night[1].game_light == 0U &&
+                         night[2].game_light == 0x106U && night[3].game_light == 0x107U &&
+                         night[4].kind == rt::EmitterKind::kPoint && night[4].game_light == 0x104U &&
+                         night[5].kind == rt::EmitterKind::kPoint && night[5].game_light == 0x105U,
+                     text::format("a night light takes no shown textured or self-lit surface (a facade's texels, a pale "
+                                  "wall) - it stays a point light; a light card and, for a light on in the bake, a shown "
+                                  "lamp glass are taken (%zu lamps, %zu at heads)",
+                                  night.size(), taken));
+    }
     // what the bake knew: the night's head and the bare light off at the bake's time; the day's head on but not told
     const std::vector<rt::RelitLampTold> told{rt::RelitLampTold::kDark, rt::RelitLampTold::kOffInBake,
                                               rt::RelitLampTold::kOffInBake, rt::RelitLampTold::kOffInBake,

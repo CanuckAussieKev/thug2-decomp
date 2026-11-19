@@ -18,6 +18,7 @@
 #include "engine/gfx/rain.h"
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_display.h"
+#include "engine/gfx/rt_lights.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/water_shader.h"
@@ -1280,8 +1281,10 @@ void surface_finish(std::string& out, const FragmentKey& key)
                   "    if (v_cel_residual.a > 0.5) {\n"
                   "        vec3 tint = v_cel_tint.rgb * surface_word;\n"
                   "        vec3 lamp_texel = surface_albedo;\n"
-                  "        float lamp_lit = v_cel_emit.a > 0.5 ? smoothstep(0.6, 0.7, max(lamp_texel.r, max(lamp_texel.g, "
-                  "lamp_texel.b))) : 1.0;\n"
+                  // (round FG - one lamp-texel test: the bake's, its texture's floor coded in the store's flags - the same
+                  // code on every vertex of the mesh, so interpolated it is the code; rt_lights.h lamp_texel_glsl)
+                  "        float lamp_lit = lamp_texel_shown(lamp_texel, colour.a, uint(v_cel_emit.a * 255.0 + 0.5)) ? 1.0 "
+                  ": 0.0;\n"
                   "        surface_m.albedo *= tint;\n        surface_m.f0 = mix(surface_m.f0, surface_m.f0 * tint, s.params.x);\n",
                   layer_m_inner,
                   "        vec3 env = v_cel_light.rgb + v_cel_residual.rgb / max(tint, vec3(1.0 / 128.0));\n"
@@ -1343,6 +1346,9 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
     // holds linear light (a copy of the world drawn this view - u.alpha_reference.z's bit) encoded back to the display's
     // colours. (The water's, snow's and paint's blocks below may call them.)
     out += rt::kDisplayTransferGlsl;
+    if ((key.surface & kSurfaceRelit) != 0U) {
+        out += rt::lamp_texel_glsl(); // (NOT ORIGINAL - round FG: the bake's lamp-texel test, a relit surface's emission)
+    }
     add(out, {"bool frame_linear() { return u.alpha_reference.y > 0.5; }\n"
               "vec4 stage_texel(int stage, vec4 t)\n{\n"
               "    return (int(u.alpha_reference.z) & (1 << stage)) != 0 ? vec4(display_from_linear(t.rgb), t.a) : t;\n}"});

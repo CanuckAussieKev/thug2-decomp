@@ -56,6 +56,12 @@ uint32_t decode_first_level(GpuTexture* texture, texel::Image* out);
 // A RayTracing is installed (rt::ray_tracing()).
 [[nodiscard]] bool on();
 
+// (round FG - one lamp-texel test) The light store's code for a lamp drawn in `mesh`'s texture (rt_lights.h
+// lamp_texel_code): the floor the bake tells its lamp texels by - kTexelOverTexture x its texture's median, the texture
+// decoded once - and, for a blended surface, its texels drawn solid alone. A mesh with no texture to read: the floor at
+// the most (no lamp texels; the bake found none there either).
+[[nodiscard]] uint8_t lamp_texel_code_of(const MeshRef* mesh);
+
 // draw_world, before anything is drawn: the record cleared and filled - instances (meshes and materials registered,
 // changed ones reported) and lights.
 void record_frame();
