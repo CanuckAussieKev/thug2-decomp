@@ -663,6 +663,9 @@ public:
         GpuVertexBuffer* stream = nullptr;
     };
     virtual void set_cel_source(const CelSource& source) { (void)source; }
+    // NOT ORIGINAL - (round LS) how many pipelines the backend has made so far: a frame that made none drew only from
+    // what was ready (render_pc/load_cover.h - the loading screen kept until then). Direct3D 9 makes none: always 0.
+    [[nodiscard]] virtual uint64_t pipelines_made() const { return 0; }
 
 private:
     GpuStateBlock block_;

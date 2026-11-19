@@ -20,6 +20,7 @@
 #include "engine/memory/mem.h"
 #include "engine/gfx/engine_texture.h"
 #include "render_pc/loading_bar.h"
+#include "render_pc/load_cover.h"
 #include "render_pc/pc_texture.h"
 #include "render_pc/render_state.h"
 #include "platform/run_log.h"
@@ -208,6 +209,7 @@ void draw_loading_screen_picture()
 void hide_loading_screen()
 {
     get_lock();
+    load_cover::screen_hidden(); // (not original: the loading screen kept over the level's first frames - load_cover.h)
     gpu().set_render_state(GpuRenderState::kFogEnable, renderer().fog_active());
     if (renderer().loading_bar_timer() != 0U) {
         stop_timer(renderer().loading_bar_timer());
@@ -268,6 +270,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
     if (!keep && gfx::loading_dialog::replaces_loading_screens()) {
         select_picture().select_picture_ = false;
         loading_dialog_panel::show();
+        load_cover::screen_shown(false, false, true); // (not original: nothing to cover after it - load_cover.h)
         engine_parts().set_loading_screen_up(true);
         get_unlock();
         return;
@@ -311,6 +314,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
         }
         gpu().present();
     }
+    load_cover::screen_shown(keep, black, false); // (not original: kept over the level's first frames - load_cover.h)
     engine_parts().set_loading_screen_up(true);
     get_unlock();
 }

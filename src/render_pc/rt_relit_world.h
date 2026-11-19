@@ -176,7 +176,9 @@ bool settled(std::array<float, 3>* sun, uint64_t* lighting);
 // written for that light, the light field made) or found not to be relit (no sun, opted out, the mode off) - read from
 // that state each frame, no count of frames - at most kFirstLightMostSeconds. So the first frame shown of a level loaded
 // at night is already night; the frames before it are drawn (the world must stand still to be relit) but covered.
-// Called once a frame by draw_world; `loading` true while the loading screen is up (the next level's hold armed).
+// Called once a frame by draw_world (through load_cover.h, whose cover - the loading screen's picture, bar and console -
+// it holds as one of the level's readiness terms); `loading` true while the loading screen is up (the next level's hold
+// armed).
 inline constexpr double kFirstLightMostSeconds = 10.0;
 [[nodiscard]] bool hold_first_light(bool loading);
 // The console's `rt relit` (devtools/rt_check.cpp): the state in a line.

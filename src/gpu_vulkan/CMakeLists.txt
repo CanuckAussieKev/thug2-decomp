@@ -23,6 +23,7 @@ add_library(thug2_gpu_vulkan STATIC
     vulkan_pixel_program.cpp
     vulkan_draw_state.cpp
     vulkan_pipelines.cpp
+    vulkan_pipeline_count.cpp
     vulkan_frames.cpp
     vulkan_crash_markers.cpp
     vulkan_pass_profile.cpp

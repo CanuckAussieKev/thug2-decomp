@@ -34,6 +34,10 @@
 // draws it once and never again) gets a timer of ours that draws it with the panel (100 ms); one shown with
 // `freeze` (the last frame kept: cutscenes) gets none and no panel, as in the original.
 //
+// After the original's HideLoadingScreen the loading screen stays over the level's first frames until the level is
+// ready (render_pc/load_cover.h): the main loop's frames draw the panel then, its lines go on (what those frames make),
+// and the console ends when the level is shown ("the loading screen was up N s (M s of it the level's first frames)").
+//
 // Cost: a line is a few bytes copied into a fixed ring (64 lines, a lock held for the copy), only while a loading
 // screen is up; the panel's text is laid out at most 10 times a second and the result drawn with each of the
 // loading screen's frames (one draw call).
@@ -55,8 +59,12 @@ bool live_now();
 // `freeze`: the last frame kept, `blank`: black instead of the picture. Starts the console's clock (the first
 // screen of a load; a screen shown again while one is up keeps it) and, unless frozen, its own drawing timer.
 void screen_shown(bool freeze, bool blank);
-// HideLoadingScreen (0x004908C0's callers): the screen gone, the console stopped.
+// HideLoadingScreen (0x004908C0's callers): the original's screen gone - the console's own timer stopped, but its lines
+// and clock go on while the loading screen stays over the level's first frames (render_pc/load_cover.h), drawn by them.
 void screen_hidden();
+// (round LS) The level shown - the cover over its first frames lifted (or none was needed): the console stopped, the load's
+// time logged. Nothing unless screen_hidden came first.
+void level_shown();
 
 // A line for the panel, as it is (cut to kLineWidth characters). Nothing while not Active.
 void note_text(const char* text);

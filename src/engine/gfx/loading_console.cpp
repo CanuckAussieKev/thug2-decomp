@@ -126,6 +126,10 @@ struct LoadingConsoleState {
     std::atomic<bool> active_{false};
     double start_ = 0.0; // when the load began (Now())
     double last_activity_ = 0.0; // the last line's time (Now())
+    // (round LS) the original's HideLoadingScreen came and the level isn't shown yet: the console goes on under the cover
+    // over the level's first frames (render_pc/load_cover.h) until level_shown
+    std::atomic<bool> hidden_{false};
+    double hidden_at_ = 0.0;
 };
 
 LoadingConsoleState& loading_console_state()
@@ -203,7 +207,9 @@ void screen_shown(bool freeze, bool blank)
         return;
     }
     panel_hooks().prepare(); // (the font, made once)
-    if (!loading_console_state().active_) {
+    // (a screen hidden and not yet followed by its level shown - the cover's frames - is a load ended: a new one begins)
+    if (!loading_console_state().active_ || loading_console_state().hidden_) {
+        loading_console_state().hidden_ = false;
         const double now = get_now();
         AcquireSRWLockExclusive(&loading_console_state().lock_);
         loading_console_state().ring_.set_count(0);
@@ -226,13 +232,25 @@ void screen_shown(bool freeze, bool blank)
 
 void screen_hidden()
 {
-    if (!loading_console_state().active_) {
+    if (!loading_console_state().active_ || loading_console_state().hidden_) {
+        return;
+    }
+    loading_console_state().hidden_ = true;
+    loading_console_state().hidden_at_ = get_now();
+    panel_hooks().stop(); // (its own timer: the main loop's frames draw it now, under the cover)
+    get_note("loading screen down - the level's first frames");
+}
+
+void level_shown()
+{
+    if (!loading_console_state().active_ || !loading_console_state().hidden_) {
         return;
     }
     loading_console_state().active_ = false;
-    panel_hooks().stop();
+    loading_console_state().hidden_ = false;
     const double now = get_now();
-    get_log("loading console: the loading screen was up %.1f s", now - loading_console_state().start_);
+    get_log("loading console: the loading screen was up %.1f s (%.1f s of it the level's first frames)",
+            now - loading_console_state().start_, now - loading_console_state().hidden_at_);
 }
 
 void note_text(const char* text)
