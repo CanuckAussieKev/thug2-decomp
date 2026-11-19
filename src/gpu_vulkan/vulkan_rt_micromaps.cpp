@@ -351,9 +351,12 @@ bool make_pass(Backend& state, Micromaps& made)
     if (!state.materials.ready()) {
         return false;
     }
-    std::string source = "#version 460\n#define THUG2_MATERIAL_SET 0\n";
+    // (round VC) the sets as every other ray-traced compute pass has them: the pushed set 0 (here the rows), the
+    // materials' bound set 1. (The Khronos layer 1.4.363 keeps a set pushed at 1 as its pushed set after a later pass
+    // binds its own set 1 over it, and reuses it for that pass's push at 0 - it crashed in ReSTIR DI's emitters' scan.)
+    std::string source = "#version 460\n#define THUG2_MATERIAL_SET 1\n";
     source += material_glsl();
-    source += "#define THUG2_GEOMETRY_SET 1\n#define THUG2_GEOMETRY_BINDING 0\n";
+    source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 0\n";
     source += scene_geometry_glsl();
     source += kBakeShader;
     const CompiledShader compiled = compile_rt_glsl(RtShaderStage::kCompute, source);
@@ -374,7 +377,7 @@ bool make_pass(Backend& state, Micromaps& made)
     if (vkCreateDescriptorSetLayout(made.device, &rows_info, nullptr, &pass.rows_layout) != VK_SUCCESS) {
         return false;
     }
-    const std::array<VkDescriptorSetLayout, 2> sets{state.materials.layout(), pass.rows_layout};
+    const std::array<VkDescriptorSetLayout, 2> sets{pass.rows_layout, state.materials.layout()};
     const VkPushConstantRange push{
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, .offset = 0, .size = sizeof(BakeConstants)};
     const VkPipelineLayoutCreateInfo layout{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -832,7 +835,7 @@ bool record_micromap_bakes(Backend& state, VkCommandBuffer commands, std::span<M
                              &filled, 0, nullptr, 0, nullptr);
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, made.pass.pipeline);
         const VkDescriptorSet materials = state.materials.descriptor_set();
-        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, made.pass.layout, 0, 1, &materials, 0,
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, made.pass.layout, 1, 1, &materials, 0,
                                 nullptr);
         const VkDescriptorBufferInfo rows_info{.buffer = rows.buffer, .offset = 0, .range = row_bytes};
         const VkWriteDescriptorSet write{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -845,7 +848,7 @@ bool record_micromap_bakes(Backend& state, VkCommandBuffer commands, std::span<M
                                          .pImageInfo = nullptr,
                                          .pBufferInfo = &rows_info,
                                          .pTexelBufferView = nullptr};
-        vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, made.pass.layout, 1, 1, &write);
+        vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, made.pass.layout, 0, 1, &write);
         for (std::size_t i = 0; i < bakes.size(); ++i) {
             const MeshMicromap& micromap = *core::at(bakes, i).micromap;
             const uint32_t per = 1U << (2U * micromap.level);

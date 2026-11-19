@@ -18,7 +18,7 @@
 //     sky's light on it within 3 % of the bare floor's (it was black: the floor under it found, shaded by the paint);
 //   - disocclusion: the camera swapped between two views every frame (history across the other view): within 2 %;
 //   - no estimate NaN or infinite; the validation layer silent; the passes' device time printed.
-//   thug2_vulkan_restir_gi_check [--device N] [--display N] [--no-validation] [--micromaps]
+//   thug2_vulkan_restir_gi_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -115,10 +115,6 @@ struct Options {
     int display = 0;
     int device = -1;
     bool validation = true;
-    // (round OM) VK_EXT_opacity_micromap enabled too (--micromaps): this scene has no cut-out to bake, and with the
-    // extension enabled the Khronos validation layer (1.4.363) crashed in a push-descriptor write of ReSTIR DI's emitters'
-    // scan at the room's scene - without the layer every check passes either way (round OM's record)
-    bool micromaps = false;
 };
 
 Options read_options(std::span<char*> arguments)
@@ -129,8 +125,6 @@ Options read_options(std::span<char*> arguments)
         const bool has_value = i + 1 < arguments.size();
         if (argument == "--no-validation") {
             options.validation = false;
-        } else if (argument == "--micromaps") {
-            options.micromaps = true;
         } else if (argument == "--device" && has_value) {
             options.device = text::to_int(core::at(arguments, ++i));
         } else if (argument == "--display" && has_value) {
@@ -1234,8 +1228,7 @@ Opened open_device(const Options& options, SDL_Window* window)
     vk::set_context_options({.validation = options.validation,
                              .device_index = options.device,
                              .on_message = print_line,
-                             .ray_tracing = true,
-                             .opacity_micromaps = options.micromaps},
+                             .ray_tracing = true},
                             window);
     render::GpuContext& context = vk::gpu_context();
     if (!context.create_instance()) {
