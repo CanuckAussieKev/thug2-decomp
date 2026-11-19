@@ -139,6 +139,7 @@ struct Entry {
     std::shared_ptr<const rt::RelitDataMesh> data_for_geometry;
     uint64_t lamps_for = 0;           // ... and the lamps' switches its L was made for (State::lamps_hash)
     uint64_t emission_written = 0;    // (round PX) ... and the lamps_for its light store's emission was written with
+    int lamp_texels = -1; // (round FG) its texture's lamp-texel code (rt_record::lamp_texel_code_of; -1: not read yet)
     rt::RelitMesh input;
     rt::RelitVertices light;
     bool analysed = false;   // its light read from the level's data
@@ -890,11 +891,26 @@ uint64_t switch_lamps(const rt::DayLight& day)
         entry.lamps_for = hash;
         const rt::RelitDataMesh& mesh = *found;
         rt::relit_mesh_lamp_light(entry.input, &entry.light, mesh.links, lamps, st.lamps_on);
+        // (round FG - one lamp-texel test) a mesh with a lamp drawn in its texture: its texture's code (the floor the bake
+        // told the lamp's texels by; read once a mesh) on every vertex but a surface-lit lamp's own - the draws interpolate
+        // the code across a triangle, so a corner that doesn't emit carries it too (its emission 0 either way)
+        const bool textured = std::ranges::any_of(mesh.emitting, [&](const rt::RelitEmitting& emitting) {
+            return emitting.lamp < lamps.size() && core::at(lamps, emitting.lamp).kind == rt::EmitterKind::kTextured;
+        });
+        if (textured && entry.lamp_texels < 0) {
+            entry.lamp_texels = rt_record::lamp_texel_code_of(entry.mesh);
+        }
+        const auto code = static_cast<uint8_t>(textured ? entry.lamp_texels : 0);
+        for (rt::RelitVertex& vertex : entry.light) {
+            vertex.emit_texels = code;
+        }
         for (const rt::RelitEmitting& emitting : mesh.emitting) {
             if (emitting.vertex < entry.light.size() && emitting.lamp < lamps.size()) {
                 rt::RelitVertex& vertex = core::at(entry.light, emitting.vertex);
                 vertex.emit = rt::scaled(core::at(shown, emitting.lamp), core::at(st.lamps_on, emitting.lamp));
-                vertex.emit_masked = core::at(lamps, emitting.lamp).kind == rt::EmitterKind::kTextured;
+                if (core::at(lamps, emitting.lamp).kind != rt::EmitterKind::kTextured) {
+                    vertex.emit_texels = 0;
+                }
             }
         }
     }

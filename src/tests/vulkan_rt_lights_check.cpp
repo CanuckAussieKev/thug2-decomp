@@ -509,6 +509,49 @@ void check_sources(Tally* tally)
                      !rt::lamp_texel({0.3F, 0.9F, 0.2F}, 0.05F) && !rt::lamp_texel({0.5F, 0.5F, 0.5F}, 0.05F),
                  "a lamp texel: bright, a white or a blackbody's colour, far over its texture (not white paint, a red "
                  "sign, green, grey)");
+    {
+        // (round FG - one lamp-texel test) the light store's code tells the shading the bake's own test: over a grid of
+        // texels and medians the coded test refuses nothing the bake's takes, and takes over it only within the floor's
+        // step (1/126 of the luminance); a pale facade's mortar and stone (bright, warm, its texture's median high) emit
+        // nothing - the old shading's "brightest channel over 0.6 - 0.7" lit them at the lamp's luminance; a blended
+        // surface's lamp texels only where drawn solid; code 0 - the whole surface
+        std::size_t refused = 0;
+        std::size_t over = 0;
+        std::size_t tried = 0;
+        constexpr int kSteps = 12;
+        for (int m = 0; m <= kSteps; ++m) {
+            const float median = 0.4F * static_cast<float>(m) / kSteps;
+            const uint8_t code = rt::lamp_texel_code(rt::kTexelOverTexture * median, false);
+            for (int r = 0; r <= kSteps; ++r) {
+                for (int g = 0; g <= kSteps; ++g) {
+                    for (int b = 0; b <= kSteps; ++b) {
+                        const std::array<float, 3> linear{static_cast<float>(r) / kSteps, static_cast<float>(g) / kSteps,
+                                                          static_cast<float>(b) / kSteps};
+                        const bool bake = rt::lamp_texel(linear, median);
+                        const bool shown = rt::lamp_texel_coded(linear, 1.0F, code);
+                        ++tried;
+                        refused += bake && !shown ? 1 : 0;
+                        if (shown && !bake) {
+                            const float luma = (0.2126F * linear[0]) + (0.7152F * linear[1]) + (0.0722F * linear[2]);
+                            over += luma < rt::kTexelOverTexture * median - (1.0F / 126.0F) ? 1 : 0;
+                        }
+                    }
+                }
+            }
+        }
+        const uint8_t facade = rt::lamp_texel_code(rt::kTexelOverTexture * 0.35F, false);
+        const uint8_t blended = rt::lamp_texel_code(0.0F, true);
+        tally->check(refused == 0 && over == 0 && !rt::lamp_texel_coded({0.75F, 0.7F, 0.6F}, 1.0F, facade) &&
+                         !rt::lamp_texel_coded({0.9F, 0.8F, 0.7F}, 1.0F, facade) &&
+                         rt::lamp_texel_coded({1.0F, 0.95F, 0.9F}, 1.0F, facade) &&
+                         rt::lamp_texel_coded({0.9F, 0.9F, 0.9F}, 0.75F, blended) &&
+                         !rt::lamp_texel_coded({0.9F, 0.9F, 0.9F}, 0.2F, blended) &&
+                         rt::lamp_texel_coded({0.1F, 0.1F, 0.1F}, 0.0F, 0U),
+                     text::format("the shading's lamp texels are the bake's: %zu texels x medians, %zu the bake takes refused, "
+                                  "%zu taken beyond the floor's step; a pale facade's stone and mortar dark, its lamp's "
+                                  "white lit; a blended lamp's solid texels alone",
+                                  tried, refused, over));
+    }
     const float reach = 400.0F;
     const float core = rt::point_core(reach);
     tally->check(std::abs(rt::light_falloff(0.0F, core, reach) - 1.0F) < 1e-6F &&

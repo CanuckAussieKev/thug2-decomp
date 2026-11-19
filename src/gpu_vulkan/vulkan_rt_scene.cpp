@@ -26,6 +26,7 @@
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
+#include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_volume_light.h"
@@ -2917,6 +2918,7 @@ std::string_view hit_surface_glsl()
                            ";\nconst float HIT_SURFACE_ROUGHNESS = " +
                            std::to_string(rt::material_values(rt::MaterialKind::kPainted).roughness) +
                            ";\nconst float HIT_SURFACE_METAL_F0 = " + std::to_string(kHitMetalF0) + ";\n";
+        text += rt::lamp_texel_glsl(); // (round FG: the bake's lamp-texel test - store_emission)
         text += R"(
 const uint HIT_RELIT_WORLD = 0u;
 const uint HIT_BAKED_WORLD = 1u;
@@ -2939,15 +2941,16 @@ struct HitSurface {
     bool hidden;
 };
 // The light store at the hit, as stored (the global unit - not x the frame's pre-exposure): the tint, the emission,
-// whether the emission is a lamp drawn in a texture (word 6's blue), whether the mesh is hidden (word 6's alpha 128).
-// False: no store there (none, or an animated vertex).
-bool hit_store(uint instance, uint primitive, vec2 barycentrics, out vec3 tint, out vec3 emit, out bool masked,
+// the lamp-texel code when the emission is a lamp drawn in a texture (word 6's blue - rt_lights.h lamp_texel_code; 0:
+// the whole surface emits), whether the mesh is hidden (word 6's alpha 128). False: no store there (none, or an animated
+// vertex).
+bool hit_store(uint instance, uint primitive, vec2 barycentrics, out vec3 tint, out vec3 emit, out uint texels,
                out bool hidden)
 {
     GeometryRecord g = geometry_record(instance);
     tint = vec3(0.0);
     emit = vec3(0.0);
-    masked = false;
+    texels = 0u;
     hidden = false;
     uvec3 corners;
     if (!geometry_triangle(g, primitive, corners) || !geometry_light_corners(g, corners)) {
@@ -2956,25 +2959,26 @@ bool hit_store(uint instance, uint primitive, vec2 barycentrics, out vec3 tint, 
     float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
     for (uint k = 0u; k < 3u; ++k) {
         uint at = corners[k] * 32u; // (rt_cel.h kCelStreamBytes)
-        vec4 flags = unpackUnorm4x8(geometry_word(g.light_address, at + 24u)).zyxw;
+        uint flag_word = geometry_word(g.light_address, at + 24u);
+        vec4 flags = unpackUnorm4x8(flag_word).zyxw;
         if (flags.a < 0.25) {
             return false; // (an animated vertex: the game's colour, no store)
         }
         if (flags.a < 0.75) {
             hidden = true;
         }
-        masked = masked || flags.b > 0.5;
+        texels = max(texels, flag_word & 255u); // (B, G, R, A in memory: blue the low byte)
         tint += unpackUnorm4x8(geometry_word(g.light_address, at + 4u)).zyx * (weights[k] * LIGHT_PER_UNORM);
         emit += stored_light(geometry_word(g.light_address, at + 28u)) * weights[k];
     }
     return true;
 }
 // (round PT4b) The light a surface's store sends at a point: its emission x the texel (linear) - on the lamp texels alone
-// when the store says its lamp is drawn in a texture. hit_surface's `emitted` and hit_emission's: one emission.
-vec3 store_emission(vec3 emit, vec3 linear, bool masked)
+// when the store says its lamp is drawn in a texture. hit_surface's `emitted` and hit_emission's: one emission. (Round FG)
+// the lamp texels by the bake's own test (lamp_texel_shown - rt_lights.h lamp_texel_glsl), `alpha` the drawn alpha.
+vec3 store_emission(vec3 emit, vec3 linear, float alpha, uint texels)
 {
-    float lamp_lit = masked ? smoothstep(0.6, 0.7, max(linear.r, max(linear.g, linear.b))) : 1.0;
-    return emit * linear * lamp_lit;
+    return lamp_texel_shown(linear, alpha, texels) ? emit * linear : vec3(0.0);
 }
 // (round PT4b) The light a triangle of the world sends at a point (hit_surface's `emitted` alone - no normals, no
 // material: ReSTIR DI's target evaluates it at every candidate); false where nothing is there (a cut-out texel, a hidden
@@ -2994,16 +2998,17 @@ bool hit_emission(uint instance, uint primitive, uint id, vec2 barycentrics, out
     }
     vec3 tint;
     vec3 emit;
-    bool masked;
+    uint texels;
     bool hidden;
-    if (!hit_store(instance, primitive, barycentrics, tint, emit, masked, hidden)) {
+    if (!hit_store(instance, primitive, barycentrics, tint, emit, texels, hidden)) {
         return true;
     }
     if (hidden) {
         return false;
     }
     vec4 texel = material_texel_lod(id, uv, 0.0) * surface.colour;
-    emitted = store_emission(emit, linear_from_display(clamp(texel.rgb, 0.0, 1.0)), masked);
+    emitted = store_emission(emit, linear_from_display(clamp(texel.rgb, 0.0, 1.0)),
+                             material_drawn_alpha(id, uv, hit_colour(v, barycentrics).a), texels);
     return true;
 }
 bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4x3 object_to_world, vec3 direction,
@@ -3059,17 +3064,17 @@ bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4
     bool object = (record.instance_flags & HIT_INSTANCE_OBJECT) != 0u;
     vec3 tint;
     vec3 emit;
-    bool masked;
+    uint texels;
     bool hidden;
     // (round P10 - objects relit) one surface whoever drew it: a store (the world's meshes and the objects drawn with their
     // own colours, taken apart by the bake) gives the tint and the emission; an object the game lights (its object light)
     // has its vertex colour as its material's diffuse - its paint, as the frame draws it (ff_shaders.cpp: the albedo x
     // linear Cd); anything else its texel alone
-    if (hit_store(instance, primitive, barycentrics, tint, emit, masked, hidden)) {
+    if (hit_store(instance, primitive, barycentrics, tint, emit, texels, hidden)) {
         s.origin = HIT_RELIT_WORLD;
         s.hidden = hidden;
         s.base_colour = linear * tint;
-        s.emitted = store_emission(emit, linear, masked);
+        s.emitted = store_emission(emit, linear, s.alpha, texels);
     } else if (object && (record.flags & GEOMETRY_OBJECT_LIGHT) != 0u && (record.flags & GEOMETRY_COLOUR) != 0u) {
         s.origin = HIT_OBJECT;
         s.base_colour = linear * linear_from_display(clamp(hit_colour(v, barycentrics).rgb, 0.0, 1.0));

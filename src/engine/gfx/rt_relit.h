@@ -227,9 +227,10 @@ struct RelitVertex {
     // its own - a lamp's own surface (relit_data.h RelitEmitting: its light / pi x how much it is on), added to what it
     // reflects (relit_colour)
     // (round L) the lamp's surface luminance (relit_data.h RelitLamp::luminance) in the unit, in its colour, x how much it
-    // is on - physical; `emit_masked`: a lamp drawn in a texture - shown on its lamp texels alone (rt_cel.h flags)
+    // is on - physical; `emit_texels`: a lamp drawn in a texture - shown on its lamp texels alone, the bake's own test of
+    // them (rt_lights.h lamp_texel_code: its texture's floor; 0 - the whole surface emits; rt_cel.h flags)
     Rgbf emit{};
-    bool emit_masked = false;
+    uint8_t emit_texels = 0;
 };
 using RelitVertices = std::vector<RelitVertex>;
 
@@ -546,9 +547,10 @@ struct RelitLamp {
 // no surface) within the head's own extent (its core and half length) and the light's core (rt_lights.h point_core of
 // its reach) of the light - becomes that emitter: the head takes the light's switch (the game's), its reach where longer,
 // and, when the bake can't see it lit (the light off at the bake's time), the light's colour; the light itself leaves
-// the list. The head is the nearest such emitter, one shown in the same lighting state as the light first (a light off
-// in the bake - a night's - takes a surface of another state, its night geometry, before a shown one); an emitter is one
-// light's head at most (a second light at it stays a light of its own). A surface of another state no light takes is
+// the list. The head is the nearest such emitter, one shown in the same lighting state as the light first; (round FG) a
+// light off in the bake - a night's - takes only a surface of another state (its night geometry) or a light card: a
+// shown textured or self-lit surface's brightness is its daylight look, no evidence of that light (it stays a point
+// light); an emitter is one light's head at most (a second light at it stays a light of its own). A surface of another state no light takes is
 // no lamp (relit_lamp_models: the game never shows it lit). Returns how many lights became their heads.
 std::size_t relit_adopt_game_lights(std::vector<RelitLamp>* lamps);
 // (round L) Where a lamp's light comes from.

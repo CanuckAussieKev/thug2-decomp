@@ -2306,6 +2306,19 @@ evidence") and from the frame's point lights that were on at the bake's time - s
   (point_core of its reach) of a light is that light's head - one lamp: the emitter's shape, area and emitting surface,
   the light's switch and reach (and its colour where the bake can't see it lit). A night light takes another state's
   surface first (its night glass), a light on in the bake a shown one; an emitter is one light's head at most.
+  (Round FG) A light off at the bake's time takes only another state's surface or a light card: a shown textured or
+  self-lit surface's brightness is its daylight look (paint, mortar, a poster), no evidence of that light - A3's rule
+  for every candidate. Before, Boston's night window lights took the brick facades' mortar and stone as heads (rows of
+  "tubes" 25 - 55 m long, 34 000 - 118 000 lm, blown white with a speckle of lit texels) and a wall light took a poster
+  (0.019 m^2 of "lamp texels" at 53 000 cd/m^2 - the grain in the fog round it, the courtyard tinted the poster's
+  colour); BO 43 -> 13 lights carried by heads.
+- **One lamp-texel test** (round FG, rt_lights.h `lamp_texel_code` / `lamp_texel_glsl`): a lamp drawn in a texture shows
+  its emission on the texels the bake measured as its luminous area - the bake's own test (bright, a white or
+  blackbody's colour, kTexelOverTexture x its texture's median; a blended surface's solid texels alone), its texture's
+  floor coded in the light store's flags (rt_cel.h word 6's blue, the same code on every vertex of the mesh) and read by
+  the relit surfaces' shading (ff_shaders) and the ray-traced hit surface (`store_emission`). The shading's own test
+  before (any texel whose brightest channel passed 0.6 - 0.7) spread the lamp's luminance over every pale texel of the
+  surface.
 - **Its strength** (rt_relit.h `relit_lamp_models`, `RelitLampSource::kGameLight`): a light (or its head) the bake can't
   tell takes its fixture's model at full brightness - the kind from its own colour, shape and place (lamp_fixtures.h
   `fixture_of`: sodium / filament / white by its colour temperature, neon or sign when saturated, roofed or not, a
@@ -5948,7 +5961,9 @@ One light list, one way to sample it:
   only ReSTIR GI on (119 a frame with GI's light zeroed and the lamps by the passes), and go with both by the passes. The specks on the kickers in front
   the bank (round NK's build) likewise come from each of ReSTIR DI, GI's diffuse and GI's specular on its own, and the
   specular reuse doesn't change them - a common cause in that surface's path through the shading / Ray Reconstruction is
-  suspected, not found yet.
+  suspected, not found yet. (Round FG: the common cause was in the lights - night lights carried by shown surfaces'
+  bright texels, each a tiny luminous area at tens of thousands of cd/m^2 that every estimator samples by area and rarely
+  hits; with those heads gone - "One owner" above - the kickers' specks fell 1375 -> 15 a frame.)
 
 ### What is drawn apart, in the rays (round PG)
 

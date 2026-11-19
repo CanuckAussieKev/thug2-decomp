@@ -105,7 +105,9 @@ constexpr float kF0 = 0.04F;
 constexpr float kAlbedo = 0.7F;
 constexpr double kPi = 3.14159265358979323846;
 constexpr uint32_t kFirstRow = 40; // the region compared: these rows down to the bottom, every column
-constexpr uint32_t kCelLampTexels = 0x000000FFU; // (rt_cel.h word 6's blue: the emission on the lamp texels alone)
+// (rt_cel.h word 6's blue: the emission on the lamp texels alone - round FG: the bake's test coded, rt_lights.h
+// lamp_texel_code; the white texels on black pass any floor up to their luminance, the texture's median is black)
+const uint32_t kCelLampTexels = rt::lamp_texel_code(0.0F, false);
 // (round PT4b) the lamp texture: kLampTextureSide^2 texels, white on every kLampTexelEvery-th row and column, black
 // elsewhere - 1 in 64 texels lit, each triangle of the disc holding a few of them or none at the scan's points
 constexpr uint32_t kLampTextureSide = 32;

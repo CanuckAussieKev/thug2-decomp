@@ -11,6 +11,7 @@
 #include <mutex>
 #include <numeric>
 #include <span>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -496,15 +497,76 @@ float open_sky_lamps(const DayLight& day, const LevelEmitters* level)
 
 bool lamp_texel(const std::array<float, 3>& linear, float texture_median)
 {
+    return lamp_texel_over(linear, kTexelOverTexture * texture_median);
+}
+
+bool lamp_texel_over(const std::array<float, 3>& linear, float floor_luma)
+{
     const float brightest = std::max({std::get<0>(linear), std::get<1>(linear), std::get<2>(linear)});
     const float weakest = std::min({std::get<0>(linear), std::get<1>(linear), std::get<2>(linear)});
-    if (!(brightest >= kTexelBright) || !(light_luma(linear) >= kTexelOverTexture * texture_median)) {
+    if (!(brightest >= kTexelBright) || !(light_luma(linear) >= floor_luma)) {
         return false;
     }
     const auto [r, g, b] = linear;
     const bool warm = r >= g && g >= b;
     const bool cool = b >= g && g >= r;
     return (warm || cool) && weakest >= kTexelLeastShare * brightest;
+}
+
+uint8_t lamp_texel_code(float floor_luma, bool solid_only)
+{
+    const float share = std::isfinite(floor_luma) ? std::clamp(floor_luma / kLampTexelMostFloor, 0.0F, 1.0F) : 1.0F;
+    // (rounded down: a texel the bake's floor passes is never refused by the coded one)
+    const auto step = static_cast<uint32_t>(std::floor(share * static_cast<float>(kLampTexelFloorSteps)));
+    return static_cast<uint8_t>((1U + step) | (solid_only ? kLampTexelSolidBit : 0U));
+}
+
+namespace {
+float coded_floor(uint32_t code)
+{
+    const uint32_t step = (code & ~kLampTexelSolidBit) - 1U;
+    return static_cast<float>(step) / static_cast<float>(kLampTexelFloorSteps) * kLampTexelMostFloor;
+}
+} // namespace
+
+bool lamp_texel_coded(const std::array<float, 3>& linear, float alpha, uint32_t code)
+{
+    code &= 0xFFU;
+    if (code == 0U) {
+        return true;
+    }
+    if ((code & kLampTexelSolidBit) != 0U && !(alpha >= kLampTexelSolidAlpha)) {
+        return false;
+    }
+    return lamp_texel_over(linear, coded_floor(code));
+}
+
+const std::string& lamp_texel_glsl()
+{
+    static const std::string kSource = [] {
+        const auto number = [](float value) { return std::to_string(value); };
+        return "// (round FG - engine/gfx/rt_lights.h lamp_texel_coded's twin: one lamp-texel test, the bake's)\n"
+               "bool lamp_texel_shown(vec3 linear, float alpha, uint code)\n{\n"
+               "    code &= 255u;\n"
+               "    if (code == 0u) {\n        return true;\n    }\n"
+               "    if ((code & " +
+               std::to_string(kLampTexelSolidBit) + "u) != 0u && !(alpha >= " + number(kLampTexelSolidAlpha) +
+               ")) {\n        return false;\n    }\n"
+               "    float floor_luma = float((code & " +
+               std::to_string(0xFFU & ~kLampTexelSolidBit) + "u) - 1u) / " + number(kLampTexelFloorSteps) + " * " +
+               number(kLampTexelMostFloor) +
+               ";\n"
+               "    float brightest = max(linear.r, max(linear.g, linear.b));\n"
+               "    float weakest = min(linear.r, min(linear.g, linear.b));\n"
+               "    if (!(brightest >= " +
+               number(kTexelBright) +
+               ") || !(dot(linear, vec3(0.2126, 0.7152, 0.0722)) >= floor_luma)) {\n        return false;\n    }\n"
+               "    bool warm = linear.r >= linear.g && linear.g >= linear.b;\n"
+               "    bool cool = linear.b >= linear.g && linear.g >= linear.r;\n"
+               "    return (warm || cool) && weakest >= " +
+               number(kTexelLeastShare) + " * brightest;\n}\n";
+    }();
+    return kSource;
 }
 
 

@@ -34,6 +34,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 #include <vector>
 
 #include "engine/gfx/rt_daylight.h"
@@ -160,6 +161,26 @@ inline constexpr float kTexelBright = 0.7F;
 inline constexpr float kTexelOverTexture = 2.5F;
 inline constexpr float kTexelLeastShare = 0.2F;
 [[nodiscard]] bool lamp_texel(const std::array<float, 3>& linear, float texture_median);
+// (round FG - one lamp-texel test) The same test with its luminance floor given (kTexelOverTexture x the texture's
+// median) - what the shading reads from the light store, so a lamp drawn in a texture shows its emission on the texels the
+// bake measured as its luminous area and no others (before, the shading lit every texel whose brightest channel passed
+// 0.6 - 0.7: a pale stone's or mortar's texels too, at the lamp's luminance - the energy the bake gave the lamp's own
+// texels spread over a whole surface's bright ones).
+[[nodiscard]] bool lamp_texel_over(const std::array<float, 3>& linear, float floor_luma);
+// The light store's code for a lamp drawn in a texture (rt_cel.h word 6's blue byte): 0 - not drawn in a texture (the
+// whole surface emits); else bit 7 - only the texels drawn solid (texel alpha at least kLampTexelSolidAlpha: a blended
+// surface's, as the bake reads them), bits 0 - 6 - 1 + the floor's luminance in 126ths of kLampTexelMostFloor (a floor at
+// the most: no texel shows a lamp).
+inline constexpr float kLampTexelMostFloor = 1.0F;
+inline constexpr float kLampTexelSolidAlpha = 0.5F; // (render_pc/rt_record.cpp kCutoutAlpha)
+inline constexpr uint32_t kLampTexelSolidBit = 0x80U;
+inline constexpr uint32_t kLampTexelFloorSteps = 126U;
+[[nodiscard]] uint8_t lamp_texel_code(float floor_luma, bool solid_only);
+// What a coded test says of a texel (linear colour, its drawn alpha 0 - 1): true for code 0.
+[[nodiscard]] bool lamp_texel_coded(const std::array<float, 3>& linear, float alpha, uint32_t code);
+// The GLSL twin: `bool lamp_texel_shown(vec3 linear, float alpha, uint code)` (the ff shaders' relit surfaces and the
+// ray-traced hit surfaces - one test).
+[[nodiscard]] const std::string& lamp_texel_glsl();
 // A point light's falloff core (point_core): this share of its reach (the game's radius).
 inline constexpr float kPointCoreShare = 0.1F;
 // (lighting round A: the lamps' sum is no longer held under a knee - the lamps are lit by their data, the HDR tone map
