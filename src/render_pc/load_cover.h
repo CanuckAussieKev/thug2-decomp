@@ -7,8 +7,8 @@
 // the next frame drawn is the level's first. Here the renderer still has work left at that moment that only the
 // level's first frames do: the ray tracing scene built, the relit light written for the level's light, the time of
 // day's state set by the level's own scripts, the pipelines the first views need made. The original's flag
-// (engine_parts loading_screen_up) still goes down at the original's moment - the simulation, the scripts and what the
-// frames step run exactly as before -; only what is shown differs: those frames are drawn in full behind the loading
+// (engine_parts loading_screen_up) still goes down at the original's moment - the simulation and the scripts are the
+// original's, held from there (below) -; what is shown differs: those frames are drawn in full behind the loading
 // screen's picture, bar and console (the main loop draws them now - the loading screen's own timers are stopped), and
 // the cover lifts on the first frame that is ready.
 //
@@ -16,7 +16,15 @@
 //   - the level's first light: rt_relit_world.h hold_first_light (the clock's light published, the level's own scripts
 //     for its time of day ended, the level relit for that light - or relighting not in play: ready at once), and
 //   - the frame drew only from what was ready: no pipeline made since the previous frame's cover (Gpu::pipelines_made -
-//     the passes' pipelines are made the first time they draw or trace; Direct3D 9 makes none, so it is ready at once).
+//     the passes' pipelines are made the first time they draw or trace; Direct3D 9 makes none, so it is ready at once),
+//   - (round LS2) the lighting's cut shown (rt_daylight.h cut_settling: the stores written for the light the clock
+//     published - the eye follows the picture without adapting until then; at most kCutMostSeconds),
+//   - (round LS2) the camera's exposure settled (Gpu::exposure_settled - the auto exposure's eye at its target for this
+//     picture and the frame exposed there; each covered frame starts the eye at its target, as a new view: no
+//     adaptation after the reveal; nothing metered - Direct3D 9, a fixed or hand-set camera - is settled at once).
+// (round LS2) Meanwhile the simulation is held (engine/gfx/level_cover.h - set here: from the hide until the first ready
+// frame): the player gets control on the first frame shown, and the simulation's next step after the hide runs on the
+// loop after it - the original's state at its hide moment is where it waits.
 // A movie playing is its own picture: ready. With no loading screen before it (a frozen frame kept - a cutscene's -, the
 // editor mode's loading dialog) nothing is covered.
 //

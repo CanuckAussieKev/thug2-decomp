@@ -167,7 +167,8 @@ if(TARGET thug2_base)
 endif()
 
 # NOT ORIGINAL - thug2_sim_check.exe: the parts of the simulation's exactness proof that need no game - the skater's
-# online update sent on the original's frames (src/tests/sim_check.cpp; engine/net/net_cadence.h is pure). The demos'
+# online update sent on the original's frames (src/tests/sim_check.cpp; engine/net/net_cadence.h is pure) and the loading
+# screen's hold over a level's first frames (engine/gfx/level_cover.h holds, constexpr). The demos'
 # part: tools/game/sim_check.ts.
 if(TARGET thug2_base)
     add_executable(thug2_sim_check sim_check.cpp)

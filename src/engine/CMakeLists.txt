@@ -142,6 +142,7 @@ add_library(thug2_engine STATIC
     gfx/rt_light_census.cpp
     gfx/rt_light_field.cpp
     gfx/day_clock.cpp
+    gfx/level_cover.cpp
     gfx/surface_maps.cpp
     gfx/water_bodies.cpp
     gfx/water_surfaces.cpp

@@ -11,6 +11,7 @@
 
 #include "base/core/checked_index.h"
 #include "base/core/no_destroy.h"
+#include "engine/gfx/level_cover.h"
 
 namespace ext {
 
@@ -74,6 +75,12 @@ Extension* game_owner()
 
 bool game_input_blocked()
 {
+    // (round LS2) a level's first frames under the loading screen (engine/gfx/level_cover.h): the player has no control
+    // until the first frame shown - the steps that run under it (the level's own time-of-day scripts, a network game's)
+    // read no key or controller
+    if (render::level_cover::covered()) {
+        return true;
+    }
     for (Extension* extension : registered()) {
         if (extension->blocks_game_input()) {
             return true;

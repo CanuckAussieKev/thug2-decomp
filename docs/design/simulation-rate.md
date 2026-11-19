@@ -60,6 +60,17 @@ A late step is drawn less, never caught up (more than half a step late: not draw
 original. `get_frame_length()` is always 1 vblank. Whether a step is drawn changes nothing in the simulation
 ("Determinism under load", below).
 
+**A level's first frames** (round LS2, `engine/gfx/level_cover.h`): from the original's hide of the loading screen
+(`HideLoadingScreen` - the moment the original gives the player control) the loading screen stays over the level's
+frames until the first one that is ready (`render_pc/load_cover.h`: the first light, no pipeline made, the camera's
+exposure settled). Meanwhile the loop is held - no step, no vblank, no input - and each loop draws a render-only frame
+(the renderer's own steps - particles, weather, the sun's scripts, the time of day's clock - don't run either), so the
+simulation's next step after the hide runs on the loop after the level is shown: the same steps, in the same order,
+later in wall-clock time. The steps the simulation still owes the level at the hide - the time of day's own scripts for
+the state the clock set (`day_clock.h light_ready`), a few steps - run under the cover first, without input; a network
+game is never held (the others' simulations go on), only covered, without input. thug2_sim_check models the rule (the
+same states with and without the cover, none stepped under it, the owed ones only, a network game's all).
+
 ## Display at any rate
 
 `[Graphics] max_fps` (`engine/sys/frame_pacing.h`, `frame_blend.h`, `render_pc/frame_interp.cpp`): each step's frame and

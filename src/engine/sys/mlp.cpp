@@ -33,6 +33,8 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/render_device.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/gfx/level_cover.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/gpu_context.h"
 #include "platform/run_log.h"
 #include "platform/frame_profile.h"
@@ -164,6 +166,48 @@ ExtraFrames& extra_frames()
     return frames;
 }
 
+// NOT ORIGINAL - a render-only frame: the world drawn again as the last step left it (blended toward it by `alpha`
+// while blend.on - render_pc/frame_interp.h) and presented, as a frame of its own to frame generation and Reflex. No task
+// runs, no clock or vblank is counted, no input is read, none of the renderer's simulation steps run (engine::render_frame's
+// - only Device::draw_world); the frame's pre-exposure is the camera's now (rt_daylight.h latch_pre_exposure); the game's
+// random sequences are put back as they were (anything the draws took from them - the weather's splashes, a sort key -
+// is not the game's). [Graphics] max_fps's frames between the steps, and the level's first frames drawn under the
+// loading screen while the simulation is held (engine/gfx/level_cover.h).
+void draw_render_only(frame_blend::Frame& blend, float alpha)
+{
+    const uint32_t crt_random = crt::game_rand_state();
+    const maths::RandomStreams streams = maths::random_streams();
+    blend.extra = true;
+    blend.alpha = alpha;
+    render::engine_parts().set_suppress_draw(false);
+    render::rt::latch_pre_exposure();
+    // (a render-only frame is a frame of its own to frame generation and Reflex: no simulation between its markers)
+    latency_marker(render::GpuContext::LatencyMarker::kSimulationStart);
+    latency_marker(render::GpuContext::LatencyMarker::kSimulationEnd);
+    latency_marker(render::GpuContext::LatencyMarker::kRenderSubmitStart);
+    begin_scene();
+    render::device().draw_world();
+    ext::before_present(true);
+    latency_marker(render::GpuContext::LatencyMarker::kRenderSubmitEnd);
+    end_scene();
+    latency_probe::note_present(blend.tick, blend.alpha, true); // ([debug] latency_probe)
+    blend.extra = false;
+    crt::game_srand(crt_random);
+    maths::set_random_streams(streams);
+}
+
+// NOT ORIGINAL - a loop held under a level's loading screen (engine/gfx/level_cover.h; get_main_loop): the held loop's
+// work for the extensions, and its frame a render-only frame when it is drawn.
+void covered_frame(frame_blend::Frame& blend, bool drawn)
+{
+    ext::held_frame();
+    if (!render::engine_parts().suppress_draw()) {
+        const frame_profile::Scope phase("render");
+        draw_render_only(blend, 1.0F);
+    }
+    frame_profile::loop_end(drawn, false);
+}
+
 bool can_draw_extra()
 {
     return sys::app_active() && !render::engine_parts().device_lost() && !render::engine_parts().quit_requested() &&
@@ -196,24 +240,7 @@ void draw_extra_frames(uint64_t tick_time, uint64_t tick_length, int64_t frequen
             break;
         }
         const frame_profile::Scope phase("extra_frame"); // ([debug] frame_profile)
-        const uint32_t crt_random = crt::game_rand_state();
-        const maths::RandomStreams streams = maths::random_streams();
-        blend.extra = true;
-        blend.alpha = frame_pacing::blend_alpha(now, tick_time, tick_length);
-        render::engine_parts().set_suppress_draw(false);
-        // (a render-only frame is a frame of its own to frame generation and Reflex: no simulation between its markers)
-        latency_marker(render::GpuContext::LatencyMarker::kSimulationStart);
-        latency_marker(render::GpuContext::LatencyMarker::kSimulationEnd);
-        latency_marker(render::GpuContext::LatencyMarker::kRenderSubmitStart);
-        begin_scene();
-        render::device().draw_world();
-        ext::before_present(true);
-        latency_marker(render::GpuContext::LatencyMarker::kRenderSubmitEnd);
-        end_scene();
-        latency_probe::note_present(blend.tick, blend.alpha, true); // ([debug] latency_probe)
-        blend.extra = false;
-        crt::game_srand(crt_random);
-        maths::set_random_streams(streams);
+        draw_render_only(blend, frame_pacing::blend_alpha(now, tick_time, tick_length));
         if (own.drawn++ == 0) {
             own.first_tick = blend.tick;
         } else if (own.drawn == kExtraFramesLogged) {
@@ -374,8 +401,14 @@ void Hub::get_main_loop()
         // Not original - the extensions' pace for this loop (engine/ext/extension.h LoopPace; the demo viewer: paused,
         // slow motion, seeking). Original behaviour: every loop a logic frame at the frame's time, drawn unless late.
         const ext::LoopPace pace = ext::loop_pace();
+        // Not original - the level's first frames under the loading screen (engine/gfx/level_cover.h): the simulation
+        // held until the level is shown - the loop held as the demo viewer's pause holds it (no clock, no input read for
+        // the game, no task), its frame drawn as a render-only frame. Original behaviour: the level's first frames step
+        // and are shown as they come.
+        const bool covered = render::level_cover::holds_simulation();
+        const bool hold = pace.hold || covered;
         render::engine_parts().set_suppress_draw(false);
-        if (!pace.hold) {
+        if (!hold) {
             objects::objects_shared().set_cutscene_playing(false);
             sio::read_keyboard();
         }
@@ -461,17 +494,26 @@ void Hub::get_main_loop()
         // the default): every frame drawn as its tick left it - nothing below changes anything then.
         frame_blend::Frame& blend = frame_blend::frame();
         const uint64_t tick_time = frame_start;
-        blend.on = frame_blend::max_fps() != frame_pacing::kOriginal && !pace.hold && !pace.flat_out && !pace.skip_draw &&
+        blend.on = frame_blend::max_fps() != frame_pacing::kOriginal && !hold && !pace.flat_out && !pace.skip_draw &&
                    !ext::keeps_every_frame() && !sys::editor_mode::on();
         blend.extra = false;
-        if (!pace.hold) {
+        if (!hold) {
             ++blend.tick;
+        }
+        // Not original - the level covered (above): the loop's frame a render-only frame - the world drawn again as the
+        // original's hide left it (the renderer's first frames of the level: its pipelines, its first light, the camera's
+        // exposure), with the loading screen over it until the first ready frame (render_pc/load_cover.h). No step of
+        // the renderer's own runs either (engine::render_frame's - particles, weather, the sun's scripts, the time of
+        // day's clock: simulation state). Original behaviour: none.
+        if (covered) {
+            covered_frame(blend, drawn);
+            continue;
         }
         // Not original - the frame's markers (latency_marker): the simulation starts. Original behaviour: none.
         latency_marker(render::GpuContext::LatencyMarker::kSimulationStart);
         // Not original - a held simulation (pace.hold: the demo viewer paused or slowed) counts no clock and runs no
         // task: the frame is drawn again as the last logic frame left it. Original behaviour: always a logic frame.
-        if (!pace.hold) {
+        if (!hold) {
             frame_clock::note_refresh();
             frame_clock::once_every_draw();
             if (profile_frames_ != 0) {
@@ -522,7 +564,7 @@ void Hub::get_main_loop()
             QueryPerformanceCounter(&counter);
             frame_start = static_cast<uint64_t>(counter.QuadPart);
         }
-        if (!pace.hold) {
+        if (!hold) {
             frame_clock::update_frame_length();
         }
         // Not original - [Graphics] max_fps: the render-only frames until the next tick is due (draw_extra_frames).

@@ -263,6 +263,25 @@ struct ManualExposure {
 // The EV100 the last metered viewport's camera stood at (the meter's readout, a frame or two behind - the factor it
 // held: camera_ev100 of its stops); false before any (no meter, or none read yet). The caller holds the lock.
 bool last_metered_ev100(Backend& state, float* ev100);
+// (round LS2) Whether the camera's exposure is settled - one of a level's readiness terms while the loading screen
+// covers its first frames (render_pc/load_cover.h; under the cover each pass starts the eye at its target - record_meter):
+// the readout is of a covered pass (the frame of the cover's first pass finished), and in it the camera at its target,
+// the frame metered pre-exposed where that camera puts it (when the frame's pre-exposure follows the camera - the
+// clock's light on; with it off the frame is the light as it is), and the target where the last readout asked about had
+// it (the picture no longer changing the eye) - each within kSettledStops. Settled at once when nothing is metered: the
+// meter off or failed, the camera set by hand or fixed, or no view metered in the frame being drawn. The caller holds
+// the lock; asked at the frame's end, once a frame.
+inline constexpr float kSettledStops = 0.1F; // (a tenth of a stop: 7% - under what reads as a jump in brightness)
+struct SettleReading {
+    float stops = 0.0F;          // the camera (the slot's)
+    float target = 0.0F;         // its target
+    float metered_with = 1.0F;   // the frame's pre-exposure the pass metered
+    bool pre_follows = false;    // the frame's pre-exposure is the camera's (the clock's light on)
+    bool last_known = false;     // a readout asked about before (since the cover's first pass)
+    float last_target = 0.0F;    // its target
+};
+[[nodiscard]] bool settled_reading(const SettleReading& reading);
+bool exposure_settled(Backend& state);
 // (path tracing, stage 1) The curve's parameters and grading table in use (the pass's - null: no table), for a picture
 // mapped on the processor as the pass maps the frame (tone_map_reference). The caller holds the lock.
 [[nodiscard]] ToneParameters tone_parameters_locked();
