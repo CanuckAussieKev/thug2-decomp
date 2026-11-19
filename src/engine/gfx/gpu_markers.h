@@ -30,7 +30,21 @@ inline constexpr uint16_t kWorldSurfaces = 3; // a view's world surfaces and obj
 inline constexpr uint16_t kRtScene = 4;       // ray tracing's acceleration structures built for the frame
 inline constexpr uint16_t kPresent = 5;       // the present: the frame copied into the swapchain's image
 inline constexpr uint16_t kUi = 6;            // the UI's draws (Dear ImGui)
-inline constexpr uint16_t kCount = 7;
+// (round PF) the steps inside the path tracer's passes - the profile's (vulkan_pass_profile.h) and a lost device's
+// report's finer places
+inline constexpr uint16_t kDiGrid = 7;        // ReSTIR DI: the emitters' scan, the light grid's bounds and cells
+inline constexpr uint16_t kDiTemporal = 8;    // ReSTIR DI: the candidates and the temporal reuse
+inline constexpr uint16_t kDiSpatial = 9;     // ReSTIR DI: the spatial reuse and the light inputs
+inline constexpr uint16_t kGiCache = 10;      // ReSTIR GI: the radiance cache's update and resolve
+inline constexpr uint16_t kGiTemporal = 11;   // ReSTIR GI: the samples and the temporal reuse
+inline constexpr uint16_t kGiSpatial = 12;    // ReSTIR GI: the spatial reuse and the light inputs
+inline constexpr uint16_t kFogMap = 13;       // the fog: the air's sun map
+inline constexpr uint16_t kFogMarch = 14;     // the fog: the march
+inline constexpr uint16_t kFogHistory = 15;   // the fog: the history
+inline constexpr uint16_t kFogRays = 16;      // the fog: the god rays' mask and radial passes
+inline constexpr uint16_t kFogComposite = 17; // the fog: the composite over the frame
+inline constexpr uint16_t kLightPool = 18;    // the light list's presampled pool (vulkan_light_list.h kLightPoolSize)
+inline constexpr uint16_t kCount = 19;
 } // namespace section
 
 struct Mark {

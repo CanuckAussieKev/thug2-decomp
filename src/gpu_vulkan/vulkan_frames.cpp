@@ -118,6 +118,7 @@ bool Frames::init(const Context& context, Memory* memory, const Rings& rings)
     memory_->set_submission(serial_);
     lost_ = Lost{};
     init_timing(context);
+    pass_profile_.init(context, kSlots);
     if (!markers_.init(context, memory)) {
         get_log("vulkan: the GPU crash markers' buffer could not be made - no markers");
     }
@@ -128,6 +129,9 @@ void Frames::mark(const gpu_markers::Mark& mark)
 {
     if (markers_.on() && !lost_.lost) {
         markers_.mark(stream(), mark, serial_);
+    }
+    if (pass_profile_.on() && !lost_.lost) {
+        pass_profile_.mark(stream(), current_, mark);
     }
 }
 
@@ -202,6 +206,7 @@ void Frames::shutdown()
     }
     vkDeviceWaitIdle(device_);
     markers_.shutdown();
+    pass_profile_.shutdown(device_);
     for (Slot& each : slots_) {
         destroy(each.retired);
         if (each.acquired != VK_NULL_HANDLE) {
@@ -267,6 +272,8 @@ VkCommandBuffer Frames::stream()
         if (now.stream_begun) {
             markers_.mark(now.stream, {.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kStream},
                           serial_);
+            pass_profile_.stream_begun(now.stream, current_); // (round PF)
+            pass_profile_.mark(now.stream, current_, {.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kStream});
         }
     }
     return now.stream;
@@ -359,6 +366,8 @@ bool Frames::submit(VkSemaphore acquired, VkSemaphore presented)
         }
         markers_.mark(now.stream,
                       {.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kStream, .end = true}, serial_);
+        pass_profile_.mark(now.stream, current_,
+                          {.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kStream, .end = true});
         if (vkEndCommandBuffer(now.stream) != VK_SUCCESS) {
             return false;
         }
@@ -412,6 +421,7 @@ bool Frames::submit(VkSemaphore acquired, VkSemaphore presented)
 void Frames::recycle(Slot& slot)
 {
     read_timing(slot);
+    pass_profile_.read({.slot = static_cast<uint32_t>(&slot - slots_.data()), .frame = slot.frame}); // (round PF)
     vkResetCommandPool(device_, slot.pool, 0);
     slot.pending = false;
 }

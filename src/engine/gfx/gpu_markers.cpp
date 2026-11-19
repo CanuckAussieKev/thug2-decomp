@@ -52,7 +52,25 @@ constexpr std::array kListeners{
 };
 
 constexpr std::array<const char*, section::kCount> kSections{
-    "", "stream", "uploads", "world surfaces", "ray tracing scene builds", "present", "UI",
+    "",
+    "stream",
+    "uploads",
+    "world surfaces",
+    "ray tracing scene builds",
+    "present",
+    "UI",
+    "ReSTIR DI's light grid",
+    "ReSTIR DI's candidates and temporal reuse",
+    "ReSTIR DI's spatial reuse",
+    "ReSTIR GI's radiance cache",
+    "ReSTIR GI's samples and temporal reuse",
+    "ReSTIR GI's spatial reuse",
+    "the fog's air sun map",
+    "the fog's march",
+    "the fog's history",
+    "the fog's god rays",
+    "the fog's composite",
+    "the light list's presampled pool",
 };
 
 constexpr std::array<const char*, kPhaseCount> kPhases{

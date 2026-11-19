@@ -2335,14 +2335,73 @@ std::string_view cutout_rays_glsl()
                            std::to_string(std::get<0>(rt::material_f0(rt::MaterialKind::kGlass))) +
                            ";\nconst float HIT_BLEND_GAMMA = " + std::to_string(rt::kDisplayGamma) + ";\n";
         text += R"(
-bool cutout_kept(uint instance, uint primitive, uint id, vec2 barycentrics)
+// (round PF - the path tracer's cost) What the tests of a candidate hit read, read once each: a ray's candidates on
+// cut-out and seen-through surfaces are most of the device's time in the light rays (every pass's ray_light), and each
+// read the triangle's record, all three corners (positions, UVs, colours), the material record and the texel twice
+// (hit_vertices, hit_uv_set, material_texel_lod, material_drawn_alpha). These give the same values from the corners'
+// UVs and alphas alone and one texel - the same arithmetic in the same order as hit_uv / hit_uv_set, hit_colour and
+// material_drawn_alpha / material_alpha_passes.
+vec2 corners_uv(GeometryRecord g, uvec3 corners, vec2 barycentrics, uint offset)
 {
-    HitVertices v;
-    if (!hit_vertices(instance, primitive, v)) {
+    if ((g.flags & GEOMETRY_UV) == 0u) {
+        return vec2(0.0);
+    }
+    float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
+    vec2 uv = vec2(0.0);
+    for (uint k = 0u; k < 3u; ++k) {
+        uv += vec2(geometry_float(g, corners[k], offset), geometry_float(g, corners[k], offset + 4u)) * weights[k];
+    }
+    return uv;
+}
+float corners_alpha(GeometryRecord g, uvec3 corners, vec2 barycentrics)
+{
+    vec3 a = vec3(1.0);
+    if ((g.flags & GEOMETRY_COLOUR) != 0u) {
+        uvec3 at = g.vertex_offset + corners * g.stride + g.colour_offset;
+        a = vec3(float(geometry_word(g.vertex_address, at.x) >> 24), float(geometry_word(g.vertex_address, at.y) >> 24),
+                 float(geometry_word(g.vertex_address, at.z) >> 24)) / 255.0;
+    }
+    return a.x * (1.0 - barycentrics.x - barycentrics.y) + a.y * barycentrics.x + a.z * barycentrics.y;
+}
+// The texel of a material's texture (material_texel_lod at level 0) and the alpha the game draws there with the vertex
+// alpha (material_drawn_alpha).
+float record_drawn_alpha(GeometryRecord g, uvec3 corners, Material m, vec2 uv, vec2 barycentrics, out vec4 texel)
+{
+    uint slot = m.texture_slot;
+    uint chosen = min(m.sampler_index, 31u);
+    texel = textureLod(sampler2D(material_textures[nonuniformEXT(slot)], material_samplers[nonuniformEXT(chosen)]), uv,
+                       0.0);
+    float a = texel.a;
+    if ((m.flags & MATERIAL_TEXTURE_ALPHA) == 0u) {
+        a = clamp(2.0 * corners_alpha(g, corners, barycentrics) * a, 0.0, 1.0);
+    }
+    return a;
+}
+// material_alpha_passes with the record in hand.
+bool record_alpha_passes(Material m, float alpha)
+{
+    if ((m.flags & MATERIAL_ALPHA_TESTED) == 0u) {
         return true;
     }
-    // (path tracing, stage 3: the alpha the game tests - the vertex alpha with the texel's, not the pass's fixed alpha)
-    return material_alpha_passes(id, material_drawn_alpha(id, hit_uv(v, barycentrics), hit_colour(v, barycentrics).a));
+    return uint(round(clamp(alpha, 0.0, 1.0) * 255.0)) >= uint(round(clamp(m.alpha_ref, 0.0, 1.0) * 255.0));
+}
+
+bool cutout_kept(uint instance, uint primitive, uint id, vec2 barycentrics)
+{
+    GeometryRecord g = geometry_record(instance);
+    uvec3 corners;
+    if (!geometry_triangle(g, primitive, corners)) {
+        return true;
+    }
+    // (path tracing, stage 3: the alpha the game tests - the vertex alpha with the texel's, not the pass's fixed alpha;
+    // the UVs of the first set, as hit_uv)
+    Material m = material(id);
+    if ((m.flags & MATERIAL_ALPHA_TESTED) == 0u) {
+        return true; // (no test: nothing to read)
+    }
+    vec4 texel;
+    return record_alpha_passes(m, record_drawn_alpha(g, corners, m, corners_uv(g, corners, barycentrics, g.uv_offset),
+                                                     barycentrics, texel));
 }
 
 bool ray_blocked(uint mask, vec3 origin, vec3 direction, float reach)
@@ -2387,31 +2446,39 @@ HitBlend hit_blend(uint instance, uint primitive, uint id, vec2 barycentrics)
     b.kind = HIT_SOLID;
     b.coverage = 1.0;
     b.tint = vec3(1.0);
-    if ((geometry_record(instance).instance_flags & HIT_INSTANCE_TRANSPARENT) == 0u) {
+    GeometryRecord g = geometry_record(instance);
+    if ((g.instance_flags & HIT_INSTANCE_TRANSPARENT) == 0u) {
         return b;
     }
-    HitVertices v;
-    if (!hit_vertices(instance, primitive, v)) {
+    uvec3 corners;
+    if (!geometry_triangle(g, primitive, corners)) {
         return b;
     }
     Material m = material(id);
-    vec2 uv = hit_uv_set(instance, primitive, barycentrics, m.uv_set);
-    vec4 texel = material_texel_lod(id, uv, 0.0);
-    float a = material_drawn_alpha(id, uv, hit_colour(v, barycentrics).a); // (the pass's alpha as the game draws it)
-    bool kept = material_alpha_passes(id, a);
     uint mode = m.blend & 0xFFFFFFu;
     if (mode == 1u || mode == 2u || mode == 3u || mode == 4u || mode == 9u || mode == 10u) {
         b.kind = HIT_ADDED;
         b.coverage = 0.0;
         return b;
     }
-    if (mode == 7u || mode == 8u || mode == 15u) {
+    if (mode == 8u) { // (round PF: the pass's fixed alpha alone - no texel read)
+        b.kind = HIT_FILTER;
+        b.coverage = 0.0;
+        b.tint = vec3(clamp(m.colour.a, 0.0, 1.0));
+        return b;
+    }
+    uint kind = m.reflection_class == HIT_CLASS_GLASS ? HIT_GLASS : HIT_COVERAGE;
+    // (round PF: one texel, the corners' UVs of the material's set and their alphas - corners_uv, record_drawn_alpha)
+    vec4 texel;
+    uint uv_offset = g.uv_offset + (m.uv_set < ((g.flags >> 8) & 15u) ? m.uv_set * 8u : 0u);
+    float a = record_drawn_alpha(g, corners, m, corners_uv(g, corners, barycentrics, uv_offset), barycentrics,
+                                 texel); // (the pass's alpha as the game draws it)
+    bool kept = record_alpha_passes(m, a);
+    if (mode == 7u || mode == 15u) {
         b.kind = HIT_FILTER;
         b.coverage = 0.0;
         if (mode == 7u) {
             b.tint = vec3(kept ? a : 1.0);
-        } else if (mode == 8u) {
-            b.tint = vec3(clamp(m.colour.a, 0.0, 1.0));
         } else {
             b.tint = kept ? clamp(pow(clamp(texel.rgb * m.colour.rgb, 0.0, 1.0), vec3(HIT_BLEND_GAMMA)), 0.0, 1.0) : vec3(1.0);
         }
@@ -2419,7 +2486,7 @@ HitBlend hit_blend(uint instance, uint primitive, uint id, vec2 barycentrics)
     }
     float covered = mode == 5u ? a : (mode == 6u ? clamp(m.colour.a, 0.0, 1.0) : 1.0);
     b.coverage = kept ? covered : 0.0;
-    b.kind = m.reflection_class == HIT_CLASS_GLASS ? HIT_GLASS : HIT_COVERAGE;
+    b.kind = kind;
     return b;
 }
 // The share of light a thin pane of glass reflects at `cos_theta` (Schlick, HIT_GLASS_F0).
@@ -2518,7 +2585,7 @@ vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach)
             continue;
         }
         uint i = rayQueryGetIntersectionInstanceIdEXT(query, false);
-        bool object = (geometry_record(i).instance_flags & RAY_INSTANCE_OBJECT) != 0u;
+        bool object =(geometry_record(i).instance_flags & RAY_INSTANCE_OBJECT) != 0u;
         if (object ? !objects : !world) {
             continue;
         }

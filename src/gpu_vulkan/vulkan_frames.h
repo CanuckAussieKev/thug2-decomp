@@ -10,6 +10,7 @@
 #include "gpu_vulkan/vulkan_context.h"
 #include "gpu_vulkan/vulkan_crash_markers.h"
 #include "gpu_vulkan/vulkan_memory.h"
+#include "gpu_vulkan/vulkan_pass_profile.h"
 #include "gpu_vulkan/vulkan_ring.h"
 
 // NOT ORIGINAL - the Vulkan Gpu's frames (vulkan_frames.cpp; docs/design/vulkan.md, V7): what the Gpu records, in two
@@ -106,6 +107,8 @@ public:
     // stream (begun for it), in the submission being recorded; the markers for a lost device's report.
     void mark(const gpu_markers::Mark& mark);
     [[nodiscard]] const CrashMarkers& markers() const { return markers_; }
+    // (round PF) every pass timed on the device by its marks, with frame_profile on (vulkan_pass_profile.h).
+    [[nodiscard]] bool passes_timed() const { return pass_profile_.on(); }
     // The device lost (VK_ERROR_DEVICE_LOST from a submission or a wait): nothing is submitted or waited for after it.
     // Where it was seen and the submission it was seen on (the one submitted, or waited for).
     struct Lost {
@@ -163,9 +166,39 @@ private:
     std::vector<VkPipelineStageFlags> wait_stages_;
     std::vector<VkSemaphore> signals_;
     CrashMarkers markers_; // (round GD)
+    PassProfile pass_profile_; // (round PF)
     Lost lost_;
     // A frame's fence waited for (wait_for_frame), a loss noted; true when it finished.
     bool wait(const Slot& slot);
+};
+
+// NOT ORIGINAL - (round PF) a step inside a pass marked from here to the end of the scope (gpu_markers.h section::kDiGrid
+// ...: the crash markers' finer places, the pass profile's rows) - only when `commands` is the stream being recorded (a
+// check program's own command buffers aren't marked).
+class FrameStep {
+public:
+    FrameStep(Frames& frames, VkCommandBuffer commands, uint16_t section)
+        : frames_(frames), section_(section), on_(frames.stream_begun() && commands == frames.stream())
+    {
+        if (on_) {
+            frames_.mark({.phase = gpu_markers::Phase::kGpu, .id = section_, .end = false});
+        }
+    }
+    ~FrameStep()
+    {
+        if (on_) {
+            frames_.mark({.phase = gpu_markers::Phase::kGpu, .id = section_, .end = true});
+        }
+    }
+    FrameStep(const FrameStep&) = delete;
+    FrameStep& operator=(const FrameStep&) = delete;
+    FrameStep(FrameStep&&) = delete;
+    FrameStep& operator=(FrameStep&&) = delete;
+
+private:
+    Frames& frames_;
+    uint16_t section_;
+    bool on_;
 };
 
 } // namespace render::vulkan
