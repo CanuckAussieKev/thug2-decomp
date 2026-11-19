@@ -670,6 +670,8 @@ struct RunPlan {
     bool cache = true; // (round MB) the radiance cache's further bounces
     uint32_t local_candidates = 0; // (round DD) the secondary vertices' local lights' RIS candidates (0: the game's)
     bool boiling_filter = true;    // (round DD) RTXDI's boiling filter (off: the estimate unbiased)
+    bool specular_reuse = true;    // (round WS) the specular reservoir's reuse (off: each frame's own GGX ray)
+    bool specular_only = false;    // (round WS) the sums the specular alone
     std::function<Vec3(int)> camera;
     std::function<bool(int)> counted;
     std::function<void(const vk::RestirGiAccumulation&)> each_frame; // (round BR: read back every counted frame when set)
@@ -698,6 +700,8 @@ Answer restir_gi(render::Gpu& gpu, const Targets& targets, std::span<const Scene
         overrides.cache = plan.cache;
         overrides.local_candidates = plan.local_candidates;
         overrides.boiling_filter = plan.boiling_filter;
+        overrides.specular_reuse = plan.specular_reuse;
+        overrides.specular_only = plan.specular_only;
         overrides.seed = 977U + (static_cast<uint32_t>(batch) * 104729U);
         vk::set_restir_gi_overrides(overrides);
         vk::forget_restir_gi_history();
@@ -1009,6 +1013,79 @@ void check_fog_emitters(render::Gpu& gpu, const Targets& targets, std::span<cons
                               lights.triangles, pooled, picked, picked > 0.0 ? 100.0 * (pooled / picked - 1.0) : 0.0));
 }
 
+// (round WS) The specular reservoir, measured on the specular alone (RestirGiOverrides::specular_only) of the scene's own
+// materials (F0 0.04): the floor frame by frame with the specular's reuse off (each frame's own GGX ray, as before) and
+// on, at a glossy lobe (0.35) and a less rough one (0.25) - the share of pixel-frames over 4 x their mean and each
+// pixel's variation (flicker_of); and the mean over many frames with the reuse that of the own rays (both unbiased).
+void check_specular_reuse(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, const Lighting& lit,
+                          Tally* tally, bool* read, uint32_t* not_finite)
+{
+    text::print("the specular reservoir (the specular alone):\n");
+    constexpr int kFrames = 64;
+    const Region region = region_of(kEyeA);
+    const Region floor = floor_region(kEyeA);
+    for (const float roughness : {0.35F, 0.25F}) {
+        Lighting spec = lit;
+        spec.roughness = roughness;
+        RunPlan plan;
+        plan.camera = [](int /*frame*/) { return kEyeA; };
+        plan.counted = [](int /*frame*/) { return true; };
+        plan.specular_only = true;
+        RunPlan own_rays = plan;
+        own_rays.specular_reuse = false;
+        const Answer before = restir_gi(gpu, targets, meshes, spec, own_rays, region, read);
+        const Answer got = restir_gi(gpu, targets, meshes, spec, plan, region, read);
+        *not_finite += before.not_finite + got.not_finite;
+        tally->check(*read && before.mean > 0.0 && agrees(got.mean, before.mean, kLooseAgreement),
+                     text::format("roughness %.2f, the specular reused %.6f +- %.6f, by its own rays %.6f +- %.6f (%+.2f %%; "
+                                  "within 3 %%)",
+                                  static_cast<double>(roughness), got.mean, got.sigma, before.mean, before.sigma,
+                                  percent(got.mean, before.mean)));
+        std::array<Flicker, 2> flicker{};
+        for (const bool reuse : {false, true}) {
+            std::vector<std::vector<float>> series(static_cast<std::size_t>(kWidth) * kHeight);
+            RunPlan one = plan;
+            one.batches = 1;
+            one.frames = kFrames;
+            one.specular_reuse = reuse;
+            one.each_frame = [&series](const vk::RestirGiAccumulation& frame) {
+                for (std::size_t i = 0; i < series.size() && i < frame.last.size(); ++i) {
+                    const std::array<float, 3>& c = core::at(frame.last, i);
+                    core::at(series, i).push_back(static_cast<float>(luma({core::at(c, 0), core::at(c, 1), core::at(c, 2)})));
+                }
+            };
+            const Answer a = restir_gi(gpu, targets, meshes, spec, one, floor, read);
+            *not_finite += a.not_finite;
+            core::at(flicker, reuse ? 1U : 0U) = flicker_of(series, floor);
+        }
+        // a moving camera (an orbit): the history's lobe another view's - the reuse's mean still the own rays'
+        RunPlan orbit = plan;
+        orbit.frames = 96;
+        orbit.camera = [](int frame) {
+            constexpr double kRadius = 40.0;
+            const double a = 2.0 * kPi * frame / 48.0;
+            return Vec3{x_of(kEyeA) + kRadius * std::cos(a), y_of(kEyeA), z_of(kEyeA) + kRadius * std::sin(a)};
+        };
+        RunPlan orbit_own = orbit;
+        orbit_own.specular_reuse = false;
+        const Answer moving_own = restir_gi(gpu, targets, meshes, spec, orbit_own, region, read);
+        const Answer moving = restir_gi(gpu, targets, meshes, spec, orbit, region, read);
+        *not_finite += moving_own.not_finite + moving.not_finite;
+        tally->check(*read && moving_own.mean > 0.0 && agrees(moving.mean, moving_own.mean, kLooseAgreement),
+                     text::format("roughness %.2f, the camera moving: the specular reused %.6f, by its own rays %.6f "
+                                  "(%+.2f %%; within 3 %%)",
+                                  static_cast<double>(roughness), moving.mean, moving_own.mean,
+                                  percent(moving.mean, moving_own.mean)));
+        const Flicker& off = core::at(flicker, 0);
+        const Flicker& on = core::at(flicker, 1);
+        tally->check(*read && on.pixels > 1000 && on.variation < off.variation && on.over_share <= off.over_share,
+                     text::format("roughness %.2f, %d frames: pixel-frames over 4 x their mean %.3f %% -> %.3f %%, each "
+                                  "pixel's variation %.3f -> %.3f (the specular's own ray -> reused) - %zu pixels",
+                                  static_cast<double>(roughness), kFrames, 100.0 * off.over_share, 100.0 * on.over_share,
+                                  off.variation, on.variation, on.pixels));
+    }
+}
+
 void check_device(render::Gpu& gpu, Tally* tally)
 {
     Targets targets;
@@ -1132,6 +1209,8 @@ void check_device(render::Gpu& gpu, Tally* tally)
 
     // (round DD) many lights of very different power: the secondary vertices' local lights by RIS over the pool's picks
     check_local_candidates(gpu, targets, meshes, tally, &read, &not_finite);
+    // (round WS) the specular reservoir's reuse
+    check_specular_reuse(gpu, targets, everything, lit, tally, &read, &not_finite);
 
     // 2. disocclusion: the camera between two views every frame
     text::print("disocclusion (the camera swapped between two views every frame):\n");

@@ -10,6 +10,22 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
 - `make_workspace.ps1 -Number <n>` - makes or refreshes C:\Games\THUG2-<n> as a mirror of the main install (1280x720
   window, allow_multiple_instances=1, debug_collision=0). Refuses while its lock is held or a game runs. Refresh a
   workspace before giving it to a new agent, so it starts from main.
+- `node tools/game/workspace_parity.ts check|sync --workspace C:\Games\THUG2-<n> [--owner <lock holder>]
+  [--settings main|<screenshot sidecar .txt>|none] [--dry-run]` - is a workspace the main install's game? `check`
+  compares, file by file (size and time), what a look depends on - the game's Data (its building relief and surface-map
+  files), the data overlays, the texture sets, the material library, the relit data (the folder's own files; its
+  archive and bake logs aside), the TypeScript scripts, the DLLs beside the exe - prints what the game's start-up line
+  "settings: capabilities" would find in each, the places that differ and the [Graphics] / [features] / [debug] keys
+  that differ (exit 1 when content does). `sync` copies what's missing or different from the main install (read only)
+  and removes what only the workspace has in those places, then writes the settings: `main` the main install's ini,
+  or the settings a user's screenshot was taken with (its sidecar's "Graphics / features / debug <key>: <value>"
+  lines; "(default)" ones taken out of the ini) - the workspace keeps its window (ResolutionX / ResolutionY /
+  Borderless / WindowDisplay) and test keys (automation, mute_audio, allow_multiple_instances, start_level / start_at /
+  edit_level). Without make_workspace's full mirror: the workspace's logs and other files stay, and it runs under the
+  lock (`--owner`: the release puts the ini back, the content stays) or with it free (the ini change stays). Refuses
+  while a game runs from the workspace or when the copy wouldn't leave 2 GB free. Before judging a look against a
+  user's screenshot: `sync --settings <its .txt>`, then the sidecar's spot (`teleport` and `camera`) - and compare the
+  meter's lines ("rt_hdr: histogram ... its mean") at the same camera, not another spot's.
 - `game_lock.ps1 -Action acquire|release|status -Owner <name> -Game <folder>` - one game per folder. Acquire waits
   (default 8 min; prints BUSY and exits 1 if still held), refuses while a game from that folder runs, and backs up
   the deployed thug2-decomp.exe (its PDB, d3dx9_43.dll, an earlier build's dinput8.dll - those that are there) and

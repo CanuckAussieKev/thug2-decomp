@@ -428,6 +428,24 @@ struct LightPoint {
     float reach;
     float pdf;
 };
+// (round WS) The target: the luminance of what the sample brings through the surface's whole BRDF - a white diffuser's
+// lobe (`light` itself) and the material's specular lobe toward the eye (RTXDI's target for a light sample: the
+// surface's BRDF x the light, unshadowed). Before, the diffuse lobe's alone: the lights' specular (the same sample
+// through the specular lobe - put_result) on a smooth surface came from samples drawn for the diffuse, a lamp landing in
+// the narrow lobe by chance then worth many times its share (round BR's finding for GI). Diffuse and specular stay
+// unbiased (any target that is > 0 wherever the light is); the specular lobe is now sampled where it is bright.
+float light_target(Surface s, vec3 dir, vec3 light)
+{
+    float diffuse = path_luma(light);
+    if (!(max(s.f0.r, max(s.f0.g, s.f0.b)) > 0.0)) {
+        return diffuse;
+    }
+    vec3 v = normalize(pass.eye.xyz - s.at);
+    float facing = max(dot(s.n, dir), 1.0e-4);
+    vec3 specular = brdf_direct(brdf_material(vec3(0.0), s.f0, s.rough), s.n, v, dir, light / facing);
+    float both = diffuse + path_luma(max(specular, vec3(0.0)));
+    return isnan(both) || isinf(both) ? diffuse : both;
+}
 bool light_point(uint e, vec2 uv, Surface s, out LightPoint lp)
 {
     lp = LightPoint(vec3(0.0), 0.0, vec3(0.0, 1.0, 0.0), 0.0, 0.0);
@@ -473,7 +491,7 @@ bool light_point(uint e, vec2 uv, Surface s, out LightPoint lp)
             return false;
         }
         lp.light = max(emitted, vec3(0.0)) * g;
-        lp.target = path_luma(lp.light);
+        lp.target = light_target(s, dir, lp.light);
         lp.dir = dir;
         lp.reach = max(d * 0.999 - ray_offset(y), 0.0);
         lp.pdf = entry.pdf / area;
@@ -493,7 +511,7 @@ bool light_point(uint e, vec2 uv, Surface s, out LightPoint lp)
             return false;
         }
         lp.light = max(light.colour.rgb, vec3(0.0)) * g;
-        lp.target = path_luma(lp.light);
+        lp.target = light_target(s, dir, lp.light);
         lp.dir = dir;
         lp.reach = max(d - light.at.w, 0.0);
         lp.pdf = entry.pdf;
