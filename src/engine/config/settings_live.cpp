@@ -150,8 +150,8 @@ bool write(const std::vector<Write>& writes)
     for (const Write& each : writes) {
         if (each.setting >= 0 && std::cmp_less(each.setting, settings().size())) {
             const Setting& setting = core::at(settings(), each.setting);
-            get_log("settings: [%s] %s%s%s written to %s", setting.section, setting.key, each.remove ? " removed" : "=",
-                    each.remove ? "" : each.value.c_str(), path.c_str());
+            get_log("settings: [%s] %s%s%s %s %s", setting.section, setting.key, each.remove ? "" : "=",
+                    each.remove ? "" : each.value.c_str(), each.remove ? "removed from" : "written to", path.c_str());
         }
     }
     return true;

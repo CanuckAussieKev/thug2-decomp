@@ -133,6 +133,8 @@ struct LevelHead {
 
 struct Clock {
     uint32_t level = 0;
+    uint64_t loads = 0; // (round CS: engine_scene_list.h world_scene_loads when the level was taken - the same level
+                        // loaded again is a new level: it sets its own time of day as it loads)
     LevelHead data;
     bool driving = false;
     bool native_known = false;
@@ -503,8 +505,9 @@ void give_back(Clock& own, gfx::CtodManager* manager)
     sun::set_sun(&settings, sun::kTheta | sun::kPhi | sun::kColor | sun::kShown);
     get_log("tod: off - the level's own time of day back");
     const uint32_t level = own.level;
+    const uint64_t loads = own.loads;
     const LevelHead data = own.data;
-    own = Clock{.level = level, .data = data};
+    own = Clock{.level = level, .loads = loads, .data = data};
 }
 
 } // namespace
@@ -518,9 +521,10 @@ void step()
     }
     gfx::CtodManager* manager = gfx::tod_manager();
     const uint32_t level = level_scene();
-    if (level != own.level) {
-        // (a new level sets its own time of day as it loads: nothing to give back)
-        own = Clock{.level = level};
+    const uint64_t loads = render::world_scene_loads();
+    if (level != own.level || loads != own.loads) {
+        // (a new level - or the same loaded again - sets its own time of day as it loads: nothing to give back)
+        own = Clock{.level = level, .loads = loads};
     }
     const GameHooks& hooks = game_hooks();
     // (the front end: the skate module's level is load_mainmenu - or there is none)
@@ -561,7 +565,7 @@ void step()
             return;
         }
         // (tod changed: the clock takes the level over again, from its state now)
-        own = Clock{.level = level, .data = own.data};
+        own = Clock{.level = level, .loads = own.loads, .data = own.data};
     }
     if (!own.driving) {
         own.own_state = manager->current_state();
