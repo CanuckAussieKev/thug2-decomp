@@ -5816,3 +5816,28 @@ One light list, one way to sample it:
   vertex's light) and the glitter's sunlit test.
 - Glass and water lit per pixel themselves (their diffuse / scattered light): round FL's front layer ("Round FL: the
   front layer" above).
+
+### The path tracer's cost (round PF)
+- **Every pass timed** (`[debug] frame_profile`, vulkan_pass_profile.h): the GPU crash markers' marks (gpu_markers.h -
+  each view listener's call at its ViewOrder, the world's surfaces, the scene's builds, the UI, the present, and since
+  this round the steps inside ReSTIR DI / GI and the fog, `FrameStep`) also write a timestamp; paired as a stack, each
+  pass's inclusive and own device time a frame goes to the log every 300 frames (`gpu pass:`). One profiler for every
+  pass - no pass times itself for it.
+- **The light rays' hit tests read lean** (vulkan_rt_scene.h `cutout_kept`, `hit_blend`): a cut-out's or a seen-through
+  surface's candidate hit on every light ray (ray_light) was the largest single cost of the path tracer (BO at night:
+  ~10 ms of 26 at 1280x720 across DI, GI and the fog). The same values from the triangle's record, its corners' UVs and
+  alphas and one texel (was: every corner's position / UV / colour, the material record and the texel twice).
+  Opacity micromaps (VK_EXT_opacity_micromap, offered by the RTX 5070 Ti's driver) are the next step: most of what
+  remains is the seen-through instances' candidates (BO: 714 instances, 42,500 triangles, all blend mode 5 - alpha).
+- **Presampled lights** (NVIDIA RTXDI's presampled light tiles - Wyman and Panteleev 2021): a pool of 128 x 1024 picks
+  of the local group (an entry by power, a uniform point on a triangle, its emission read once - vulkan_light_list.h
+  `kLightPoolSize`, `light_pick_at`, `light_pool_read`) made once a submission by restir_local_lights. The fog's RIS
+  takes its candidates from random slots: the same distribution as picking at the point, two words read instead of the
+  triangle's corners, instance and emission texel (the fog's march 10.3 -> 4.7 ms at BO night, 640x360). The normal is
+  kept 16-bit octahedral. ReSTIR DI (its own light_point, the grid's slots) and GI's next-event estimation (its
+  descriptor set is full - 32 pushed bindings) still pick at the point.
+- **ReSTIR GI's sky grid keyed on the sky's light** (SceneLighting::table_share): the key held the table's factor,
+  1 / the camera's exposure - at night the exposure moves every frame and the grid (its march on the device, its alias
+  tables on the main thread: 17 % of the main thread's samples) was made again every other frame for the same sky.
+- Shader execution reordering (VK_NV_ray_tracing_invocation_reorder) is for ray-tracing pipelines; every pass here uses
+  ray queries in compute - not available without moving a pass to a pipeline.

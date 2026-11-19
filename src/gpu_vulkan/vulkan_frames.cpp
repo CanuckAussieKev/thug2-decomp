@@ -421,7 +421,7 @@ bool Frames::submit(VkSemaphore acquired, VkSemaphore presented)
 void Frames::recycle(Slot& slot)
 {
     read_timing(slot);
-    pass_profile_.read(static_cast<uint32_t>(&slot - slots_.data()), slot.frame); // (round PF)
+    pass_profile_.read({.slot = static_cast<uint32_t>(&slot - slots_.data()), .frame = slot.frame}); // (round PF)
     vkResetCommandPool(device_, slot.pool, 0);
     slot.pending = false;
 }

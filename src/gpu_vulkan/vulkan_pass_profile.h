@@ -36,8 +36,12 @@ public:
     void stream_begun(VkCommandBuffer commands, uint32_t slot);
     // A pass's mark in the slot's stream.
     void mark(VkCommandBuffer commands, uint32_t slot, const gpu_markers::Mark& mark);
-    // The slot's submission finished (its fence waited for): its stamps read and added up; `frame` its frame's number.
-    void read(uint32_t slot, uint64_t frame);
+    // The slot's submission finished (its fence waited for): its stamps read and added up (the frame it held: its number).
+    struct Finished {
+        uint32_t slot = 0;
+        uint64_t frame = 0;
+    };
+    void read(const Finished& finished);
 
 private:
     struct Stamp {

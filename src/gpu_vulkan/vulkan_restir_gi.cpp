@@ -28,6 +28,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_ring.h"

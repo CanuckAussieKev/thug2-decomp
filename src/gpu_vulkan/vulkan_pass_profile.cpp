@@ -2,6 +2,7 @@
 #include "gpu_vulkan/vulkan_pass_profile.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -106,8 +107,10 @@ void PassProfile::mark(VkCommandBuffer commands, uint32_t slot, const gpu_marker
     own.stamps.push_back({.phase = mark.phase, .id = mark.id, .end = mark.end});
 }
 
-void PassProfile::read(uint32_t slot, uint64_t frame)
+void PassProfile::read(const Finished& finished)
 {
+    const uint32_t slot = finished.slot;
+    const uint64_t frame = finished.frame;
     if (pool_ == VK_NULL_HANDLE) {
         return;
     }
@@ -139,13 +142,15 @@ void PassProfile::read(uint32_t slot, uint64_t frame)
             open.push_back({.key = key, .start = tick, .inner_ms = 0.0});
             continue;
         }
-        const auto match = std::find_if(open.rbegin(), open.rend(), [key](const Open& each) { return each.key == key; });
-        if (match == open.rend()) {
+        std::size_t at = open.size();
+        while (at > 0 && core::at(open, at - 1).key != key) {
+            --at;
+        }
+        if (at == 0) {
             continue; // (its beginning in an earlier submission - a read-back finished the frame part-way)
         }
-        open.erase(match.base(), open.end()); // (inner passes never ended: dropped)
-        const Open begun = open.back();
-        open.pop_back();
+        const Open begun = core::at(open, at - 1);
+        open.resize(at - 1); // (inner passes never ended: dropped)
         const double inclusive = tick >= begun.start ? static_cast<double>(tick - begun.start) * tick_ms_ : 0.0;
         Sum& sum = sums_[key];
         sum.inclusive_ms += inclusive;

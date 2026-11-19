@@ -28,6 +28,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_ring.h"
@@ -1651,8 +1652,11 @@ bool keep_local_lights(Backend& state, RestirState& own, VkCommandBuffer command
 
 } // namespace
 
+namespace {
+
 // (round PF) The presampled pool made for this submission's passes (once a submission, again when the table changes):
 // the earlier readers waited for, the picks made, the readers after it wait for them. False: no buffer.
+constexpr uint32_t kPoolSeedStep = 0x9E3779B9U; // (each pool's own random sequence: the golden ratio's step)
 bool keep_light_pool(Backend& state, RestirState& own, VkCommandBuffer commands, const SceneView& scene,
                      const DeviceBuffer& list)
 {
@@ -1667,7 +1671,7 @@ bool keep_light_pool(Backend& state, RestirState& own, VkCommandBuffer commands,
     block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),
                        static_cast<uint32_t>(scene.instances_address >> 32U), 0U, 0U};
     block.counts = {own.entries, own.lamp_count, static_cast<uint32_t>(state.frames.serial()), 0U};
-    block.params = {0U, 0U, 0U, ++own.pool_seed * 0x9E3779B9U};
+    block.params = {0U, 0U, 0U, ++own.pool_seed * kPoolSeedStep};
     std::array<uint8_t, sizeof(RestirBlock)> bytes{};
     std::memcpy(bytes.data(), &block, sizeof(block));
     const std::optional<RingSpan> span = state.ring.copy(bytes, kUniformAlignment);
@@ -1723,6 +1727,8 @@ bool keep_light_pool(Backend& state, RestirState& own, VkCommandBuffer commands,
     own.pool_table = own.table_key;
     return true;
 }
+
+} // namespace
 
 bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLighting& lighting, RestirLocalLights* out)
 {
