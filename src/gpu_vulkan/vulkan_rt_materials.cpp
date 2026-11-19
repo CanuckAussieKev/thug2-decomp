@@ -737,12 +737,16 @@ bool MaterialTable::make_visible(Backend& state)
         }
         retired_generations_.push_back({.generation = current_, .serial = state.frames.serial()});
         current_ = grown;
+        ++changes_;
         slots_to_write_.clear();
         for (const uint32_t row : dirty_) {
             core::at(dirty_mark_, row) = 0;
         }
         dirty_.clear();
         return true;
+    }
+    if (!slots_to_write_.empty() || !dirty_.empty()) {
+        ++changes_;
     }
     std::ranges::sort(slots_to_write_);
     const auto repeated = std::ranges::unique(slots_to_write_);
@@ -776,6 +780,30 @@ MaterialRecord MaterialTable::record(rt::MaterialId id) const
 {
     const std::scoped_lock lock(mutex_);
     return id < records_.size() ? core::at(records_, id) : MaterialRecord{};
+}
+
+MaterialTable::TextureInfo MaterialTable::texture_info(rt::MaterialId id) const
+{
+    const std::scoped_lock lock(mutex_);
+    TextureInfo info;
+    if (id >= records_.size() || core::at(records_, id).texture == 0 || id >= record_textures_.size()) {
+        return info;
+    }
+    const Texture* const texture = core::at(record_textures_, id);
+    if (texture == nullptr) {
+        return info;
+    }
+    info.slot = core::at(records_, id).texture;
+    info.width = std::max(texture->desc.width, 1U);
+    info.height = std::max(texture->desc.height, 1U);
+    info.uploads = texture->level0_uploads;
+    return info;
+}
+
+uint64_t MaterialTable::changes() const
+{
+    const std::scoped_lock lock(mutex_);
+    return changes_;
 }
 
 } // namespace render::vulkan

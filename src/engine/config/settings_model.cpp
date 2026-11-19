@@ -1082,6 +1082,7 @@ std::vector<Decl> declarations()
         debug("latency_probe", K::kSwitch, "0"),
         debug("load_test", K::kNumber, "0"),
         debug("rt_contract_check", K::kSwitch, "0").need(ray_tracing()),
+        debug("rt_opacity_micromaps", K::kSwitch, "1").need(ray_tracing()),
         debug("rt_lights_log", K::kSwitch, "0").need(is_not("rt_lights", {"0"})),
         debug("rt_water_view", K::kSwitch, "0").need(on("rt_water")),
         debug("rt_water_materials", K::kSwitch, "0").need(on("rt_water")),

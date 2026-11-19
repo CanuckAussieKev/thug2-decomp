@@ -7,7 +7,9 @@
 // the processor in double precision: hit or miss, distance, instance, primitive, material and barycentrics. Rays the
 // reference finds too close to an edge or another surface to call are counted and left out. Also: the static meshes'
 // compaction, the dynamic mesh refitted after its vertices change (and rebuilt after many refits), a mesh removed and
-// added again, an empty scene, everything released, and the validation layer's messages (none allowed).
+// added again, an empty scene, everything released, and the validation layer's messages (none allowed). (Round OM)
+// Opacity micromaps where the device has them: their states against the shaders' own alpha test, the same rays with and
+// without them, and baked again when the material or its texture changes.
 //   thug2_vulkan_rt_check [--device N] [--display N] [--no-validation] [--rays N] [--seed N]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray tracing for it.
 #include <SDL3/SDL.h>
@@ -20,6 +22,7 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <functional>
 #include <optional>
 #include <random>
 #include <span>
@@ -43,6 +46,7 @@
 #include "gpu_vulkan/vulkan_context.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_loader.h"
+#include "gpu_vulkan/vulkan_rt_micromaps.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
 
 namespace {
@@ -1008,6 +1012,485 @@ void check_texel_alpha(Tally* tally)
                  "R5G6B5 opaque, A1R5G5B5 with its alpha bits clear not; a depth format or too few bytes: not known");
 }
 
+// --- (round OM) opacity micromaps ------------------------------------------------------------------------------------
+
+constexpr uint32_t kMicroTexture = 64;      // the cut-out's texture's side
+constexpr uint32_t kMicroGrid = 4;          // the mesh's quads a side
+constexpr float kMicroSize = 16.0F;         // its side in units
+constexpr float kMicroUvSpan = 2.0F;        // its UVs over the side (the texture wraps twice)
+constexpr uint32_t kMicroStride = 24;       // position, colour, UV
+constexpr uint32_t kMicroColourOffset = 12;
+constexpr uint32_t kMicroUvOffset = 16;
+constexpr int kMicroRays = 8192;
+constexpr float kMicroAbove = 10.0F;        // the rays start this far above the mesh, straight down
+constexpr float kMicroApart = 100.0F;       // the instances' spacing
+constexpr std::array<uint32_t, 3> kMicroVertexAlphas{0x80, 0xFF, 0x40}; // (the game's usual 128, and others)
+
+// The texture's alpha: a hard-edged disc with a soft ring round it, and a hard checker in one corner - parts wholly
+// drawn, wholly empty and partly drawn, with edges at every angle.
+uint8_t micro_alpha(uint32_t x, uint32_t y, bool inverted)
+{
+    constexpr uint32_t kChecker = 16;
+    constexpr uint32_t kCell = 4;
+    constexpr double kInner = 0.2;
+    constexpr double kOuter = 0.35;
+    uint8_t alpha = 0;
+    if (x < kChecker && y < kChecker) {
+        alpha = (((x / kCell) + (y / kCell)) & 1U) != 0 ? 255 : 0;
+    } else {
+        const double u = (x + 0.5) / kMicroTexture - 0.5;
+        const double v = (y + 0.5) / kMicroTexture - 0.5;
+        const double d = std::sqrt((u * u) + (v * v));
+        const double ramp = std::clamp((kOuter - d) / (kOuter - kInner), 0.0, 1.0);
+        alpha = static_cast<uint8_t>(std::lround(ramp * 255.0));
+    }
+    return inverted ? static_cast<uint8_t>(255 - alpha) : alpha;
+}
+
+bool fill_micro_texture(render::Gpu& gpu, render::GpuTexture* texture, bool inverted)
+{
+    render::GpuLockedRect locked;
+    if (gpu.lock_texture(texture, 0, &locked, nullptr, 0) != value::kResultOk) {
+        return false;
+    }
+    const auto pitch = static_cast<std::size_t>(locked.pitch);
+    const std::span<uint8_t> into(static_cast<uint8_t*>(locked.bits), pitch * kMicroTexture);
+    for (uint32_t y = 0; y < kMicroTexture; ++y) {
+        for (uint32_t x = 0; x < kMicroTexture; ++x) {
+            const uint32_t texel = (uint32_t{micro_alpha(x, y, inverted)} << 24U) | 0x00FFFFFFU;
+            std::memcpy(into.subspan((y * pitch) + (x * sizeof(uint32_t)), sizeof(uint32_t)).data(), &texel,
+                        sizeof(texel));
+        }
+    }
+    return gpu.unlock_texture(texture, 0) == value::kResultOk;
+}
+
+// A flat grid in y = 0 with UVs and vertex colours (the game's FVF 0x142), an indexed list.
+struct MicroMesh {
+    rt::MeshId id = 0;
+    render::GpuVertexBuffer* vertices = nullptr;
+    render::GpuIndexBuffer* indices = nullptr;
+    std::vector<Position> positions;
+    std::vector<std::array<uint32_t, 3>> triangles;
+};
+
+bool make_micro_mesh(render::Gpu& gpu, MicroMesh* mesh)
+{
+    const uint32_t side = kMicroGrid + 1;
+    std::vector<uint8_t> bytes(std::size_t{side} * side * kMicroStride);
+    for (uint32_t z = 0; z < side; ++z) {
+        for (uint32_t x = 0; x < side; ++x) {
+            const uint32_t i = (z * side) + x;
+            const float fx = static_cast<float>(x) / static_cast<float>(kMicroGrid);
+            const float fz = static_cast<float>(z) / static_cast<float>(kMicroGrid);
+            const Position at{fx * kMicroSize, 0.0F, fz * kMicroSize};
+            mesh->positions.push_back(at);
+            const std::size_t base = std::size_t{i} * kMicroStride;
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                put_float(bytes, base + (axis * sizeof(float)), core::at(at, axis));
+            }
+            const uint32_t colour = (core::at(kMicroVertexAlphas, i % kMicroVertexAlphas.size()) << 24U) | 0x808080U;
+            std::memcpy(std::span(bytes).subspan(base + kMicroColourOffset, sizeof(colour)).data(), &colour,
+                        sizeof(colour));
+            put_float(bytes, base + kMicroUvOffset, fx * kMicroUvSpan);
+            put_float(bytes, base + kMicroUvOffset + sizeof(float), fz * kMicroUvSpan);
+        }
+    }
+    std::vector<uint16_t> corners;
+    for (uint32_t z = 0; z < kMicroGrid; ++z) {
+        for (uint32_t x = 0; x < kMicroGrid; ++x) {
+            const auto a = static_cast<uint16_t>((z * side) + x);
+            const auto b = static_cast<uint16_t>(a + 1);
+            const auto c = static_cast<uint16_t>(a + side);
+            const auto d = static_cast<uint16_t>(c + 1);
+            for (const std::array<uint16_t, 3>& t : {std::array<uint16_t, 3>{a, c, b}, std::array<uint16_t, 3>{b, c, d}}) {
+                corners.insert(corners.end(), t.begin(), t.end());
+                mesh->triangles.push_back({t[0], t[1], t[2]});
+            }
+        }
+    }
+    if (gpu.create_vertex_buffer(static_cast<uint32_t>(bytes.size()), 0, kFvf, value::kPoolDefault, &mesh->vertices) !=
+            value::kResultOk ||
+        !fill_vertices(gpu, mesh->vertices, bytes, false)) {
+        return false;
+    }
+    void* data = nullptr;
+    const auto index_bytes = static_cast<uint32_t>(corners.size() * sizeof(uint16_t));
+    if (gpu.create_index_buffer(index_bytes, 0, value::kFormatIndex16, value::kPoolDefault, &mesh->indices) !=
+            value::kResultOk ||
+        gpu.lock_index_buffer(mesh->indices, 0, 0, &data, 0) != value::kResultOk) {
+        return false;
+    }
+    std::memcpy(data, corners.data(), index_bytes);
+    if (gpu.unlock_index_buffer(mesh->indices) != value::kResultOk) {
+        return false;
+    }
+    mesh->id = rt::next_mesh_id();
+    rt::ray_tracing()->add_mesh(mesh->id, {.vertices = mesh->vertices,
+                                           .vertex_offset = 0,
+                                           .vertex_stride = kMicroStride,
+                                           .vertex_count = side * side,
+                                           .position_offset = 0,
+                                           .indices = mesh->indices,
+                                           .index_offset = 0,
+                                           .index_count = static_cast<uint32_t>(corners.size()),
+                                           .indices_32bit = false,
+                                           .strip = false,
+                                           .dynamic = false,
+                                           .uv_offset = kMicroUvOffset,
+                                           .uv_format = rt::kUvFloat2,
+                                           .colour_offset = kMicroColourOffset,
+                                           .colour_format = rt::kColourA8R8G8B8,
+                                           .uv_sets = 1});
+    return true;
+}
+
+// A point of a triangle of the mesh (barycentrics u - corner 1's weight -, v - corner 2's) at an instance `apart` units
+// along x and `row` along z.
+std::array<float, 3> micro_point(const MicroMesh& mesh, std::size_t triangle, double u, double v, float apart, float row)
+{
+    const std::array<uint32_t, 3>& t = core::at(mesh.triangles, triangle);
+    std::array<float, 3> at{};
+    for (std::size_t axis = 0; axis < 3; ++axis) {
+        const double value = ((1.0 - u - v) * core::at(core::at(mesh.positions, t[0]), axis)) +
+                             (u * core::at(core::at(mesh.positions, t[1]), axis)) +
+                             (v * core::at(core::at(mesh.positions, t[2]), axis));
+        core::at(at, axis) = static_cast<float>(value);
+    }
+    at[0] += apart;
+    at[1] += kMicroAbove;
+    at[2] += row;
+    return at;
+}
+
+TracedRay micro_ray(const std::array<float, 3>& from, uint32_t mask, bool cutouts)
+{
+    return {.origin = from,
+            .direction = {0.0F, -1.0F, 0.0F},
+            .t_min = 0.0F,
+            .t_max = 2.0F * kMicroAbove,
+            .cull_mask = mask,
+            .cutouts = cutouts};
+}
+
+// The micro-triangle `index`'s corners at `level` (the bake's grid: barycentrics u, v) - found by the specification's
+// curve at each grid cell's centre.
+std::vector<std::array<std::array<double, 2>, 3>> micro_cells(uint32_t level)
+{
+    const uint32_t side = 1U << level;
+    std::vector<std::array<std::array<double, 2>, 3>> cells(std::size_t{side} * side);
+    const double step = 1.0 / side;
+    for (uint32_t a = 0; a < side; ++a) {
+        for (uint32_t b = 0; b < side; ++b) {
+            std::array<std::array<double, 2>, 3> c{};
+            if (a + b <= side - 1) {
+                c = {{{a * step, b * step}, {(a + 1) * step, b * step}, {a * step, (b + 1) * step}}};
+            } else {
+                const uint32_t i = side - 1 - a;
+                const uint32_t j = side - 1 - b;
+                c = {{{(i + 1) * step, j * step}, {i * step, (j + 1) * step}, {(i + 1) * step, (j + 1) * step}}};
+            }
+            const double cu = (c[0][0] + c[1][0] + c[2][0]) / 3.0;
+            const double cv = (c[0][1] + c[1][1] + c[2][1]) / 3.0;
+            const uint32_t index =
+                render::vulkan::micromap_index(static_cast<float>(cu), static_cast<float>(cv), level);
+            if (index < cells.size()) {
+                core::at(cells, index) = c;
+            }
+        }
+    }
+    return cells;
+}
+
+struct MicroStates {
+    std::array<uint64_t, 4> counts{}; // transparent, opaque, unknown x 2
+    int wrong = 0;
+    std::string first_wrong;
+};
+
+// Each micro-triangle the micromap of `mesh` (baked for the instance at `owner`) calls transparent or opaque, tried at
+// the other instance (`other`: the same mesh and an equal material - traced without the micromap, by the shader's test)
+// at three points inside it: an opaque one must be kept there, a transparent one must not. `seen`: the seen-through
+// instances' kind - kept is no light through (share 0), not kept all of it (share 1); else a cut-out's hit.
+MicroStates check_micro_states(const MicroMesh& mesh, const render::vulkan::MicromapView& view, float other, float row,
+                               bool seen)
+{
+    MicroStates found;
+    const std::vector<std::array<std::array<double, 2>, 3>> cells = micro_cells(view.level);
+    const std::size_t per = cells.size();
+    std::vector<TracedRay> rays;
+    std::vector<uint32_t> expected; // (the state each ray's micro-triangle has)
+    for (std::size_t triangle = 0; triangle < view.triangles && triangle < mesh.triangles.size(); ++triangle) {
+        for (std::size_t index = 0; index < per; ++index) {
+            const std::size_t bit = ((triangle * per) + index) * 2;
+            const uint32_t state = (core::at(view.words, bit / 32) >> (bit % 32)) & 3U;
+            ++core::at(found.counts, state);
+            if (state >= 2) {
+                continue;
+            }
+            const std::array<std::array<double, 2>, 3>& c = core::at(cells, index);
+            const double cu = (c[0][0] + c[1][0] + c[2][0]) / 3.0;
+            const double cv = (c[0][1] + c[1][1] + c[2][1]) / 3.0;
+            for (std::size_t k = 0; k < 3; ++k) {
+                // (the centre, and two thirds of the way to each corner but the last)
+                const double u = k == 0 ? cu : (cu * 0.4) + (c[k][0] * 0.6);
+                const double v = k == 0 ? cv : (cv * 0.4) + (c[k][1] * 0.6);
+                rays.push_back(micro_ray(micro_point(mesh, triangle, u, v, other, row),
+                                         seen ? kMaskWorld : kMaskTested, true));
+                expected.push_back(state);
+            }
+        }
+    }
+    std::vector<TracedHit> hits;
+    if (render::vulkan::trace_rays_now(rays, &hits) != render::vulkan::TraceResult::kTraced || hits.size() != rays.size()) {
+        found.wrong = -1;
+        return found;
+    }
+    for (std::size_t i = 0; i < rays.size(); ++i) {
+        const TracedHit& hit = core::at(hits, i);
+        const bool kept = seen ? hit.seen_through <= 0.0F : hit.hit;
+        const bool cleared = seen ? hit.seen_through >= 1.0F : !hit.hit;
+        const bool ok = core::at(expected, i) == 1 ? kept : cleared;
+        if (!ok) {
+            ++found.wrong;
+            if (found.first_wrong.empty()) {
+                const TracedRay& ray = core::at(rays, i);
+                found.first_wrong = text::format("%s micro-triangle at (%.3f %.3f): %s, share %.3f",
+                                                 core::at(expected, i) == 1 ? "an opaque" : "a transparent",
+                                                 std::get<0>(ray.origin), std::get<2>(ray.origin),
+                                                 hit.hit ? "hit" : "no hit", static_cast<double>(hit.seen_through));
+            }
+        }
+    }
+    return found;
+}
+
+// The same random rays at the instance with the micromap, then at the same instance drawn with the equal material of
+// another id (traced without it - DISABLE_OPACITY_MICROMAPS): the same answers, exactly - the same rays, the same
+// transform.
+struct MicroPairs {
+    int differ = 0;
+    int hits = 0;
+    int misses = 0;
+    int covered = 0; // (seen through: share 0)
+    int clear = 0;   // (share 1)
+    std::string first;
+};
+
+MicroPairs compare_micro_pairs(const MicroMesh& mesh, float owner, float row, bool seen, std::mt19937& random,
+                               const std::function<void(bool)>& with_micromap)
+{
+    MicroPairs found;
+    std::uniform_int_distribution<std::size_t> pick(0, mesh.triangles.size() - 1);
+    std::uniform_real_distribution<double> unit(0.0, 1.0);
+    std::vector<TracedRay> once;
+    for (int i = 0; i < kMicroRays; ++i) {
+        const std::size_t triangle = pick(random);
+        double u = unit(random);
+        double v = unit(random);
+        if (u + v > 1.0) {
+            u = 1.0 - u;
+            v = 1.0 - v;
+        }
+        once.push_back(micro_ray(micro_point(mesh, triangle, u, v, owner, row), seen ? kMaskWorld : kMaskTested, true));
+    }
+    std::vector<TracedHit> with_hits;
+    std::vector<TracedHit> without_hits;
+    const bool traced = render::vulkan::trace_rays_now(once, &with_hits) == render::vulkan::TraceResult::kTraced;
+    with_micromap(false);
+    const bool traced_without = render::vulkan::trace_rays_now(once, &without_hits) == render::vulkan::TraceResult::kTraced;
+    with_micromap(true);
+    if (!traced || !traced_without || with_hits.size() != once.size() || without_hits.size() != once.size()) {
+        found.differ = -1;
+        return found;
+    }
+    std::vector<TracedRay> rays;
+    std::vector<TracedHit> hits;
+    for (std::size_t i = 0; i < once.size(); ++i) {
+        rays.push_back(core::at(once, i));
+        rays.push_back(core::at(once, i));
+        hits.push_back(core::at(with_hits, i));
+        hits.push_back(core::at(without_hits, i));
+    }
+    for (std::size_t i = 0; i + 1 < rays.size(); i += 2) {
+        const TracedHit& with = core::at(hits, i);
+        const TracedHit& without = core::at(hits, i + 1);
+        bool same = with.hit == without.hit && with.seen_through == without.seen_through;
+        if (same && with.hit) {
+            same = with.t == without.t && with.primitive == without.primitive;
+        }
+        found.hits += with.hit ? 1 : 0;
+        found.misses += with.hit ? 0 : 1;
+        found.covered += with.seen_through <= 0.0F ? 1 : 0;
+        found.clear += with.seen_through >= 1.0F ? 1 : 0;
+        if (!same) {
+            ++found.differ;
+            if (found.first.empty()) {
+                found.first = text::format("at (%.3f %.3f): with the micromap %s t %.4f share %.4f, without %s t %.4f "
+                                           "share %.4f",
+                                           std::get<0>(core::at(rays, i).origin), std::get<2>(core::at(rays, i).origin),
+                                           with.hit ? "hit" : "miss", with.t, static_cast<double>(with.seen_through),
+                                           without.hit ? "hit" : "miss", without.t,
+                                           static_cast<double>(without.seen_through));
+            }
+        }
+    }
+    return found;
+}
+
+void micro_frame(render::Gpu& gpu, const std::vector<rt::Instance>& instances, uint64_t* frame)
+{
+    rt::FrameRecord record;
+    record.frame = (*frame)++;
+    record.instances = instances;
+    rt::ray_tracing()->begin_frame(record);
+    gpu.begin_scene();
+    gpu.end_scene();
+    gpu.present();
+}
+
+rt::Instance micro_instance(rt::MeshId mesh, rt::MaterialId material, uint32_t flags, float x, float z)
+{
+    rt::Instance made;
+    made.mesh = mesh;
+    made.material = material;
+    made.flags = flags;
+    made.object_to_world = {{{1.0F, 0.0F, 0.0F, x}, {0.0F, 1.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F, z}}};
+    return made;
+}
+
+// (round OM - gpu_vulkan/vulkan_rt_micromaps.h) Opacity micromaps: a cut-out (alpha tested at 0.5) and a seen-through
+// overlay (blend 5, tested at 1/255) on a grid with a disc / ring / checker alpha and three vertex alphas, each mesh drawn
+// twice - with the material that owns its micromap, and with an equal material of another id (traced without it, the
+// shader's test as before). The micromaps' states against the shader's own test at the other instance (an opaque
+// micro-triangle kept at three points of it, a transparent one rejected), the same random rays at both instances (the
+// same hits, distances and shares), and both again after the material's alpha reference and then its texture changed
+// (baked again).
+void check_micromaps(render::Gpu& gpu, Tally* tally, std::mt19937& random, uint64_t* frame)
+{
+    if (!render::vulkan::scene_micromaps_on()) {
+        tally->check(true, "opacity micromaps: not on this device (VK_EXT_opacity_micromap) - skipped");
+        return;
+    }
+    rt::RayTracing* const backend = rt::ray_tracing();
+    render::GpuTexture* texture = nullptr;
+    if (gpu.create_texture({.width = kMicroTexture,
+                            .height = kMicroTexture,
+                            .levels = 1,
+                            .usage = 0,
+                            .format = value::kFormatA8R8G8B8,
+                            .pool = value::kPoolManaged},
+                           &texture) != value::kResultOk ||
+        !fill_micro_texture(gpu, texture, false)) {
+        tally->check(false, "opacity micromaps: the texture made");
+        return;
+    }
+    MicroMesh cut;
+    MicroMesh seen;
+    if (!make_micro_mesh(gpu, &cut) || !make_micro_mesh(gpu, &seen)) {
+        tally->check(false, "opacity micromaps: the meshes made");
+        return;
+    }
+    constexpr float kHalfRef = 0.5F;
+    constexpr uint32_t kBlendAlpha = 5;
+    rt::Material cutout;
+    cutout.texture = texture;
+    cutout.flags = rt::kAlphaTested;
+    cutout.alpha_ref = kHalfRef;
+    rt::Material overlay;
+    overlay.texture = texture;
+    overlay.blend = kBlendAlpha;
+    overlay.flags = rt::kTransparent | rt::kAlphaTested;
+    overlay.alpha_ref = kNoRejectAlphaRef;
+    const std::array<rt::MaterialId, 4> ids{rt::next_material_id(), rt::next_material_id(), rt::next_material_id(),
+                                            rt::next_material_id()};
+    const auto set_materials = [&] {
+        backend->set_material(ids[0], cutout);
+        backend->set_material(ids[1], cutout);
+        backend->set_material(ids[2], overlay);
+        backend->set_material(ids[3], overlay);
+    };
+    set_materials();
+    constexpr float kSeenRow = 50.0F;
+    const uint32_t cut_flags = rt::kWorld | rt::kAlphaTested | rt::kCastsShadow;
+    const uint32_t seen_flags = rt::kWorld | rt::kTransparent | rt::kAlphaTested | rt::kCastsShadow;
+    const std::vector<rt::Instance> instances{
+        micro_instance(cut.id, ids[0], cut_flags, 0.0F, 0.0F),            // (first: its micromap's)
+        micro_instance(cut.id, ids[1], cut_flags, kMicroApart, 0.0F),     // (traced without it)
+        micro_instance(seen.id, ids[2], seen_flags, 0.0F, kSeenRow),
+        micro_instance(seen.id, ids[3], seen_flags, kMicroApart, kSeenRow),
+    };
+    const auto round = [&](const char* when) {
+        for (int i = 0; i < 3; ++i) {
+            micro_frame(gpu, instances, frame);
+        }
+        for (const bool is_seen : {false, true}) {
+            const MicroMesh& mesh = is_seen ? seen : cut;
+            const float row = is_seen ? kSeenRow : 0.0F;
+            render::vulkan::MicromapView view;
+            const bool has = render::vulkan::scene_micromap(mesh.id, &view);
+            const auto mode = static_cast<uint32_t>(is_seen ? render::vulkan::MicromapMode::kSeenBlended
+                                                            : render::vulkan::MicromapMode::kCutout);
+            tally->check(has && view.material == (is_seen ? ids[2] : ids[0]) && view.mode == mode,
+                         text::format("%s, %s: a micromap baked for the first instance's material (%u, mode %u), level "
+                                      "%u, %u triangles",
+                                      when, is_seen ? "the seen-through overlay" : "the cut-out", view.material,
+                                      view.mode, view.level, view.triangles));
+            if (!has) {
+                continue;
+            }
+            const MicroStates states = check_micro_states(mesh, view, kMicroApart, row, is_seen);
+            const bool spread = states.counts[0] > 0 && states.counts[2] + states.counts[3] > 0 &&
+                                (is_seen || states.counts[1] > 0);
+            tally->check(states.wrong == 0 && spread,
+                         text::format("%s: its states as the shader's test answers - transparent %llu, opaque %llu, "
+                                      "unknown %llu micro-triangles; %d points of the decided ones wrong%s%s",
+                                      when, static_cast<unsigned long long>(states.counts[0]),
+                                      static_cast<unsigned long long>(states.counts[1]),
+                                      static_cast<unsigned long long>(states.counts[2] + states.counts[3]),
+                                      states.wrong, states.first_wrong.empty() ? "" : "; first: ",
+                                      states.first_wrong.c_str()));
+            const MicroPairs pairs = compare_micro_pairs(mesh, 0.0F, row, is_seen, random, [&](bool with) {
+                std::vector<rt::Instance> drawn = instances;
+                if (!with) { // (the owners drawn with the equal materials: their meshes' micromaps not taken)
+                    core::at(drawn, 0).material = ids[1];
+                    core::at(drawn, 2).material = ids[3];
+                }
+                micro_frame(gpu, drawn, frame);
+            });
+            tally->check(pairs.differ == 0 && (is_seen ? (pairs.covered > 0 && pairs.clear > 0)
+                                                       : (pairs.hits > 0 && pairs.misses > 0)),
+                         text::format("%s: %d ray pairs, with and without the micromap: %d differ (%s%d / %d)%s%s",
+                                      when, kMicroRays, pairs.differ, is_seen ? "shares 0 / 1: " : "hits / misses: ",
+                                      is_seen ? pairs.covered : pairs.hits, is_seen ? pairs.clear : pairs.misses,
+                                      pairs.first.empty() ? "" : "; first: ", pairs.first.c_str()));
+        }
+    };
+    const uint64_t bakes_before = render::vulkan::micromap_stats().bakes;
+    round("baked");
+    // the material changed (its alpha reference): baked again
+    constexpr float kQuarterRef = 0.25F;
+    cutout.alpha_ref = kQuarterRef;
+    set_materials();
+    round("the alpha reference changed");
+    // the texture's level 0 written again (inverted): baked again
+    fill_micro_texture(gpu, texture, true);
+    round("the texture written again");
+    const uint64_t bakes = render::vulkan::micromap_stats().bakes - bakes_before;
+    tally->check(bakes >= 5, text::format("opacity micromaps baked again when their inputs changed: %llu bakes",
+                                          static_cast<unsigned long long>(bakes)));
+    for (const MicroMesh* mesh : {&cut, &seen}) {
+        backend->remove_mesh(mesh->id);
+        gpu.release_vertex_buffer(mesh->vertices);
+        gpu.release_index_buffer(mesh->indices);
+    }
+    for (const rt::MaterialId id : ids) {
+        backend->remove_material(id);
+    }
+    micro_frame(gpu, {}, frame);
+    gpu.release_texture(texture);
+}
+
 void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
     check_texel_alpha(tally); // (round PT-B)
@@ -1324,6 +1807,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
     }
 
     check_poses(gpu, tally, random, &frame);
+    check_micromaps(gpu, tally, random, &frame); // (round OM)
     check_frame_lifetime(gpu, tally, random, &frame); // (round GF)
 
     // everything removed and released: the meshes' structures destroyed once their frames have run

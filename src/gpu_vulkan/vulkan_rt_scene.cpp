@@ -33,6 +33,7 @@
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_materials.h"
+#include "gpu_vulkan/vulkan_rt_micromaps.h"
 #include "gpu_vulkan/vulkan_rt_effects.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
@@ -372,6 +373,14 @@ struct Mesh {
     bool compacted = false;
     bool compaction_wanted = false; // built to be compacted, its size not asked for yet (every query was in use)
     VkDeviceSize built_bytes = 0; // the BLAS's size as built (before compaction)
+    // (round OM - vulkan_rt_micromaps.h) its opacity micromap, the one its next build bakes (mode kNone: none asked),
+    // the key that couldn't be made (not asked again), the vertex buffer's writes its alphas were hashed at and the
+    // frame's round that last looked at it
+    MeshMicromap micromap;
+    MicromapKey wanted;
+    MicromapKey micromap_refused;
+    uint64_t wanted_writes = 0;
+    uint64_t micromap_round = 0;
 };
 
 // A frame in flight's TLAS and the instances it is built from.
@@ -543,6 +552,12 @@ struct Scene {
     uint32_t compactions_wanted = 0; // meshes with compaction_wanted
     std::vector<LaterProbe> later; // (probe_later's, not answered yet - one at a time: the probe's descriptor set)
     uint64_t next_ticket = 1;
+    // (round OM) the micromaps' inputs as last looked at (vulkan_backend.h baked_input_writes, MaterialTable::changes)
+    // and each frame's round
+    uint64_t micromap_writes = ~0ULL;
+    uint64_t micromap_changes = ~0ULL;
+    uint64_t micromap_round = 0;
+    std::vector<rt::MeshId> micromap_verdicts; // (meshes whose micromap's verdict isn't in yet)
     VulkanRayTracing backend;
 };
 
@@ -721,7 +736,7 @@ uint32_t index_at(const rt::Geometry& geometry, uint32_t at)
 
 // Why a mesh can't be built ("" when it can), its triangles counted and its largest vertex index found, a strip's
 // triangles listed (32-bit, into `list`: strip triangle i is list triangle i, its odd ones turned back round).
-std::string plan_mesh(Backend& state, Mesh* mesh, std::vector<uint32_t>* list)
+std::string plan_mesh(Backend& state, Mesh* mesh, std::vector<uint32_t>* list, std::vector<uint32_t>* all_corners)
 {
     const rt::Geometry& geometry = mesh->geometry;
     const Buffer* const vertices = live_buffer(state, object(geometry.vertices));
@@ -771,6 +786,16 @@ std::string plan_mesh(Backend& state, Mesh* mesh, std::vector<uint32_t>* list)
         return "vertices past the buffer's end";
     }
     list->clear();
+    if (all_corners != nullptr && !geometry.strip) { // (round OM: a list's corners as they are - its micromap's level)
+        if (indexed) {
+            *all_corners = std::move(source);
+        } else {
+            all_corners->resize(std::size_t{mesh->triangles} * kListCorners);
+            for (std::size_t i = 0; i < all_corners->size(); ++i) {
+                core::at(*all_corners, i) = static_cast<uint32_t>(i);
+            }
+        }
+    }
     if (geometry.strip) {
         list->reserve(static_cast<std::size_t>(mesh->triangles) * kListCorners);
         const auto corner = [&](uint32_t at) { return indexed ? core::at(source, at) : at; };
@@ -779,6 +804,9 @@ std::string plan_mesh(Backend& state, Mesh* mesh, std::vector<uint32_t>* list)
             list->push_back(corner(odd ? i + 1 : i));
             list->push_back(corner(odd ? i : i + 1));
             list->push_back(corner(i + 2));
+        }
+        if (all_corners != nullptr) {
+            *all_corners = *list;
         }
     }
     return {};
@@ -852,12 +880,17 @@ void forget_mesh(Backend& state, Scene& made, Mesh* mesh)
     release_query(made, mesh);
     retire_structure(state, &mesh->blas);
     retire(state, VK_NULL_HANDLE, &mesh->list_indices);
+    micromap_retire(state, &mesh->micromap); // (round OM)
+    mesh->wanted = MicromapKey{};
 }
 
 // One build or update recorded in a batch.
 struct BuildJob {
     Mesh* mesh = nullptr;
+    rt::MeshId id = 0; // (round OM)
     VkAccelerationStructureGeometryKHR geometry{};
+    MicromapAttach attach; // (round OM) the mesh's micromap, when `attached`
+    bool attached = false;
     VkAccelerationStructureBuildGeometryInfoKHR info{};
     VkAccelerationStructureBuildRangeInfoKHR range{};
     VkDeviceSize scratch = 0;
@@ -881,6 +914,10 @@ void record_builds(Scene& made, VkCommandBuffer commands, std::vector<BuildJob>&
                 break;
             }
             job.info.pGeometries = &job.geometry;
+            if (job.attached) { // (round OM: the copy's own pointers)
+                job.attach.triangles.pUsageCounts = &job.attach.usage;
+                job.geometry.geometry.triangles.pNext = &job.attach.triangles;
+            }
             job.info.scratchData = {.deviceAddress = made.scratch_address + offset};
             infos.push_back(job.info);
             ranges.push_back(&job.range);
@@ -921,6 +958,22 @@ void log_scene(Scene& made, bool now)
             static_cast<unsigned long long>(stats.rebuilt_after_refits),
             static_cast<unsigned long long>(stats.released_first_meshes),
             static_cast<unsigned long long>(stats.released_first_streams));
+    if (micromaps_on()) { // (round OM)
+        const MicromapStats micro = micromap_stats();
+        const auto count = [&micro](MicromapMode mode, uint32_t state) {
+            return static_cast<unsigned long long>(
+                core::at(micro.states, (static_cast<std::size_t>(mode) * 4) + state));
+        };
+        get_log("vulkan: ray tracing scene: opacity micromaps on %u meshes, %.1f MB, %llu micro-triangles; %llu bakes, "
+                "%llu dropped (deciding under a quarter) "
+                "(micro-triangles baked transparent / opaque / unknown: cut-outs %llu / %llu / %llu, seen-through solid "
+                "%llu / - / %llu, seen-through blended %llu / - / %llu)",
+                micro.meshes, static_cast<double>(micro.bytes) / kMegabyte,
+                static_cast<unsigned long long>(micro.micro_triangles), static_cast<unsigned long long>(micro.bakes),
+                static_cast<unsigned long long>(micro.dropped), count(MicromapMode::kCutout, 0), count(MicromapMode::kCutout, 1), count(MicromapMode::kCutout, 3),
+                count(MicromapMode::kSeenSolid, 0), count(MicromapMode::kSeenSolid, 2),
+                count(MicromapMode::kSeenBlended, 0), count(MicromapMode::kSeenBlended, 2));
+    }
 }
 
 void count_bytes(Scene& made)
@@ -1216,15 +1269,13 @@ bool ensure_frame_scene(Backend& state, Scene& made, FrameScene* frame, uint32_t
     return true;
 }
 
-// An instance as the TLAS takes it.
-// An instance as the TLAS takes it; `alpha_tested`: its material's alpha test can reject a texel (alpha_tested_for).
-VkAccelerationStructureInstanceKHR instance_of(const rt::Instance& given, const Mesh* mesh, bool alpha_tested)
+// (round OM: split out of instance_of) An instance's mask and whether it is forced opaque.
+struct InstanceShape {
+    uint32_t mask = 0;
+    bool opaque = false;
+};
+InstanceShape shape_of(const rt::Instance& given, bool alpha_tested)
 {
-    VkAccelerationStructureInstanceKHR made{};
-    for (std::size_t row = 0; row < given.object_to_world.size(); ++row) {
-        const std::span<float, 4> into(core::at(made.transform.matrix, row));
-        std::ranges::copy(core::at(given.object_to_world, row), into.begin());
-    }
     // (what R4's shadow rays pick by: vulkan_rt_scene.h)
     uint32_t mask = kMaskWorld;
     // (a transparent instance casts only when it is also alpha tested - render_pc's cut-out blended materials - and its
@@ -1239,14 +1290,37 @@ VkAccelerationStructureInstanceKHR instance_of(const rt::Instance& given, const 
     } else if ((given.flags & rt::kObject) != 0) {
         mask = kMaskObjects;
     }
-    const bool live = mesh != nullptr && mesh->built;
-    made.instanceCustomIndex = given.material & kCustomIndexMask;
-    made.mask = live ? mask : 0;
-    made.instanceShaderBindingTableRecordOffset = 0;
-    VkGeometryInstanceFlagsKHR flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
     const bool opaque = (given.flags & rt::kOpaque) != 0 ||
                         ((given.flags & rt::kTransparent) == 0 && (given.flags & rt::kAlphaTested) != 0 && !alpha_tested);
-    flags |= opaque ? VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR : VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
+    return {.mask = mask, .opaque = opaque};
+}
+
+// An instance as the TLAS takes it; `alpha_tested`: its material's alpha test can reject a texel (alpha_tested_for).
+VkAccelerationStructureInstanceKHR instance_of(const rt::Instance& given, const Mesh* mesh, bool alpha_tested)
+{
+    VkAccelerationStructureInstanceKHR made{};
+    for (std::size_t row = 0; row < given.object_to_world.size(); ++row) {
+        const std::span<float, 4> into(core::at(made.transform.matrix, row));
+        std::ranges::copy(core::at(given.object_to_world, row), into.begin());
+    }
+    const InstanceShape shape = shape_of(given, alpha_tested);
+    const bool live = mesh != nullptr && mesh->built;
+    made.instanceCustomIndex = given.material & kCustomIndexMask;
+    made.mask = live ? shape.mask : 0;
+    made.instanceShaderBindingTableRecordOffset = 0;
+    VkGeometryInstanceFlagsKHR flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+    // (round OM - vulkan_rt_micromaps.h) the mesh's opacity micromap: an instance of its material and mode takes its
+    // states (neither forced opaque nor forced non-opaque - either would override them); any other instance of the mesh
+    // is traced without it, as before
+    const bool has_micromap = live && mesh->micromap.handle != VK_NULL_HANDLE;
+    const bool uses_micromap = has_micromap && mesh->micromap.key.material == given.material &&
+                               mesh->micromap.key.mode == micromap_mode(given, shape.mask, shape.opaque);
+    if (!uses_micromap) {
+        flags |= shape.opaque ? VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR : VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
+    }
+    if (has_micromap && !uses_micromap) {
+        flags |= VK_GEOMETRY_INSTANCE_DISABLE_OPACITY_MICROMAPS_EXT;
+    }
     made.flags = flags;
     // (0: an inactive instance - a mesh not built, removed or never added - so the instance index stays the record's)
     made.accelerationStructureReference = live ? mesh->blas.address : 0;
@@ -1299,6 +1373,114 @@ bool buffers_live(Backend& state, Scene& made, rt::MeshId id, Mesh& mesh)
     return false;
 }
 
+// (round OM - vulkan_rt_micromaps.h) A mesh's build takes the micromap it wants (wanted: a new key from plan_micromaps;
+// else its micromap's key - baked again, its UVs may have been rewritten), made now and attached to the build; none when
+// it wants none, can't have one (dynamic, its corners unknown) or its micromap can't be made (that key not asked again).
+void attach_micromap(Backend& state, Mesh& mesh, const std::vector<uint32_t>& corners, BuildJob* job)
+{
+    const MicromapKey key = mesh.wanted.mode != MicromapMode::kNone ? mesh.wanted : mesh.micromap.key;
+    const uint64_t writes = mesh.wanted.mode != MicromapMode::kNone ? mesh.wanted_writes : mesh.micromap.vertex_writes;
+    mesh.wanted = MicromapKey{};
+    if (key.mode == MicromapMode::kNone || !micromaps_on() || mesh.geometry.dynamic || corners.empty() ||
+        key == mesh.micromap_refused) {
+        micromap_retire(state, &mesh.micromap);
+        return;
+    }
+    Buffer* const vertices = live_buffer(state, object(mesh.geometry.vertices));
+    if (vertices == nullptr) {
+        micromap_retire(state, &mesh.micromap);
+        return;
+    }
+    const MaterialTable::TextureInfo texture = state.materials.texture_info(key.material);
+    const uint32_t level = micromap_level(written_bytes(vertices), mesh.geometry, corners, texture.width, texture.height);
+    if (!micromap_prepare(state, &mesh.micromap, key, mesh.triangles, level)) {
+        mesh.micromap_refused = key;
+        return;
+    }
+    mesh.micromap.vertex_writes = writes;
+    job->attach = micromap_attach(mesh.micromap);
+    job->attached = true;
+    job->attach.triangles.pUsageCounts = &job->attach.usage;
+    job->geometry.geometry.triangles.pNext = &job->attach.triangles;
+    job->info.flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DISABLE_OPACITY_MICROMAPS_EXT;
+}
+
+bool alpha_tested_for(const Scene& made, const rt::Instance& given);
+
+// (round OM) Which meshes want a micromap baked this frame: each static mesh's first instance that can take one (its
+// material known, micromap_mode) - unless the mesh's micromap is another instance's (another material or mode) - its key
+// now against the one its micromap has. The keys are looked at again only when the inputs moved since the last frame
+// (a static buffer written, a texture's level 0 uploaded, the material table changed) or the mesh has none yet; a
+// vertex buffer not written since keeps its alpha hash. A mesh whose key changed is built again (its build bakes).
+void plan_micromaps(Backend& state, Scene& made, const rt::FrameRecord& record)
+{
+    if (!micromaps_on()) {
+        return;
+    }
+    const uint64_t changes = state.materials.changes();
+    const bool look_again = made.micromap_writes != state.baked_input_writes || made.micromap_changes != changes;
+    made.micromap_writes = state.baked_input_writes;
+    made.micromap_changes = changes;
+    const uint64_t round = ++made.micromap_round;
+    // the verdicts in: a micromap that decides too little is dropped - its mesh built again without it, its key not
+    // asked again
+    std::erase_if(made.micromap_verdicts, [&](rt::MeshId id) {
+        const auto found = made.meshes.find(id);
+        if (found == made.meshes.end() || found->second.micromap.handle == VK_NULL_HANDLE) {
+            return true;
+        }
+        Mesh& mesh = found->second;
+        const MicromapVerdict verdict = micromap_verdict(state, &mesh.micromap);
+        if (verdict == MicromapVerdict::kDropped) {
+            mesh.micromap_refused = mesh.micromap.key;
+            mesh.wanted = MicromapKey{};
+            mesh.needs_build = true;
+        }
+        return verdict != MicromapVerdict::kWaiting;
+    });
+    for (const rt::Instance& given : record.instances) {
+        const auto found = made.meshes.find(given.mesh);
+        if (found == made.meshes.end()) {
+            continue;
+        }
+        Mesh& mesh = found->second;
+        if (mesh.refused || mesh.geometry.dynamic || mesh.micromap_round == round) {
+            continue;
+        }
+        const MicromapKey& have = mesh.micromap.key;
+        if (have.mode != MicromapMode::kNone && !look_again) {
+            mesh.micromap_round = round;
+            continue;
+        }
+        const InstanceShape shape = shape_of(given, alpha_tested_for(made, given));
+        const MicromapMode mode = micromap_mode(given, shape.mask, shape.opaque);
+        if (mode == MicromapMode::kNone || !made.alpha_refs.contains(given.material) ||
+            (have.mode != MicromapMode::kNone && (have.material != given.material || have.mode != mode))) {
+            continue; // (another instance may want it - or owns it)
+        }
+        mesh.micromap_round = round;
+        Buffer* const vertices = live_buffer(state, object(mesh.geometry.vertices));
+        if (vertices == nullptr || vertices->dynamic) {
+            continue;
+        }
+        MicromapKey key = micromap_key(state, given.material, mode);
+        const uint32_t vertex_count = mesh.built ? mesh.max_vertex + 1 : mesh.geometry.vertex_count;
+        key.alpha_hash = have.mode != MicromapMode::kNone && vertices->writes == mesh.micromap.vertex_writes
+                             ? have.alpha_hash
+                             : micromap_alpha_hash(written_bytes(vertices), mesh.geometry, vertex_count);
+        if (key == have) {
+            mesh.micromap.vertex_writes = vertices->writes;
+            continue;
+        }
+        if (key == mesh.micromap_refused) {
+            continue;
+        }
+        mesh.wanted = key;
+        mesh.wanted_writes = vertices->writes;
+        mesh.needs_build = true;
+    }
+}
+
 // A mesh's build or refit made ready (its structure made when it needs one); false when there is none to record.
 bool plan_job(Backend& state, Scene& made, rt::MeshId id, Mesh& mesh, MeshWork work, BuildJob* job)
 {
@@ -1306,9 +1488,12 @@ bool plan_job(Backend& state, Scene& made, rt::MeshId id, Mesh& mesh, MeshWork w
         return false;
     }
     const bool rebuild = work == MeshWork::kBuild;
+    std::vector<uint32_t> corners; // (round OM: a micromap's level)
+    const bool micromap_due = micromaps_on() && !mesh.geometry.dynamic &&
+                              (mesh.wanted.mode != MicromapMode::kNone || mesh.micromap.key.mode != MicromapMode::kNone);
     if (mesh.needs_build) {
         std::vector<uint32_t> list;
-        const std::string problem = plan_mesh(state, &mesh, &list);
+        const std::string problem = plan_mesh(state, &mesh, &list, micromap_due ? &corners : nullptr);
         if (!problem.empty()) {
             get_log("vulkan: ray tracing: mesh %u left out: %s", id, problem.c_str());
             mesh.refused = true;
@@ -1320,6 +1505,7 @@ bool plan_job(Backend& state, Scene& made, rt::MeshId id, Mesh& mesh, MeshWork w
         }
     }
     job->mesh = &mesh;
+    job->id = id;
     job->geometry = triangles_of(state, mesh);
     job->info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
     job->info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
@@ -1329,6 +1515,9 @@ bool plan_job(Backend& state, Scene& made, rt::MeshId id, Mesh& mesh, MeshWork w
     job->info.geometryCount = 1;
     job->info.pGeometries = &job->geometry;
     job->range = {.primitiveCount = mesh.triangles, .primitiveOffset = 0, .firstVertex = 0, .transformOffset = 0};
+    if (rebuild) {
+        attach_micromap(state, mesh, corners, job); // (round OM)
+    }
     VkAccelerationStructureBuildSizesInfoKHR sizes{};
     sizes.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
     vkGetAccelerationStructureBuildSizesKHR(made.device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &job->info,
@@ -1615,6 +1804,7 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
 {
     std::vector<std::pair<Mesh*, Structure>> copies;
     collect_compactions(state, made, &copies);
+    plan_micromaps(state, made, record); // (round OM)
 
     // the builds and refits due
     std::vector<BuildJob> jobs;
@@ -1641,6 +1831,15 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
         return;
     }
     write_instances(state, made, frame, record);
+    // (round OM) the micromaps the builds attach, baked first
+    std::vector<MicromapBake> bakes;
+    for (const BuildJob& job : jobs) {
+        if (job.attached) {
+            bakes.push_back({.micromap = &job.mesh->micromap,
+                             .geometry = geometry_record_of(state, made, rt::Instance{}, job.mesh)});
+            made.micromap_verdicts.push_back(job.id); // (its verdict looked for from the next frame)
+        }
+    }
 
     VkAccelerationStructureGeometryKHR tlas_geometry{};
     tlas_geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -1663,7 +1862,8 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
     vkGetAccelerationStructureBuildSizesKHR(made.device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &tlas_info,
                                             &count, &tlas_sizes);
     const VkDeviceSize wanted =
-        std::max(scratch_for(made, jobs), align_up(tlas_sizes.buildScratchSize, made.scratch_alignment));
+        std::max({scratch_for(made, jobs), align_up(tlas_sizes.buildScratchSize, made.scratch_alignment),
+                  std::min(micromap_scratch(bakes, made.scratch_alignment), kScratchBatchBytes)});
     if (!ensure_scratch(state, made, wanted)) {
         get_log("vulkan: ray tracing: no memory for %llu bytes of scratch", static_cast<unsigned long long>(wanted));
         for (const BuildJob& job : jobs) {
@@ -1684,6 +1884,10 @@ void begin_scene_frame(Backend& state, Scene& made, const rt::FrameRecord& recor
     VkCommandBuffer commands = outside_pass(state);
     // (round GD: the builds a pass of their own for the GPU crash markers - vulkan_crash_markers.h)
     state.frames.mark({.phase = gpu_markers::Phase::kGpu, .id = gpu_markers::section::kRtScene});
+    if (!bakes.empty()) { // (round OM: baked and built before the BLASes that take them - a barrier after)
+        record_micromap_bakes(state, commands, bakes, made.scratch_address, made.scratch_bytes,
+                              made.scratch_alignment);
+    }
     barrier(commands,
             VK_PIPELINE_STAGE_TRANSFER_BIT | kBuildStage | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -2607,6 +2811,14 @@ vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach)
             rayQueryTerminateEXT(query);
         }
     }
+    // (round OM - vulkan_rt_micromaps.h) a blended world surface's opacity micromap commits where it covers wholly - a
+    // share of 0 that its candidate would have given
+    if (world && rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT) {
+        uint flags = geometry_record(rayQueryGetIntersectionInstanceIdEXT(query, true)).instance_flags;
+        if ((flags & HIT_INSTANCE_TRANSPARENT) != 0u && (flags & RAY_INSTANCE_OBJECT) == 0u) {
+            return vec3(0.0);
+        }
+    }
     return through;
 }
 
@@ -2844,6 +3056,7 @@ void create_ray_tracing(Backend& state)
         return;
     }
     made.device = state.context.device();
+    micromaps_create(state); // (round OM: before any pass's shaders are made - they say whether they meet micromaps)
     VkPhysicalDeviceAccelerationStructurePropertiesKHR structures{};
     structures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
     VkPhysicalDeviceProperties2 asked{};
@@ -2966,6 +3179,9 @@ void release_ray_tracing(Backend& state)
     }
     made.later.clear();
     destroy_probe_pass(made);
+    micromaps_release(state); // (round OM)
+    made.micromap_writes = ~0ULL;
+    made.micromap_changes = ~0ULL;
     if (made.queries != VK_NULL_HANDLE) {
         vkDestroyQueryPool(made.device, made.queries, nullptr);
     }
@@ -3017,6 +3233,32 @@ TraceResult trace_rays_now(std::span<const TracedRay> rays, std::vector<TracedHi
     state.memory.destroy_buffer(&ray_buffer);
     state.memory.destroy_buffer(&hit_buffer);
     return ran ? TraceResult::kTraced : TraceResult::kFailed;
+}
+
+bool scene_micromaps_on()
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    return scene().installed && micromaps_on();
+}
+
+bool scene_micromap(rt::MeshId mesh, MicromapView* out)
+{
+    *out = MicromapView{};
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    Scene& made = scene();
+    const auto found = made.meshes.find(mesh);
+    if (!made.installed || !micromaps_on() || found == made.meshes.end() ||
+        found->second.micromap.handle == VK_NULL_HANDLE || !finish_work(state)) {
+        return false;
+    }
+    const MeshMicromap& micromap = found->second.micromap;
+    out->level = micromap.level;
+    out->triangles = micromap.count;
+    out->material = micromap.key.material;
+    out->mode = static_cast<uint32_t>(micromap.key.mode);
+    return read_micromap_states(state, micromap, &out->words);
 }
 
 SceneStats scene_stats()

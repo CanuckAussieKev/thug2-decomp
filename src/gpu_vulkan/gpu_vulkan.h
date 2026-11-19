@@ -45,6 +45,8 @@ struct Choices {
     bool validation = false;
     bool ray_tracing = false; // [Graphics] ray_tracing: the ray-tracing extensions enabled where the device has them
     bool crash_markers = true; // (round GD) [debug] gpu_crash_markers: the passes' GPU crash markers recorded
+    // (round OM) [debug] rt_opacity_micromaps: the cut-outs' alpha baked into opacity micromaps where the device has them
+    bool opacity_micromaps = true;
 };
 void configure(const Choices& choices);
 

@@ -312,6 +312,7 @@ void configure(const Choices& choices)
     state.options.device_index = choices.device_index;
     state.options.validation = choices.validation;
     state.options.ray_tracing = choices.ray_tracing;
+    state.options.opacity_micromaps = choices.opacity_micromaps;
     state.options.crash_markers = choices.crash_markers ? CrashMarkerChoice::kBest : CrashMarkerChoice::kOff;
     state.options.on_message = log_message;
     state.cache_folder = choices.cache_folder;

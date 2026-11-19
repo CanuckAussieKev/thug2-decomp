@@ -389,8 +389,14 @@ vec3 list_lights(vec3 at, vec3 direction, ivec2 p, int i, out vec3 rayleigh)
         // presampled tiles) - the same distribution as picking here, two words read instead of the light's triangle
         float u = hash01(p, fog.flags.w, i, salt);
         LocalLight l;
-        if (!light_seen_from(light_pool_read(min(uint(u * float(LIGHT_POOL_SIZE)), LIGHT_POOL_SIZE - 1u)), at, l) ||
-            !(l.pdf > 0.0)) {
+#ifdef LIGHTS_PICKED_HERE
+        // (round OM - the checks': the pick made here, as before the pool - the same distribution)
+        bool seen = local_light_at(light_pick(u, count), count,
+                                   vec2(hash01(p, fog.flags.w, i, salt + 1u), hash01(p, fog.flags.w, i, salt + 2u)), at, l);
+#else
+        bool seen = light_seen_from(light_pool_read(min(uint(u * float(LIGHT_POOL_SIZE)), LIGHT_POOL_SIZE - 1u)), at, l);
+#endif
+        if (!seen || !(l.pdf > 0.0)) {
             continue;
         }
         float target = dot(l.light, LUMA) * phase(dot(direction, l.dir));
@@ -1190,7 +1196,8 @@ constexpr uint32_t kVariantAerial = 2;
 constexpr uint32_t kVariantCutouts = 4;
 constexpr uint32_t kVariantClouds = 8;
 constexpr uint32_t kVariantLights = 16; // (round WF) the light list's local group lights the air (with the cut-outs')
-constexpr uint32_t kVariants = 32;
+constexpr uint32_t kVariantPickedHere = 32; // (round OM - the checks') the candidates picked at each point, not the pool
+constexpr uint32_t kVariants = 64;
 
 struct CompositePipeline {
     VkFormat format = VK_FORMAT_UNDEFINED;
@@ -1297,6 +1304,13 @@ struct FogState {
 
 constexpr uint64_t kTimingLogEvery = 240; // passes timed
 
+// (round OM - the checks') the candidates picked at the point (as before the presampled pool) instead of from it
+bool& pool_off()
+{
+    static bool off = false;
+    return off;
+}
+
 FogState& fog_state()
 {
     static FogState state;
@@ -1382,6 +1396,9 @@ std::string source_of(const char* body, bool traces, bool multisampled, uint32_t
     const bool cutouts = traces && (variant & kVariantCutouts) != 0;
     const bool lights = cutouts && (variant & kVariantLights) != 0;
     std::string source = "#version 460\n";
+    if (lights && (variant & kVariantPickedHere) != 0) {
+        source += "#define LIGHTS_PICKED_HERE\n";
+    }
     if (multisampled) {
         source += "#define MULTISAMPLED\n";
     }
@@ -2752,8 +2769,12 @@ bool skip(Backend& state, const rt::ViewDrawn& view)
                         !std::isfinite(view.fog.end);
     // (round WF) a haze without a sun has the light list's lamps to light it: those of the last view, or the lighting's
     // analytic lamps now (the emitting triangles are known once a pass has asked for the list)
+    // (round OM: the light list's emitting triangles too - a level lit by its glowing surfaces alone, no analytic lamp,
+    // had no haze at all: the pass was never run, so its list never read)
     const bool may_have_lights =
-        own.settings.lamps > 0 && (own.lights_before || (!own.have_sun && !scene_lighting(false, true).lamps.empty()));
+        own.settings.lamps > 0 &&
+        (own.lights_before || (!own.have_sun && (!scene_lighting(false, true).lamps.empty() ||
+                                                 restir_listed_triangles_locked(state) > 0)));
     if (state_of_fog.haze && (!own.settings.haze || (!own.have_sun && !may_have_lights))) {
         if (first_report(state, kReportNoFog)) {
             get_log("vulkan: rt_fog: the level has no fog (and %s) - the fog pass skipped",
@@ -2838,7 +2859,8 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
     read_lights(state, commands); // (round WF)
     const uint32_t variant = (colour->samples != VK_SAMPLE_COUNT_1_BIT ? kVariantMultisampled : 0U) |
                              (own.aerial ? kVariantAerial : 0U) | (own.cutouts ? kVariantCutouts : 0U) |
-                             (own.have_cloud ? kVariantClouds : 0U) | (own.lights ? kVariantLights : 0U);
+                             (own.have_cloud ? kVariantClouds : 0U) | (own.lights ? kVariantLights : 0U) |
+                             (own.lights && pool_off() ? kVariantPickedHere : 0U);
     const VkPipeline march = march_pipeline(state, variant, &error);
     if (march == VK_NULL_HANDLE) {
         if (first_report(state, kReportPipeline)) {
@@ -3188,6 +3210,13 @@ RtFogLights rt_fog_lights_locked(const Backend& state)
 }
 
 uint64_t rt_fog_passes() { return fog_state().passes; }
+
+void set_rt_fog_light_pool(bool on)
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    pool_off() = !on;
+}
 
 RtFogTiming rt_fog_timing() { return fog_state().timing; }
 

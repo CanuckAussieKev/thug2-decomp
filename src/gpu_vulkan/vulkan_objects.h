@@ -40,6 +40,7 @@ struct Texture {
     // uploaded (alpha_read false until then; none: not known)
     bool alpha_read = false;
     std::optional<LevelAlpha> alpha;
+    uint64_t level0_uploads = 0; // (round OM) level 0 uploaded, counted (an opacity micromap's bake reads its texels)
 };
 
 // What a surface is.
@@ -95,6 +96,7 @@ struct Buffer {
     LockState lock;
     uint32_t lock_offset = 0;
     uint32_t lock_bytes = 0;
+    uint64_t writes = 0; // (round OM) a static buffer's writes, counted (an opacity micromap's bake reads its alphas)
 };
 
 // A pixel shader (GpuPixelShader): its ps.1.1 text, and the program it stands for (vulkan_pixel_program.h).

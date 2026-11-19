@@ -600,7 +600,14 @@ VkShaderModule Pipelines::spirv_module(ShaderStage stage, const std::string& sou
     }
     VkShaderModule made = VK_NULL_HANDLE;
     if (kept->second.words && !kept->second.words->empty()) {
-        const std::vector<uint32_t>& words = *kept->second.words;
+        // (round OM: a ray-query module kept on disk by an earlier run says it traverses opacity micromaps as this
+        // device does - vulkan_rt_glsl.h)
+        std::vector<uint32_t> declared;
+        if (ray_query) {
+            declared = *kept->second.words;
+            spirv_micromaps_declared(&declared, micromaps_declared());
+        }
+        const std::vector<uint32_t>& words = ray_query ? declared : *kept->second.words;
         const VkShaderModuleCreateInfo info{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
                                             .pNext = nullptr,
                                             .flags = 0,

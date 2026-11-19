@@ -36,6 +36,7 @@ struct Retired {
     std::vector<Image> images;
     std::vector<DeviceBuffer> buffers;
     std::vector<VkAccelerationStructureKHR> structures; // (round GF: ray tracing's - destroyed before the buffers)
+    std::vector<VkMicromapEXT> micromaps;               // (round OM: the opacity micromaps - likewise)
 };
 
 class Frames {
@@ -79,6 +80,8 @@ public:
     void retire(const DeviceBuffer& buffer);
     // (round GF) An acceleration structure and the buffer holding it (either may be null).
     void retire(VkAccelerationStructureKHR structure, const DeviceBuffer& memory);
+    // (round OM) An opacity micromap and the buffer holding it (either may be null).
+    void retire(VkMicromapEXT micromap, const DeviceBuffer& memory);
     // Objects retired, not destroyed yet (the log's, the checks').
     [[nodiscard]] std::size_t retired_count() const;
 

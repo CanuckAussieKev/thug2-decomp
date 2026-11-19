@@ -894,7 +894,8 @@ void install_vulkan(const Resolution& in_effect)
                                .cache_folder = build_info::executable_directory(),
                                .validation = in_effect.on("vulkan_validation"),
                                .ray_tracing = in_effect.on("ray_tracing"),
-                               .crash_markers = in_effect.on("gpu_crash_markers")});
+                               .crash_markers = in_effect.on("gpu_crash_markers"),
+                               .opacity_micromaps = in_effect.on("rt_opacity_micromaps")});
     read_frame_generation(in_effect);
     read_upscale(in_effect);
     read_all_effects(in_effect);

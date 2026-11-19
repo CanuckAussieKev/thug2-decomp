@@ -5841,3 +5841,33 @@ One light list, one way to sample it:
   tables on the main thread: 17 % of the main thread's samples) was made again every other frame for the same sky.
 - Shader execution reordering (VK_NV_ray_tracing_invocation_reorder) is for ray-tracing pipelines; every pass here uses
   ray queries in compute - not available without moving a pass to a pipeline.
+
+### Opacity micromaps, one primary surface, the pool for GI (round OM)
+- **Opacity micromaps** (VK_EXT_opacity_micromap - NVIDIA's standard for alpha-tested geometry; vulkan_rt_micromaps.h):
+  a static world mesh drawn by a cut-out or a seen-through instance gets a 4-state micromap, baked on the device from
+  the texels the rays read (the material table's texture, sampler and address modes, the mesh's UVs set 0 and vertex
+  alphas) and built into its BLAS. A micro-triangle is **transparent** where the alpha test rejects every point of it
+  (with a texel's margin round its footprint, 128's vertex alpha counted too - the bounce and reflection rays' test) -
+  no candidate at all; **opaque** where a cut-out's test keeps every point, or a blended surface (blend 5 / 6 / 0 /
+  11 - 13, not glass) covers wholly - committed at once (seen_through counts a committed blended world hit as 0); else
+  **unknown** - the shader's test as before. Never for objects, dynamic meshes, filters, glass or added surfaces (the
+  path tracer counts them). An instance of the mesh with another material or mode is traced with
+  DISABLE_OPACITY_MICROMAPS. Baked again with its BLAS when the material's record, its texture's level 0, the mesh's
+  vertex alphas (Buffer::writes, hashed) or the mesh change. The shaders that traverse the scene declare the SPIR-V
+  capability RayTracingOpacityMicromapEXT (glslang 1.4.304 doesn't - vulkan_rt_glsl.h adds it to every ray-query
+  module, the SPIR-V cache's too). `[debug] rt_opacity_micromaps=0`, or a device without the extension: none.
+  Rays traced with gl_RayFlagsOpaqueEXT (the passes' "everything solid" camera and occlusion rays, the relit bake's
+  lamp-mount probe) now pass the transparent micro-triangles - where the game draws nothing.
+  A micromap that decides under a quarter of its micro-triangles is dropped once its bake's counts are read back (its
+  lookups would cost every hit more than they save - NVIDIA's OMM guidance), its mesh built again without it.
+  BO: 993 baked, 760 dropped (nearly all soft-alpha overlays), 228 kept; the cut-outs 75 % opaque / 14 % transparent
+  micro-triangles, the blended overlays 7 % transparent, 5 % opaque, 88 % unknown (their share varies texel by texel).
+- **One primary surface a view** (NVIDIA's RTXDI / ReSTIR GI samples' G-buffer; vulkan_restir_di.h SharedPrimary):
+  ReSTIR DI's first pass writes the pixel's surface it finds (trace_drawn + hit_surface, or the depth's own) in full
+  precision, 80 bytes a pixel; ReSTIR GI's passes read it by its device address where it is this view's (the same
+  submission, rectangle, camera and matrix) instead of tracing the camera ray again. By day, when DI doesn't run, GI
+  traces its own.
+- **ReSTIR GI's next-event estimation from the presampled pool**: a local light picked by the full list (its kind by
+  power) takes its pick and point from the pool - the group's pdf x the group's share of the list's picks; the pool is
+  read through its device address (GI's pushed set is full). The fog's haze is now run where the light list's emitting
+  triangles alone light it (no sun, no analytic lamp: it was skipped).

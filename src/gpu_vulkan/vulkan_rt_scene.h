@@ -289,4 +289,19 @@ struct SceneStats {
 };
 SceneStats scene_stats(); // takes the lock
 
+// (round OM - the checks') A mesh's opacity micromap (vulkan_rt_micromaps.h): its level (4^level micro-triangles a
+// triangle), triangles, material and mode (MicromapMode's number), and its states read back - 2 bits a micro-triangle,
+// each triangle's from word triangle x 4^level / 16 (the frame's work finished first). False without one, or without
+// opacity micromaps on the device. Takes the lock.
+struct MicromapView {
+    uint32_t level = 0;
+    uint32_t triangles = 0;
+    uint32_t material = 0;
+    uint32_t mode = 0;
+    std::vector<uint32_t> words;
+};
+bool scene_micromap(rt::MeshId mesh, MicromapView* out);
+// Whether the device was made with opacity micromaps (and they are on).
+bool scene_micromaps_on();
+
 } // namespace render::vulkan

@@ -109,6 +109,9 @@ struct ContextOptions {
     // NOT ORIGINAL - ray tracing (engine/gfx/rt_scene.h): VK_KHR_acceleration_structure, VK_KHR_ray_query and what they
     // need (buffer device addresses, descriptor indexing) enabled when the device has them all
     bool ray_tracing = false;
+    // NOT ORIGINAL - (round OM) VK_EXT_opacity_micromap enabled with ray tracing where the device has it ([debug]
+    // rt_opacity_micromaps): the cut-outs' and seen-through surfaces' alpha baked into their BLASes (vulkan_rt_micromaps.h)
+    bool opacity_micromaps = true;
     // NOT ORIGINAL - a library's additions to the instance and the device (null: none)
     ContextAdditions* additions = nullptr;
     // NOT ORIGINAL - (round GD) the GPU crash markers' extensions (VK_NV_device_diagnostic_checkpoints, else
@@ -162,6 +165,8 @@ inline constexpr std::array<const char*, 3> kRayTracingExtensions{VK_KHR_ACCELER
                                                                   VK_KHR_RAY_QUERY_EXTENSION_NAME,
                                                                   VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME};
 bool ray_tracing_offered(VkPhysicalDevice device);
+// NOT ORIGINAL - (round OM) VK_EXT_opacity_micromap offered with 4-state micromaps of level 2 or finer (`levels`: the finest).
+bool opacity_micromaps_offered(VkPhysicalDevice device, uint32_t* levels);
 
 // What the context chooses for its swapchain, for another window's (the UI's own windows: vulkan_ui_windows.cpp): the
 // surface's format (8-bit BGRA without sRGB conversion when offered), its size (the surface's, or the window's
@@ -214,6 +219,10 @@ public:
     [[nodiscard]] bool draws_supported() const { return dynamic_rendering_ && push_descriptors_; }
     // The ray-tracing extensions and features are enabled (asked for in ContextOptions, and the device has them).
     [[nodiscard]] bool ray_tracing_enabled() const { return ray_tracing_; }
+    // NOT ORIGINAL - (round OM) VK_EXT_opacity_micromap enabled (with ray tracing; ContextOptions::opacity_micromaps) and
+    // the finest 4-state subdivision level it takes (maxOpacity4StateSubdivisionLevel)
+    [[nodiscard]] bool opacity_micromaps_enabled() const { return opacity_micromaps_; }
+    [[nodiscard]] uint32_t opacity_micromap_levels() const { return opacity_micromap_levels_; }
 
     // Clears the next swapchain image to `colour` (linear RGBA) and presents it.
     FrameResult clear_frame(const std::array<float, 4>& colour);
@@ -308,6 +317,9 @@ private:
     bool push_descriptors_ = false;
     bool ray_tracing_wanted_ = false;
     bool ray_tracing_ = false;
+    bool opacity_micromaps_wanted_ = true; // (NOT ORIGINAL - round OM)
+    bool opacity_micromaps_ = false;
+    uint32_t opacity_micromap_levels_ = 0;
     ContextAdditions* additions_ = nullptr; // (NOT ORIGINAL - ContextOptions::additions)
     SwapchainOwner* owner_ = nullptr;       // (NOT ORIGINAL - set_swapchain_owner)
     // (NOT ORIGINAL - DeviceWants::present_queues: where they were made)

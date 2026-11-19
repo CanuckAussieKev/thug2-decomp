@@ -93,6 +93,11 @@ struct RestirGiOverrides {
 };
 void set_restir_gi_overrides(const RestirGiOverrides& overrides);
 void forget_restir_gi_history();
+// (round OM - the checks') The passes' frame count started again too: a run's random numbers the same from its start.
+void restart_restir_gi_sequence();
+// (round OM - the checks') The local lights' next-event picks from the presampled pool (true, the default) or from the
+// list itself (as before).
+void set_restir_gi_pool(bool on);
 // Whether the check's frames are added to the sums.
 void set_restir_gi_accumulate(bool on);
 
@@ -116,6 +121,7 @@ struct RestirGiStats {
     double cache_ms = 0.0;   // (round MB) ... the radiance cache's share of it (its update paths and its entries' frame)
     uint32_t gpu_width = 0;
     uint32_t gpu_height = 0;
+    uint64_t shared_views = 0; // (round OM) views whose primary surfaces were ReSTIR DI's (vulkan_restir_di.h)
 };
 [[nodiscard]] RestirGiStats restir_gi_stats();
 
