@@ -39,10 +39,15 @@
 //      512 / 1024 / 1536 texels across the light's way round the eye (kAirMapReach each way), each the distance down the
 //      light's way to the first thing its ray hits; the march reads it at every step inside the square (a bilinear
 //      compare, the light's disc's penumbra) instead of a ray each other step - the near air's shadows sharp.
-//   2. temporal: the texel's point reprojected through the viewport's camera of the frame before; the history read there
-//      (bilinear over the texels whose distance agrees), clamped to this frame's 3 x 3 neighbourhood (changed by the
-//      distinct shafts: its mean +- kFogHistorySpread deviations, inside its least and most), blended with this
-//      frame's by 1 / its length (up to kFogMaxHistory);
+//   2. temporal: the texel's point reprojected through the viewport's camera of the frame before; the histories read there
+//      (bilinear over the texels whose distance agrees). (Round NK - NVIDIA NRD ReLAX's two histories, its defaults:) a
+//      fast history, blended with this frame's march by 1 / its length up to kFogFastHistory and never clamped; then the
+//      slow one, clamped to the fast history's 3 x 3 neighbourhood (its mean +- kFogHistorySpread deviations, inside its
+//      least and most - added by the distinct shafts), blended by 1 / its length up to kFogMaxHistory. Each frame's march
+//      is one resampled light a step pair (RIS) and one ray of each kind - noisy by design; before round NK the slow
+//      history was clamped to that one march's own 3 x 3 and lasted 12 frames: where the nine samples missed the light
+//      the box shut and the history was thrown away - the dark air's grain ("an untuned TV" at night, the camera
+//      ~12 stops up), and its mean darkened;
 //   (added by the god rays - rt_volume_light.h god_ray_peak; rt_fog_god_rays) the march leaves out the phase's forward
 //      peak and adds up its potential (raw info's a); 2a. what each texel of half the viewport's pixels puts in the
 //      light's way (its sky share, the distance of what stands there); 2b. three radial passes toward the light's place
@@ -74,9 +79,15 @@ namespace render::vulkan {
 
 struct Backend;
 
-inline constexpr uint32_t kFogMaxHistory = 12; // frames
-// (added by the distinct shafts) the history held within this many deviations of its 3 x 3 neighbours' mean (step 2)
-inline constexpr float kFogHistorySpread = 1.5F;
+// (round NK - NRD ReLAX's maxAccumulatedFrameNum / maxFastAccumulatedFrameNum defaults; was 12, one history)
+inline constexpr uint32_t kFogMaxHistory = 30;  // frames
+inline constexpr uint32_t kFogFastHistory = 6;  // frames
+// (round NK) a history that starts again is seeded with this many marches (vulkan_rt_history.h seed_frames - the
+// longest one history held before round NK: nothing fades in, the cut's frame not 30 marches long)
+inline constexpr uint32_t kFogSeedFrames = 12;
+// (added by the distinct shafts) the slow history held within this many deviations of the fast history's 3 x 3 mean
+// (step 2; round NK: ReLAX's historyClampingColorBoxSigmaScale 2 - was 1.5 of the noisy march's own)
+inline constexpr float kFogHistorySpread = 2.0F;
 inline constexpr uint32_t kFogViewSlots = 4;
 // (world, objects: what shadows the fog; round PG: what is drawn apart - the clutter, particles, billboards)
 inline constexpr uint32_t kFogMask = 0x01 | 0x02 | 0x08;

@@ -26,7 +26,9 @@
 //     after still frames every half-resolution texel's light against the processor's march of the lamp's light through
 //     the haze (its phase, its falloff, the box's shadow): texels whose rays cross the box's shadow behind it as dark as
 //     the shadowed march says and darker than the unshadowed one (the lamp's cone of light in the air cut by the box),
-//     the lit ones as the march says.
+//     the lit ones as the march says;
+//   - (round NK) the night air's grain: 16 lamps in the misty street air at night, the camera still - the history's
+//     frame-to-frame deviation at most a 30-frame average's of the marches, its mean the marches'.
 // Each lamp's light falls off from its core (rt_lights.h light_falloff): a point light's a tenth of its reach, an
 // emitter's a disc of its area - a street-wide glow lights a pool, not the street.
 //   thug2_vulkan_rt_lights_check [--device N] [--display N] [--no-validation] [--perf]
@@ -1940,6 +1942,144 @@ void run_fog_lamp_night(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tal
     vk::set_rt_fog_settings({});
 }
 
+// (round NK) The night air's grain: many lamps in the street air at night, the camera still - the fog's light resampled
+// each frame from the list (RIS over 16 lamps, one shadow ray a step pair), so each frame's march (step 1) is noisy;
+// the history (step 2) must average it as a still camera's exponential history does (NVIDIA NRD ReLAX's slow history,
+// clamped to the fast history's neighbourhood, not to one noisy frame's) - its frame-to-frame noise down by the
+// accumulation, its mean the march's (the clamp not eating the bright samples: no darkening). Before round NK the
+// history was clamped to the noisy frame's own 3 x 3 (mean +- 1.5 deviations): the "TV static" of a dark street at
+// +12 stops.
+constexpr int kNoiseFrames = 32;
+constexpr double kNoiseLeast = 1e-3; // a texel with at least this mean light (luma) counts
+
+struct FogNoise {
+    double noise = 0.0; // the frames' deviation over the texels' mean light (root mean square / mean)
+    double mean = 0.0;  // the texels' mean light
+};
+
+FogNoise fog_noise(const std::vector<std::vector<double>>& frames)
+{
+    FogNoise out;
+    if (frames.empty()) {
+        return out;
+    }
+    const std::size_t texels = frames.front().size();
+    double variance = 0.0;
+    double mean_sum = 0.0;
+    std::size_t counted = 0;
+    for (std::size_t t = 0; t < texels; ++t) {
+        double sum = 0.0;
+        double squares = 0.0;
+        for (const std::vector<double>& frame : frames) {
+            sum += core::at(frame, t);
+            squares += core::at(frame, t) * core::at(frame, t);
+        }
+        const double n = static_cast<double>(frames.size());
+        const double mean = sum / n;
+        if (mean < kNoiseLeast) {
+            continue;
+        }
+        variance += std::max((squares / n) - (mean * mean), 0.0);
+        mean_sum += mean;
+        ++counted;
+    }
+    if (counted > 0 && mean_sum > 0.0) {
+        out.noise = std::sqrt(variance / static_cast<double>(counted)) / (mean_sum / static_cast<double>(counted));
+        out.mean = mean_sum / static_cast<double>(counted);
+    }
+    return out;
+}
+
+void run_fog_noise(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    namespace vk = render::vulkan;
+    text::print("the night air's grain (16 lamps in the misty street air, the camera still):\n");
+    vk::set_rt_light_settings(settings_for(true, 4));
+    rt::set_level_emitters({});
+    rt::set_baked_sun(
+        {.scene = 1, .found = true, .toward = {0.0F, 1.0F, 0.0F}, .confidence = 1.0F, .ground = 0.0F, .ground_known = true});
+    rt::set_sun_relight({.relights = true});
+    rt::DayLight day;
+    day.on = true;
+    day.lamps = 1.0F;
+    day.moonlit = true;
+    day.light = {0.0F, 0.8F, 0.6F};
+    day.moon = day.light;
+    day.sun = {0.0F, -0.5F, 0.866F};
+    day.light_colour = {0.0F, 0.0F, 0.0F};
+    rt::set_day_light(day);
+    vk::RtFogSettings fog;
+    fog.on = true;
+    fog.haze = true;
+    fog.scale = 2;
+    fog.weather = rt::Weather::kMisty;
+    vk::set_rt_fog_settings(fog);
+    // 16 lamps round the box, some behind it (their air shadowed), of different colours and strengths
+    std::vector<rt::Light> points;
+    constexpr int kSide = 4;
+    for (int i = 0; i < kSide * kSide; ++i) {
+        const double x = -90.0 + (60.0 * static_cast<double>(i % kSide));
+        const double z = -90.0 + (60.0 * static_cast<double>(i / kSide));
+        const float strength = 0.25F + (0.25F * static_cast<float>(i % 3));
+        points.push_back({.kind = rt::Light::Kind::kPoint,
+                          .colour = {strength, 0.9F * strength, 0.7F * strength},
+                          .position = floats({x, 15.0 + (10.0 * static_cast<double>(i % 2)), z}),
+                          .radius = static_cast<float>(kLampReach) * 0.5F});
+    }
+    Targets targets;
+    const bool made = make_targets(gpu, 0, &targets);
+    std::vector<std::vector<double>> raw;
+    std::vector<std::vector<double>> history;
+    bool read = made;
+    for (int frame = 0; read && frame < kFogFrames + kNoiseFrames; ++frame) {
+        draw_frame(gpu, targets, meshes, points, static_cast<uint64_t>(frame) + 1, true);
+        if (frame < kFogFrames) {
+            continue;
+        }
+        vk::RtFogTexels raw_texels;
+        vk::RtFogTexels history_texels;
+        {
+            vk::Backend& state = vk::backend();
+            const std::scoped_lock lock(state.mutex);
+            read = vk::read_rt_fog_image(state, {0, 0, kTargetWidth, kTargetHeight}, vk::RtFogImage::kRaw, &raw_texels) &&
+                   vk::read_rt_fog_image(state, {0, 0, kTargetWidth, kTargetHeight}, vk::RtFogImage::kHistory,
+                                         &history_texels);
+        }
+        const auto lumas = [](const vk::RtFogTexels& texels) {
+            std::vector<double> out;
+            out.reserve(texels.texels.size());
+            for (const std::array<float, 4>& t : texels.texels) {
+                out.push_back(luma_of({core::at(t, 0), core::at(t, 1), core::at(t, 2)}));
+            }
+            return out;
+        };
+        raw.push_back(lumas(raw_texels));
+        history.push_back(lumas(history_texels));
+    }
+    release_targets(gpu, targets);
+    const FogNoise marched = fog_noise(raw);
+    const FogNoise kept = fog_noise(history);
+    // an exponential history of length N over independent frames keeps 1 / sqrt(2N - 1) of their deviation: at most what
+    // the full slow history (kFogMaxHistory frames) keeps. (Before round NK - one 12-frame history clamped to the
+    // march's own 3 x 3: 0.118 here, mean 0.985 x; after: 0.072, 0.990 x. The game's dark street showed it far more -
+    // round-nk.md - where the nine samples round a texel often all missed the light.)
+    const double accumulated =
+        marched.noise / std::sqrt((2.0 * static_cast<double>(render::vulkan::kFogMaxHistory)) - 1.0);
+    const double bias = marched.mean > 0.0 ? kept.mean / marched.mean : 0.0;
+    tally->check(read && marched.noise > 0.0 && kept.noise <= accumulated,
+                 text::format("  the frames' grain: each frame's march %.3f of its light, the history %.3f (a 30-frame "
+                              "exponential average of independent frames %.3f)",
+                              marched.noise, kept.noise, accumulated));
+    tally->check(read && bias > 0.95 && bias < 1.05,
+                 text::format("  the history's mean light %.3f x the march's (%.4g, %.4g) - the clamp keeps the bright "
+                              "samples",
+                              bias, kept.mean, marched.mean));
+    rt::set_day_light({});
+    rt::set_sun_relight({});
+    rt::set_baked_sun({});
+    vk::set_rt_fog_settings({});
+}
+
 // (added for the washed-out streets) Many lamps over the floor - 49 bright point lights in a 7 x 7 grid 40 units up, as a
 // lamp-lit street packs them: the pass as the processor's (the sum held under the knee), the knee reached (their raw sum
 // past it), and no floor pixel burnt white - before, their summed light at the default strength washed it out.
@@ -3637,6 +3777,7 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         run_per_surface(gpu, meshes, tally);  // (round V)
         run_fog_lamp(gpu, meshes, tally);     // (added by the volumetric light)
         run_fog_lamp_night(gpu, meshes, tally); // (added by the street air)
+        run_fog_noise(gpu, meshes, tally);      // (round NK)
         if (options.perf) {
             run_perf(gpu, meshes, tally);
         }

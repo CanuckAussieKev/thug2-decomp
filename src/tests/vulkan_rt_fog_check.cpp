@@ -113,9 +113,9 @@ constexpr float kFogEnd = 500.0F;
 constexpr std::array<float, 3> kFogColour{0.6F, 0.65F, 0.7F};
 constexpr unsigned kSteps = 32;
 constexpr int kStillFrames = 40;
-// (the first frame of a history seeds it with kFogMaxHistory marches - vulkan_rt_history.h: its last march, the one the
-// raw image holds, is frame index kFogMaxHistory - 1, and every frame after counts on from there)
-constexpr uint64_t kFirstMarch = render::vulkan::kFogMaxHistory - 1;
+// (the first frame of a history seeds it with kFogSeedFrames marches - vulkan_rt_history.h: its last march, the one the
+// raw image holds, is frame index kFogSeedFrames - 1, and every frame after counts on from there)
+constexpr uint64_t kFirstMarch = render::vulkan::kFogSeedFrames - 1;
 constexpr double kPerByte = 1.0 / 255.0;
 // (changed by the street air) the march's block (2: the exact cases; the quarter-resolution case 4)
 uint32_t& march_scale()
@@ -1388,7 +1388,9 @@ bool block_light(const View& view, Pixel pixel, Fogged* out)
 // The history after a still camera's frames against the exact integral, and one frame's march against it.
 // (`all_full`: every history at its longest - a still camera; the street's grazing ground keeps restarting some, its
 // blocks' pixels too far apart for the history's distance test)
-void compare_converged(const View& view, Tally* tally, bool all_full = true)
+// (round NK: `full_length` the length counted as full - kFogSeedFrames on a seeded history's first frame)
+void compare_converged(const View& view, Tally* tally, bool all_full = true,
+                       uint32_t full_length = render::vulkan::kFogMaxHistory)
 {
     render::vulkan::RtFogTexels history;
     render::vulkan::RtFogTexels info;
@@ -1412,13 +1414,12 @@ void compare_converged(const View& view, Tally* tally, bool all_full = true)
             continue;
         }
         ++counted;
-        full += core::at(was, 1) >= static_cast<float>(render::vulkan::kFogMaxHistory) ? 1 : 0;
+        full += core::at(was, 1) >= static_cast<float>(full_length) ? 1 : 0;
         history_errors.push_back(light_error(core::at(history.texels, i), want));
         raw_errors.push_back(light_error(core::at(raw.texels, i), want));
     }
     tally->check(full == counted || (!all_full && full * 10 >= counted * 9),
-                 text::format("every history full (%d of %d at %u frames)", full, counted,
-                                               render::vulkan::kFogMaxHistory));
+                 text::format("every history full (%d of %d at %u frames)", full, counted, full_length));
     tally->check(mean(history_errors) < kMostConvergedMean &&
                      percentile(history_errors, kNinetyFifth) < kMostConverged95,
                  text::format("converged against the exact integral: mean error %.4f, 95th percentile %.4f",
@@ -1630,7 +1631,7 @@ void run_replace(render::Gpu& gpu, const Scene& scene, Tally* tally)
         tally->check(render::vulkan::rt_fog_replaces_level_fog(), "the draws leave the level's fog out");
         compare_raw(view, kFirstMarch, false, tally);
         text::print("  the first frame (its history seeded - vulkan_rt_history.h):\n");
-        compare_converged(view, tally);
+        compare_converged(view, tally, true, render::vulkan::kFogSeedFrames);
         int passes = 1;
         for (int frame = 1; frame < kStillFrames; ++frame) {
             passes += static_cast<int>(draw_frame(gpu, targets, kEye));

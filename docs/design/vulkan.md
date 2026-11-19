@@ -1083,6 +1083,17 @@ Now:
 (Its air was rewritten by the physical air - "The physical air, sun and camera": the weather's aerosol, no looks, no
 cap; what follows is its history.)
 
+(Round NK - the history, as NVIDIA NRD ReLAX accumulates a noisy signal: a fast history (up to 6 frames, never clamped)
+and the slow one (up to 30 frames, was 12) clamped to the fast history's 3 x 3 mean +- 2 deviations (was this frame's own
+march's 3 x 3 +- 1.5). Each frame's march is one resampled light a step pair and one ray of each kind - noisy by design;
+clamped to that one march's neighbourhood, where its nine samples missed the lamps' light the box shut and the history
+was thrown away: at night, with the camera ~12 stops up, the dark air showed it as moving grain ("an untuned TV"), and
+DLSS Ray Reconstruction, taking the air's light in its input for surface light, made blotches of it. Measured at the
+user's Boston spot (1920x1080, DLSS Quality + RR, still camera, temporal deviation of the shown luma over the lit air
+under the archway): 0.45 steps with the fog against 0.25 without before; 0.19 - 0.22 against 0.21 after - the fog adds
+none. thug2_vulkan_rt_lights_check "the night air's grain": the history's deviation 0.118 -> 0.072 of its light, its
+mean 0.985 -> 0.990 of the marches'. A history that starts again is still seeded with 12 marches - `kFogSeedFrames`.)
+
 One volumetric light system: when something stands between the eye and the sun - a building, a tree, a cloud - the
 air shows it, as a shadow shaft in lit haze or a lit column through a gap; at night the moon and the street lights do
 the same. `gpu_vulkan/vulkan_rt_fog` (`[Graphics] rt_fog`, off by default; `rt_fog_air`, `rt_fog_strength`, `rt_fog_quality`,
@@ -5749,6 +5760,18 @@ The output is what a game camera records, each step the industry's standard (vul
   (all clip without); adaptation monotonic; local exposure leaves a uniform view at the key unchanged, keeps the log
   mean of two halves 4 stops either side, and an 8-stop edge inside a tile keeps 92 % of its step with each side's
   factor within the blurred share (0.6 x 0.2 x 8 stops) - the grid doesn't cross the edge.
+- **Round NK - the compensation curve is display-referred.** Krawczyk, Myszkowski and Seidel 2005's key
+  a = 1.03 - 2 / (2 + log10(L + 1)) is the key of Reinhard et al. 2002's photographic operator L / (1 + L), which shows
+  the scene's log average at a / (1 + a) of white - a displayed brightness. Round EX used the ratio of the keys on the
+  scene light (key = 0.18 x a / a_day); with a linear toe (the old curve 0) that is nearly the same thing, but ACES's toe
+  showed a night street ~1.4 stops darker again (Boston at the user's spot: the frame's mean encoded luma 16.9 with ACES,
+  42.1 with the old curve). Now the average is shown at Reinhard's a / (1 + a) over daylight's share of what the curve
+  in use shows middle grey at, and the key is the exposed light the curve shows there (`shown_grey` inverted by halving
+  in stops, the shader's and `meter_key`'s - one curve for every level, still UE5's compensation slot). Daylight's
+  average keeps 0.18 exactly with any curve; daylight scenes 2 stops either side move under 0.06 stops. The night street
+  at the user's spot: key 0.047 (was 0.014), frame mean luma 41.6 with ACES (the old curve's 42.1). The lit walls lose
+  ~2 stops of headroom: the check's lamp-lit patches are now 9 stops over the street (were 12) to stay below white with
+  local exposure (they show 251 - 252 of 255; ~254 without it).
 
 ### ReSTIR under Ray Reconstruction (round PT4d)
 
