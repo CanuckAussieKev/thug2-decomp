@@ -65,6 +65,7 @@
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_light_list.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_relit.h"
@@ -2471,7 +2472,11 @@ public:
         VkCommandBuffer commands = render::vulkan::outside_pass(state);
         const VkImageSubresourceRange all{
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1};
-        for (const auto& [image, value] : {std::pair{inputs->decals, albedo}, std::pair{inputs->layer, layer}}) {
+        for (const auto& [image, value] : {std::pair{inputs->decals, albedo}, std::pair{inputs->layer, layer},
+                                           std::pair{inputs->lamps, lamps}}) {
+            if (image == inputs->lamps && std::get<3>(lamps) < 0.0F) {
+                continue; // (the lamps input left as the passes wrote it)
+            }
             render::vulkan::Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
             const VkClearColorValue clear{.float32 = {core::at(value, 0), core::at(value, 1), core::at(value, 2), core::at(value, 3)}};
             vkCmdClearColorImage(commands, image->image, VK_IMAGE_LAYOUT_GENERAL, &clear, 1, &all);
@@ -2482,6 +2487,8 @@ public:
     }
     std::array<float, 4> albedo{0.0F, 0.0F, 0.0F, kMark};
     std::array<float, 4> layer{0.0F, 0.0F, 0.0F, 1.0F};
+    // (round BIAS) the lamps input (a white diffuser's light: ReSTIR DI's, the lamps pass's) set too, unless w < 0
+    std::array<float, 4> lamps{0.0F, 0.0F, 0.0F, -1.0F};
     int marked = 0;
 };
 
@@ -2960,6 +2967,7 @@ constexpr uint32_t kPaintLow = 0x28FFFFFFU;  // (white, alpha 40: drawn x 2 - 0.
 constexpr uint32_t kPaintHigh = 0x64FFFFFFU; // (white, alpha 100: drawn x 2 - 0.78)
 constexpr double kLayerTolerance = 0.006;
 constexpr double kEdgeMargin = 30.0; // (units kept off the quads' edges)
+constexpr float kLampsIn = 4.0F;     // (round BIAS) the lamps input set on the oil (a white diffuser's light)
 
 // A 2 x 2 texture of two texels in a checker.
 bool make_checker(render::Gpu& gpu, uint32_t one, uint32_t other, render::GpuTexture** texture)
@@ -3135,13 +3143,23 @@ void run_decal_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally
     ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &oil, &oil_guides);
     mark.layer = {kRoughLayer, oil_f0, 0.0F, 0.0F};
     ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &rough, nullptr);
+    // (round BIAS) the lamps input on oil: none, then kLampsIn
+    std::vector<uint8_t> oil_unlit;
+    std::vector<uint8_t> oil_lamps;
+    mark.layer = {kOilRoughness, oil_f0, 0.0F, 0.0F};
+    mark.albedo = {kOilLinear, kOilLinear, kOilLinear, 0.0F};
+    mark.lamps = {0.0F, 0.0F, 0.0F, 0.0F};
+    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &oil_unlit, nullptr);
+    mark.lamps = {kLampsIn, kLampsIn, kLampsIn, 0.0F};
+    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &oil_lamps, nullptr);
+    mark.lamps = {0.0F, 0.0F, 0.0F, -1.0F};
     mark.albedo = {0.0F, 0.0F, 0.0F, kMark};
     mark.layer = {0.0F, 0.0F, 0.0F, 1.0F};
     ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &floor_marked, nullptr) &&
          draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, true, frame++, &painted_marked, nullptr);
     rt::remove_view_listener(&mark);
     scene_eye() = kEye;
-    tally->check(ok && mark.marked == 4, text::format("the layers' frames drawn and read (%d marked)", mark.marked));
+    tally->check(ok && mark.marked == 6, text::format("the layers' frames drawn and read (%d marked)", mark.marked));
     // the oil film: the light model's for oil alone at each floor pixel
     int oil_pixels = 0;
     int oil_wrong = 0;
@@ -3209,6 +3227,39 @@ void run_decal_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally
     tally->check(ok && oil_pixels > 1000 && guide_wrong == 0,
                  text::format("Ray Reconstruction's albedo guide carries the oil's colour and roughness: %d pixels, %d wrong",
                               oil_pixels, guide_wrong));
+    // (round BIAS) the lamps input on the diffuse lobe: A (1 - E) x it at each pixel's N.V - the light model's diffuse
+    // (brdf_direct's, the reference's) - not A x it, which counted the light the specular lobe reflects a second time
+    int lamp_pixels = 0;
+    int lamp_wrong = 0;
+    double lamp_got = 0.0;
+    double lamp_want = 0.0;
+    double lamp_old = 0.0;
+    for (int y = 0; ok && y < kRows; ++y) {
+        for (int x = 0; x < kColumns; ++x) {
+            Vec3 at{};
+            if (!floor_point(kLayerEye, x, y, 0.0, &at) || std::abs(x_of(at)) > kFloorHalf - kEdgeMargin ||
+                std::abs(z_of(at)) > kFloorHalf - kEdgeMargin) {
+                continue;
+            }
+            const auto n_dot_v = static_cast<float>(y_of(normalised(minus(kLayerEye, at))));
+            constexpr rt::brdf::Rgb kLamps{kLampsIn, kLampsIn, kLampsIn};
+            const rt::brdf::Rgb want = rt::brdf::ambient(oil_material, n_dot_v, kLamps, {0.0F, 0.0F, 0.0F});
+            const Rgb lit = linear_pixel_at(oil_lamps, x, y);
+            const Rgb unlit = linear_pixel_at(oil_unlit, x, y);
+            const double got = core::at(lit, 1) - core::at(unlit, 1);
+            const double expected = core::at(want, 1);
+            ++lamp_pixels;
+            lamp_wrong += std::abs(got - expected) > std::max(kLayerTolerance, 0.03 * expected) ? 1 : 0;
+            lamp_got += got;
+            lamp_want += expected;
+            lamp_old += static_cast<double>(kOilLinear) * kLampsIn;
+        }
+    }
+    tally->check(ok && lamp_pixels > 1000 && lamp_wrong == 0,
+                 text::format("the lamps input on the diffuse lobe (A (1 - E), the light model's diffuse): %d pixels, %d off "
+                              "it; mean %.5f against %.5f (A x it: %.5f)",
+                              lamp_pixels, lamp_wrong, lamp_got / std::max(lamp_pixels, 1), lamp_want / std::max(lamp_pixels, 1),
+                              lamp_old / std::max(lamp_pixels, 1)));
     // the painted layer: as the floor alone, at a grazing view
     int paint_pixels = 0;
     int paint_wrong = 0;
@@ -3474,10 +3525,16 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                 glass_got += layer;
                 glass_want += want;
                 ++glass_pixels;
-                // the pane drawn with it: its white albedo x the layer's light, a quarter over the floor behind
+                // the pane drawn with it: its white albedo's diffuse lobe x the layer's light - (round BIAS) A (1 - E),
+                // E the specular's directional albedo for the painted kind at the pixel's N.V - a quarter over the
+                // floor behind
                 const double drawn = luma_of(linear_pixel_at(with_glass, x, y));
                 const double behind = luma_of(linear_pixel_at(without_glass, x, y));
-                const double expected = (kFrontGlassAlpha * layer) + ((1.0 - kFrontGlassAlpha) * behind);
+                const auto pane_nv = static_cast<float>(y_of(normalised(minus(kEye, at))));
+                const rt::brdf::Rgb pane_e = rt::brdf::specular_albedo(
+                    rt::material_f0(rt::MaterialKind::kPainted), pane_nv, rt::material_values(rt::MaterialKind::kPainted).roughness);
+                const double expected =
+                    (kFrontGlassAlpha * (1.0 - core::at(pane_e, 1)) * layer) + ((1.0 - kFrontGlassAlpha) * behind);
                 shaded_wrong += std::abs(drawn - expected) > std::max(0.002, 0.03 * expected) ? 1 : 0;
                 continue;
             }

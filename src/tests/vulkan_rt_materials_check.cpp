@@ -491,6 +491,27 @@ void main()
 }
 )";
 
+// (round BIAS) the same probe reading a material's composed colour (material_colour: its passes as the game composes
+// them), every layer at the query's coordinates, the vertex alpha 0.5
+constexpr std::string_view kColourProbeBody = R"(
+layout(local_size_x = 64) in;
+struct Query { uint material; uint pad; vec2 uv; };
+struct Answer { vec4 sample_value; uint alpha_passes; uint pad0; uint pad1; uint pad2; };
+layout(set = 0, binding = 0, std430) readonly buffer Queries { Query queries[]; };
+layout(set = 0, binding = 1, std430) writeonly buffer Answers { Answer answers[]; };
+layout(push_constant) uniform Count { uint count; } probe;
+void main()
+{
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= probe.count) {
+        return;
+    }
+    Query q = queries[i];
+    answers[i].sample_value = material_colour(q.material, q.uv, vec2[3](q.uv, q.uv, q.uv), 0.5);
+    answers[i].alpha_passes = 1u;
+}
+)";
+
 class Probe {
 public:
     Probe() = default;
@@ -990,6 +1011,86 @@ void check_surface(render::Gpu& gpu, MaterialTable& table, Tally* tally)
     render::vulkan::set_rt_pbr_settings({});
 }
 
+// (round BIAS) A material's later passes composed over its first as the game's pixel shader composes them
+// (material_colour - render_pc/pixel_shaders.cpp generated_pixel_shader): an alpha blend lerps toward the layer by its
+// texel's alpha, a modulate multiplies by it, an add adds the layer x it, a fixed blend lerps by the pass's fixed alpha;
+// an environment-mapped first pass is black (a painted reflection - the reflections pass's light), a layer over it
+// still drawn. Texel for texel against the closed form; before, a hit read the first pass alone.
+void check_layers(render::Gpu& gpu, MaterialTable& table, Tally* tally)
+{
+    MadeTexture base = make_texture(gpu, {.size = kSmall, .seed = Seed{kSamplingSeed}});
+    MadeTexture over = make_texture(gpu, {.size = kSmall, .seed = Seed{kReleasedSeed}});
+    constexpr float kFixed = 0.25F;
+    const auto layered = [&](uint32_t mode, bool environment_first) {
+        rt::Material material = point_material(base.texture);
+        if (environment_first) {
+            material.environment_pass = 0;
+        }
+        rt::Material::LayerPass& layer = std::get<0>(material.layers);
+        layer.texture = over.texture;
+        layer.mode = mode;
+        layer.uv_set = 1;
+        layer.texture_alpha = true;
+        layer.colour = {1.0F, 1.0F, 1.0F, kFixed};
+        const rt::MaterialId id = rt::next_material_id();
+        table.set(id, material);
+        return id;
+    };
+    constexpr uint32_t kAdd = 1;
+    constexpr uint32_t kAlpha = 5;
+    constexpr uint32_t kFixBlend = 6;
+    constexpr uint32_t kModulate = 7;
+    const rt::MaterialId blend = layered(kAlpha, false);
+    const rt::MaterialId fixed_blend = layered(kFixBlend, false);
+    const rt::MaterialId modulate = layered(kModulate, false);
+    const rt::MaterialId add = layered(kAdd, false);
+    const rt::MaterialId mirror = layered(kAlpha, true);
+    Probe colour_probe;
+    if (!colour_probe.init(render::vulkan::backend().context.device(), table.layout(), kColourProbeBody)) {
+        tally->check(false, "the composed colour's probe pipeline made");
+    } else {
+        Batch batch;
+        for (uint32_t row = 0; row < kSmall; ++row) {
+            for (uint32_t column = 0; column < kSmall; ++column) {
+                const Rgba a = texel_of(base, column, row);
+                const Rgba b = texel_of(over, column, row);
+                const float alpha = core::at(b, 3);
+                const auto rgb = [&](const auto& per) {
+                    Rgba out{};
+                    for (std::size_t c = 0; c < 3; ++c) {
+                        core::at(out, c) = std::clamp(per(core::at(a, c), core::at(b, c)), 0.0F, 1.0F);
+                    }
+                    core::at(out, 3) = core::at(a, 3);
+                    return out;
+                };
+                const float u = centre(column, kSmall);
+                const float v = centre(row, kSmall);
+                constexpr float kLayerTolerance = 2.0F / kByte;
+                batch.add(blend, u, v, {.colour = rgb([&](float x, float y) { return x + ((y - x) * alpha); }),
+                                        .tolerance = kLayerTolerance});
+                batch.add(fixed_blend, u, v, {.colour = rgb([&](float x, float y) { return x + ((y - x) * kFixed); }),
+                                              .tolerance = kLayerTolerance});
+                batch.add(modulate, u, v, {.colour = rgb([&](float x, float /*y*/) { return x * alpha; }),
+                                           .tolerance = kLayerTolerance});
+                batch.add(add, u, v, {.colour = rgb([&](float x, float y) { return x + (y * alpha); }),
+                                      .tolerance = kLayerTolerance});
+                batch.add(mirror, u, v, {.colour = rgb([&](float /*x*/, float y) { return y * alpha; }),
+                                         .tolerance = kLayerTolerance});
+            }
+        }
+        run_batch(colour_probe, table, batch,
+                  "a material's passes composed (alpha blend, fixed blend, modulate, add; an environment-mapped first "
+                  "pass black) - texel for texel",
+                  tally);
+        colour_probe.shutdown();
+    }
+    for (const rt::MaterialId id : {blend, fixed_blend, modulate, add, mirror}) {
+        table.remove(id);
+    }
+    release(gpu, &base);
+    release(gpu, &over);
+}
+
 // Thousands of materials over a hundred textures: the rows grow; then half removed.
 void check_many(render::Gpu& gpu, Probe& probe, MaterialTable& table, Tally* tally)
 {
@@ -1169,6 +1270,7 @@ int run(const Options& options, SDL_Window* window)
             check_sampling(gpu, probe, table, &tally);
             check_release(gpu, probe, table, &tally);
             check_surface(gpu, table, &tally);
+            check_layers(gpu, table, &tally);
             check_many(gpu, probe, table, &tally);
             probe.shutdown();
         }

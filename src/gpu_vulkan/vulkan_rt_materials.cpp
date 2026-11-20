@@ -102,6 +102,10 @@ struct Material {
     float kind_roughness;
     float kind_roughness_weight;
     float least_roughness;
+    uint layer_texture[3];
+    uint layer_sampler[3];
+    uint layer_mode[3];
+    vec4 layer_colour[3];
 };
 layout(set = THUG2_MATERIAL_SET, binding = 0, scalar) readonly buffer MaterialRecords { Material material_records[]; };
 layout(set = THUG2_MATERIAL_SET, binding = 1) uniform sampler material_samplers[32];
@@ -112,7 +116,8 @@ Material material(uint id)
 {
     if (id >= uint(material_records.length())) {
         return Material(0u, 0u, 0u, 0u, 0.0, 0u, vec4(1.0), 0.0, 0xFFFFFFFFu, 0u, 0u, 0u, 0.0, uint[3](0u, 0u, 0u),
-                        uint[3](0u, 0u, 0u), uint[3](0u, 0u, 0u), 0.0, 0.0, 0.0);
+                        uint[3](0u, 0u, 0u), uint[3](0u, 0u, 0u), 0.0, 0.0, 0.0, uint[3](0u, 0u, 0u),
+                        uint[3](0u, 0u, 0u), uint[3](0u, 0u, 0u), vec4[3](vec4(0.0), vec4(0.0), vec4(0.0)));
     }
     return material_records[id];
 }
@@ -180,6 +185,55 @@ float material_mask_alpha(uint id, uint k, vec2 uv, float lod)
     return textureLod(sampler2D(material_textures[nonuniformEXT(slot)], material_samplers[nonuniformEXT(chosen)]),
                       uv, lod).a;
 }
+// (round BIAS) The surface's colour as the game composes its passes (render_pc/pixel_shaders.cpp generated_pixel_shader -
+// the colour the frame's shading lights): r0 = the first pass's texel x its colour (doubled), each layer's L = its
+// texel x its colour (doubled), its alpha a its texel's or 2 x the vertex alpha x it (held to 1 for mode 5), blended
+// into r0 by its mode - 1 / 2 add L x a / x the fixed alpha, 3 / 4 subtract, 5 / 6 lerp toward L by a / the fixed alpha,
+// 7 / 8 multiply by a / the fixed alpha, 9 / 10 brighten (r0 x (1 + a)), 12 / 13 lerp by the pass before's alpha.
+// Display-referred, held to 0 - 1 (the pixel shader's registers); alpha the first pass's texel's (the coverage).
+// Environment-mapped passes (painted reflections) add no colour: a first one is black, later ones aren't layers.
+const uint MATERIAL_LAYER_TEXTURE_ALPHA = 4096u;
+vec4 material_colour(uint id, vec2 uv, vec2 layer_uv[3], float vertex_alpha)
+{
+    Material m = material(id);
+    vec4 first = material_texel_lod(id, uv, 0.0);
+    // (an environment-mapped first pass is a painted reflection - the reflections pass's light -, no albedo: ff_shaders.cpp
+    // environment_texel_black, the frame's rule)
+    vec3 r0 = m.environment_pass == 0u ? vec3(0.0) : first.rgb * m.colour.rgb;
+    float before = (m.flags & MATERIAL_TEXTURE_ALPHA) != 0u ? first.a : clamp(2.0 * vertex_alpha * first.a, 0.0, 1.0);
+    for (uint k = 0u; k < 3u; ++k) {
+        uint mode = m.layer_mode[k] & 255u;
+        if (mode == 0u) {
+            continue;
+        }
+        uint chosen = min(m.layer_sampler[k], 31u);
+        vec4 t = textureLod(sampler2D(material_textures[nonuniformEXT(m.layer_texture[k])],
+                                      material_samplers[nonuniformEXT(chosen)]), layer_uv[k], 0.0);
+        vec3 l = t.rgb * m.layer_colour[k].rgb;
+        float a = (m.layer_mode[k] & MATERIAL_LAYER_TEXTURE_ALPHA) != 0u ? t.a : 2.0 * vertex_alpha * t.a;
+        if (mode == 5u) {
+            a = clamp(a, 0.0, 1.0);
+        }
+        float fixed_a = m.layer_colour[k].a;
+        if (mode == 1u) r0 += l * a;
+        else if (mode == 2u) r0 += l * fixed_a;
+        else if (mode == 3u) r0 -= l * a;
+        else if (mode == 4u) r0 -= l * fixed_a;
+        else if (mode == 5u) r0 = mix(r0, l, a);
+        else if (mode == 6u) r0 = mix(r0, l, fixed_a);
+        else if (mode == 7u) r0 *= a;
+        else if (mode == 8u) r0 *= fixed_a;
+        else if (mode == 9u) r0 += r0 * a;
+        else if (mode == 10u) r0 += r0 * fixed_a;
+        else if (mode == 12u) r0 = mix(r0, l, before);
+        else if (mode == 13u) r0 = mix(l, r0, before);
+        r0 = clamp(r0, vec3(0.0), vec3(1.0));
+        if (mode != 12u && mode != 13u) {
+            before = clamp(a, 0.0, 1.0);
+        }
+    }
+    return vec4(clamp(r0, vec3(0.0), vec3(1.0)), first.a * m.colour.a);
+}
 )";
 
 } // namespace
@@ -222,7 +276,8 @@ void surface_reflection(const rt::Material& material, const Texture* colour, Mat
 }
 
 MaterialRecord material_record(const rt::Material& material, uint32_t slot,
-                               const std::array<uint32_t, rt::Material::kMaskPasses>& mask_slots)
+                               const std::array<uint32_t, rt::Material::kMaskPasses>& mask_slots,
+                               const std::array<uint32_t, rt::Material::kLayerPasses>& layer_slots)
 {
     MaterialRecord record{.texture = slot,
                           .sampler = material_sampler_index(material),
@@ -250,6 +305,20 @@ MaterialRecord material_record(const rt::Material& material, uint32_t slot,
                                            address_place(mask.address_v);
         core::at(record.mask_mode, k) = (mask.kind & 0xFU) | ((mask.uv_set & 0xFU) << kMaskUvSetShift) |
                                         (mask.texture_alpha ? kMaskTextureAlpha : 0U);
+    }
+    // (round BIAS) the layers composed over the first pass (filtered linearly, as the pass's own texture is)
+    for (std::size_t k = 0; k < rt::Material::kLayerPasses; ++k) {
+        const rt::Material::LayerPass& layer = core::at(material.layers, k);
+        if (layer.mode == 0U) {
+            continue;
+        }
+        core::at(record.layer_texture, k) = core::at(layer_slots, k);
+        core::at(record.layer_sampler, k) = (kMaterialAddressModes * kMaterialAddressModes) +
+                                            (address_place(layer.address_u) * kMaterialAddressModes) +
+                                            address_place(layer.address_v);
+        core::at(record.layer_mode, k) = (layer.mode & 0xFFU) | ((layer.uv_set & 0xFU) << kLayerUvSetShift) |
+                                         (layer.texture_alpha ? kLayerTextureAlpha : 0U);
+        core::at(record.layer_colour, k) = layer.colour;
     }
     return record;
 }
@@ -390,6 +459,7 @@ void MaterialTable::shutdown(Backend& state)
     records_.clear();
     record_textures_.clear();
     record_mask_textures_.clear();
+    record_layer_textures_.clear();
     dirty_.clear();
     dirty_mark_.clear();
     slots_.clear();
@@ -568,6 +638,7 @@ void MaterialTable::set(rt::MaterialId id, const rt::Material& material)
         records_.resize(static_cast<std::size_t>(id) + 1);
         record_textures_.resize(static_cast<std::size_t>(id) + 1, nullptr);
         record_mask_textures_.resize(static_cast<std::size_t>(id) + 1);
+        record_layer_textures_.resize(static_cast<std::size_t>(id) + 1);
     }
     Texture* const texture = material.texture != nullptr ? object(material.texture) : nullptr;
     const uint32_t slot = texture != nullptr ? slot_for(texture) : 0;
@@ -586,9 +657,22 @@ void MaterialTable::set(rt::MaterialId id, const rt::Material& material)
         core::at(mask_known, k) = core::at(core::at(record_mask_textures_, id), k) == mask_texture &&
                                   core::at(record.mask_texture, k) == core::at(mask_slots, k);
     }
-    record = material_record(material, slot, mask_slots);
+    // (round BIAS) the layers' textures likewise
+    std::array<Texture*, rt::Material::kLayerPasses> layers{};
+    std::array<uint32_t, rt::Material::kLayerPasses> layer_slots{};
+    std::array<bool, rt::Material::kLayerPasses> layer_known{};
+    for (std::size_t k = 0; k < rt::Material::kLayerPasses; ++k) {
+        const rt::Material::LayerPass& layer = core::at(material.layers, k);
+        Texture* const layer_texture = layer.mode != 0U && layer.texture != nullptr ? object(layer.texture) : nullptr;
+        core::at(layers, k) = layer_texture;
+        core::at(layer_slots, k) = layer_texture != nullptr ? slot_for(layer_texture) : 0;
+        core::at(layer_known, k) = core::at(core::at(record_layer_textures_, id), k) == layer_texture &&
+                                   core::at(record.layer_texture, k) == core::at(layer_slots, k);
+    }
+    record = material_record(material, slot, mask_slots, layer_slots);
     core::at(record_textures_, id) = texture;
     core::at(record_mask_textures_, id) = masks;
+    core::at(record_layer_textures_, id) = layers;
     if (slot != 0 && !user_known) {
         core::at(slot_users_, slot).push_back(id);
     }
@@ -608,6 +692,11 @@ void MaterialTable::set(rt::MaterialId id, const rt::Material& material)
             core::at(slot_users_, core::at(mask_slots, k)).push_back(id);
         }
     }
+    for (std::size_t k = 0; k < rt::Material::kLayerPasses; ++k) {
+        if (core::at(layer_slots, k) != 0 && !core::at(layer_known, k)) {
+            core::at(slot_users_, core::at(layer_slots, k)).push_back(id);
+        }
+    }
     mark_dirty(id);
 }
 
@@ -620,6 +709,7 @@ void MaterialTable::remove(rt::MaterialId id)
     core::at(records_, id) = MaterialRecord{};
     core::at(record_textures_, id) = nullptr;
     core::at(record_mask_textures_, id) = {};
+    core::at(record_layer_textures_, id) = {};
     mark_dirty(id);
 }
 
@@ -650,6 +740,13 @@ void MaterialTable::texture_released(Backend& state, Texture* texture)
             if (core::at(core::at(record_mask_textures_, id), k) == texture) {
                 core::at(core::at(records_, id).mask_texture, k) = 0;
                 core::at(core::at(record_mask_textures_, id), k) = nullptr;
+                mark_dirty(id);
+            }
+        }
+        for (std::size_t k = 0; k < rt::Material::kLayerPasses; ++k) {
+            if (core::at(core::at(record_layer_textures_, id), k) == texture) {
+                core::at(core::at(records_, id).layer_texture, k) = 0;
+                core::at(core::at(record_layer_textures_, id), k) = nullptr;
                 mark_dirty(id);
             }
         }

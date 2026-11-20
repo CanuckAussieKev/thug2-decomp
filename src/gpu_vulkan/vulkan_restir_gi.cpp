@@ -594,50 +594,102 @@ struct Secondary {
     vec3 bounce;
     vec3 reflectance;
     float t;
+    vec3 beyond; // (round BIAS) with go_on: the bounce at it (E / pi) - the cache's, else the path continued (below)
 };
-Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, inout uint rng)
+// (round BIAS) The radiance cache's misses: SHaRC's query (cache_lookup) takes a cell it has no entry for as a miss and
+// the path goes on - read as 0, every newly seen region's bounce was dark for the ~64 frames the cache takes to fill
+// (round MV: GI's diffuse there 0.57 - 0.73 x converged). With `go_on` the vertex's bounce (`beyond`) is the cache's
+// where its cell has a trusted entry (cache_lookup: CACHE_TRUSTED_SAMPLES); on a miss one ray along the vertex's cosine
+// lobe - with the cosine's pdf the light it meets is a one-sample estimate of the bounce, E / pi, the cache's own unit -
+// and at the next vertex its direct light + its reflectance x its bounce again: CACHE_MISS_SURE further vertices, then
+// Russian roulette by the light the path still carries, up to CACHE_MISS_VERTICES (where the ray leaves the world,
+// nothing more: the sky's light is each vertex's direct light). One trace in the loop for the first vertex and the
+// continued ones (each extra inlined ray query and light sample made the shader lose the device).
+const uint CACHE_MISS_VERTICES = 12u; // (at most - Russian roulette ends most paths sooner)
+const uint CACHE_MISS_SURE = 2u;      // (the vertices before the roulette)
+Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, bool go_on, inout uint rng)
 {
-    Secondary out_s = Secondary(false, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), vec3(0.0), GI_REACH);
+    Secondary out_s = Secondary(false, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), vec3(0.0), GI_REACH,
+                                vec3(0.0));
     float travelled = 0.0;
-    for (uint skipped = 0u; skipped < 4u; ++skipped) {
+    uint skipped = 0u;
+    uint vertices = 0u;
+    vec3 through = vec3(1.0);
+    for (uint step = 0u; step < 4u + CACHE_MISS_VERTICES + 1u; ++step) {
         uint instance;
         uint primitive;
         uint id;
         vec2 bary;
         float t;
         mat4x3 to_world;
-        if (!trace_closest(mask, origin, dir, GI_REACH, instance, primitive, id, bary, t, to_world)) {
-            return out_s;
-        }
         HitSurface h;
-        if (!hit_surface(instance, primitive, id, bary, to_world, dir, h)) {
-            return out_s;
+        if (!trace_closest(mask, origin, dir, GI_REACH, instance, primitive, id, bary, t, to_world) ||
+            !hit_surface(instance, primitive, id, bary, to_world, dir, h)) {
+            break;
         }
         if (h.hidden) {
+            if (skipped >= 4u) {
+                break;
+            }
             origin = h.position + dir * ray_offset(h.position);
-            travelled += t;
+            travelled += vertices == 0u ? t : 0.0;
+            ++skipped;
             continue;
         }
         vec3 ng = h.normal;
         vec3 v = -dir;
         vec3 n = dot(h.shading_normal, v) > 0.0 ? h.shading_normal : ng;
         BrdfMaterial m = hit_material(h);
-        out_s.hit = true;
-        out_s.at = h.position;
-        out_s.n = ng;
-        out_s.shading = n;
-        out_s.t = travelled + t;
-        out_s.bounce = good3(next_event(h.position + ng * ray_offset(h.position), n, ng, v, m, rng));
-        out_s.reflectance = good3(brdf_ambient(m, dot(n, v), vec3(1.0), vec3(1.0)));
-        return out_s;
+        vec3 direct = good3(next_event(h.position + ng * ray_offset(h.position), n, ng, v, m, rng));
+        vec3 reflectance = good3(brdf_ambient(m, dot(n, v), vec3(1.0), vec3(1.0)));
+        if (vertices == 0u) {
+            out_s.hit = true;
+            out_s.at = h.position;
+            out_s.n = ng;
+            out_s.shading = n;
+            out_s.t = travelled + t;
+            out_s.bounce = direct;
+            out_s.reflectance = reflectance;
+        } else {
+            out_s.beyond += through * direct;
+            through *= reflectance;
+        }
+        ++vertices;
+        if (!go_on) {
+            break;
+        }
+        vec3 cached;
+        if (cache_lookup(h.position, ng, cached)) {
+            out_s.beyond += through * cached;
+            break;
+        }
+        float most = max(through.r, max(through.g, through.b));
+        if (vertices > CACHE_MISS_VERTICES || !(most > 0.0)) {
+            break;
+        }
+        if (vertices > CACHE_MISS_SURE) {
+            // (Russian roulette by the light the path still carries - unbiased: a kept path weighs 1 / its chance)
+            float keep = clamp(most, 0.1, 0.95);
+            if (path_next(rng) >= keep) {
+                break;
+            }
+            through /= keep;
+        }
+        vec3 next = path_to_world(n, path_cosine_direction(path_next(rng), path_next(rng)));
+        if (dot(next, ng) <= 0.0) {
+            break;
+        }
+        origin = h.position + ng * ray_offset(h.position);
+        dir = next;
+        mask = LIGHT_RAYS;
     }
+    out_s.beyond = good3(out_s.beyond);
     return out_s;
 }
 
-// (round MB) the radiance cache's lookups: vulkan_light_list.h light_sample_glsl (LL_CACHE).
-// The light a secondary vertex sends toward the ray's origin: its direct light + its reflectance x its bounce.
-vec3 with_bounces(Secondary sec) { return sec.hit ? good3(sec.bounce + sec.reflectance * cache_bounce(sec.at, sec.n)) : vec3(0.0); }
-
+// The light a secondary vertex sends toward the ray's origin: its direct light + its reflectance x its bounce (traced
+// with go_on: the radiance cache's, or the path continued on its miss).
+vec3 with_bounces(Secondary sec) { return sec.hit ? good3(sec.bounce + sec.reflectance * sec.beyond) : vec3(0.0); }
 // A white diffuser's lobe and the material's specular lobe toward `dir` (x the cosine).
 float white_lobe(Surface s, vec3 dir) { return max(dot(s.n, dir), 0.0) / PATH_PI; }
 vec3 specular_lobe(Surface s, vec3 v, vec3 dir)
@@ -908,7 +960,7 @@ void main()
         if (dot(dir, facing[k]) <= 0.0) {
             break;
         }
-        Secondary sec = trace_secondary(mask, at[k] + facing[k] * ray_offset(at[k]), dir, rng);
+        Secondary sec = trace_secondary(mask, at[k] + facing[k] * ray_offset(at[k]), dir, false, rng);
         if (!sec.hit) {
             break;
         }
@@ -1012,7 +1064,7 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
     float chosen = 0.0;
     if (dot(dir, s.ng) > 0.0 && dot(dir, s.n) > 0.0) {
         float pdf = sky_share * sky_density(dir) + (1.0 - sky_share) * dot(s.n, dir) / PATH_PI;
-        Secondary sec = trace_secondary(mask, origin, dir, rng);
+        Secondary sec = trace_secondary(mask, origin, dir, true, rng);
         Reservoir c;
         c.M = 1.0;
         if (sec.hit) {
@@ -1127,7 +1179,7 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
             // (round FA) its hit's light from candidates of its own - the specular is each frame's own ray, no reuse
             // averages a light grid cell's shared error (vulkan_light_list.h light_sample_glsl: ll_cell_candidates)
             ll_cell_candidates = false;
-            Secondary sec = trace_secondary(mask, origin, l, rng);
+            Secondary sec = trace_secondary(mask, origin, l, true, rng);
             ll_cell_candidates = true;
             Reservoir c;
             c.M = 1.0;

@@ -107,6 +107,9 @@ constexpr double kPaintLift = 0.8; // (Boston's crosswalk paint over its asphalt
 constexpr double kPaintInset = 100.0;
 constexpr double kAgreement = 0.02;      // (the brief: within 2 % of the reference's)
 constexpr double kLooseAgreement = 0.03; // (the smooth surface's own rays, the room's few lit pixels)
+// (round BIAS) a cold cache's first frames: the misses' paths go on by Russian roulette (measured -0.1 %; reading a miss
+// as 0, -60 %: the one bounce alone; ending the paths 3 vertices on and trusting an entry of 8 samples, -23 %)
+constexpr double kColdAgreement = 0.03;
 constexpr float kRoughness = 0.6F;
 constexpr float kSmooth = 0.15F;
 constexpr float kF0 = 0.04F;
@@ -1401,6 +1404,22 @@ void check_device(render::Gpu& gpu, Tally* tally)
                          text::format("the room without the radiance cache (one bounce): %.5f (%+.2f %% - the further "
                                       "bounces' share the cache brings; under -10 %%)",
                                       g1.mean, percent(g1.mean, r.mean)));
+            // (round BIAS) a cold cache: its first frames, every cell a miss - a region the view has just revealed. On a
+            // miss SHaRC's query continues the path (vulkan_light_list.h cache_lookup, ReSTIR GI's with_bounces); read as 0
+            // the room came out as dark as with no cache at all for the first frames (round MV: a revealed region's GI
+            // 0.57 - 0.73 x converged)
+            RunPlan cold = room_plan;
+            cold.settle = 0;
+            cold.frames = 2;
+            cold.batches = 24;
+            cold.temporal = false;
+            cold.each_frame = nullptr;
+            const Answer g_cold = restir_gi(gpu, targets, scene, inside, cold, all, &read);
+            not_finite += g_cold.not_finite;
+            tally->check(read && agrees(g_cold.mean, r.mean, kColdAgreement),
+                         text::format("the room's first two frames, the cache cold (its misses continue the path): %.5f +- "
+                                      "%.5f against %.5f (%+.2f %%; within %.0f %%)",
+                                      g_cold.mean, g_cold.sigma, r.mean, percent(g_cold.mean, r.mean), 100.0 * kColdAgreement));
             // (round MB) a moving camera: round a circle about the view every 16 frames, counted where it comes back -
             // the cache's cells change level with the distance, its entries are made and dropped as the view moves
             constexpr int kOrbit = 16;

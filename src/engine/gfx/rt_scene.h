@@ -198,6 +198,25 @@ struct Material {
     };
     static constexpr std::size_t kMaskPasses = 3;
     std::array<MaskPass, kMaskPasses> mask_passes{};
+    // (round BIAS) The later passes the game composes over the first into the surface's colour (render_pc/pixel_shaders.cpp
+    // generated_pixel_shader: r0 = the first pass, each later one blended into it by its mode) - the colour the frame's
+    // shading lights. A hit's base colour is the same composite (vulkan_rt_materials.h material_colour), so every ray
+    // reflects off the surface the frame shows: before, the first pass alone - BO's bank windows (a frosted white pass
+    // under a dark one with the lit panes' holes) white in every ray and the path tracer, ~3 x the frame's albedo.
+    // Environment-mapped passes compose as black (their colour is the reflection, the reflections pass's - colour 0 here;
+    // an environment-mapped first pass likewise: material_colour); pass k + 1 is layers[k] (mode 0: none).
+    struct LayerPass {
+        GpuTexture* texture = nullptr;           // null: untextured (white)
+        uint32_t mode = 0;                       // its blend mode (kBlendMode*, 1 - 13); 0: not composed
+        uint32_t uv_set = 0;                     // its texture coordinate set (the pass's number)
+        uint32_t address_u = 1;                  // as above (gpu_value::kAddress*)
+        uint32_t address_v = 1;
+        bool texture_alpha = false;              // its alpha the texel's (flag 0x1000), else 2 x the vertex alpha x it
+        std::array<float, 4> colour{1.0F, 1.0F, 1.0F, 0.0F}; // the pass's colour doubled (rgb) and its fixed alpha
+        bool operator==(const LayerPass&) const = default;
+    };
+    static constexpr std::size_t kLayerPasses = 3;
+    std::array<LayerPass, kLayerPasses> layers{};
     // (round PT-B - rt_surface_class.h) the least alpha of its texture's texels (0 - 1), as the device samples them
     // (RayTracing::texture_alpha): 1 untextured, 0 not known. With the vertex alpha it decides a blended surface's class.
     float least_texel_alpha = 0.0F;

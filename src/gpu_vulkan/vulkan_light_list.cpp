@@ -52,7 +52,7 @@ uint listed_slot(uint instance, uint primitive)
 
 // The emitters' scan: one invocation a triangle of the frame's instances (flattened by the instances' first triangles,
 // membership[0 .. instances]). A triangle of an instance with a light store (the world's, and since round P10 an object
-// drawn with its own colours, relit where it stands) that casts and isn't seen through, whose light store emits
+// drawn with its own colours, relit where it stands) - (round BIAS) whatever its class for rays -, whose light store emits
 // at a corner (not hidden, not animated), is listed with its power: 2 pi x its area x its emission's mean luminance at the
 // centroids of its TRIANGLE_LATTICE^2 equal sub-triangles (hit_surface's `emitted`: the store's emit x the texel x the
 // lamp texels). (Round PT4b) Every such triangle is listed: one whose few lamp texels fall between those points (Boston:
@@ -63,8 +63,6 @@ uint listed_slot(uint instance, uint primitive)
 // candidates: those emitting at a corner with an area - a strip's joining triangles have none.)
 constexpr const char* kScanGlsl = R"(
 layout(local_size_x = 64) in;
-const uint LIST_CASTS = 4u;        // (rt::kCastsShadow)
-const uint LIST_TRANSPARENT = 64u; // (rt::kTransparent)
 float emitter_power(uint instance, uint primitive, out float area)
 {
     uint id = instance_material(instance);
@@ -110,8 +108,11 @@ void main()
     uint primitive = g - membership[instance];
     GeometryRecord record = geometry_record(instance);
     uvec3 triangle; // (round GF: read only within the record's triangles, vertices and light stream)
-    if ((record.instance_flags & LIST_CASTS) == 0u || (record.instance_flags & LIST_TRANSPARENT) != 0u ||
-        !geometry_triangle(record, primitive, triangle) || !geometry_light_corners(record, triangle)) {
+    // (round BIAS) whatever its class for rays: a seen-through or light-adding instance that emits (a lamp's globe, a lit
+    // pane) is an emitter as an opaque one is - its light rays stop short of it (ray_light), so it needn't stop them.
+    // Before, only instances that cast and weren't seen through were listed: ReSTIR DI never sampled the others (their
+    // light on BO's plaza floor missing), the reference found them by its BSDF rays alone.
+    if (!geometry_triangle(record, primitive, triangle) || !geometry_light_corners(record, triangle)) {
         return;
     }
     float most = 0.0;
@@ -593,11 +594,22 @@ void cache_key(vec3 at, vec3 ng, out uint slot, out uint check)
     check = cache_hash(u.z ^ cache_hash(u.y + cache_hash(u.x ^ cache_hash(w ^ 0x9E3779B9u))));
     check = check == 0u ? 1u : check;
 }
-// The bounce at a point (0 where the cache has no entry yet, or isn't used).
-vec3 cache_bounce(vec3 at, vec3 ng)
+// (round BIAS) The bounce at a point - true where the cache has CACHE_TRUSTED_SAMPLES for its cell; false where it has
+// fewer or none (a cell not seen yet, or claimed this frame and not resolved): a miss (`bounce` the young entry's light, 0
+// for none). SHaRC's query (SharcGetCachedRadiance) is the same test, and on a miss its caller goes on tracing the path -
+// a miss is not "no light": read as 0 it darkened every newly seen region's bounce for the ~64 frames the cache takes to
+// fill (round MV: GI's diffuse there 0.57 - 0.73 x converged). ReSTIR GI's secondary vertices continue the path
+// (trace_secondary's go_on); the readers that can't trace on (the update paths' last vertex, the reflections' hits, the
+// front layer - cache_bounce) take the young entry's light, else 0. With the cache off: true and 0 (the one-bounce tier).
+// (SHaRC's sample threshold: the kept samples an entry needs before a caller that can go on takes it - a young entry's
+// update paths end in the cache's other young entries, low: trusted at 8 the cold room's first frames were -7 %, at 32
+// within 0.2 % - thug2_vulkan_restir_gi_check)
+const float CACHE_TRUSTED_SAMPLES = 32.0;
+bool cache_lookup(vec3 at, vec3 ng, out vec3 bounce)
 {
+    bounce = vec3(0.0);
     if (!(LL_CACHE_ON)) {
-        return vec3(0.0);
+        return true;
     }
     uint slot;
     uint check;
@@ -607,13 +619,24 @@ vec3 cache_bounce(vec3 at, vec3 ng)
         uint there = cache[i * 4u].x;
         if (there == check) {
             vec4 l = uintBitsToFloat(cache[i * 4u + 3u]);
-            return l.w > 0.0 && !any(isnan(l.rgb)) && !any(isinf(l.rgb)) ? max(l.rgb, vec3(0.0)) : vec3(0.0);
+            if (!(l.w > 0.0) || any(isnan(l.rgb)) || any(isinf(l.rgb))) {
+                return false;
+            }
+            bounce = max(l.rgb, vec3(0.0));
+            return l.w >= CACHE_TRUSTED_SAMPLES; // (a young entry: still a miss - its light is returned all the same)
         }
         if (there == 0u) {
             break;
         }
     }
-    return vec3(0.0);
+    return false;
+}
+// The bounce at a point, 0 on a miss (a reader that can't continue the path: the front layer's).
+vec3 cache_bounce(vec3 at, vec3 ng)
+{
+    vec3 bounce;
+    cache_lookup(at, ng, bounce);
+    return bounce;
 }
 #endif
 )";

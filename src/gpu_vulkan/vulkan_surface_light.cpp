@@ -511,7 +511,9 @@ bool make_inputs(Backend& state)
     const Extent extent{.width = colour->extent.width, .height = colour->extent.height};
     if (!ensure_image(state, &own.depth_copy, VK_FORMAT_R32_SFLOAT, extent, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT) ||
         !ensure_image(state, &own.visibility, kHdrFormat, extent, kUsage) ||
-        !ensure_image(state, &own.lamps, kHdrFormat, extent, kUsage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT) ||
+        // (round BIAS: written by a clear too - thug2_vulkan_rt_lights_check sets the lamps input to a known light)
+        !ensure_image(state, &own.lamps, kHdrFormat, extent,
+                      kUsage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT) ||
         !ensure_image(state, &own.lamps_on, kHdrFormat, extent, kUsage) ||
         !ensure_image(state, &own.specular, kHdrFormat, extent, kUsage) ||
         !ensure_image(state, &own.decals, kHdrFormat, extent,

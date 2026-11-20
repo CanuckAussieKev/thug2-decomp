@@ -33,7 +33,11 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   newly revealed (the pixel's direction seen by fewer than 8 frames before) and with history; `--json`, `--crops`.
   `compare <a.exr> <b.exr>` two linear pictures, means and error per cell; `motion <folder>` checks Ray
   Reconstruction's motion vectors (`pt frames <n> <folder> 1 inputs` saves its inputs) against the depth and the two
-  frames' cameras and warps the albedo guide through them.
+  frames' cameras and warps the albedo guide through them. (Round BIAS) `terms <spot> [--tag t]` a still session: each
+  lighting term's view converged and the matching references (`pt ref` with `only <kinds>`, `direct`, `bounces 0 | 2`:
+  emission and sky seen, the local lights' direct light, the disc and sky's, the indirect); `terms-analyse <Screenshots
+  folder> <spot> [--tag t] [--grid CxR]` realtime / reference per term, whole and per cell; `pair <a.exr> <b.exr> <out.png>`
+  pictures side by side through one exposure.
 - `node tools/game/settle_curve.ts <series folder> <x,y,w,h> [--settled N] [--threshold 30] [--frames 1,2,...]` - how a
   picture settles after a camera cut or stop (a `capture` started there, the camera then held): per listed frame the
   specks over the settled picture (the median of the last N frames) and over their 5x5 neighbourhood, and the RMS error.

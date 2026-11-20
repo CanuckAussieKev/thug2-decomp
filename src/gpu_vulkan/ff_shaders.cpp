@@ -1244,6 +1244,11 @@ void surface_finish(std::string& out, const FragmentKey& key)
         layer_lit = decal_layer_onto("surface_lit", "    ");
         layer_m_inner = decal_layer_onto("surface_m", "        ");
     }
+    // (round BIAS) The lamps input - a white diffuser's light (ReSTIR DI's lamps, ReSTIR GI's diffuse, the front layer's)
+    // - goes on the material's diffuse lobe as the light model has it: albedo x (1 - E) (brdf_ambient's diffuse part,
+    // brdf_direct's), the share its specular lobe (E x the specular input) doesn't take. Before, albedo x it: every
+    // lamp and bounce counted the light the specular reflects a second time in the diffuse (1 / (1 - E) too bright -
+    // 4 - 30 % on a dielectric, most at grazing views), against the reference and the processor check's own model.
     if ((key.surface & kSurfaceLit) != 0U) {
         const bool hair = (key.detail & kDetailHair) != 0U;
         if (hair) {
@@ -1259,7 +1264,7 @@ void surface_finish(std::string& out, const FragmentKey& key)
                   layer_m, layer_lit,
                   "    surface_out = brdf_ambient(surface_m, surface_nv, surface_ambient * surface_hemi, surface_ambient * "
                   "surface_env) * surface_li.b;\n"
-                  "    surface_out += surface_lit.albedo * surface_lamps;\n"
+                  "    surface_out += brdf_ambient(surface_lit, surface_nv, surface_lamps, vec3(0.0));\n"
                   "    for (int i = 0; i < 8; ++i) {\n"
                   "        vec3 l = s.light_toward[i].xyz;\n        if (dot(l, l) == 0.0) continue;\n"
                   "        vec3 light = surface_one ? max(s.light_colour[i].rgb, vec3(0.0)) : linear_from_display(s.light_colour[i].rgb);\n"
@@ -1294,12 +1299,12 @@ void surface_finish(std::string& out, const FragmentKey& key)
                   "light_seen(surface_li, v_cel_tint.a)",
                   relief ? " * relief_shadow" : "", ");\n        }\n"
                   "        surface_out += v_cel_emit.rgb * lamp_texel * lamp_lit;\n"
-                  "        surface_out += surface_m.albedo * surface_lamps;\n"
+                  "        surface_out += brdf_ambient(surface_m, surface_nv, surface_lamps, vec3(0.0));\n"
                   "    } else {\n",
                   layer_m_inner,
                   "        vec3 light = linear_from_display(v_diffuse.rgb * surface_word);\n"
                   "        surface_out = brdf_ambient(surface_m, surface_nv, light * surface_hemi, light * surface_env) * "
-                  "light_share(surface_li) + surface_m.albedo * surface_lamps;\n",
+                  "light_share(surface_li) + brdf_ambient(surface_m, surface_nv, surface_lamps, vec3(0.0));\n",
                   // (round FL: on the front layer the vertex's light has no share - the disc's light by the light model, as
                   // with a store)
                   front ? "        if (light_front_at && s.sun.w > 0.5 && dot(surface_geo, s.sun.xyz) > 0.0) {\n"
@@ -1312,7 +1317,7 @@ void surface_finish(std::string& out, const FragmentKey& key)
         // separated - taken by shares, light_share)
         add(out, {layer_m, "    vec3 surface_bake = linear_from_display(v_diffuse.rgb * 2.0);\n"
                   "    surface_out = brdf_ambient(surface_m, surface_nv, surface_bake * surface_hemi, surface_bake * surface_env) "
-                  "* light_share(surface_li) + surface_m.albedo * surface_lamps;"});
+                  "* light_share(surface_li) + brdf_ambient(surface_m, surface_nv, surface_lamps, vec3(0.0));"});
     }
     if (inputs) {
         // (path tracing, stage 5 - ReSTIR GI: the environment's specular traced, on the material's specular albedo - in
@@ -1552,6 +1557,25 @@ std::string op_value(StageOp op, const OpArgs& args, bool alpha)
     return alpha ? "current.a" : "current.rgb";
 }
 
+// (NOT ORIGINAL - round BIAS) On a surface lit per pixel, a stage sampled along the reflection vector (the game's
+// environment-mapped pass: a painted reflection) adds no colour to the albedo - its texel reads black, its alpha kept for
+// the blends. The surface's reflection is the reflections pass's (its traced light on the specular albedo); lit as an
+// albedo, the painted one was a second reflection under the lamps - BO's bank windows a glass pane whose environment
+// map (a night city with lit squares) the lamps lit as a white wall. The rays' surfaces take the same rule
+// (vulkan_rt_materials.h material_colour: the first pass black when it is the environment pass, environment layers
+// none).
+// Which stages those are is the draw's (u.alpha_reference.w: a bit per stage - vulkan_draws.cpp set_uniforms, from the
+// vertex half's coordinates; the fragment key has no room for them).
+void environment_texel_black(std::string& out, const FragmentKey& key, std::size_t stage, const std::string& texel,
+                             std::string_view indent)
+{
+    if ((key.surface & kSurfaceLighting) == 0U) {
+        return;
+    }
+    add(out, {std::string(indent), "if ((int(u.alpha_reference.w) & ", num(1U << stage), ") != 0) ", texel,
+              ".rgb = vec3(0.0);"});
+}
+
 // The texture stages: CURRENT starts as the diffuse colour; each enabled stage computes its colour and alpha from its
 // arguments and writes CURRENT, clamped to 0 - 1 (Direct3D 9's stages hold 0 - 1); the first disabled stage ends them.
 // A colour DOTPRODUCT3 writes the alpha too. Then the specular colour is added (D3DRS_SPECULARENABLE), clamped.
@@ -1566,6 +1590,7 @@ void fragment_stages(std::string& out, const FragmentKey& key, uint32_t sampled)
         add(out, {"    {"});
         if (has_stage(sampled, stage)) {
             add(out, {"        vec4 tex = stage_texel(", num(stage), ", texture(t", num(stage), "_map, ", coord_of(key, stage), "));"});
+            environment_texel_black(out, key, stage, "tex", "        ");
             if (stage == 0) { // (NOT ORIGINAL - the surface trails: stage 0's texel covered)
                 trail_albedo(out, key, "tex.rgb", "        ");
             } else if ((key.trails & kTrailSnow) != 0U) {
@@ -1648,6 +1673,7 @@ void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
             add(out, {"    vec4 t", num(index), " = stage_texel(", num(index), ", texture(t", num(index), "_map, ",
                       coord_of(key, index), "));"});
         }
+        environment_texel_black(out, key, index, "t" + num(index), "    ");
         if ((key.surface & kSurfaceCel) != 0U && (key.surface & kSurfaceCelHull) == 0U) {
             // (added by cel shading - rt_cel_flatten) the colour toward a blurrier mip, its alpha (cut-outs) as it was
             add(out, {"    t", num(index), ".rgb = mix(t", num(index), ".rgb, texture(t", num(index), "_map, ",
