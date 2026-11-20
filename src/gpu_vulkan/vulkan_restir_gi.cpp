@@ -28,6 +28,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_debug_view.h"
 #include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_memory.h"
@@ -117,6 +118,11 @@ constexpr uint32_t kFlagBoiling = 32U;
 constexpr uint32_t kFlagCache = 64U; // (round MB) the secondary's bounce from the radiance cache
 constexpr uint32_t kFlagSpecularReuse = 128U; // (round WS) the specular reservoir's temporal and spatial reuse
 constexpr uint32_t kFlagSpecularOnly = 256U;  // (round WS - the check's) the sums the specular alone
+// (round FA - vulkan_debug_view.h) a debug view without GI's diffuse / specular from surfaces, or without the sky (its
+// samples that saw the sky, and the sun's or the moon's visibility: no direct light from the disc)
+constexpr uint32_t kFlagNoDiffuse = 512U;
+constexpr uint32_t kFlagNoSpecular = 1024U;
+constexpr uint32_t kFlagNoSky = 2048U;
 // (round WS) The specular reservoir's reuse in the game: OFF. The check measures it unbiased and its estimate's noise
 // halved (the specular alone, a still or orbiting camera), but in the game under Ray Reconstruction (BO at night, the
 // ledge under the sign and the brick wall, 60-frame series) it made the picture noisier - the ledge's specks a frame
@@ -294,6 +300,9 @@ const uint FLAG_BOILING = 32u;
 const uint FLAG_CACHE = 64u;
 const uint FLAG_SPECULAR_REUSE = 128u;
 const uint FLAG_SPECULAR_ONLY = 256u;
+const uint FLAG_NO_DIFFUSE = 512u;
+const uint FLAG_NO_SPECULAR = 1024u;
+const uint FLAG_NO_SKY = 2048u;
 const uint MOST_SPATIAL = 4u;
 const uint LIGHT_RAYS = 15u;          // world, objects, alpha-tested, drawn apart (round PG) - the reference's rays
 const uint LIGHT_RAYS_ON_OBJECT = 13u; // (an object's pixel: the world's and what is drawn apart - its low-poly body
@@ -1115,7 +1124,11 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
         vec3 l = 2.0 * dot(v, h) * h - v;
         if (dot(l, s.ng) > 0.0 && dot(l, s.n) > 0.0) {
             float pdf = path_ggx_reflection_pdf(nv, clamp(dot(s.n, h), 0.0, 1.0), alpha);
+            // (round FA) its hit's light from candidates of its own - the specular is each frame's own ray, no reuse
+            // averages a light grid cell's shared error (vulkan_light_list.h light_sample_glsl: ll_cell_candidates)
+            ll_cell_candidates = false;
             Secondary sec = trace_secondary(mask, origin, l, rng);
+            ll_cell_candidates = true;
             Reservoir c;
             c.M = 1.0;
             if (sec.hit) {
@@ -1234,7 +1247,8 @@ void put_result(ivec2 p, uint i, Surface s, vec3 diffuse, vec3 specular, float h
     if (s.valid) {
         // (the store's environment gone where this lit the surface: its sky and bounce are these samples)
         vec4 vis = imageLoad(io_visibility, p);
-        imageStore(io_visibility, p, vec4(vis.r, vis.g, 0.0, vis.a));
+        // (round FA - a debug view without the sky: nor the disc's direct light)
+        imageStore(io_visibility, p, vec4((pass.counts.w & FLAG_NO_SKY) != 0u ? 0.0 : vis.r, vis.g, 0.0, vis.a));
         vec3 exposed = min(diffuse * pass.eye.w, vec3(65504.0));
         imageStore(io_lamps, p, vec4(min(imageLoad(io_lamps, p).rgb + exposed, vec3(65504.0)), 0.0));
         imageStore(io_lamps_on, p, vec4(min(imageLoad(io_lamps_on, p).rgb + exposed * s.albedo, vec3(65504.0)), 0.0));
@@ -1483,6 +1497,13 @@ void main()
     // unbiased combination's weights then aren't (the furnace: -1.5 % with a glossy target); each chain apart, none)
     store_reservoir(true, i, taken[0]);
     store_specular(true, i, load_specular(false, i)); // (round WS: the same - its temporal reservoir)
+    // (round FA - the debug views: a term left out adds nothing; a sample that saw the sky is the sky's)
+    if ((pass.counts.w & (r.kind == KIND_SKY ? FLAG_NO_SKY : FLAG_NO_DIFFUSE)) != 0u) {
+        diffuse = vec3(0.0);
+    }
+    if ((pass.counts.w & (hit < GI_MISS_DISTANCE ? FLAG_NO_SPECULAR : FLAG_NO_SKY)) != 0u) {
+        specular = vec3(0.0);
+    }
     put_result(p, i, s, diffuse, specular, hit, full);
 }
 #endif
@@ -1770,6 +1791,15 @@ GiState& gi_state()
 }
 
 bool first_report(Backend& state, uint64_t what) { return state.reported.insert(what).second; }
+
+// (round FA) The debug view's terms as the pass's flags (none in the check).
+uint32_t debug_flags(bool check)
+{
+    const uint32_t terms = check ? debug_term::kAll : debug_terms();
+    return ((terms & debug_term::kGiDiffuse) == 0U ? kFlagNoDiffuse : 0U) |
+           ((terms & debug_term::kGiSpecular) == 0U ? kFlagNoSpecular : 0U) |
+           ((terms & debug_term::kSky) == 0U ? kFlagNoSky : 0U);
+}
 
 class GiListener final : public rt::ViewListener {
 public:
@@ -2507,7 +2537,7 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
                            (!check || own.overrides.boiling_filter ? kFlagBoiling : 0U) |
                            (!check || own.overrides.cache ? kFlagCache : 0U) |
                            ((check ? own.overrides.specular_reuse : kSpecularReuseInGame) ? kFlagSpecularReuse : 0U) |
-                           (check && own.overrides.specular_only ? kFlagSpecularOnly : 0U);
+                           (check && own.overrides.specular_only ? kFlagSpecularOnly : 0U) | debug_flags(check);
     block.counts = {own.entries, static_cast<uint32_t>(local.lamp_list.size()), static_cast<uint32_t>(own.frames), flags};
     const uint32_t candidates =
         check && own.overrides.local_candidates != 0U ? own.overrides.local_candidates : kLocalCandidates;

@@ -22,6 +22,7 @@
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_debug_view.h"
 #include "gpu_vulkan/vulkan_fisheye.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
@@ -542,6 +543,7 @@ struct CameraState {
     uint64_t camera_upscales_seen = 0;
     uint64_t grade_upscales_seen = 0;
     uint64_t lens_upscales_seen = 0;
+    uint64_t debug_upscales_seen = 0; // (round FA - the debug views' flicker map)
     uint64_t cuts_seen = 0;
     // timing
     VkQueryPool timer_pool = VK_NULL_HANDLE;
@@ -1299,6 +1301,33 @@ public:
     }
 };
 
+// (round FA) The lighting's debug views (vulkan_debug_view.h), while one is on: each frame the exposure held for a term
+// view, and the flicker view's heat map over the finished picture.
+class DebugViewListener final : public rt::ViewListener {
+public:
+    [[nodiscard]] int order() const override { return rt::ViewOrder::kDebugView; }
+    void opaque_drawn(const rt::ViewDrawn& /*view*/) override { camera().debug_upscales_seen = upscale_passes(); }
+    void world_drawn(const rt::ViewDrawn& view) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        if (!state.device_made || !state.draws_made) {
+            return;
+        }
+        keep_debug_view(state);
+        ViewPlan plan;
+        if (debug_view() == DebugView::kFlicker && plan_view(state, view, &camera().debug_upscales_seen, &plan)) {
+            (void)record_flicker_view(state, {.colour = plan.colour, .shown = plan.shown});
+        }
+    }
+};
+
+DebugViewListener& debug_view_listener()
+{
+    static DebugViewListener instance;
+    return instance;
+}
+
 LensListener& lens_listener()
 {
     static LensListener instance;
@@ -1371,6 +1400,17 @@ void set_camera_fx_settings(const CameraFxSettings& settings)
         rt::add_view_listener(&camera_listener());
     } else {
         rt::remove_view_listener(&camera_listener());
+    }
+    // (round FA) the lighting's debug view: its listener while one is on
+    DebugView debug = DebugView::kOff;
+    if (!parse_debug_view(kept.debug_view, &debug)) {
+        get_log("[debug] rt_debug_view=%s: not one of %s - off", kept.debug_view.c_str(), debug_view_names().c_str());
+    }
+    set_debug_view(debug);
+    if (debug != DebugView::kOff) {
+        rt::add_view_listener(&debug_view_listener());
+    } else {
+        rt::remove_view_listener(&debug_view_listener());
     }
     if (kept.grade != GradeLook::kOff) {
         rt::add_view_listener(&grade_listener());
@@ -1739,6 +1779,7 @@ void release_camera_fx(Backend& state)
 {
     CameraState& own = camera();
     release_fisheye(state);
+    release_debug_view(state); // (round FA)
     const VkDevice device = state.context.device();
     if (device != nullptr) {
         for (std::vector<FragmentPipeline>* made : {&own.blur, &own.focus_composite, &own.grade}) {

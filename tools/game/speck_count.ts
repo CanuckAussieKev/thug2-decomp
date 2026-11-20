@@ -1,7 +1,9 @@
 // Specks in a captured series (the automation's `capture <frames> <folder>` with the camera held): isolated bright
 // pixels over a surface, counted in a rectangle - what Ray Reconstruction keeps of a noisy estimator (the white specks
 // on BO's kickers / ledge at night).
-//   node tools/game/speck_count.ts <series folder> <x,y,w,h> [--skip N] [--threshold 30]
+//   node tools/game/speck_count.ts <series folder> <x,y,w,h> [--skip N] [--threshold 30] [--heatmap out.png] [--json]
+// (round FA) Also the rectangle's mean luma (what a launch-to-launch comparison needs) and, with --heatmap, each pixel's
+// temporal standard deviation as a heat map (black 0 -> red -> yellow -> white at kHeatFull): where the flicker is.
 // A speck: a pixel whose luma (0-255, Rec. 709 weights on the PNG's bytes) is over its 5x5 neighbourhood's median by the
 // threshold. Two kinds: flickering (also over the pixel's own median over the series by the threshold - new each frame)
 // and steady (over its neighbourhood but not over its own median: the same glint frame after frame). Also each pixel's
@@ -9,9 +11,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { isMain, parseCli, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
-import { decodePng } from "thug2-level-converter-core/lib/frame_diff.ts";
+import { decodePng, encodePng } from "thug2-level-converter-core/lib/frame_diff.ts";
 
-const USAGE = "usage: speck_count.ts <series folder> x,y,w,h [--skip N] [--threshold T]";
+const USAGE = "usage: speck_count.ts <series folder> x,y,w,h [--skip N] [--threshold T] [--heatmap out.png] [--json]";
+
+// A heat map's full scale: a per-pixel temporal standard deviation of 16 / 255 luma is white.
+export const kHeatFull = 16;
 
 export interface Rect {
     x: number;
@@ -25,6 +30,8 @@ export interface SpeckStats {
     flickering: number; // a frame, on average
     steady: number; // a frame, on average
     std: number; // the pixels' temporal standard deviation, mean over the rectangle
+    mean: number; // the rectangle's luma, mean over the pixels and the frames
+    stdMap: Float32Array; // each pixel's temporal standard deviation (w x h)
 }
 
 function median(values: Float32Array): number {
@@ -37,7 +44,9 @@ export function speckStats(frames: Float32Array[], rect: Rect, threshold: number
     const { w, h } = rect;
     const n = frames.length;
     const own = new Float32Array(w * h);
+    const stdMap = new Float32Array(w * h);
     let stdSum = 0;
+    let meanSum = 0;
     const series = new Float32Array(n);
     for (let i = 0; i < w * h; i++) {
         let sum = 0;
@@ -50,7 +59,9 @@ export function speckStats(frames: Float32Array[], rect: Rect, threshold: number
         for (let k = 0; k < n; k++) {
             squares += (series[k]! - mean) * (series[k]! - mean);
         }
-        stdSum += Math.sqrt(squares / n);
+        stdMap[i] = Math.sqrt(squares / n);
+        stdSum += stdMap[i]!;
+        meanSum += mean;
         own[i] = median(series);
     }
     let flickering = 0;
@@ -80,7 +91,29 @@ export function speckStats(frames: Float32Array[], rect: Rect, threshold: number
             }
         }
     }
-    return { frames: n, flickering: flickering / n, steady: steady / n, std: stdSum / (w * h) };
+    return {
+        frames: n,
+        flickering: flickering / n,
+        steady: steady / n,
+        std: stdSum / (w * h),
+        mean: meanSum / (w * h),
+        stdMap,
+    };
+}
+
+// The heat map's colour for a standard deviation: black -> red -> yellow -> white over 0 - kHeatFull.
+export function heatColour(std: number): [number, number, number] {
+    const t = Math.min(Math.max(std / kHeatFull, 0), 1) * 3;
+    const part = (v: number) => Math.round(Math.min(Math.max(v, 0), 1) * 255);
+    return [part(t), part(t - 1), part(t - 2)];
+}
+
+export function heatmapPng(map: Float32Array, w: number, h: number): Buffer {
+    const rgb = new Uint8Array(w * h * 3);
+    for (let i = 0; i < w * h; i++) {
+        rgb.set(heatColour(map[i]!), i * 3);
+    }
+    return encodePng({ width: w, height: h, rgb });
 }
 
 function lumaOf(file: string, rect: Rect): Float32Array {
@@ -97,7 +130,12 @@ function lumaOf(file: string, rect: Rect): Float32Array {
 
 function main(): number {
     const { values, positionals } = parseCli(USAGE, {
-        options: { skip: { type: "string", default: "0" }, threshold: { type: "string", default: "30" } },
+        options: {
+            skip: { type: "string", default: "0" },
+            threshold: { type: "string", default: "30" },
+            heatmap: { type: "string" },
+            json: { type: "boolean", default: false },
+        },
         allowPositionals: true,
     });
     if (positionals.length !== 2) {
@@ -114,9 +152,17 @@ function main(): number {
         .slice(Number(values.skip));
     const frames = files.map((f) => lumaOf(path.join(folder, f), rect));
     const s = speckStats(frames, rect, Number(values.threshold));
+    if (values.heatmap !== undefined) {
+        fs.writeFileSync(values.heatmap, heatmapPng(s.stdMap, w, h));
+    }
+    if (values.json) {
+        const { stdMap: _map, ...numbers } = s;
+        print(JSON.stringify({ folder, rect, ...numbers }));
+        return 0;
+    }
     print(
         `${folder}: ${s.frames} frames, specks a frame ${s.flickering.toFixed(1)} flickering + ${s.steady.toFixed(1)} steady, ` +
-            `per-pixel std ${s.std.toFixed(2)}`,
+            `per-pixel std ${s.std.toFixed(2)}, mean ${s.mean.toFixed(2)}`,
     );
     return 0;
 }

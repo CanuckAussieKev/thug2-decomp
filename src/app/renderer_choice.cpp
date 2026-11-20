@@ -610,7 +610,9 @@ void read_camera_fx(const Resolution& in_effect)
         .grade_levels = in_effect.value("rt_grade_levels"),
         .fisheye_strength = in_effect.number("rt_fisheye_strength", defaults.fisheye_strength),
         .fisheye_vignette = in_effect.number("rt_fisheye_vignette", defaults.fisheye_vignette),
-        .fisheye_circle = in_effect.number("rt_fisheye_circle", defaults.fisheye_circle)};
+        .fisheye_circle = in_effect.number("rt_fisheye_circle", defaults.fisheye_circle),
+        // (round FA) the lighting's debug view (gpu_vulkan/vulkan_debug_view.h) - the camera effects' listener draws it
+        .debug_view = in_effect.at("rt_debug_view").in_effect ? in_effect.value("rt_debug_view") : std::string("off")};
     if (!render::vulkan::parse_grade_look(in_effect.value("rt_grade"), &settings.grade)) {
         settings.grade = render::vulkan::GradeLook::kOff;
     }

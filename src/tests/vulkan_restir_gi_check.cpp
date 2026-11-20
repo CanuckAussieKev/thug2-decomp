@@ -775,6 +775,7 @@ struct Flicker {
     double over_share = 1.0;
     double variation = 0.0;
     std::size_t pixels = 0;
+    double region_variation = 0.0; // (round FA) the region's mean's deviation frame to frame over its mean
 };
 Flicker flicker_of(const std::vector<std::vector<float>>& series, const Region& region)
 {
@@ -806,6 +807,31 @@ Flicker flicker_of(const std::vector<std::vector<float>>& series, const Region& 
     }
     out.over_share = samples > 0 ? static_cast<double>(over) / static_cast<double>(samples) : 1.0;
     out.variation = out.pixels > 0 ? variation / static_cast<double>(out.pixels) : 0.0;
+    // (round FA) the region's mean frame by frame: an error every pixel of it shares (a light grid cell's picks) moves it
+    // as a whole - what a denoiser takes for the picture
+    std::vector<double> means;
+    for (std::size_t i = 0; i < series.size(); ++i) {
+        const std::vector<float>& s = core::at(series, i);
+        if (core::at(region, i) == 0) {
+            continue;
+        }
+        means.resize(std::max(means.size(), s.size()), 0.0);
+        for (std::size_t k = 0; k < s.size(); ++k) {
+            core::at(means, k) += core::at(s, k);
+        }
+    }
+    if (means.size() > 1) {
+        double mean = 0.0;
+        for (const double m : means) {
+            mean += m;
+        }
+        mean /= static_cast<double>(means.size());
+        double spread = 0.0;
+        for (const double m : means) {
+            spread += (m - mean) * (m - mean);
+        }
+        out.region_variation = mean > 0.0 ? std::sqrt(spread / static_cast<double>(means.size())) / mean : 0.0;
+    }
     return out;
 }
 
@@ -943,6 +969,14 @@ void check_grid_candidates(render::Gpu& gpu, const Targets& targets, const std::
                               "%.3f with the pool's; %.3f %% / %.3f %% of the pixel-frames over 4 x their mean - %zu pixels",
                               grid_flicker.variation, pool_flicker.variation, 100.0 * grid_flicker.over_share,
                               100.0 * pool_flicker.over_share, grid_flicker.pixels));
+    // (round FA) a cell's picks are every point's in it for the frame: their error moves the floor's whole mean from frame
+    // to frame - BO's lamp pools brightening and darkening by 2 - 4 x through GI's specular ray, which reuses nothing. That
+    // ray now takes the pool's candidates (vulkan_light_list.h ll_cell_candidates): the floor's mean with the grid on
+    // moves no more than the pool's.
+    tally->check(*read && grid_flicker.region_variation <= 1.25 * pool_flicker.region_variation + 1.0e-3,
+                 text::format("the floor's mean frame to frame: %.4f of it with the grid's candidates, %.4f with the pool's "
+                              "(at most 1.25 x)",
+                              grid_flicker.region_variation, pool_flicker.region_variation));
 }
 
 // (round OM - vulkan_restir_di.h SharedPrimary) One primary surface a view: ReSTIR DI on beside ReSTIR GI (its check's

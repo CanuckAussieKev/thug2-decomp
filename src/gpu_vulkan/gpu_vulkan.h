@@ -559,6 +559,8 @@ struct CameraFxSettings {
     float fisheye_strength = kFisheyeStrength;
     float fisheye_vignette = kFisheyeVignette;
     float fisheye_circle = kFisheyeCircle;
+    // (round FA) [debug] rt_debug_view: the lighting's debug view (vulkan_debug_view.h - "off", "lamps", ... "flicker")
+    std::string debug_view = "off";
 };
 void set_camera_fx_settings(const CameraFxSettings& settings);
 [[nodiscard]] CameraFxSettings camera_fx_settings();
