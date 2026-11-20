@@ -6030,6 +6030,54 @@ One light list, one way to sample it:
   after it the same with and without it (frame 1 ~38 000, 2 ~3 600, 3 ~900, 5 ~140 in both, alternated three times in one
   launch): the noise of those frames is Ray Reconstruction's empty history, the neighbours as new as the pixel.
 
+### The lighting's debug views, and the light grid's shared picks kept to the estimators that reuse (round FA)
+- **Debug views** (`gpu_vulkan/vulkan_debug_view.h`; `[debug] rt_debug_view`, live: `set rt_debug_view <name>` on the
+  console or the automation channel) - as UE5's Lumen / path tracer visualisations and RTXDI's debug outputs, one term of
+  the frame's light at a time through the whole chain (shading, Ray Reconstruction, tone mapping): `lamps` (ReSTIR DI's
+  diffuse), `lamps_specular`, `gi` (GI's diffuse from surfaces), `gi_specular`, `sky` (the disc's visibility and GI's
+  samples that saw the sky), `reflections`, `fog` (the in-scattered light), `front` (the front layer), `emission` (none
+  of them). Every other producer writes nothing into the frame (DI's and GI's put_result by their flags, the
+  reflections' apply by its push constant, the fog's composite and the front layer by a block word); the surfaces' own
+  emission stays in every view (the shading adds it, no producer carries it); the exposure is held at the whole frame's
+  meter (set_manual_ev100) while a term view is on, so a term is as bright as it is in the picture. `flicker`: the
+  finished picture as a heat map of each pixel's temporal standard deviation over the last 60 frames (display luma;
+  white at 16 / 255) - a running Welford mean and variance after the grade (ViewOrder::kDebugView = 990). The camera
+  effects own the setting (their listener runs only while a view is on).
+- **Attribution** (THUG2-4 synced to the user's 12-56-xx sidecars, 1920 x 1080 window, DLSS Q + RR, BO night, held
+  cameras; 60 frames a view a spot; tools/game/speck_count.ts --heatmap). The largest per-pixel temporal deviation
+  where the user saw flicker came from GI's specular (BO's lamp-pool floor and wall: 3.7 / 3.8 of 255) and the reflections
+  pass (the kickers' shine: 7.7). Their region means moved 2 - 4 x from frame to frame (the floor under a wall lamp
+  through GI's specular alone: 24 - 106), every pixel of a region together - not specks, the picture breathing.
+- **Cause: the light grid's picks are every point's of a cell.** Since round DO the list's readers took a point's local
+  light candidates from ReSTIR DI's light grid (ReGIR): 16 presampled picks a cell of 128 units, made again each frame.
+  The error those 16 carry (how many of them the cell's main lamp got this frame) is the same for every point of the
+  cell and new every frame - ReGIR's known correlation (Boksansky et al. 2021). GI's diffuse reservoirs average it out
+  over their frames; GI's specular ray (every frame's own - its reuse is off in the game, round WS) and the reflections'
+  list-lit hits (no history) passed it to the frame whole, and Ray Reconstruction, whose history follows the picture,
+  kept it as picture.
+- **Fix:** an estimator that doesn't resample over frames takes its candidates per point from the frame's pool (RTXDI's
+  presampled light tiles - each point its own random slots, the errors independent between pixels, which RR removes):
+  `light_sample`'s `ll_cell_candidates`, false around GI's specular ray and in the reflections' hits; the reflections'
+  hits RIS over 24 of the pool (kListHitCandidates; GI's vertices 8 - their reservoirs' reuse does the rest). GI's
+  diffuse vertices and the front layer (its own 16-frame accumulation) keep the grid.
+- **Measured** (per-pixel temporal deviation of display luma / flickering specks a frame; before -> after): the
+  kickers 4.97 -> 0.83 (their reflections alone 7.70 -> 0.53), the lamp-pool floor 2.43 -> 0.35 (GI specular alone 3.66
+  -> 0.35), its wall's GI specular 3.83 -> 0.59; the brick wall with the overlays 2.81 / 342 -> 2.57 / 241, the column
+  3.03 / 111 -> 2.37 / 64; whole frames 0.76 -> 0.55, 1.54 -> 0.65, 1.50 / 634 -> 1.32 / 370. The planter's pan (round
+  DO's): 40.8 -> 10.9 specks a frame during it in one A / B pair (this measure varies by x4 from run to run), standing
+  still 0 / 0. Cost (the planter held, 1280 x 720, quiet GPU, 300-frame blocks): reflections 0.97 -> 1.38 ms, GI's
+  samples 4.49 -> 4.18 ms (the pool's candidates cheaper than the grid's): about +0.1 ms.
+- **Launch to launch**: three launches at the three spots, the same frames after the same commands - whole-frame means
+  within 0.3 - 0.7 %, cells within 2 - 5 %; three windows of one launch differ as much or more (the radiance cache and the
+  exposure still settling 4 - 10 s after a cut). No state that differs between launches was found; round PT4d's 2 x
+  (window 76 - 153) is not reproduced.
+- **Open**: (1) the brick wall's painted overlays at BO (blended quads 3.3 units off the wall - a tree's shadow painted)
+  keep coloured specks of GI's raw noise: not their rays (out of every ray - no change), not their texture set, not the
+  camera ray's choice of them; with Ray Reconstruction off the whole wall has the same coloured noise and RR clears all of
+  it but over them - the guides there alternate per pixel between the overlay and the wall (the prepass keeps the overlay
+  where its filtered alpha is over half). The standard: DBuffer decals - the guides as the layered material (round DB's
+  model, which keeps the guides of the kept surface). (2) The scaffold's lamp (P3) in ReSTIR DI's lamps: 4.8 / 255.
+
 ### What is drawn apart, in the rays (round PG)
 
 The last gap of stage 3: what the game draws in passes of its own after the ray-traced lighting - the clutter's items,
