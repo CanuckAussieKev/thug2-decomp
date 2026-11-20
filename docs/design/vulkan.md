@@ -5991,6 +5991,45 @@ One light list, one way to sample it:
   the local lights off, not with the disc, the sky or the emitting triangles off; next: the light grid's cells (ReGIR,
   round PT4c - ReSTIR DI's) as the secondary and reflection hits' candidates).
 
+### The list's readers take their candidates from the light grid (round DO)
+- **The sparkle that appears when the camera moves and fades when it stands still** (BO at night, the granite planter
+  top by the bank's wall) was the reflections pass's hit lighting, not a disocclusion of ReSTIR DI or GI: the band sat
+  where the planter's mirror rays meet the lamp-lit wall, it went with `rt_reflections` 0 and with `indirect_light`
+  passes, not with ReSTIR's outputs; with the reflections off the frame's specks stayed level from the first frame after a
+  stop on (no settling to remove). The reflections pass keeps no history - each frame's one next-event sample at its hit
+  is Ray Reconstruction's to average, which it does while the camera stands still; moving, the reflection moves across
+  the surface (its specular history rejected) and the raw sample shows. That sample's local light: RIS over 8 of the
+  pool's picks by power (round SK) - a lamp near the hit among the level's hundreds in few of them, its rare picks the
+  specks. With 64 of the pool's picks a hit (an experiment, across launches) the pans' specks fell from tens to about one a frame: the
+  candidates' quality, not the estimator, is what was missing.
+- **Fix: NVIDIA RTXDI's ReGIR at secondary surfaces.** ReSTIR DI's light grid round the camera (round PT4c: each cell's
+  64 slots resampled from the list toward the most a light can give the cell, with their unbiased contribution weights)
+  is also written, each frame it is made, as presampled picks - the first `kLightGridPicks` (16) slots of every cell with
+  a point each, in the pool's layout, their pdf the slot's (1 / its weight; a triangle's per unit of its area) - and
+  FrameLightList carries their address (`grid`). `light_sample` (vulkan_light_list.h - one GLSL for ReSTIR GI's secondary
+  vertices, the reflections' hits and the front layer) takes a point inside the grid's candidates from the cells' picks -
+  each candidate from the cell of the point moved by its own jitter of up to half a cell (as ReSTIR DI's pixels are: no
+  cell edges; one jitter for all 8 drew them from the 16 picks a whole cell shares in a frame - a faint grain the denoiser
+  kept with the camera still) -, outside it from the pool as before. Unbiased: RIS over candidates that carry their own
+  contribution weights (generalised RIS, Lin et al. 2022), and the grid's bound covers every light that can reach a
+  point of a cell's box widened by half a cell.
+- **Measured** (THUG2-4 synced to the user's 21-33-46 sidecar, 1920 x 1080 window, DLSS Q + RR, BO night; the camera at
+  the user's pose, panned 90 units sideways over 60 frames and stopped; tools/game/speck_count.ts over the planter
+  1190,520 725x555, threshold 30; grid and pool alternated 5 times in one launch - the lighting differs from launch to
+  launch): specks a frame during the pan (its last 40 frames) 65.9 -> 13.8; the 30 frames after the stop 270 -> 99;
+  standing still 7.0 -> 8.9 (both within the launch's noise). The check (restir_gi_check, the night of a far
+  floodlight and six small lamps by the wall, ReSTIR DI beside GI): the floor's flicker 1.357 -> 0.899 of its mean, its
+  mean +0.94 % (pool) / +1.26 % (grid) of the reference's.
+- Cost (quiet GPU, 1280 x 720 render, the same spot held, 14 x 300 frames each): the light grid 0.074 -> 0.141 ms (it
+  writes 262 144 picks a frame - 16 a cell), ReSTIR GI's samples 4.15 -> 4.43 ms, its spatial reuse 1.10 -> 1.18 ms, the
+  reflections 0.95 -> 1.03 ms; about +0.5 ms in all.
+- Also: a rough reflection's rays each start their own random sequence (all of a pixel's rays started the same one -
+  the same candidates at each hit).
+- Tried and not kept: RTXDI's disocclusion boost (8 spatial neighbours, not 2, for a pixel whose reservoir's history
+  is under the cap - DI and GI). After a camera cut (half a turn: every pixel new) the frame-wide specks of the frames
+  after it the same with and without it (frame 1 ~38 000, 2 ~3 600, 3 ~900, 5 ~140 in both, alternated three times in one
+  launch): the noise of those frames is Ray Reconstruction's empty history, the neighbours as new as the pixel.
+
 ### What is drawn apart, in the rays (round PG)
 
 The last gap of stage 3: what the game draws in passes of its own after the ray-traced lighting - the clutter's items,

@@ -73,7 +73,8 @@ constexpr uint32_t kBindingBounds = 19;
 constexpr uint32_t kBindingCells = 20;
 constexpr uint32_t kBindingSpecularOut = 21; // (round BR)
 constexpr uint32_t kBindingLightPool = 22;   // (round PF) the presampled pool (vulkan_light_list.h kLightPoolSize)
-constexpr uint32_t kBindingCount = 23;
+constexpr uint32_t kBindingGridPicks = 23;   // (round DO) the light grid's picks (vulkan_light_list.h kLightGridPicks)
+constexpr uint32_t kBindingCount = 24;
 constexpr uint32_t kMaterialSet = 1;
 
 constexpr uint32_t kGroupSide = 8;
@@ -946,7 +947,26 @@ void main()
         }
     }
     float W = chosen > 0.0 ? wsum / (float(pass.list.y) * chosen) : 0.0;
-    cells[i] = uvec2(W > 0.0 && !isinf(W) ? picked : 0u, floatBitsToUint(W));
+    bool kept = W > 0.0 && !isinf(W);
+    cells[i] = uvec2(kept ? picked : 0u, floatBitsToUint(W));
+    // (round DO) the first LIGHT_GRID_PICKS slots of the cell with a point each, for the list's readers at any surface
+    // (vulkan_light_list.h light_grid_reader_glsl): the pick's pdf the slot's - its list pdf over (W x the entry's), so
+    // light / pdf is the slot's contribution weight's estimate (a triangle's per unit of its area)
+    uint k = i % slots;
+    if (k < LIGHT_GRID_PICKS) {
+        if (i == 0u) {
+            light_pool[0] = uvec4(floatBitsToUint(pass.grid));
+            light_pool[1] = uvec4(pass.grid_cells.xyz, LIGHT_GRID_PICKS);
+        }
+        vec2 uv = vec2(path_next(rng), path_next(rng));
+        LightPick p = no_light_pick();
+        if (kept && picked > 0u) {
+            p = light_pick_at(picked - 1u, count, uv);
+            float scale = W * light_entries[picked - 1u].pdf;
+            p.pdf = scale > 0.0 && p.pdf > 0.0 ? p.pdf / scale : 0.0;
+        }
+        light_pool_write(1u + cell * LIGHT_GRID_PICKS + k, p);
+    }
 }
 #endif
 )";
@@ -1014,6 +1034,15 @@ std::string shader_source(Shader which, bool check)
     } else if (which == Shader::kScan) {
         source += emitter_scan_glsl();
     } else if (which == Shader::kBounds || which == Shader::kCells) {
+        if (which == Shader::kCells) {
+            // (round DO) the grid's picks for the list's other readers (vulkan_light_list.h kLightGridPicks) - the pool's
+            // words
+            source += "#define LIGHT_POOL_SIZE 1u\n#define LIGHT_POOL_WRITE\n#define LIGHT_GRID_PICKS " +
+                      std::to_string(kLightGridPicks) + "u\n";
+            source += "layout(std430, set = 0, binding = " + std::to_string(kBindingGridPicks) +
+                      ") writeonly buffer LightPool { uvec4 light_pool[]; };\n";
+            source += local_light_glsl();
+        }
         source += kGridBody;
     } else {
         source += kRestirBody;
@@ -1151,6 +1180,9 @@ struct RestirState {
     uint32_t pool_seed = 0;
     DeviceBuffer bounds;
     DeviceBuffer cells;
+    DeviceBuffer grid_picks;     // (round DO) the grid's picks for the list's other readers
+    uint64_t grid_serial = 0;    // the submission the grid (and its picks) were last made in
+    uint64_t grid_table = 0;     // ... and the table they were made from
     bool failed = false;
     // the emitting triangles: the list in use and the one a scan fills, read back without a wait
     std::array<DeviceBuffer, 2> emitters{};
@@ -1806,6 +1838,9 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
         return false;
     }
     out->light_pool = own.light_pool.buffer;
+    // (round DO) the grid's picks when ReSTIR DI made them this frame from this table (else the readers take the pool)
+    out->grid_picks = own.grid_serial == state.frames.serial() && own.grid_table == own.table_key ? own.grid_picks.buffer
+                                                                                                    : VK_NULL_HANDLE;
     out->emitters = list.buffer;
     out->lamps = own.lamps.buffer;
     out->membership = own.membership.buffer;
@@ -2033,7 +2068,12 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
                               BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.cells,
                               static_cast<VkDeviceSize>(kGridAcross) * kGridUp * kGridAcross * kGridSlots * 2 * sizeof(uint32_t),
-                              storage, BufferPlace::kDevice);
+                              storage, BufferPlace::kDevice) &&
+                // (round DO: read by the list's other readers through its address - its header, then the picks)
+                ensure_buffer(state, &own.grid_picks,
+                              (1 + (static_cast<VkDeviceSize>(kGridAcross) * kGridUp * kGridAcross * kLightGridPicks)) *
+                                  kLightPoolWords * sizeof(uint32_t),
+                              storage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, BufferPlace::kDevice);
     for (std::size_t k = 0; k < 2 && made; ++k) {
         made = ensure_buffer(state, &core::at(own.at, k), pixels * 16, storage, BufferPlace::kDevice) &&
                ensure_buffer(state, &core::at(own.more, k), pixels * 16, storage, BufferPlace::kDevice);
@@ -2153,7 +2193,7 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         return VkDescriptorBufferInfo{.buffer = buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     };
     const DeviceBuffer& list = core::at(own.emitters, static_cast<std::size_t>(std::max(own.list_now, 0)));
-    const std::array<VkDescriptorBufferInfo, 15> buffers{
+    const std::array<VkDescriptorBufferInfo, 16> buffers{
         VkDescriptorBufferInfo{.buffer = scene.geometry, .offset = 0, .range = scene.geometry_bytes},
         VkDescriptorBufferInfo{.buffer = block_span->buffer, .offset = block_span->offset, .range = sizeof(RestirBlock)},
         whole(own.lights),
@@ -2168,12 +2208,14 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         whole(check ? own.sums : own.counters),
         whole(own.counters),
         whole(own.bounds),
-        whole(own.cells)};
-    constexpr std::array<uint32_t, 15> kBufferBindings{kBindingGeometry,    kBindingBlock,      kBindingLights,
+        whole(own.cells),
+        whole(own.grid_picks)};
+    constexpr std::array<uint32_t, 16> kBufferBindings{kBindingGeometry,    kBindingBlock,      kBindingLights,
                                                        kBindingEmitters,    kBindingLamps,      kBindingReservoirsA,
                                                        kBindingReservoirsB, kBindingNowAt,      kBindingNowMore,
                                                        kBindingBeforeAt,    kBindingBeforeMore, kBindingSums,
-                                                       kBindingCounters,    kBindingBounds,     kBindingCells};
+                                                       kBindingCounters,    kBindingBounds,     kBindingCells,
+                                                       kBindingGridPicks};
     std::array<VkDescriptorImageInfo, 4> images{};
     if (inputs != nullptr) {
         images = {VkDescriptorImageInfo{.sampler = VK_NULL_HANDLE, .imageView = inputs->depth->view,
@@ -2233,6 +2275,8 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         vkCmdDispatch(commands, slot_groups_x, (kSlotGroups + slot_groups_x - 1) / slot_groups_x, 1);
         barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+        own.grid_serial = state.frames.serial(); // (round DO: the grid's picks this frame's, of this table)
+        own.grid_table = own.table_key;
     }
     {
         const FrameStep step(state.frames, commands, gpu_markers::section::kDiTemporal); // (round PF)
@@ -2320,7 +2364,7 @@ void release_restir_di(Backend& state)
     for (DeviceBuffer* buffer : {&core::at(own.emitters, 0), &core::at(own.emitters, 1), &own.membership, &own.slots,
                                  &own.read_back, &own.lights, &own.lamps, &own.reservoirs_a, &own.reservoirs_b,
                                  &core::at(own.at, 0), &core::at(own.at, 1), &core::at(own.more, 0), &core::at(own.more, 1),
-                                 &own.sums, &own.counters, &own.bounds, &own.cells, &own.light_pool, &own.shared}) {
+                                 &own.sums, &own.counters, &own.bounds, &own.cells, &own.grid_picks, &own.light_pool, &own.shared}) {
         state.memory.destroy_buffer(buffer);
     }
     const RestirOverrides overrides = own.overrides;

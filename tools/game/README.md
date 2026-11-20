@@ -14,6 +14,9 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   series (automation `capture <frames> <folder>` with the camera held): pixels over their 5x5 neighbourhood's median by
   the threshold (0-255 luma) in a rectangle, a frame on average - flickering (also over the pixel's own median over the
   series) and steady - and each pixel's standard deviation over the series.
+- `node tools/game/settle_curve.ts <series folder> <x,y,w,h> [--settled N] [--threshold 30] [--frames 1,2,...]` - how a
+  picture settles after a camera cut or stop (a `capture` started there, the camera then held): per listed frame the
+  specks over the settled picture (the median of the last N frames) and over their 5x5 neighbourhood, and the RMS error.
 - `node tools/game/workspace_parity.ts check|sync --workspace C:\Games\THUG2-<n> [--owner <lock holder>]
   [--settings main|<screenshot sidecar .txt>|none] [--dry-run]` - is a workspace the main install's game? `check`
   compares, file by file (size and time), what a look depends on - the game's Data (its building relief and surface-map

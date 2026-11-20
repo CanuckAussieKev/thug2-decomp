@@ -78,8 +78,9 @@ struct FrontBlock {
     std::array<float, 4> cloud_place{};    // (vulkan_rt_sky_pass.h CloudShadowMap)
     std::array<float, 4> cloud_light{};
     std::array<uint32_t, 4> pool{};        // (round SK) FrameLightList::pool - the local lights resampled as GI's
+    std::array<uint32_t, 4> grid{};        // (round DO) FrameLightList::grid - inside the light grid, its cells' picks
 };
-static_assert(sizeof(FrontBlock) == (3 * 64) + (12 * 16), "the shader's block (std140)");
+static_assert(sizeof(FrontBlock) == (3 * 64) + (13 * 16), "the shader's block (std140)");
 
 constexpr const char* kCommon = R"(
 layout(std140, set = 0, binding = 2) uniform FrontBlock {
@@ -98,6 +99,7 @@ layout(std140, set = 0, binding = 2) uniform FrontBlock {
     vec4 cloud_place;
     vec4 cloud_light;
     uvec4 pool;
+    uvec4 grid;
 } pass;
 struct LightEntry {
     float threshold;
@@ -348,6 +350,7 @@ std::string shader_source(bool cloud_map)
     source += light_instances_glsl();
     source += rt::lights::kLightListGlsl;
     source += light_pool_reader_glsl("pass.pool"); // (round SK: the local lights resampled as GI's)
+    source += light_grid_reader_glsl("pass.grid"); // (round DO: ... from the light grid's cells inside it)
     source += local_light_glsl();
     source += light_sample_glsl();
     source += kBody;
@@ -642,6 +645,7 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     block.sky = {list.sky_dist, 0.0F, 0.0F, 0.0F};
     block.cache_cells = {list.cache_cells, 0.0F, 0.0F, 0.0F};
     block.pool = list.pool;
+    block.grid = list.grid;
     if (map_now) {
         block.cloud_place = cloud_map.place;
         block.cloud_light = cloud_map.light;

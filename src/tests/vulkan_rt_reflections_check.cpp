@@ -2377,10 +2377,12 @@ int run(const Options& options, SDL_Window* window)
         // specks on BO's kickers: one local light by power a hit, many times its share now and then)
         render::vulkan::FrameLightList list;
         list.pool = {0x12345670U, 0x9U, 1U, 0x3E800000U};
+        list.grid = {0x76543210U, 0x7U, 1U, 0U}; // (round DO: and from ReSTIR DI's light grid inside it)
         tally.check(render::vulkan::rt_reflection_list_pool(list) == list.pool &&
+                        render::vulkan::rt_reflection_list_grid(list) == list.grid &&
                         render::vulkan::rt_reflection_listed_traces_resample_pool(),
-                    "the light list's traces resample the local lights from GI's pool (its words in their block, read by "
-                    "their GLSL)");
+                    "the light list's traces resample the local lights from GI's pool and (round DO) inside the light "
+                    "grid from its cells' picks (their words in their block, read by their GLSL)");
     }
     release_mirror(gpu, &mirror);
     render::vulkan::set_rt_reflection_settings({});

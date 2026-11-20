@@ -805,8 +805,9 @@ struct ListBlock {
     std::array<float, 4> eye{};
     std::array<float, 4> cache_cells{};
     std::array<uint32_t, 4> pool{}; // (round SK) FrameLightList::pool - the local lights resampled as GI's
+    std::array<uint32_t, 4> grid{}; // (round DO) FrameLightList::grid - inside the light grid, its cells' picks
 };
-static_assert(sizeof(ListBlock) == 8 * 16, "the shader's ListBlock (std140)");
+static_assert(sizeof(ListBlock) == 9 * 16, "the shader's ListBlock (std140)");
 
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 constexpr uint32_t kPushBytes = 16; // the apply's rect, the check's count
@@ -942,6 +943,7 @@ layout(std140, set = 0, binding = 22) uniform ListBlock {
     vec4 eye;        // xyz the camera the cache is keyed from, w the frame's pre-exposure
     vec4 cache_cells; // x the angle a cache cell spans
     uvec4 pool;       // (round SK) the local lights' presampled pool (light_pool_reader_glsl): address, on, share
+    uvec4 grid;       // (round DO) the light grid's picks (light_grid_reader_glsl): address, on
 } list;
 #define LIST_INSTANCE_ADDRESS list.instances.xy
 #define LIST_INSTANCES list.instances.z
@@ -967,7 +969,9 @@ bool list_hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, m
     vec3 v = -dir;
     vec3 ng = h.normal;
     vec3 n = dot(h.shading_normal, v) > 0.0 ? h.shading_normal : ng;
-    uint rng = path_sequence_start(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, list.counts.z, 0x57F1C0DEu);
+    // (round DO: each ray's own sequence - a rough pixel's rays all started the same one: the same candidates at each hit)
+    uint rng = path_sequence_start(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, list.counts.z,
+                                   0x57F1C0DEu ^ path_pcg(floatBitsToUint(dir.x) ^ path_pcg(floatBitsToUint(dir.y))));
     vec3 p = h.position + ng * local_light_offset(h.position);
     vec3 toward;
     vec3 incident = light_sample(p, n, ng, LIST_RAYS, rng, toward);
@@ -1038,6 +1042,7 @@ std::string compute_source(const char* body, bool multisampled, bool materials, 
         source += light_instances_glsl();
         source += rt::lights::kLightListGlsl;
         source += light_pool_reader_glsl("list.pool"); // (round SK: the local lights resampled as GI's)
+        source += light_grid_reader_glsl("list.grid"); // (round DO: ... from the light grid's cells inside it)
         source += local_light_glsl();
         source += light_sample_glsl();
         source += kListHitGlsl;
@@ -1689,6 +1694,7 @@ ListBlock list_block_of(const FrameLightList& frame_list, const SceneView& scene
                  rt::frame_pre_exposure()};
     block.cache_cells = {frame_list.cache_cells, 0.0F, 0.0F, 0.0F};
     block.pool = frame_list.pool;
+    block.grid = frame_list.grid;
     return block;
 }
 
@@ -1984,11 +1990,15 @@ bool make_rt_reflection_listed_traces(Backend& state, std::string* error)
 
 std::array<uint32_t, 4> rt_reflection_list_pool(const FrameLightList& list) { return list_block_of(list, SceneView{}, 0).pool; }
 
+std::array<uint32_t, 4> rt_reflection_list_grid(const FrameLightList& list) { return list_block_of(list, SceneView{}, 0).grid; }
+
 bool rt_reflection_listed_traces_resample_pool()
 {
     const std::string source = compute_source(kTraceBody, false, true, false, true);
     return source.find(light_pool_reader_glsl("list.pool")) != std::string::npos &&
-           source.find("uvec4 pool;") != std::string::npos;
+           source.find("uvec4 pool;") != std::string::npos &&
+           source.find(light_grid_reader_glsl("list.grid")) != std::string::npos && // (round DO)
+           source.find("uvec4 grid;") != std::string::npos;
 }
 
 bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
