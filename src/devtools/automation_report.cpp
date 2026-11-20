@@ -81,7 +81,7 @@ std::string describe(const OrderCode& command)
         return "wait " + std::to_string(command.frames);
     case Op::kWaitFor: {
         static const auto kConditions =
-            std::to_array<const char*>({"?", "ready", "frontend", "ingame", "level", "menu", "focus", "fe"});
+            std::to_array<const char*>({"?", "ready", "frontend", "ingame", "level", "menu", "focus", "fe", "pt"});
         std::string text = std::string("waitfor ") + ::core::at(kConditions, static_cast<int>(command.condition));
         if (!command.target.empty()) {
             text += " " + command.target;

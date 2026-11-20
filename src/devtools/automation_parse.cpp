@@ -42,6 +42,8 @@ constexpr std::size_t kMinTeleportWordsWithBoard = 5; // teleport's words when t
 constexpr std::size_t kTeleportWordsWithHeading = 5;
 constexpr std::size_t kCameraWordsFixed = 7;  // camera: x y z and the direction
 constexpr std::size_t kCameraWordsDrift = 10; // ... and the drift
+constexpr std::size_t kCameraWordsTurn = 11;  // (round MV) ... and the turn a frame (degrees about the world's up)
+constexpr std::size_t kCameraWordsPath = 12;  // ... and the frames the move lasts (0: for ever)
 constexpr std::size_t kProbeWords = 7;         // rtprobe / colprobe: x y z and the direction
 constexpr std::size_t kProbeWordsWithReach = 8; // ... and how far
 
@@ -366,7 +368,7 @@ bool parse_waitfor(const CommandWords& words, OrderCode& command, std::string* e
     command.op = Op::kWaitFor;
     command.seconds = kDefaultWaitSeconds;
     if (count < 2) {
-        return fail_with(error, "waitfor ready | frontend | ingame | level <name> | menu <id> | focus <id> [seconds]");
+        return fail_with(error, "waitfor ready | frontend | ingame | pt | level <name> | menu <id> | focus <id> [seconds]");
     }
     const std::string what = get_lower(::core::at(tokens, 1));
     size_t next = 2;
@@ -383,6 +385,8 @@ bool parse_waitfor(const CommandWords& words, OrderCode& command, std::string* e
         command.condition = Condition::kFrontEnd;
     } else if (what == "ingame") {
         command.condition = Condition::kInGame;
+    } else if (what == "pt") {
+        command.condition = Condition::kPathReference; // (round MV: the asked reference saved)
     } else if (what == "level" || what == "menu" || what == "focus") {
         if (what == "level") {
             command.condition = Condition::kStageMap;
@@ -442,9 +446,10 @@ bool parse_camera(const CommandWords& words, OrderCode& command, std::string* er
     command.op = Op::kViewCam;
     if (count == 2 && get_lower(::core::at(tokens, 1)) == "off") {
         command.target = "off";
-    } else if ((count != kCameraWordsFixed && count != kCameraWordsDrift) ||
+    } else if ((count != kCameraWordsFixed && count != kCameraWordsDrift && count != kCameraWordsTurn &&
+                count != kCameraWordsPath) ||
                !read_numbers(tokens, 1, &command.numbers)) {
-        return fail_with(error, "camera <x> <y> <z> <dx> <dy> <dz> [<drift x> <drift y> <drift z>] | camera off");
+        return fail_with(error, "camera <x> <y> <z> <dx> <dy> <dz> [<drift x> <drift y> <drift z> [<turn> [<frames>]]] | camera off");
     } else if (::core::at(command.numbers, 3) == 0.0F && ::core::at(command.numbers, 4) == 0.0F &&
                ::core::at(command.numbers, kDirectionZIndex) == 0.0F) {
         return fail_with(error, "camera: the direction is zero");

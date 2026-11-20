@@ -20,6 +20,20 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
 - `node tools/game/launch_compare.ts <series> <series> [...] [--grid 8x6] [--rect x,y,w,h] [--skip N]` - is the same
   spot lit the same in different launches (or windows of one)? Each series' cells' mean luma, the cells whose series
   differ most against the frames' own noise.
+- `node tools/game/motion_error.ts plan|analyse|compare|motion ...` (round MV) - the picture's error while the camera
+  moves, against the path-traced reference. `plan <p1|p2|p3> [--seeds N] --out <file>` writes a session's automation
+  commands for one of the user's BO night spots: `console measure on` (the world frozen, every frame drawn once), per
+  motion (a slow pan, a fast 90-degree turn in half a second, a dolly forward - `camera ... <turn> <frames>`, poses
+  tied to the frame count) and per lighting term (`rt_debug_view`) the hold, the move and 30 frames after it saved
+  linear (`console pt frames`), each term's converged picture at the move's mid and stop poses, and two independent
+  references there (`pt ref ... as <name>`, `waitfor pt`); `--seeds N` replays the first move N times. Run it with
+  `run_game.ps1 -Level BO -Commands (Get-Content <file>) -join ';'` (about 40 minutes and 15 GB a spot). `analyse
+  <Screenshots folder> <spot>` prints each frame's display-space error (ACES + sRGB at the session's median
+  pre-exposure; the references' own noise taken out) against the reference and against the converged picture, whole,
+  newly revealed (the pixel's direction seen by fewer than 8 frames before) and with history; `--json`, `--crops`.
+  `compare <a.exr> <b.exr>` two linear pictures, means and error per cell; `motion <folder>` checks Ray
+  Reconstruction's motion vectors (`pt frames <n> <folder> 1 inputs` saves its inputs) against the depth and the two
+  frames' cameras and warps the albedo guide through them.
 - `node tools/game/settle_curve.ts <series folder> <x,y,w,h> [--settled N] [--threshold 30] [--frames 1,2,...]` - how a
   picture settles after a camera cut or stop (a `capture` started there, the camera then held): per listed frame the
   specks over the settled picture (the median of the last N frames) and over their 5x5 neighbourhood, and the RMS error.
@@ -91,7 +105,7 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     waits for the item, the menu taking pad events, menu input unblocked and no loading screen; a menu id chooses its
     selected item), `focus <id> [s]`, `press <button> [frames]` (through Sio's control data: up down left right x/enter
     circle/esc square triangle start select l1 r1 l2 r2 l3 r3), `hold <button> [frames]` (the same, held for up to
-    3600 frames without waiting: the next commands - a capture, a trace - run while it's down), `wait <frames>`, `waitfor ready | frontend | ingame |
+    3600 frames without waiting: the next commands - a capture, a trace - run while it's down), `wait <frames>`, `waitfor ready | frontend | ingame | pt (round MV: the `pt ref` asked for saved) |
     level <name> | menu <id> | focus <id> [s]`, `level <name>` (as -level), `teleport`, `camera`, `capture` (below),
     `logtricks [count]` (a test: one trick by skater 0 over the level's trick objects - all, or the first `count` - through
     the trick object manager's log_trick_objects; the result says how many objects / clusters and changed hands: THUG2's
@@ -103,7 +117,9 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     `teleport <x> <y> <z> [heading]` puts the skater there standing (walking, no momentum, on the ground below, the walk camera cut to behind it facing the heading - as `start_at` / `-at`;
     heading in degrees as the screenshot sidecar gives it), `camera <x> <y> <z> <dx> <dy> <dz> [<vx> <vy> <vz>]` holds
     viewport 0's camera at that pose (a screenshot sidecar's [camera] lines), moved by (vx, vy, vz) every game frame
-    when given (`camera off` lets go), and `capture <frames> [folder]` saves the next 1-600 frames, every one, as
+    when given (`camera off` lets go; round MV: `camera <x> <y> <z> <dx> <dy> <dz> <vx> <vy> <vz> <turn> [<frames>]`
+    also turns the view about the world's up by `turn` degrees a frame, and stops the move after `frames` frames -
+    the pose a function of the frames since the command, the same on every run), and `capture <frames> [folder]` saves the next 1-600 frames, every one, as
     `Screenshots\<folder>\frame_0001.png ...` with one `series.txt` (the sidecar, and each frame's game frame / vblank /
     clock). While a series runs the main loop doesn't count the capture's time, so no frame is skipped: the series is
     the game's frames 1/60 s of game time apart. `capture <frames> [folder] afterload` starts at the first frame drawn

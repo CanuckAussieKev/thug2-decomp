@@ -86,7 +86,7 @@ public:
     void prepare_input() override { prepare_all(); }
     void view_drawn(const ext::ViewNote& view) override { note_view(view.viewport, view.position, view.forward); }
     void before_present(bool rendering) override { screenshot::before_present(rendering); }
-    bool keeps_every_frame() override { return series_running(); }
+    bool keeps_every_frame() override { return series_running() || frontend::test_view::measuring(); }
     bool request_event_shot(const std::string& note) override { return screenshot::request_event_shot(note); }
     void show_notice(const std::string& text) override { screenshot::show_notice(text); }
     bool last_view(std::span<float, 3> position, std::span<float, 3> forward) override

@@ -37,6 +37,7 @@
 #include "engine/ui/ui_backend.h"
 #include "engine/ui/ui_fonts.h"
 #include "game/front_end/front_end.h"
+#include "game/rider/test_view.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "platform/screenshot_files.h"
@@ -194,7 +195,11 @@ constexpr const char* kHelp = "scripts [text]  the scripts running (names holdin
                               "                camera still): EXR + PNG; only: those kinds of light counted;\n"
                               "                direct: the direct light alone (one bounce);\n"
                               "                nee / bsdf: the lights' samples / the BSDF's rays alone\n"
+                              "pt ref ... as <name>  saved as Screenshots\\<name>_reference / _realtime\n"
+                              "pt frames <count> <folder> [every]  (round MV) the next frames' linear light after the upscaler as\n"
+                              "                EXR (Screenshots\\<folder>: frame_NNNN.exr, frames.txt - each frame's camera)\n"
                               "pt off | status  the reference stopped / its progress\n"
+                              "measure on | off  (round MV) the world frozen as the original's pause (no menu), every frame drawn once\n"
                               "restart         the skater at the level's next restart (F8)\n"
                               "textures [original | pbrify | seedvr2]  the texture set in use / switched (not saved)\n"
                               "paint [clear]   the paint trails' strokes and drops so far; clear: the paint wiped\n"
@@ -519,6 +524,19 @@ std::string run_command(const std::string& line)
             }
         }
         return render::rt::path::path_console_command(rest); // (the path tracer's reference - engine/gfx/rt_path.h)
+    }
+    if (command == "measure") {
+        // (round MV) the world stood still while the renderer keeps drawing - a camera move measured in a world that
+        // doesn't change under it (the cars, the peds, the clock), and the references at its poses of the same world
+        modules::FrontEnd* front_end = modules::front_end_instance().get();
+        const std::string word = lower(rest);
+        if (front_end == nullptr || (word != "on" && word != "off")) {
+            return "measure on | off";
+        }
+        front_end->get_pause_game(word == "on");
+        frontend::test_view::set_measuring(word == "on");
+        get_log("console: measuring %s", word == "on" ? "on - the world frozen, every frame drawn" : "off");
+        return word == "on" ? "frozen" : "running";
     }
     if (command == "restart") {
         return frontend::restart_tester::next_restart(); // (the light energy audit's level walk: F8's next restart)

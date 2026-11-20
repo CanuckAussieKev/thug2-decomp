@@ -22,6 +22,7 @@
 #include "engine/ext/extension.h"
 #include "game/front_end/start_level.h"
 #include "game/rider/test_view.h"
+#include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/render/coll_line.h"
 #include "engine/render/probe_ray.h"
@@ -50,6 +51,8 @@ namespace {
 constexpr std::size_t kDriftXIndex = 6;
 constexpr std::size_t kDriftYIndex = 7;
 constexpr std::size_t kDriftZIndex = 8;
+constexpr std::size_t kTurnIndex = 9;    // (round MV) camera: the turn about the world's up a frame, degrees
+constexpr std::size_t kMoveFramesIndex = 10; // ... and the frames it moves for (then held at its last pose)
 
 constexpr std::uint32_t kGuardWord = 0xEEEEEEEEU; // put past the trick object list to see that it's left alone
 constexpr std::size_t kStolenSize = 0x100;
@@ -71,6 +74,12 @@ bool condition_holds(const OrderCode& command)
         auto* front_end = modules::front_end_instance().get();
         return (current_load_state() != 0U) && !in_front_end() && skater_present() &&
                !((front_end != nullptr) && front_end->is_paused());
+    }
+    case Condition::kPathReference: {
+        // (round MV) the reference `pt ref` asked for is saved
+        const render::rt::path::PathReferenceRequest asked = render::rt::path::path_reference_request();
+        const render::rt::path::PathReferenceStatus status = render::rt::path::path_reference_status();
+        return asked.samples > 0 && status.serial == asked.serial && !status.saved.empty();
     }
     case Condition::kStageMap: {
         std::string name = command.target;
@@ -296,7 +305,11 @@ bool run_view_cam(Runner& runner, const OrderCode& command)
                                  ? frontend::test_view::Vec3{.x = ::core::at(command.numbers, kDriftXIndex),
                                                              .y = ::core::at(command.numbers, kDriftYIndex),
                                                              .z = ::core::at(command.numbers, kDriftZIndex)}
-                                 : frontend::test_view::Vec3{.x = 0.0F, .y = 0.0F, .z = 0.0F}})) {
+                                 : frontend::test_view::Vec3{.x = 0.0F, .y = 0.0F, .z = 0.0F},
+                    .turn_degrees = command.numbers.size() > kTurnIndex ? ::core::at(command.numbers, kTurnIndex) : 0.0F,
+                    .move_frames = command.numbers.size() > kMoveFramesIndex
+                                       ? static_cast<uint32_t>(std::max(0.0F, ::core::at(command.numbers, kMoveFramesIndex)))
+                                       : 0U})) {
         get_fail(runner, "the direction has no horizon (straight up / down)", false);
         return true;
     }

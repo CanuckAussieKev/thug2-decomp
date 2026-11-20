@@ -102,7 +102,13 @@ constexpr float kPlaneShare = 0.02F;
 constexpr uint32_t kGridAcross = 32;
 constexpr uint32_t kGridUp = 16;
 constexpr float kGridSide = 128.0F;
-constexpr uint32_t kGridSlots = 64;
+// (round MV) 512 slots a cell - RTXDI's ReGIR default (lightsPerCell 512). A cell's slots are made again each frame and
+// shared by every pixel of the cell (128 units): the error of the draw - how many slots the cell's main lamps got this
+// frame - is the same over the whole region and lasts as long as the reservoirs keep it. With 64 that shared error was
+// the largest broad error of the picture while the camera moved (BO at night, p1: the lamps' blotches 2.2 - 3.8 of 255
+// in display luma against the converged picture, the light grid off 1.5 - 2.7, 512 slots 1.2 - 1.9); its size falls with
+// the square root of the slots. Cost: the grid's build +0.6 ms at 1280 x 720 (ReSTIR DI 2.8 -> 3.4 ms).
+constexpr uint32_t kGridSlots = 512;
 constexpr uint32_t kGridCandidates = 8;
 // Flags (the block's counts.w)
 constexpr uint32_t kFlagTemporal = 1U;

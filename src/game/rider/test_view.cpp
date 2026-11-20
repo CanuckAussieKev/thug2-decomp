@@ -2,6 +2,7 @@
 
 #include "game/rider/test_view.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <array>
@@ -51,7 +52,7 @@ Vec3 scale_tool(Vec3 v, float factor) { return {.x = v.x * factor, .y = v.y * fa
 
 struct Lock {
     bool on;
-    Vec3 pos, right, up, back, drift;
+    CameraHold hold;
     uint32_t frame; // (the game frame it was locked at)
 };
 
@@ -191,22 +192,36 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     return {};
 }
 
+CameraPose camera_pose_at(const CameraHold& hold, uint32_t frames)
+{
+    const uint32_t moved = hold.move_frames > 0 ? std::min(frames, hold.move_frames) : frames;
+    const auto steps = static_cast<double>(moved);
+    // (in double: the 1000th frame's pose the same as a tool computes it from the same numbers)
+    const double turn = static_cast<double>(hold.turn_degrees) * steps * std::numbers::pi / kDegreesPerHalfTurn;
+    const double sine = std::sin(turn);
+    const double cosine = std::cos(turn);
+    const double dx = hold.direction.x;
+    const double dz = hold.direction.z;
+    return {.position = {.x = static_cast<float>(static_cast<double>(hold.position.x) + (static_cast<double>(hold.drift.x) * steps)),
+                         .y = static_cast<float>(static_cast<double>(hold.position.y) + (static_cast<double>(hold.drift.y) * steps)),
+                         .z = static_cast<float>(static_cast<double>(hold.position.z) + (static_cast<double>(hold.drift.z) * steps))},
+            // (a heading grows from +z toward +x: x' = x cos + z sin, z' = z cos - x sin)
+            .direction = {.x = static_cast<float>((dx * cosine) + (dz * sine)),
+                          .y = hold.direction.y,
+                          .z = static_cast<float>((dz * cosine) - (dx * sine))}};
+}
+
 bool lock_camera(const CameraHold& hold)
 {
-    const Vec3 position = hold.position;
-    const Vec3 drift = hold.drift;
     const std::optional<CameraRows> rows = camera_rows(hold.direction);
     if (!rows) {
         return false;
     }
-    const Vec3 right = rows->right;
-    const Vec3 up = rows->up;
-    const Vec3 back = rows->back;
-    lock() = {.on = true, .pos = position, .right = right, .up = up, .back = back, .drift = drift, .frame = frame_loop::frames_run()};
-    get_log("test view: camera locked at (%.1f, %.1f, %.1f) looking along (%.3f, %.3f, %.3f), drifting (%.3f, %.3f, "
-            "%.3f) a "
-            "frame",
-            position.x, position.y, position.z, -back.x, -back.y, -back.z, drift.x, drift.y, drift.z);
+    lock() = {.on = true, .hold = hold, .frame = frame_loop::frames_run()};
+    get_log("test view: camera locked at frame %u at (%.4f, %.4f, %.4f) looking along (%.5f, %.5f, %.5f), drifting (%.4f, "
+            "%.4f, %.4f) and turning %.4f degrees a frame for %u frames (0: for ever)",
+            lock().frame, hold.position.x, hold.position.y, hold.position.z, hold.direction.x, hold.direction.y,
+            hold.direction.z, hold.drift.x, hold.drift.y, hold.drift.z, hold.turn_degrees, hold.move_frames);
     return true;
 }
 
@@ -220,19 +235,32 @@ void unlock_camera()
 
 bool camera_locked() { return lock().on; }
 
+namespace {
+bool& measuring_flag()
+{
+    static bool on = false;
+    return on;
+}
+} // namespace
+
+void set_measuring(bool on) { measuring_flag() = on; }
+
+bool measuring() { return measuring_flag(); }
+
 void place_camera(gfx::ViewCam* camera, int viewport)
 {
     if (!lock().on || !camera || viewport != 0) {
         return;
     }
-    auto frames = static_cast<float>(frame_loop::frames_run() - lock().frame);
-    camera->set_at_point(get_row({.x = lock().pos.x + (lock().drift.x * frames),
-                                  .y = lock().pos.y + (lock().drift.y * frames),
-                                  .z = lock().pos.z + (lock().drift.z * frames)},
-                                 1.0F));
-    core::at(camera->basis_frame().row, 0) = get_row(lock().right, 0.0F);
-    core::at(camera->basis_frame().row, 1) = get_row(lock().up, 0.0F);
-    core::at(camera->basis_frame().row, 2) = get_row(lock().back, 0.0F);
+    const CameraPose pose = camera_pose_at(lock().hold, frame_loop::frames_run() - lock().frame);
+    const std::optional<CameraRows> rows = camera_rows(pose.direction);
+    if (!rows) {
+        return; // (a turn keeps the direction's height: never straight up or down once locked)
+    }
+    camera->set_at_point(get_row(pose.position, 1.0F));
+    core::at(camera->basis_frame().row, 0) = get_row(rows->right, 0.0F);
+    core::at(camera->basis_frame().row, 1) = get_row(rows->up, 0.0F);
+    core::at(camera->basis_frame().row, 2) = get_row(rows->back, 0.0F);
 }
 
 void register_script_functions()

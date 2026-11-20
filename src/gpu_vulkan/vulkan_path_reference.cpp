@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <bit>
 #include <chrono>
 #include <cmath>
@@ -15,6 +16,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 #include <volk.h>
@@ -45,6 +47,7 @@
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
+#include "gpu_vulkan/vulkan_upscale.h"
 #include "platform/run_log.h"
 #include "platform/screenshot_files.h"
 
@@ -785,6 +788,7 @@ struct PathState {
     std::string sky_text;
     std::string list_text;
     std::string saved_stem;
+    std::string name; // (round MV: the request's `as` name)
     uint64_t passes = 0;
     bool restart_asked = false;
     PathOverrides overrides;
@@ -798,6 +802,8 @@ PathState& path_state()
 
 bool first_report(Backend& state, uint64_t what) { return state.reported.insert(what).second; }
 
+void record_linear_frames(Backend& state, const rt::ViewDrawn& view);
+
 class PathListener final : public rt::ViewListener {
 public:
     [[nodiscard]] int order() const override { return kPathReferenceOrder; }
@@ -807,6 +813,7 @@ public:
         Backend& state = backend();
         const std::scoped_lock lock(state.mutex);
         if (state.device_made && state.draws_made) {
+            record_linear_frames(state, view); // (round MV: before the reference writes over the frame)
             record_path_reference_pass(state, view);
         }
     }
@@ -1198,6 +1205,9 @@ void save_captures(Backend& state, PathState& own)
                                        local.tm_hour,        local.tm_min,     local.tm_sec};
     std::string stem = sys::screenshot::file_stem(stamp); // thug2_YYYY-MM-DD_HH-MM-SS
     stem.replace(0, std::string("thug2").size(), "pt");
+    if (!own.name.empty()) {
+        stem = own.name; // (round MV: `pt ref ... as <name>`)
+    }
     const std::string folder = game_folder_path("Screenshots");
     fs::disk().make_folder(folder.c_str());
     const std::string base = folder + "\\" + stem;
@@ -1383,6 +1393,292 @@ bool build_run_list(Backend& state, PathState& own)
     return true;
 }
 
+// --- (round MV) the linear frames: the realtime side of a camera move's measurement --------------------------------------
+
+struct LinearFrames {
+    rt::path::LinearFramesRequest request;
+    std::string folder; // (the full path, ending in a backslash)
+    bool active = false;
+    uint32_t seen = 0;    // drawn frames since the request
+    uint32_t taken = 0;   // frames copied
+    uint32_t written = 0; // frames saved
+    Image image;          // the frame copied last, read back at the next frame's tap
+    bool pending = false;
+    std::string pending_line;
+    std::string lines;
+};
+
+constexpr int kLinearWritesInFlight = 6;
+std::atomic<int>& linear_writes_in_flight()
+{
+    static std::atomic<int> count{0};
+    return count;
+}
+
+LinearFrames& linear_frames()
+{
+    static LinearFrames made;
+    return made;
+}
+
+// An OpenEXR file of 16-bit float B, G, R (scanlines, no compression) from RGBA16F texels as the device holds them.
+std::vector<uint8_t> exr_half_bytes(uint32_t width, uint32_t height, const std::vector<uint8_t>& texels)
+{
+    std::vector<uint8_t> out;
+    put_value(out, static_cast<int32_t>(20000630));
+    put_value(out, static_cast<int32_t>(2));
+    std::vector<uint8_t> channels;
+    for (const char* name : {"B", "G", "R"}) {
+        put_text(channels, name);
+        put_value(channels, static_cast<int32_t>(1)); // HALF
+        put_value(channels, static_cast<int32_t>(0));
+        put_value(channels, static_cast<int32_t>(1));
+        put_value(channels, static_cast<int32_t>(1));
+    }
+    channels.push_back(0);
+    put_attribute(out, "channels", "chlist", channels);
+    put_attribute(out, "compression", "compression", {0});
+    std::vector<uint8_t> window;
+    put_value(window, static_cast<int32_t>(0));
+    put_value(window, static_cast<int32_t>(0));
+    put_value(window, static_cast<int32_t>(width) - 1);
+    put_value(window, static_cast<int32_t>(height) - 1);
+    put_attribute(out, "dataWindow", "box2i", window);
+    put_attribute(out, "displayWindow", "box2i", window);
+    put_attribute(out, "lineOrder", "lineOrder", {0});
+    std::vector<uint8_t> aspect;
+    put_value(aspect, 1.0F);
+    put_attribute(out, "pixelAspectRatio", "float", aspect);
+    std::vector<uint8_t> centre;
+    put_value(centre, 0.0F);
+    put_value(centre, 0.0F);
+    put_attribute(out, "screenWindowCenter", "v2f", centre);
+    put_attribute(out, "screenWindowWidth", "float", aspect);
+    out.push_back(0);
+    const std::size_t line_bytes = static_cast<std::size_t>(width) * 3 * sizeof(uint16_t);
+    const std::size_t first_line = out.size() + (static_cast<std::size_t>(height) * sizeof(uint64_t));
+    out.reserve(first_line + (static_cast<std::size_t>(height) * (8 + line_bytes)));
+    for (uint32_t y = 0; y < height; ++y) {
+        put_value(out, static_cast<uint64_t>(first_line + (static_cast<std::size_t>(y) * (8 + line_bytes))));
+    }
+    for (uint32_t y = 0; y < height; ++y) {
+        put_value(out, static_cast<int32_t>(y));
+        put_value(out, static_cast<int32_t>(line_bytes));
+        const std::size_t line_at = out.size();
+        out.resize(line_at + line_bytes);
+        std::size_t to = line_at;
+        for (const std::size_t channel : {std::size_t{2}, std::size_t{1}, std::size_t{0}}) {
+            for (uint32_t x = 0; x < width; ++x) {
+                const std::size_t at = ((((static_cast<std::size_t>(y) * width) + x) * 4) + channel) * sizeof(uint16_t);
+                if (at + sizeof(uint16_t) <= texels.size()) {
+                    std::memcpy(&core::at(out, to), &core::at(texels, at), sizeof(uint16_t));
+                }
+                to += sizeof(uint16_t);
+            }
+        }
+    }
+    return out;
+}
+
+// One of the upscaler's images read back now (the frame's work finished first) as linear RGB over the drawn `width` x
+// `height` at its top-left: RGBA16F as it is, a one-channel R16F / R32F in all three. False: an image or format it can't.
+bool read_input_image(Backend& state, Image* image, uint32_t width, uint32_t height, std::vector<std::array<float, 3>>* out)
+{
+    if (image == nullptr || image->image == VK_NULL_HANDLE || image->extent.width < width || image->extent.height < height) {
+        return false;
+    }
+    std::size_t texel = 0;
+    if (image->format == VK_FORMAT_R16G16B16A16_SFLOAT) {
+        texel = 8;
+    } else if (image->format == VK_FORMAT_R32_SFLOAT) {
+        texel = 4;
+    } else if (image->format == VK_FORMAT_R16_SFLOAT) {
+        texel = 2;
+    } else {
+        return false;
+    }
+    std::vector<uint8_t> bytes(static_cast<std::size_t>(image->extent.width) * image->extent.height * texel);
+    if (!state.memory.read_image_level(image, 0, &bytes)) {
+        return false;
+    }
+    out->assign(static_cast<std::size_t>(width) * height, {0.0F, 0.0F, 0.0F});
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            const std::size_t at = ((static_cast<std::size_t>(y) * image->extent.width) + x) * texel;
+            std::array<float, 3>& rgb = core::at(*out, (static_cast<std::size_t>(y) * width) + x);
+            if (texel == 8) {
+                for (std::size_t ch = 0; ch < 3; ++ch) {
+                    uint16_t half = 0;
+                    std::memcpy(&half, &core::at(bytes, at + (ch * 2)), sizeof(half));
+                    core::at(rgb, ch) = half_to_float(half);
+                }
+            } else if (texel == 4) {
+                float value = 0.0F;
+                std::memcpy(&value, &core::at(bytes, at), sizeof(value));
+                rgb = {value, value, value};
+            } else {
+                uint16_t half = 0;
+                std::memcpy(&half, &core::at(bytes, at), sizeof(half));
+                const float value = half_to_float(half);
+                rgb = {value, value, value};
+            }
+        }
+    }
+    return true;
+}
+
+// (`pt frames ... inputs`) Ray Reconstruction's inputs of this frame saved beside it: inputs_NNNN_<name>.exr.
+void save_upscaler_inputs(Backend& state, const LinearFrames& own, const rt::ViewDrawn& view, uint32_t number)
+{
+    if (!finish_work(state)) {
+        return;
+    }
+    const uint32_t width = core::at(view.rect, 2);
+    const uint32_t height = core::at(view.rect, 3);
+    const UpscaleImages images = upscale_images();
+    const UpscaleGuideImages guides = upscale_guide_images();
+    const std::array<std::pair<const char*, Image*>, 8> wanted{{{"colour", images.colour},
+                                                                {"depth", images.depth},
+                                                                {"motion", images.motion},
+                                                                {"albedo", guides.albedo},
+                                                                {"specular", guides.specular},
+                                                                {"normals", guides.normals},
+                                                                {"specular_hit", guides.specular_hit},
+                                                                {"transparency", guides.transparency}}};
+    for (const auto& [name, image] : wanted) {
+        std::vector<std::array<float, 3>> rgb;
+        if (read_input_image(state, image, width, height, &rgb)) {
+            write_file(text::format("%sinputs_%04u_%s.exr", own.folder.c_str(), number, name), exr_bytes(width, height, rgb));
+        }
+    }
+}
+
+// The tap, before the reference's pass (it reads the realtime frame as that does): the frame copied last read back and
+// saved, then this one copied. Each saved frame costs a wait for the device - a measurement's run, not play.
+void record_linear_frames(Backend& state, const rt::ViewDrawn& view)
+{
+    LinearFrames& own = linear_frames();
+    rt::path::LinearFramesRequest asked = rt::path::take_linear_frames();
+    if (asked.count > 0) {
+        own.request = std::move(asked);
+        own.folder = game_folder_path("Screenshots") + "\\" + own.request.folder;
+        for (char& character : own.folder) {
+            character = character == '/' ? '\\' : character;
+        }
+        own.folder += "\\";
+        fs::disk().make_folders(own.folder.c_str());
+        own.active = true;
+        own.seen = 0;
+        own.taken = 0;
+        own.written = 0;
+        own.pending = false;
+        own.lines = "# frame  serial  width height  pre_exposure  position x y z  forward x y z  projection[0][0] [1][1]  "
+                    "jitter x y  right x y z  up x y z  projection[2][2] [3][2]\n";
+    }
+    if (own.pending) {
+        own.pending = false;
+        std::vector<uint8_t> texels(static_cast<std::size_t>(own.image.extent.width) * own.image.extent.height * 4 *
+                                    sizeof(uint16_t));
+        if (finish_work(state) && state.memory.read_image_level(&own.image, 0, &texels)) {
+            const std::string path = text::format("%sframe_%04u.exr", own.folder.c_str(), own.written + 1);
+            // (made and written on a thread of its own - at most a few at once: the frames keep coming)
+            while (linear_writes_in_flight().load() >= kLinearWritesInFlight) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            ++linear_writes_in_flight();
+            std::thread(
+                [path, width = own.image.extent.width, height = own.image.extent.height](std::vector<uint8_t> bytes) {
+                    if (!write_file(path, exr_half_bytes(width, height, bytes))) {
+                        get_log("pt: frames - %s couldn't be written", path.c_str());
+                    }
+                    --linear_writes_in_flight();
+                },
+                std::move(texels))
+                .detach();
+            ++own.written;
+            own.lines += own.pending_line;
+        }
+    }
+    if (!own.active) {
+        return;
+    }
+    if (own.taken >= own.request.count) {
+        own.active = false;
+        while (linear_writes_in_flight().load() > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1)); // (frames.txt last: the frames are on disk)
+        }
+        write_file(own.folder + "frames.txt", std::vector<uint8_t>(own.lines.begin(), own.lines.end()));
+        get_log("pt: frames - %u of %u saved in %s", own.written, own.request.count, own.folder.c_str());
+        return;
+    }
+    const bool take = own.seen % std::max(own.request.every, 1U) == 0;
+    ++own.seen;
+    if (!take) {
+        return;
+    }
+    Surface* const target = core::at(state.targets, 0);
+    Image* colour = nullptr;
+    if (target != nullptr && target->kind == SurfaceKind::kRenderTarget) {
+        colour = &target->image;
+    } else if (target != nullptr && target->kind == SurfaceKind::kTextureLevel && target->level == 0) {
+        colour = &target->texture->image;
+    }
+    if (colour == nullptr || colour->format != kHdrFormat || colour->samples != VK_SAMPLE_COUNT_1_BIT ||
+        (colour->usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) == 0) {
+        return;
+    }
+    std::array<uint32_t, 4> rect = core::at(view.output_rect, 2) > 0 ? view.output_rect : view.rect;
+    core::at(rect, 0) = std::min(core::at(rect, 0), colour->extent.width);
+    core::at(rect, 1) = std::min(core::at(rect, 1), colour->extent.height);
+    core::at(rect, 2) = std::min(core::at(rect, 2), colour->extent.width - core::at(rect, 0));
+    core::at(rect, 3) = std::min(core::at(rect, 3), colour->extent.height - core::at(rect, 1));
+    if (core::at(rect, 2) == 0 || core::at(rect, 3) == 0 ||
+        !ensure_image(state, &own.image, core::at(rect, 2), core::at(rect, 3),
+                      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)) {
+        return;
+    }
+    VkCommandBuffer commands = outside_pass(state);
+    Memory::transition(commands, colour, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    Memory::transition(commands, &own.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    const VkImageSubresourceLayers layers{
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1};
+    const VkImageCopy region{
+        .srcSubresource = layers,
+        .srcOffset = {.x = static_cast<int32_t>(core::at(rect, 0)), .y = static_cast<int32_t>(core::at(rect, 1)), .z = 0},
+        .dstSubresource = layers,
+        .dstOffset = {.x = 0, .y = 0, .z = 0},
+        .extent = {.width = core::at(rect, 2), .height = core::at(rect, 3), .depth = 1}};
+    vkCmdCopyImage(commands, colour->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, own.image.image,
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    Memory::transition(commands, &own.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    Memory::transition(commands, colour, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    colour->used = state.frames.serial();
+    own.image.used = state.frames.serial();
+    ++own.taken;
+    own.pending = true;
+    if (own.request.inputs) {
+        save_upscaler_inputs(state, own, view, own.taken);
+    }
+    // the camera: the view matrix's rows are Direct3D's (row vectors) - its columns are the camera's right, up and forward
+    // axes in the world
+    const auto& v = view.camera.view;
+    const auto& p = view.camera.projection;
+    own.pending_line = text::format(
+        "%u %llu %u %u %.6g %.5f %.5f %.5f %.6f %.6f %.6f %.6f %.6f %.4f %.4f %.6f %.6f %.6f %.6f %.6f %.6f %.9g %.9g\n", own.taken,
+        static_cast<unsigned long long>(state.frames.serial()), core::at(rect, 2), core::at(rect, 3),
+        static_cast<double>(rt::frame_pre_exposure()), static_cast<double>(core::at(view.camera.position, 0)),
+        static_cast<double>(core::at(view.camera.position, 1)), static_cast<double>(core::at(view.camera.position, 2)),
+        static_cast<double>(core::at(core::at(v, 0), 2)), static_cast<double>(core::at(core::at(v, 1), 2)),
+        static_cast<double>(core::at(core::at(v, 2), 2)), static_cast<double>(core::at(core::at(p, 0), 0)),
+        static_cast<double>(core::at(core::at(p, 1), 1)), static_cast<double>(core::at(view.jitter, 0)),
+        static_cast<double>(core::at(view.jitter, 1)), static_cast<double>(core::at(core::at(v, 0), 0)),
+        static_cast<double>(core::at(core::at(v, 1), 0)), static_cast<double>(core::at(core::at(v, 2), 0)),
+        static_cast<double>(core::at(core::at(v, 0), 1)), static_cast<double>(core::at(core::at(v, 1), 1)),
+        static_cast<double>(core::at(core::at(v, 2), 1)), static_cast<double>(core::at(core::at(p, 2), 2)),
+        static_cast<double>(core::at(core::at(p, 3), 2)));
+}
+
 } // namespace
 
 void set_path_overrides(const PathOverrides& overrides)
@@ -1558,6 +1854,7 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
         own.wanted = checking ? 0xFFFFFFFFU : request.samples;
         own.saved = false;
         own.saved_stem.clear();
+        own.name = checking ? std::string() : request.name;
         own.realtime_taken = false;
     }
     std::string error;
