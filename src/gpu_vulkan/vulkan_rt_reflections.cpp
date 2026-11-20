@@ -29,6 +29,7 @@
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_debug_view.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_light_list.h"
@@ -622,7 +623,7 @@ void main()
 // glass's own colour, its a the share of the drawn pixel replaced (the glass's, and E of the game's shine - none where
 // the reflection is added to a surface that left its own estimate out); the pixels with neither discarded.
 constexpr const char* kApplyBody = R"(
-layout(push_constant) uniform Apply { ivec4 rect; } apply;
+layout(push_constant) uniform Apply { ivec4 rect; vec4 keep; } apply; // (round FA) keep.x: 0 in a debug view without it
 layout(set = 0, binding = 4, rgba16f) uniform readonly image2D u_in;
 layout(set = 0, binding = 8, rgba16f) uniform readonly image2D u_base;
 layout(location = 0) out vec4 o_colour;
@@ -660,7 +661,9 @@ void main()
     float weight = clamp(abs(reflection.a), 0.0, 1.0);
     // (round O: linear light - the reflection's radiance as it is, never held to 1)
     // (round RX: past the 16-bit range its largest finite value - rt_daylight.h kFrameHalfMost)
-    o_colour = vec4(min(max(base.rgb, vec3(0.0)) + max(colour, vec3(0.0)) * weight, vec3(65504.0)), clamp(base.a, 0.0, 1.0));
+    // (round FA - the debug views: without the reflections, what they take the place of stays taken - their light none)
+    o_colour = vec4(min((max(base.rgb, vec3(0.0)) + max(colour, vec3(0.0)) * weight) * apply.keep.x, vec3(65504.0)),
+                    clamp(base.a, 0.0, 1.0));
 }
 )";
 
@@ -810,7 +813,10 @@ struct ListBlock {
 static_assert(sizeof(ListBlock) == 9 * 16, "the shader's ListBlock (std140)");
 
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-constexpr uint32_t kPushBytes = 16; // the apply's rect, the check's count
+constexpr uint32_t kPushBytes = 32; // the apply's rect and (round FA) its keep, the check's count
+// (round FA) A list-lit hit's local lights: RIS over this many of the frame's pool (GI's secondary vertices take 8 and
+// their reservoirs' reuse; this pass's one sample is the picture's). Round DO: 64 left ~1 speck a frame during a pan.
+constexpr uint32_t kListHitCandidates = 24;
 
 using Matrix = std::array<std::array<double, kMatrixSide>, kMatrixSide>;
 
@@ -974,6 +980,11 @@ bool list_hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, m
                                    0x57F1C0DEu ^ path_pcg(floatBitsToUint(dir.x) ^ path_pcg(floatBitsToUint(dir.y))));
     vec3 p = h.position + ng * local_light_offset(h.position);
     vec3 toward;
+    // (round FA) the hit's local lights from candidates of its own, not a light grid cell's picks: the pass keeps no
+    // history, so a cell's shared error each frame (the same over 128 units) reached the frame whole - the shine on BO's
+    // kickers and planter brightening and darkening from frame to frame (vulkan_light_list.h ll_cell_candidates); more
+    // of them than GI's 8 (LIST_HIT_CANDIDATES - RIS, Talbot et al. 2005): its one sample is the picture's, no reuse
+    ll_cell_candidates = false;
     vec3 incident = light_sample(p, n, ng, LIST_RAYS, rng, toward);
     vec3 direct = max(incident.r, max(incident.g, incident.b)) > 0.0 ? path_bsdf_cosine(h.material, n, v, toward) * incident
                                                                      : vec3(0.0);
@@ -1044,6 +1055,8 @@ std::string compute_source(const char* body, bool multisampled, bool materials, 
         source += light_pool_reader_glsl("list.pool"); // (round SK: the local lights resampled as GI's)
         source += light_grid_reader_glsl("list.grid"); // (round DO: ... from the light grid's cells inside it)
         source += local_light_glsl();
+        // (round FA) the hits' local lights' RIS candidates (light_sample_glsl's LL_LOCAL_CANDIDATES; GI's 8)
+        source += "#define LL_LOCAL_CANDIDATES " + std::to_string(kListHitCandidates) + "u\n";
         source += light_sample_glsl();
         source += kListHitGlsl;
     }
@@ -1830,7 +1843,15 @@ void record_apply(Backend& state, VkCommandBuffer commands, VkPipeline pipeline,
     writes.back().pImageInfo = &base_info;
     vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, own.layout, 0,
                               static_cast<uint32_t>(writes.size()), writes.data());
-    vkCmdPushConstants(commands, own.layout, kStages, 0, kPushBytes, rect.data());
+    // (round FA - vulkan_debug_view.h) the reflections' light kept, or none in a debug view without them
+    struct ApplyConstants {
+        std::array<int32_t, 4> rect;
+        std::array<float, 4> keep;
+    };
+    const ApplyConstants constants{.rect = rect,
+                                   .keep = {(debug_terms() & debug_term::kReflections) != 0U ? 1.0F : 0.0F, 0.0F, 0.0F, 0.0F}};
+    static_assert(sizeof(ApplyConstants) == kPushBytes, "the apply's push constants");
+    vkCmdPushConstants(commands, own.layout, kStages, 0, kPushBytes, &constants);
     vkCmdDraw(commands, 3, 1, 0, 0);
     vkCmdEndRendering(commands);
 }
@@ -1998,7 +2019,10 @@ bool rt_reflection_listed_traces_resample_pool()
     return source.find(light_pool_reader_glsl("list.pool")) != std::string::npos &&
            source.find("uvec4 pool;") != std::string::npos &&
            source.find(light_grid_reader_glsl("list.grid")) != std::string::npos && // (round DO)
-           source.find("uvec4 grid;") != std::string::npos;
+           source.find("uvec4 grid;") != std::string::npos &&
+           // (round FA) ... but its hits' candidates their own, not a cell's shared picks, and kListHitCandidates of them
+           source.find("ll_cell_candidates = false;") != std::string::npos &&
+           source.find("#define LL_LOCAL_CANDIDATES " + std::to_string(kListHitCandidates) + "u") != std::string::npos;
 }
 
 bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)

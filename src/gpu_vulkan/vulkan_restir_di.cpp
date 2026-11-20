@@ -28,6 +28,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_debug_view.h"
 #include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_memory.h"
@@ -109,6 +110,9 @@ constexpr uint32_t kFlagSpatial = 2U;
 constexpr uint32_t kFlagAccumulate = 4U;
 constexpr uint32_t kFlagPermute = 8U;  // (round PT4d) restir_denoiser_glsl
 constexpr uint32_t kFlagBoiling = 16U;
+// (round FA - vulkan_debug_view.h) a debug view without the lamps' diffuse / specular: none written into the inputs
+constexpr uint32_t kFlagNoDiffuse = 32U;
+constexpr uint32_t kFlagNoSpecular = 64U;
 
 constexpr uint32_t kTimingSlots = 16;
 constexpr uint32_t kTimingReport = 600;
@@ -210,6 +214,8 @@ const uint FLAG_SPATIAL = 2u;
 const uint FLAG_ACCUMULATE = 4u;
 const uint FLAG_PERMUTE = 8u;
 const uint FLAG_BOILING = 16u;
+const uint FLAG_NO_DIFFUSE = 32u;
+const uint FLAG_NO_SPECULAR = 64u;
 const uint MOST_SPATIAL = 4u;
 const uint LIGHT_RAYS = 15u;     // world, objects, alpha-tested, drawn apart (round PG) - the reference's light rays
 const uint LIGHT_RAYS_ON_OBJECT = 13u; // (an object's pixel: the world's and what is drawn apart - its low-poly body
@@ -699,9 +705,11 @@ void put_result(ivec2 p, uint i, vec3 lamps, vec3 on_albedo, vec3 specular, vec3
         sums[uint(pass.rect.z * pass.rect.w) + i] = vec4(full, path_luma(lamps)); // (w: the lamps' light alone)
     }
 #else
-    imageStore(o_lamps, p, vec4(lamps, 0.0));
-    imageStore(o_lamps_on, p, vec4(on_albedo, 0.0));
-    imageStore(o_specular, p, vec4(specular, 1.0));
+    // (round FA - the debug views: a term left out writes nothing into the frame)
+    bool diffuse_on = (pass.counts.w & FLAG_NO_DIFFUSE) == 0u;
+    imageStore(o_lamps, p, vec4(diffuse_on ? lamps : vec3(0.0), 0.0));
+    imageStore(o_lamps_on, p, vec4(diffuse_on ? on_albedo : vec3(0.0), 0.0));
+    imageStore(o_specular, p, vec4((pass.counts.w & FLAG_NO_SPECULAR) == 0u ? specular : vec3(0.0), 1.0));
 #endif
 }
 void main()
@@ -1656,6 +1664,14 @@ void collect_timing(Backend& state, RestirState& own, uint32_t slot, bool check)
     }
 }
 
+// (round FA) The debug view's terms as the pass's flags (none in the check).
+uint32_t debug_flags(bool check)
+{
+    const uint32_t terms = check ? debug_term::kAll : debug_terms();
+    return ((terms & debug_term::kLampsDiffuse) == 0U ? kFlagNoDiffuse : 0U) |
+           ((terms & debug_term::kLampsSpecular) == 0U ? kFlagNoSpecular : 0U);
+}
+
 // Whether this view's lamps are ReSTIR's: rt_lights on, the direct light restir (or auto with Ray Reconstruction to
 // denoise it), and the view lit per surface.
 bool wanted(Backend& state)
@@ -2114,7 +2130,7 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     const uint32_t flags = (history ? kFlagTemporal : 0U) | (spatial > 0 ? kFlagSpatial : 0U) |
                            (check && own.accumulate ? kFlagAccumulate : 0U) |
                            (!check || own.overrides.permutation ? kFlagPermute : 0U) |
-                           (!check || own.overrides.boiling_filter ? kFlagBoiling : 0U);
+                           (!check || own.overrides.boiling_filter ? kFlagBoiling : 0U) | debug_flags(check);
     block.counts = {own.entries, own.lamp_count, static_cast<uint32_t>(own.frames), flags};
     block.params = {candidates, std::min(spatial, kMostSpatial), kHistoryCap * candidates,
                     check ? own.overrides.seed : 0x2545F491U};

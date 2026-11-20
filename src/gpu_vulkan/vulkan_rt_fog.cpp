@@ -33,6 +33,7 @@
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_debug_view.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_light_list.h"
@@ -1123,6 +1124,8 @@ void main()
     vec4 v = weights > 1e-4 ? sum / weights : nearest;
     float transmittance = clamp(v.a, 0.0, 1.0);
     vec3 light_in = max(v.rgb, vec3(0.0)) + god_rays_light(local, distance, base, f, tolerance, transmittance);
+    // (round FA - the debug views: without the fog its in-scattered light is none; what the air takes away stays)
+    light_in *= fog.list_light.y;
 #ifdef LINEAR_COMPOSITE
     // (the physical air; round W2: blended - the frame is linear light since round F, so the copy the composite once took
     // the frame to linear light through is gone) colour x T + the light: the blend's dst x src alpha + src
@@ -1169,7 +1172,7 @@ struct FogBlock {
     std::array<float, 4> ambient{};
     std::array<uint32_t, 4> list{};      // (round WF) the light list's local group: x entries, y candidates a step pair
     std::array<uint32_t, 4> instances{}; // xy the TLAS instances' device address, z their count
-    std::array<float, 4> list_light{};   // x the frame's pre-exposure
+    std::array<float, 4> list_light{};   // x the frame's pre-exposure; (round FA) y the in-scattered light kept (0: a debug view without it)
 };
 constexpr std::size_t kFogBlockBytes = 624;
 static_assert(sizeof(FogBlock) == kFogBlockBytes, "the shaders' std140 block");
@@ -2720,6 +2723,8 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
         block.list_light = {rt::frame_pre_exposure(), 0.0F, 0.0F, 0.0F};
         fog_state().lights_scale = rt::frame_pre_exposure();
     }
+    // (round FA - vulkan_debug_view.h) the in-scattered light kept, or none in a debug view without the fog
+    core::at(block.list_light, 1) = (debug_terms() & debug_term::kFog) != 0U ? 1.0F : 0.0F;
     block.rays = own.rays; // (added by the god rays: set_rays)
     if (own.aerial) {
         core::at(block.rays, 2) = static_cast<float>(1.0 / (4.0 * std::numbers::pi)); // (the peak x 4 pi, per sr)

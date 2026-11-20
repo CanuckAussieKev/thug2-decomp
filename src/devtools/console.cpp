@@ -206,6 +206,10 @@ constexpr const char* kHelp = "scripts [text]  the scripts running (names holdin
                               "reset <key>     back to its default (its ini line removed)\n"
                               "settings [text] the settings (keys holding text) and their values\n"
                               "restarts        the settings that wait for the next start, and why\n"
+                              "set rt_debug_view <view>  one term of the light alone (exposure held):\n"
+                              "                lamps | lamps_specular | gi | gi_specular | sky | reflections |\n"
+                              "                fog | front | emission; flicker: each pixel's temporal deviation\n"
+                              "                as a heat map (60 frames); off: the whole frame\n"
                               "help            this list";
 
 // --- the window ------------------------------------------------------------------------------------------------------

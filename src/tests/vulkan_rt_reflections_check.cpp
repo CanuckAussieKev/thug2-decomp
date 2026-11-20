@@ -2381,8 +2381,9 @@ int run(const Options& options, SDL_Window* window)
         tally.check(render::vulkan::rt_reflection_list_pool(list) == list.pool &&
                         render::vulkan::rt_reflection_list_grid(list) == list.grid &&
                         render::vulkan::rt_reflection_listed_traces_resample_pool(),
-                    "the light list's traces resample the local lights from GI's pool and (round DO) inside the light "
-                    "grid from its cells' picks (their words in their block, read by their GLSL)");
+                    "the light list's traces resample the local lights from GI's pool (their words in their block, read "
+                    "by their GLSL; round FA: their hits' candidates their own - kListHitCandidates of the pool, not a "
+                    "light grid cell's picks every point of the cell shares)");
     }
     release_mirror(gpu, &mirror);
     render::vulkan::set_rt_reflection_settings({});

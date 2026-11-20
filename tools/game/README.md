@@ -13,7 +13,13 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
 - `node tools/game/speck_count.ts <series folder> <x,y,w,h> [--skip N] [--threshold 30]` - the specks in a captured
   series (automation `capture <frames> <folder>` with the camera held): pixels over their 5x5 neighbourhood's median by
   the threshold (0-255 luma) in a rectangle, a frame on average - flickering (also over the pixel's own median over the
-  series) and steady - and each pixel's standard deviation over the series.
+  series) and steady - and each pixel's standard deviation over the series, and the rectangle's mean; `--heatmap out.png`
+  writes each pixel's deviation as a heat map (black, red, yellow, white at 16 / 255), `--json` one line of numbers.
+  With `console set rt_debug_view <term>` before each `capture` the same counts tell which term of the light flickers
+  (docs/design/vulkan.md, round FA); `rt_debug_view flicker` shows the heat map live.
+- `node tools/game/launch_compare.ts <series> <series> [...] [--grid 8x6] [--rect x,y,w,h] [--skip N]` - is the same
+  spot lit the same in different launches (or windows of one)? Each series' cells' mean luma, the cells whose series
+  differ most against the frames' own noise.
 - `node tools/game/settle_curve.ts <series folder> <x,y,w,h> [--settled N] [--threshold 30] [--frames 1,2,...]` - how a
   picture settles after a camera cut or stop (a `capture` started there, the camera then held): per listed frame the
   specks over the settled picture (the median of the last N frames) and over their 5x5 neighbourhood, and the RMS error.

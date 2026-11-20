@@ -1131,6 +1131,14 @@ std::vector<Decl> declarations()
         debug("rt_particles", K::kSwitch, "1").need(ray_tracing()).live(O::kSelf),
         debug("rt_lights_log", K::kSwitch, "0").need(is_not("rt_lights", {"0"})).live(E::kLights),
         debug("rt_water_view", K::kSwitch, "0").need(on("rt_water")).live(E::kWater),
+        // (round FA - gpu_vulkan/vulkan_debug_view.h: one term of the light at a time, or the flicker as a heat map; the
+        // camera effects' part of the renderer draws it)
+        debug("rt_debug_view", K::kChoice, "off")
+            .need(ray_tracing())
+            .pick({c("off", "Off"), c("lamps", "Lamps"), c("lamps_specular", "Lamps specular"), c("gi", "Bounce"),
+                   c("gi_specular", "Bounce specular"), c("sky", "Sky, sun and moon"), c("reflections", "Reflections"),
+                   c("fog", "Fog"), c("front", "Front layer"), c("emission", "Emission"), c("flicker", "Flicker")})
+            .live(E::kCameraFx),
         debug("rt_water_materials", K::kSwitch, "0").need(on("rt_water")).live(O::kSelf),
         debug("tess_log", K::kSwitch, "0").need(on("rt_tessellation")).reload(),
         debug("thaw_bmx_steer", K::kSwitch, "0").need(on("thaw_bmx")).live(O::kSelf),

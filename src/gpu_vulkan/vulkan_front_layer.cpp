@@ -19,6 +19,7 @@
 #include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_debug_view.h"
 #include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_restir_gi.h"
@@ -73,7 +74,7 @@ struct FrontBlock {
     std::array<uint32_t, 4> instances{};   // xy the TLAS instances' device address, z their count
     std::array<float, 4> sun{};            // toward the disc, w the cosine of its radius (kNoDisc: none)
     std::array<float, 4> sun_radiance{};   // rgb its radiance, w its solid angle
-    std::array<float, 4> sky{};            // x 1 / the sky grid's luminance integral
+    std::array<float, 4> sky{};            // x 1 / the sky grid's luminance integral; (round FA) y the light kept (0: a debug view without it)
     std::array<float, 4> cache_cells{};    // x the angle a radiance cache cell spans
     std::array<float, 4> cloud_place{};    // (vulkan_rt_sky_pass.h CloudShadowMap)
     std::array<float, 4> cloud_light{};
@@ -266,8 +267,9 @@ void main()
         }
     }
     float w = 1.0 / (frames + 1.0);
-    vec3 rest_out = mix(rest_before, rest, w);
-    vec4 sun_out = mix(sun_before, vec4(sun, seen), w);
+    // (round FA - the debug views: sky.y 0 in a view without the front layer - its light none, its history too)
+    vec3 rest_out = mix(rest_before, rest, w) * pass.sky.y;
+    vec4 sun_out = mix(sun_before, vec4(sun, seen), w) * vec4(vec3(pass.sky.y), 1.0);
     imageStore(o_depth, p, vec4(z, 0.0, 0.0, 0.0));
     imageStore(o_light, p, vec4(min(rest_out, vec3(65504.0)), frames + 1.0));
     imageStore(o_sun, p, vec4(min(sun_out.rgb, vec3(65504.0)), sun_out.a));
@@ -642,7 +644,7 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
                        static_cast<uint32_t>(scene.instances_address >> 32U), scene.instances, 0U};
     block.sun = list.sun;
     block.sun_radiance = list.sun_radiance;
-    block.sky = {list.sky_dist, 0.0F, 0.0F, 0.0F};
+    block.sky = {list.sky_dist, (debug_terms() & debug_term::kFront) != 0U ? 1.0F : 0.0F, 0.0F, 0.0F};
     block.cache_cells = {list.cache_cells, 0.0F, 0.0F, 0.0F};
     block.pool = list.pool;
     block.grid = list.grid;

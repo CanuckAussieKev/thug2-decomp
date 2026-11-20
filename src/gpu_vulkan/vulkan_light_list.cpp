@@ -409,6 +409,14 @@ std::string_view light_sample_glsl()
 #ifndef LL_LOCAL_CANDIDATES
 #define LL_LOCAL_CANDIDATES 8u // (round DD) the local lights' candidates a sample resamples (the pool's - LL_POOL)
 #endif
+// (round FA) Whether this sample may take its local lights' candidates from the light grid's cells (LL_GRID). A cell's
+// picks are shared by every point in it (128 units) for the frame: the error they carry is the same over that whole
+// region and new every frame - ReGIR's correlation (Boksansky et al. 2021). An estimator that resamples over frames
+// (ReSTIR GI's diffuse reservoirs) averages it out; a one-shot one - GI's specular ray, every frame's own - passed it
+// to the frame whole: the lamp pools on BO's floors brightening and darkening by 2 - 4 x from frame to frame, which
+// Ray Reconstruction keeps as picture. Such a caller sets this false around its sample: its candidates then come from
+// the frame's pool, each point's its own (RTXDI's presampled light tiles).
+bool ll_cell_candidates = true;
 // The disc's light the clouds let through to `at` (their shadow map - the shadows pass's clouds_through); 1 without it.
 float sun_kept(vec3 at)
 {
@@ -499,7 +507,7 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
             LightPick pick;
             bool from_grid = false;
 #ifdef LL_GRID
-            if (LL_GRID_ON) {
+            if (LL_GRID_ON && ll_cell_candidates) {
                 vec4 place = uintBitsToFloat(light_grid[0]);
                 uvec4 cells = light_grid[1];
                 vec3 jitter = (vec3(path_next(rng), path_next(rng), path_next(rng)) - 0.5) * place.w;

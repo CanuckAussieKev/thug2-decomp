@@ -51,6 +51,7 @@
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_camera_fx.h"
+#include "gpu_vulkan/vulkan_debug_view.h"
 #include "gpu_vulkan/vulkan_fisheye.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_loader.h"
@@ -1041,6 +1042,37 @@ bool open_device(const Options& options, SDL_Window* window)
     return true;
 }
 
+// (round FA - vulkan_debug_view.h) The lighting's debug views: every name read back as itself, a term view lets its one
+// term in and no other, emission none, off and flicker every one.
+void check_debug_views(Tally* tally)
+{
+    using vk::DebugView;
+    const std::array<DebugView, 11> all{DebugView::kOff,         DebugView::kLamps, DebugView::kLampsSpecular,
+                                        DebugView::kGi,          DebugView::kGiSpecular, DebugView::kSky,
+                                        DebugView::kReflections, DebugView::kFog,   DebugView::kFront,
+                                        DebugView::kEmission,    DebugView::kFlicker};
+    bool names = true;
+    uint32_t terms_seen = 0;
+    bool one_each = true;
+    for (const DebugView view : all) {
+        DebugView back = DebugView::kOff;
+        names = names && vk::parse_debug_view(vk::debug_view_name(view), &back) && back == view;
+        const uint32_t terms = vk::debug_view_terms(view);
+        if (view == DebugView::kOff || view == DebugView::kFlicker) {
+            one_each = one_each && terms == vk::debug_term::kAll;
+        } else if (view == DebugView::kEmission) {
+            one_each = one_each && terms == 0U;
+        } else {
+            one_each = one_each && terms != 0U && (terms & (terms - 1U)) == 0U && (terms & terms_seen) == 0U;
+            terms_seen |= terms;
+        }
+    }
+    DebugView unknown = DebugView::kOff;
+    tally->check(names && one_each && terms_seen == vk::debug_term::kAll && !vk::parse_debug_view("lamp", &unknown),
+                 "the debug views: each name read back, each term view one term of its own (all eight between them), "
+                 "emission none, off and flicker all; an unknown name refused");
+}
+
 int run(const Options& options, SDL_Window* window)
 {
     if (!open_device(options, window)) {
@@ -1053,6 +1085,7 @@ int run(const Options& options, SDL_Window* window)
     check_focus(gpu, &tally);
     check_blur(gpu, &tally);
     check_lens(gpu, &tally);
+    check_debug_views(&tally);
     measure_cost(gpu, &tally);
     settings({});
     vk::gpu_context().shutdown();

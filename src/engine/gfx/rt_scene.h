@@ -490,6 +490,8 @@ inline constexpr int kCel = 960;          // (added by cel shading) the world's 
 inline constexpr int kCameraEffects = 965; // (added by the camera effects) depth of field, motion blur (world_drawn)
 inline constexpr int kLens = 970;          // (added by the fisheye lens) the warp, after the blur, before the art style (world_drawn)
 inline constexpr int kGrade = 985;         // (added by the camera effects) the colour grade, after the art style (world_drawn)
+inline constexpr int kDebugView = 990;     // (round FA) the lighting's debug views: the exposure held, the flicker heat
+                                           // map over the finished picture (world_drawn)
 inline constexpr int kFrameGeneration = 999; // (added by frame generation) the HUD-less colour copied out, last (world_drawn)
 inline constexpr int kSurfaceInputs = 60;   // (round V - gpu_vulkan/vulkan_surface_light.h) a view lit per surface: its
                                             // light inputs begun from the prepass's depth, before the shadows
