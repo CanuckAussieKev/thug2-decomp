@@ -44,6 +44,8 @@
 #include "engine/gfx/rain.h"
 #include "gpu_vulkan/vulkan_rain.h"
 #include "gpu_vulkan/vulkan_scatter.h"
+#include "gpu_vulkan/vulkan_surface_light.h"
+#include "gpu_vulkan/vulkan_upscale.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -360,10 +362,15 @@ vec3 own_environment(uint instance, uint primitive, vec2 barycentrics, HitVertic
     return (v.flags & GEOMETRY_COLOUR) != 0u ? linear_from_display(hit_colour(v, barycentrics).rgb * 2.0) : vec3(0.0);
 }
 
+// (round MV) The last reflected ray's hit distance (its reach on a miss): Ray Reconstruction's specular hit distance where
+// the reflection is the pixel's specular (reflection_guides).
+float reflected_hit = 0.0;
+
 // What the reflection ray from `origin` along `direction` sees (a: 1 when it hit something); `travelled`: the path so
 // far (the footprint's).
 vec4 reflected(vec3 origin, vec3 direction, float travelled)
 {
+    reflected_hit = pass.params.y;
     uint mask = uint(pass.extra.z) & 0xFFu; // (round PG: the reflected rays' mask - kReflectedRayMask)
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, mask, origin, 0.0, direction, pass.params.y);
@@ -394,6 +401,7 @@ vec4 reflected(vec3 origin, vec3 direction, float travelled)
     uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, true);
     uint instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
     float t = rayQueryGetIntersectionTEXT(query, true);
+    reflected_hit = t;
     vec2 barycentrics = rayQueryGetIntersectionBarycentricsEXT(query, true);
     HitVertices v;
     hit_vertices(instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true), v);
@@ -420,6 +428,32 @@ vec4 reflected(vec3 origin, vec3 direction, float travelled)
                            origin + direction * t, n, -direction, travelled + t);
     return vec4(min(max(light, vec3(0.0)), vec3(65504.0)), 1.0);
 }
+
+#ifdef LIST_LIT
+// (round MV) Ray Reconstruction's guides where this pass puts its reflection in place of `w` of the pixel (the game's
+// shine, glass, water - the lacquer's, glass's or water's lobe over the surface the shading lit). The guides the surface
+// wrote describe its own material, not this layer: its specular albedo becomes the layer's E (tint x w) over (1 - w) of
+// the surface's, and where the layer is the larger part of the pixel's specular its roughness and this ray's hit distance
+// are the guides' (NVIDIA's DLSS-RR integration guide: the specular albedo, roughness and hit distance describe the
+// specular the input colour holds - else Ray Reconstruction reprojects the reflection as the surface under it and drops
+// its history whenever the camera moves).
+void reflection_guides(ivec2 p, float w, vec3 tint, float rough, float hit)
+{
+    uvec4 g = imageLoad(io_guides, p);
+    if (g.y == 0u) {
+        return; // (no surface wrote guides here: the upscaler's defaults)
+    }
+    vec4 a = unpackUnorm4x8(g.x);
+    vec3 s = linear_from_display(unpackUnorm4x8(g.y).rgb);
+    vec3 total = tint * w + (1.0 - w) * s;
+    g.y = packUnorm4x8(vec4(display_from_linear(clamp(total, 0.0, 1.0)), 1.0));
+    if (w >= max(s.r, max(s.g, s.b)) * (1.0 - w)) {
+        g.x = packUnorm4x8(vec4(a.rgb, clamp(rough, 0.0, 1.0)));
+        imageStore(io_specular_hit, p, vec4(hit, 0.0, 0.0, 0.0));
+    }
+    imageStore(io_guides, p, g);
+}
+#endif
 
 void main()
 {
@@ -568,7 +602,29 @@ void main()
                     vec4 seen = vec4(0.0);
                     if (weight <= 0.0) {
                         // (nothing of it shows: no ray)
-                    } else if (rough > 0.0) {
+                    }
+#ifdef LIST_LIT
+                    else if (rough > 0.0 && LIST_RR) {
+                        // (round MV) Ray Reconstruction denoises the view: one direction of the lobe a pixel and frame -
+                        // a visible normal of GGX (Heitz 2018), its own random sequence each frame - and no blur. The
+                        // cone's fixed pattern below (the same directions in a pixel every frame, a 3 x 3 blur over its
+                        // neighbours) is structure locked to the screen that Ray Reconstruction keeps as picture and
+                        // that crawls when the camera moves; its input is to be the raw, unbiased per-frame sample.
+                        uint lobe_rng = path_sequence_start(uint(p.x), uint(p.y), list.counts.z, 0x5EF1EC70u);
+                        float u1 = path_next(lobe_rng);
+                        float u2 = path_next(lobe_rng);
+                        vec3 h = path_to_world(sn, path_ggx_visible_normal(path_to_local(sn, -view), brdf_alpha(r), u1, u2));
+                        vec3 d_lobe = reflect(view, h);
+                        if (dot(d_lobe, n) <= 0.0) {
+                            d_lobe = mirror; // (below the surface: the mirror direction instead)
+                        }
+                        seen = reflected(point + n * offset, d_lobe, t);
+                        if (adds && seen.a == 0.0) {
+                            seen = vec4(estimate, 1.0);
+                        }
+                    }
+#endif
+                    else if (rough > 0.0) {
                         // a rough surface: rays spread over a cone round the mirror direction (a golden-angle disc of
                         // directions, turned by a quarter of its step in each pixel of a 2 x 2 block - the apply's
                         // 3 x 3 blur then sees four times the directions, with no noise), their hits averaged; the
@@ -609,6 +665,11 @@ void main()
                         result = vec4(seen.rgb * share.rgb, sign(seen.a) * clamp(abs(seen.a) * weight, 0.0, 1.0));
                         // (what of the drawn pixel the reflection takes the place of: nothing where it is added)
                         base_layer.a += adds ? 0.0 : abs(result.a);
+#ifdef LIST_LIT
+                        if (LIST_RR && !adds) {
+                            reflection_guides(p, abs(result.a), share.rgb, r, reflected_hit);
+                        }
+#endif
                     }
                 }
             }
@@ -796,7 +857,11 @@ constexpr uint32_t kBindingWet = 13; // (added by the decals) the puddles' wet m
 constexpr uint32_t kBindingList = 14;
 constexpr uint32_t kListBuffers = 8;
 constexpr uint32_t kBindingListBlock = kBindingList + kListBuffers;
-constexpr uint32_t kBindingCount = kBindingListBlock + 1;
+// (round MV) 23 Ray Reconstruction's guides, 24 ReSTIR GI's specular hit distance - the LIST variants under Ray
+// Reconstruction (reflection_guides)
+constexpr uint32_t kBindingGuides = kBindingListBlock + 1;
+constexpr uint32_t kBindingSpecularHit = kBindingGuides + 1;
+constexpr uint32_t kBindingCount = kBindingSpecularHit + 1;
 
 // (round WF) The list's block (std140).
 struct ListBlock {
@@ -941,7 +1006,8 @@ layout(std430, set = 0, binding = 19) readonly buffer SkyCells { vec4 sky_cells[
 layout(std430, set = 0, binding = 20) readonly buffer SkyAlias { uvec2 sky_alias[]; };
 layout(std430, set = 0, binding = 21) readonly buffer Cache { uvec4 cache[]; };
 layout(std140, set = 0, binding = 22) uniform ListBlock {
-    uvec4 counts;    // x the table's entries, z the frame, w 1: the cache is read
+    uvec4 counts;    // x the table's entries, y 1: Ray Reconstruction denoises the view (round MV), z the frame, w 1: the
+                     // cache is read
     uvec4 instances; // xy the TLAS instances' device address, z their count
     vec4 sun;        // toward the disc, w the cosine of its radius
     vec4 sun_radiance;
@@ -962,6 +1028,11 @@ layout(std140, set = 0, binding = 22) uniform ListBlock {
 #define LL_EYE list.eye.xyz
 #define LL_CACHE_CELLS list.cache_cells.x
 #define LL_CACHE_ON (list.counts.w != 0u)
+// (round MV) under Ray Reconstruction: its guides (vulkan_surface_light.h surface_light_guides) and ReSTIR GI's specular hit
+// distance, where this pass's reflection is the pixel's specular (reflection_guides)
+#define LIST_RR (list.counts.y != 0u)
+layout(set = 0, binding = 23, rgba32ui) uniform uimage2D io_guides;
+layout(set = 0, binding = 24, r16f) uniform image2D io_specular_hit;
 )";
 constexpr const char* kListHitGlsl = R"(
 const uint LIST_RAYS = 7u; // (world, objects, alpha-tested: GI's light rays)
@@ -1162,7 +1233,8 @@ bool ensure_layouts(Backend& state, std::string* error)
                    binding == kBindingWet) {
             type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         } else if (binding == kBindingOut || binding == kBindingIn || binding == kBindingBase ||
-                   binding == kBindingSkyCloudLight || binding == kBindingSkyCloudInfo) {
+                   binding == kBindingSkyCloudLight || binding == kBindingSkyCloudInfo || binding == kBindingGuides ||
+                   binding == kBindingSpecularHit) {
             type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         } else if (binding == kBindingBlock || binding == kBindingListBlock) {
             type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1733,6 +1805,30 @@ void push_list_descriptors(VkCommandBuffer commands, const FrameLightList& frame
                               static_cast<uint32_t>(writes.size()), writes.data());
 }
 
+// (round MV) The list variants' Ray Reconstruction images: its guides and ReSTIR GI's specular hit distance (`stand_in`
+// for both where the view has none - the block's flag then keeps the shader from them).
+void push_guide_descriptors(VkCommandBuffer commands, const Image* guides, const Image* hit, const Image* stand_in)
+{
+    const ReflectionState& own = reflections();
+    const VkDescriptorImageInfo guides_info{.sampler = VK_NULL_HANDLE,
+                                            .imageView = guides != nullptr ? guides->view : stand_in->view,
+                                            .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+    const VkDescriptorImageInfo hit_info{.sampler = VK_NULL_HANDLE,
+                                         .imageView = hit != nullptr ? hit->view : stand_in->view,
+                                         .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+    std::array<VkWriteDescriptorSet, 2> writes{};
+    for (uint32_t i = 0; i < writes.size(); ++i) {
+        VkWriteDescriptorSet& one = core::at(writes, i);
+        one.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        one.dstBinding = kBindingGuides + i;
+        one.descriptorCount = 1;
+        one.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        one.pImageInfo = i == 0 ? &guides_info : &hit_info;
+    }
+    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
+                              static_cast<uint32_t>(writes.size()), writes.data());
+}
+
 // The trace's descriptors: the scene, the depth, the image written, the block and the geometry table.
 void push_trace_descriptors(VkCommandBuffer commands, VkAccelerationStructureKHR tlas, const Image* depth,
                             const Image* out, const Image* base, const RingSpan& block, const SceneView& scene,
@@ -2154,10 +2250,22 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
     FrameLightList frame_list;
     std::optional<RingSpan> list_span;
     VkPipeline listed = VK_NULL_HANDLE;
+    // (round MV) under Ray Reconstruction the reflections are described in its guides (reflection_guides)
+    Image* rr_guides = nullptr;
+    Image* rr_hit = nullptr;
     if (restir_gi_frame_lights(state, &frame_list)) {
         listed = listed_pipeline(state, wet_trace != VK_NULL_HANDLE, colour->samples != VK_SAMPLE_COUNT_1_BIT, sky_seen);
         if (listed != VK_NULL_HANDLE) {
-            const ListBlock list_block = list_block_of(frame_list, scene, state.frame);
+            if (ray_reconstruction_active()) {
+                rr_guides = surface_light_guides(state);
+                rr_hit = restir_gi_specular_hit(state);
+                if (rr_guides == nullptr || rr_hit == nullptr) {
+                    rr_guides = nullptr;
+                    rr_hit = nullptr;
+                }
+            }
+            ListBlock list_block = list_block_of(frame_list, scene, state.frame);
+            core::at(list_block.counts, 1) = rr_guides != nullptr ? 1U : 0U;
             std::array<uint8_t, sizeof(ListBlock)> list_bytes{};
             std::memcpy(list_bytes.data(), &list_block, sizeof(list_block));
             list_span = state.ring.copy(list_bytes, kUniformAlignment);
@@ -2173,6 +2281,11 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
                            sky_seen ? &sky : nullptr);
     if (listed != VK_NULL_HANDLE) {
         push_list_descriptors(commands, frame_list, *list_span);
+        if (rr_guides != nullptr) {
+            Memory::transition(commands, rr_guides, VK_IMAGE_LAYOUT_GENERAL, true);
+            Memory::transition(commands, rr_hit, VK_IMAGE_LAYOUT_GENERAL, true);
+        }
+        push_guide_descriptors(commands, rr_guides, rr_hit, &slot->base);
     }
     if (wet_trace != VK_NULL_HANDLE) {
         const VkDescriptorImageInfo wet_info{
@@ -2192,9 +2305,12 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
     const VkMemoryBarrier written{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                                   .pNext = nullptr,
                                   .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-                                  .dstAccessMask = VK_ACCESS_SHADER_READ_BIT};
-    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1,
-                         &written, 0, nullptr, 0, nullptr);
+                                  .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT};
+    // (round MV: and Ray Reconstruction's guides and hit distance - the upscaler's compute pass and copy read them)
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0, 1, &written, 0, nullptr, 0, nullptr);
     depth_barrier(commands, depth, depth->resting, false);
 
     // 2. the colour mixed
