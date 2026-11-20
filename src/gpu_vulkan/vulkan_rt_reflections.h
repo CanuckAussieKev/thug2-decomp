@@ -91,6 +91,8 @@ bool make_rt_reflection_listed_traces(Backend& state, std::string* error = nullp
 // round SK they picked one local light by power - the specks on BO's kickers and ledges at night.
 struct FrameLightList;
 [[nodiscard]] std::array<uint32_t, 4> rt_reflection_list_pool(const FrameLightList& list);
+// (round DO) ... and inside ReSTIR DI's light grid from its cells' picks (FrameLightList::grid; light_grid_reader_glsl)
+[[nodiscard]] std::array<uint32_t, 4> rt_reflection_list_grid(const FrameLightList& list);
 [[nodiscard]] bool rt_reflection_listed_traces_resample_pool();
 
 // The passes over the device's bound targets for a viewport (the listener's work, also called by the check program).

@@ -115,6 +115,9 @@ void restart_restir_gi_sequence();
 // (round OM - the checks') The local lights' next-event picks from the presampled pool (true, the default) or from the
 // list itself (as before).
 void set_restir_gi_pool(bool on);
+// (round DO - the checks') The local lights' candidates from ReSTIR DI's light grid inside it (true, the default -
+// vulkan_light_list.h light_grid_reader_glsl) or from the pool alone (as before).
+void set_restir_gi_grid(bool on);
 // Whether the check's frames are added to the sums.
 void set_restir_gi_accumulate(bool on);
 

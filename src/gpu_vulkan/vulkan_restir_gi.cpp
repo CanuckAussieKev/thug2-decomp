@@ -182,8 +182,11 @@ struct GiBlock {
     // (round OM) xy the light list's presampled pool (vulkan_light_list.h kLightPoolSize), z 1: the local lights from it,
     // w the local group's share of the list's picks (float bits)
     std::array<uint32_t, 4> pool{};
+    // (round DO) xy ReSTIR DI's light grid's picks (vulkan_light_list.h kLightGridPicks), z 1: the local lights' candidates
+    // from a point's cell inside the grid
+    std::array<uint32_t, 4> grid{};
 };
-static_assert(sizeof(GiBlock) == (2 * 64) + (21 * 16));
+static_assert(sizeof(GiBlock) == (2 * 64) + (22 * 16));
 
 // --- the shaders -------------------------------------------------------------------------------------------------------
 
@@ -212,6 +215,7 @@ layout(std140, set = 0, binding = 2) uniform GiBlock {
     vec4 cache_cells;
     uvec4 surfaces;
     uvec4 pool;
+    uvec4 grid;
 } pass;
 struct LightEntry {
     float threshold;
@@ -1539,6 +1543,7 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
     // (round OM) the local lights' next-event picks from the presampled pool, read through its address (the pushed set
     // is full: 32 bindings)
     source += light_pool_reader_glsl("pass.pool");
+    source += light_grid_reader_glsl("pass.grid"); // (round DO: inside the light grid, the candidates its cell's)
     source += "#define LL_LOCAL_CANDIDATES pass.params.x\n"; // (round DD: the local lights' RIS candidates)
     source += local_light_glsl();
     if (which == Shader::kSky) {
@@ -1725,6 +1730,7 @@ struct GiState {
     uint32_t entries = 0;
     float local_share = 0.0F; // (round OM) the list's local group's share of its picks (the pool's pdf x it)
     bool pool_off = false;    // (round OM - the checks') the local lights picked from the list itself, as before
+    bool grid_off = false;    // (round DO - the checks') the local lights' candidates from the pool alone, as before
     // per pixel
     uint32_t width = 0;
     uint32_t height = 0;
@@ -2266,6 +2272,13 @@ void set_restir_gi_pool(bool on)
     gi_state().pool_off = !on;
 }
 
+void set_restir_gi_grid(bool on)
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    gi_state().grid_off = !on;
+}
+
 void restart_restir_gi_sequence()
 {
     Backend& state = backend();
@@ -2513,6 +2526,13 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         const VkDeviceAddress pool = vkGetBufferDeviceAddress(state.context.device(), &pool_info);
         block.pool = {static_cast<uint32_t>(pool & 0xFFFFFFFFULL), static_cast<uint32_t>(pool >> 32U), 1U,
                       std::bit_cast<uint32_t>(own.local_share)};
+        // (round DO) ... and inside ReSTIR DI's light grid, from the cells' picks (when DI made them this frame)
+        if (!own.grid_off && local.grid_picks != VK_NULL_HANDLE) {
+            const VkBufferDeviceAddressInfo grid_info{
+                .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = local.grid_picks};
+            const VkDeviceAddress grid = vkGetBufferDeviceAddress(state.context.device(), &grid_info);
+            block.grid = {static_cast<uint32_t>(grid & 0xFFFFFFFFULL), static_cast<uint32_t>(grid >> 32U), 1U, 0U};
+        }
     }
     // (round OM) ReSTIR DI's primary surfaces when they are this view's: the same frame, rectangle, camera and matrix
     const SharedPrimary shared = restir_shared_primary(state);
@@ -2715,7 +2735,8 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         .sky_dist = core::at(block.sky_dist, 0),
         .cache_cells = core::at(block.cache_cells, 0),
         .eye = {core::at(view.camera.position, 0), core::at(view.camera.position, 1), core::at(view.camera.position, 2)},
-        .pool = block.pool}; // (round SK: the pool its next-event estimation resampled from - the list's other consumers' too)
+        .pool = block.pool, // (round SK: the pool its next-event estimation resampled from - the list's other consumers' too)
+        .grid = block.grid}; // (round DO: ... and the light grid's picks)
     if (own.passes == 1 && first_report(state, kReportFirst)) {
         get_log("restir gi: the indirect light by ReSTIR GI - %ux%u, %u spatial neighbours; %u lights listed (%u lamps), "
                 "the sky's grid %s",

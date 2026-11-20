@@ -878,6 +878,73 @@ void check_local_candidates(render::Gpu& gpu, const Targets& targets, const std:
                               100.0 * one_flicker.over_share, ris_flicker.pixels));
 }
 
+// (round DO - RTXDI's ReGIR at secondary surfaces) The same night with ReSTIR DI on beside GI (its light grid made each
+// frame from the same lamps): the secondary vertices' local lights' candidates from their cell's picks
+// (vulkan_light_list.h light_grid_reader_glsl) instead of the pool by power - the floor's mean still the reference's
+// (unbiased: within 3 %), its flicker frame to frame lower than the pool's.
+void check_grid_candidates(render::Gpu& gpu, const Targets& targets, const std::array<SceneMesh, 3>& meshes, Tally* tally,
+                           bool* read, uint32_t* not_finite)
+{
+    text::print("the same night, the local lights' candidates from ReSTIR DI's light grid (round DO):\n");
+    const std::array<SceneMesh, 2> floor_wall{meshes.at(0), meshes.at(2)};
+    const std::span<const SceneMesh> scene(floor_wall);
+    Lighting night;
+    night.sky = {0.002F, 0.002F, 0.003F};
+    night.sun_light = {0.0F, 0.0F, 0.0F};
+    night.lamps = {lamp_at({-2500.0, 800.0, -2500.0}, 4.0F, 100.0F)};
+    for (int k = 0; k < 6; ++k) {
+        night.lamps.push_back(lamp_at({-300.0 + (120.0 * k), 40.0, kWallZ - 30.0}, 2.0F, 10.0F));
+    }
+    const Region floor = floor_region(kEyeA);
+    const std::size_t pixels = static_cast<std::size_t>(kWidth) * kHeight;
+    vk::RestirOverrides direct; // (ReSTIR DI's check variant - its own sums, no inputs: here for its light grid)
+    direct.on = true;
+    direct.lamps = night.lamps;
+    direct.lamps_surfaced.assign(night.lamps.size(), 0);
+    direct.seed = 53U;
+    vk::set_restir_overrides(direct);
+    vk::forget_restir_history();
+    const auto run = [&](bool grid, Flicker* flicker) {
+        std::vector<std::vector<float>> series(pixels);
+        vk::set_restir_gi_grid(grid);
+        RunPlan plan;
+        plan.batches = 16;
+        plan.frames = 128;
+        plan.camera = [](int /*frame*/) { return kEyeA; };
+        plan.counted = [](int /*frame*/) { return true; };
+        plan.boiling_filter = false; // (unbiased: the means compared with the reference's)
+        plan.each_frame = [&series](const vk::RestirGiAccumulation& one) {
+            for (std::size_t i = 0; i < series.size() && i < one.last.size(); ++i) {
+                const std::array<float, 3>& c = core::at(one.last, i);
+                core::at(series, i).push_back(static_cast<float>(luma({core::at(c, 0), core::at(c, 1), core::at(c, 2)})));
+            }
+        };
+        const Answer got = restir_gi(gpu, targets, scene, night, plan, floor, read);
+        *not_finite += got.not_finite;
+        *flicker = flicker_of(series, floor);
+        return got;
+    };
+    Flicker pool_flicker;
+    Flicker grid_flicker;
+    const Answer pool = run(false, &pool_flicker);
+    const Answer grid = run(true, &grid_flicker);
+    vk::set_restir_gi_grid(true);
+    vk::set_restir_overrides({});
+    const Answer reference = reference_gi(gpu, targets, scene, kEyeA, night, floor, 32, read);
+    *not_finite += reference.not_finite;
+    tally->check(*read && agrees(grid.mean, reference.mean, kLooseAgreement) &&
+                     agrees(pool.mean, reference.mean, kLooseAgreement),
+                 text::format("the floor's indirect light: the grid's candidates %.6f +- %.6f (%+.2f %%), the pool's %.6f +- "
+                              "%.6f (%+.2f %%), the reference %.6f +- %.6f (both within 3 %%)",
+                              grid.mean, grid.sigma, percent(grid.mean, reference.mean), pool.mean, pool.sigma,
+                              percent(pool.mean, reference.mean), reference.mean, reference.sigma));
+    tally->check(*read && grid_flicker.pixels > 1000 && grid_flicker.variation < pool_flicker.variation,
+                 text::format("its flicker frame to frame: each pixel's variation %.3f of its mean with the grid's candidates, "
+                              "%.3f with the pool's; %.3f %% / %.3f %% of the pixel-frames over 4 x their mean - %zu pixels",
+                              grid_flicker.variation, pool_flicker.variation, 100.0 * grid_flicker.over_share,
+                              100.0 * pool_flicker.over_share, grid_flicker.pixels));
+}
+
 // (round OM - vulkan_restir_di.h SharedPrimary) One primary surface a view: ReSTIR DI on beside ReSTIR GI (its check's
 // variant - the same camera rays through the pixels' centres), GI run twice from the same start (its random numbers the
 // same) - reading DI's surfaces, and tracing its own - must give the same image.
@@ -1209,6 +1276,8 @@ void check_device(render::Gpu& gpu, Tally* tally)
 
     // (round DD) many lights of very different power: the secondary vertices' local lights by RIS over the pool's picks
     check_local_candidates(gpu, targets, meshes, tally, &read, &not_finite);
+    // (round DO) ... from ReSTIR DI's light grid inside it
+    check_grid_candidates(gpu, targets, meshes, tally, &read, &not_finite);
     // (round WS) the specular reservoir's reuse
     check_specular_reuse(gpu, targets, everything, lit, tally, &read, &not_finite);
 

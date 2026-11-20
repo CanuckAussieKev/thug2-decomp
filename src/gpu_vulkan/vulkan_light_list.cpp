@@ -395,6 +395,14 @@ std::string light_pool_reader_glsl(std::string_view pool)
            "#define LL_POOL_SHARE uintBitsToFloat(" + p + ".w)\n";
 }
 
+std::string light_grid_reader_glsl(std::string_view grid)
+{
+    const std::string g(grid);
+    return "#define LL_GRID\nlayout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer LightGridWords { "
+           "uvec4 words[]; };\n#define light_grid (LightGridWords(" + g + ".xy).words)\n#define LL_GRID_ON (" + g +
+           ".z != 0u)\n";
+}
+
 std::string_view light_sample_glsl()
 {
     static constexpr std::string_view kSource = R"(
@@ -479,11 +487,37 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
         float wsum = 0.0;
         float chosen_target = 0.0;
         LocalLight c;
+        // (round DO - RTXDI's ReGIR for secondary surfaces) a point inside ReSTIR DI's light grid takes its candidates from
+        // its cell's picks (light_grid_reader_glsl) - each a light near it with its slot's pdf (1 / its unbiased
+        // contribution weight: RIS over candidates of their own weights stays unbiased - generalised RIS, Lin et al. 2022);
+        // each candidate's cell that of the point moved by up to half a cell (ReSTIR DI's pixels' jitter: no cell edges
+        // in the picture) - its own: the candidates of one point spread over the neighbouring cells' picks, not all from
+        // the 16 its whole cell shares this frame (one cell's picks alone left faint grain the denoiser kept)
         for (uint k = 0u; k < LL_LOCAL_CANDIDATES; ++k) {
             float uk = k == 0u ? u1 : path_next(rng);
             float uc = path_next(rng);
-            uint slot = min(uint(uk * float(LIGHT_POOL_SIZE)), LIGHT_POOL_SIZE - 1u);
-            if (!light_seen_from(light_pool_read(slot), p, c) || !(c.pdf > 0.0)) {
+            LightPick pick;
+            bool from_grid = false;
+#ifdef LL_GRID
+            if (LL_GRID_ON) {
+                vec4 place = uintBitsToFloat(light_grid[0]);
+                uvec4 cells = light_grid[1];
+                vec3 jitter = (vec3(path_next(rng), path_next(rng), path_next(rng)) - 0.5) * place.w;
+                vec3 at = floor((p + jitter - place.xyz) / place.w);
+                if (place.w > 0.0 && cells.w > 0u && all(greaterThanEqual(at, vec3(0.0))) &&
+                    all(lessThan(at, vec3(cells.xyz)))) {
+                    uvec3 cell = uvec3(at);
+                    uint slot = 1u + ((cell.y * cells.z + cell.z) * cells.x + cell.x) * cells.w +
+                                min(uint(uk * float(cells.w)), cells.w - 1u);
+                    pick = light_pick_words(light_grid[2u * slot], light_grid[2u * slot + 1u]);
+                    from_grid = true;
+                }
+            }
+#endif
+            if (!from_grid) {
+                pick = light_pool_read(min(uint(uk * float(LIGHT_POOL_SIZE)), LIGHT_POOL_SIZE - 1u));
+            }
+            if (!light_seen_from(pick, p, c) || !(c.pdf > 0.0)) {
                 continue;
             }
             // (the receiver's side as the sample below is kept: above both normals)
@@ -720,10 +754,9 @@ void light_pool_write(uint slot, LightPick p)
     light_pool[2u * slot + 1u] = uvec4(floatBitsToUint(p.emitted), packSnorm2x16(light_pool_oct(p.n)));
 }
 #else
-LightPick light_pool_read(uint slot)
+// A pick from its two words (the pool's, or - round DO - the light grid's: the same layout)
+LightPick light_pick_words(uvec4 w0, uvec4 w1)
 {
-    uvec4 w0 = light_pool[2u * slot];
-    uvec4 w1 = light_pool[2u * slot + 1u];
     float pdf = uintBitsToFloat(w0.w);
     if (pdf < 0.0) {
         return LightPick(vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), -pdf, w0.x);
@@ -731,6 +764,7 @@ LightPick light_pool_read(uint slot)
     return LightPick(uintBitsToFloat(w0.xyz), light_pool_unoct(unpackSnorm2x16(w1.w)), uintBitsToFloat(w1.xyz), pdf,
                      LIGHT_PICK_TRIANGLE);
 }
+LightPick light_pool_read(uint slot) { return light_pick_words(light_pool[2u * slot], light_pool[2u * slot + 1u]); }
 #endif
 #endif
 )";

@@ -116,8 +116,17 @@ struct SkyGridInputs {
 // (local_light_glsl's light_pool_read: kLightPoolWords 32-bit words a pick) - RTXDI's 128 tiles of 1024.
 inline constexpr uint32_t kLightPoolSize = 128U * 1024U;
 inline constexpr uint32_t kLightPoolWords = 8;
+// (round DO - RTXDI's ReGIR at secondary surfaces) The light grid's picks: ReSTIR DI's light grid round the camera
+// (vulkan_restir_di.cpp kGridBody - each cell's slots resampled from the list toward the most a light can give the cell)
+// presampled as the pool is - the first kLightGridPicks slots of every cell, each a pick with a point on it, its pdf the
+// slot's (1 / its unbiased contribution weight; a triangle's per unit of its area). Two words of header (the grid's
+// corner and a cell's side; its cells across x, y, z and the picks a cell), then the picks (kLightPoolWords 32-bit words
+// each, the pool's layout - light_pool_read). Made with the grid each frame ReSTIR DI runs.
+inline constexpr uint32_t kLightGridPicks = 16;
 struct RestirLocalLights {
     VkBuffer light_pool = VK_NULL_HANDLE; // (round PF) the presampled pool (kLightPoolSize picks)
+    VkBuffer grid_picks = VK_NULL_HANDLE; // (round DO) the light grid's picks (kLightGridPicks a cell) - made this frame,
+                                          // else none
     VkBuffer emitters = VK_NULL_HANDLE;   // the list (the header + entries above)
     VkBuffer lamps = VK_NULL_HANDLE;      // a LightRecord per lamp
     VkBuffer membership = VK_NULL_HANDLE; // the instances' first triangles (the scan's)
@@ -153,6 +162,14 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
 // local_light_glsl. Every pass that samples the list from a surface takes the same resampled local lights (one light
 // model): ReSTIR GI's secondary vertices, the reflections' hits, the front layer.
 [[nodiscard]] std::string light_pool_reader_glsl(std::string_view pool);
+// (round DO) GLSL: the light grid's picks (kLightGridPicks a cell, read through their device address) - `grid` a uvec4
+// expression of the caller's block: xy the picks' address, z 1 when they are this frame's (FrameLightList::grid). Goes
+// before light_sample_glsl, with light_pool_reader_glsl: a point inside the grid takes its local lights' RIS candidates
+// from its cell's picks (NVIDIA RTXDI's ReGIR for secondary surfaces - the lights near it), outside it from the pool. The
+// pool by power alone left a hit near a small lamp among hundreds with that lamp in about one candidate set in tens - its
+// rare picks white specks that Ray Reconstruction averages only while the camera stands still (the reflections' hits on
+// BO's granite planter at night, sparkling whenever the camera moved).
+[[nodiscard]] std::string light_grid_reader_glsl(std::string_view grid);
 
 // (round WF - path tracing, stage 7) GLSL: a local light of the list seen from any point - in a medium as well as on a
 // surface (after light_instances_glsl, rt_path.h's kPathGlsl, rt_lamp_glsl, hit_surface_glsl and rt_light_list.h's
@@ -194,6 +211,9 @@ struct FrameLightList {
     // (round SK) the local lights' presampled pool as ReSTIR GI read it this frame (light_pool_reader_glsl's uvec4: its
     // address, 1 when there, the local group's share of the picks): its consumers resample the local lights as GI does
     std::array<uint32_t, 4> pool{};
+    // (round DO) the light grid's picks as ReSTIR GI read them this frame (light_grid_reader_glsl's uvec4: their address,
+    // 1 when there)
+    std::array<uint32_t, 4> grid{};
 };
 
 // (round WF - path tracing, stage 7) GLSL: the full list sampled from any point - one light by power, one ray (ReSTIR GI's
