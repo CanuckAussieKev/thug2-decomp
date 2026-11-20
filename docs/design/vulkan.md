@@ -6215,3 +6215,10 @@ Checks: thug2_vulkan_rt_materials_check (a material's passes composed - alpha bl
 environment first pass black - texel for texel), thug2_vulkan_rt_lights_check (the lamps input on the oil layer: A
 (1 - E) x it at every floor pixel's N.V), thug2_vulkan_restir_gi_check (the room's first two frames with the cache cold:
 within 3 % of the reference's every bounce - -0.1 %; a miss read as 0: -60 %).
+
+Measured (BO at night, the user's three spots, realtime / reference whole picture, before -> after; the references' own
+noise 0.4 - 0.6 %): p1 (the bank) 0.56 -> 1.14 (less the game's additive glows the frame draws and the store doesn't
+emit - 21 % of p1's light, open: 0.94), its lamps' and emitters' direct light 0.43 -> 0.95, its indirect with the
+reflections pass 0.93 -> 0.99; p2 0.83 -> 0.88, direct 0.88 -> 0.95, GI 0.40 -> 0.51; p3 0.60 -> 0.71, direct 0.64 ->
+0.77, GI 0.30 -> 0.29. Open: GI's diffuse under RTXDI's boiling filter (-29 % at p2 - near-lamp bounces are its
+"outliers"), GI's remaining deficit near lamps (p2 0.68 without the filter, p3 ~0.3), the additive glows' single owner.
