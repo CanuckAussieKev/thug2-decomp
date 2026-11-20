@@ -1415,6 +1415,16 @@ UpscaleImages upscale_images()
             .output = &own.output};
 }
 
+UpscaleGuideImages upscale_guide_images()
+{
+    UpscaleState& own = upscale();
+    if (!own.reconstruct) {
+        return {.albedo = nullptr, .specular = nullptr, .normals = nullptr, .specular_hit = nullptr, .transparency = nullptr};
+    }
+    return {.albedo = &own.albedo, .specular = &own.specular, .normals = &own.normals, .specular_hit = &own.specular_hit,
+            .transparency = &own.layer};
+}
+
 const char* upscale_provider_name()
 {
     const UpscaleState& own = upscale();

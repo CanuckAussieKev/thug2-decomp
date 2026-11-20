@@ -269,6 +269,8 @@ struct PathReferenceRequest {
     // default, 1 the lights alone, 2 the BSDF's rays alone - vulkan_path_reference.h PathStrategy): a light the list
     // misses shows as the difference
     uint8_t strategy = 0;
+    // (round MV) `pt ref <samples> ... as <name>`: saved as Screenshots\<name>_reference / _realtime (else pt_<stamp>)
+    std::string name;
     uint64_t serial = 0; // (set_path_reference numbers each request)
 };
 inline constexpr uint32_t kLightKindDisc = 1U;     // the sun's or the moon's disc
@@ -308,6 +310,22 @@ inline constexpr uint32_t kUpscalerProbeFrames = 32;   // (the default)
 inline constexpr uint32_t kUpscalerProbeMostFrames = 1024;
 void request_upscaler_probe(uint32_t frames);
 [[nodiscard]] uint32_t take_upscaler_probe();
+
+// (round MV) `pt frames <count> <folder> [every]`: the next `count` drawn frames (each `every`-th) saved as the
+// reference's realtime capture is - the view's linear light after the upscaler, divided by the frame's pre-exposure (the
+// global unit), before the tone mapping - as Screenshots\<folder>\frame_NNNN.exr, with frames.txt: per frame the main
+// loop's pass, the camera (position, forward, the projection's scale) and the pre-exposure. The realtime side of the
+// motion measurements (tools/game/motion_error.ts). The backend takes the request once; `count` 0: none.
+struct LinearFramesRequest {
+    uint32_t count = 0;
+    uint32_t every = 1;
+    std::string folder;
+    // `inputs`: also Ray Reconstruction's inputs of each saved frame (the noisy colour, the depth, the motion, the guides
+    // - inputs_NNNN_<name>.exr at the drawn size): its motion vectors checked against the depth and the cameras
+    bool inputs = false;
+};
+void request_linear_frames(LinearFramesRequest request);
+[[nodiscard]] LinearFramesRequest take_linear_frames();
 
 // The GLSL twin (names path_*; after rt_brdf.h's brdf_glsl()).
 inline constexpr const char* kPathGlsl = R"(const float PATH_PI = 3.14159265358979;

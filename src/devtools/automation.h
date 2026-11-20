@@ -181,7 +181,7 @@ enum class Op : uint8_t {
     kRayProbe,      // NOT ORIGINAL (ray tracing, R2): rtprobe
     kCollisionProbe // colprobe
 };
-enum class Condition : uint8_t { kNone, kReady, kFrontEnd, kInGame, kStageMap, kMenu, kFocus, kNewFrontend };
+enum class Condition : uint8_t { kNone, kReady, kFrontEnd, kInGame, kStageMap, kMenu, kFocus, kNewFrontend, kPathReference };
 
 struct Param {
     enum class Kind : uint8_t { kBitMark, kInteger, kFloat, kChars, kName } kind{};

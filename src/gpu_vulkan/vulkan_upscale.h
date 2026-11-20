@@ -143,6 +143,16 @@ struct UpscaleImages {
     Image* output = nullptr;
 };
 [[nodiscard]] UpscaleImages upscale_images();
+// (round MV - the motion measurements' `pt frames ... inputs`) Ray Reconstruction's guides as the last frame gave them
+// (each image the output's size, the drawn rectangle at its top-left; null without Ray Reconstruction).
+struct UpscaleGuideImages {
+    Image* albedo = nullptr;
+    Image* specular = nullptr;
+    Image* normals = nullptr;
+    Image* specular_hit = nullptr;
+    Image* transparency = nullptr;
+};
+[[nodiscard]] UpscaleGuideImages upscale_guide_images();
 
 // The work at world_drawn for `view` (the listener's; the check calls it too). False: nothing done.
 bool record_upscale(Backend& state, const rt::ViewDrawn& view);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 
@@ -46,6 +47,25 @@ struct CameraRows {
 std::optional<CameraRows> camera_rows(Vec3 direction);
 // A standing skater's rows for a heading in degrees (0 = +z, 90 = +x): right, up (0, 1, 0), at.
 void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at);
+// Viewport 0's camera held at `position` looking along `direction`, moved by `drift` a game frame (lock_camera: false
+// for a direction camera_rows refuses). (Round MV - a repeatable camera move, to measure the picture in motion)
+// `turn_degrees`: the direction also turned about the world's up by that much a frame (positive: from +z toward +x, as a
+// heading grows); `move_frames`: the move lasts that many frames, then the camera holds its last pose (0: it moves for
+// ever). The pose is a function of the frames since the lock (the main loop's passes - frame_loop::frames_run), never
+// of the clock: the same poses frame for frame on every run, the game paused or not.
+struct CameraHold {
+    Vec3 position{};
+    Vec3 direction{};
+    Vec3 drift = {.x = 0.0F, .y = 0.0F, .z = 0.0F};
+    float turn_degrees = 0.0F;
+    uint32_t move_frames = 0;
+};
+// Where `hold` puts the camera `frames` frames after its lock: the position and the view direction (its length kept).
+struct CameraPose {
+    Vec3 position;
+    Vec3 direction;
+};
+[[nodiscard]] CameraPose camera_pose_at(const CameraHold& hold, uint32_t frames);
 
 // --- the game ---------------------------------------------------------------------------------------------------
 
@@ -53,16 +73,14 @@ void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at);
 // `on_board`: on its board instead (the custom restart's skating form - still, no momentum; a test that skates on from
 // there: automation's `teleport ... board`).
 std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3* out_position, bool on_board = false);
-// Viewport 0's camera held at `position` looking along `direction`, moved by `drift` a game frame (false: a direction
-// camera_rows refuses).
-struct CameraHold {
-    Vec3 position{};
-    Vec3 direction{};
-    Vec3 drift = {.x = 0.0F, .y = 0.0F, .z = 0.0F};
-};
 bool lock_camera(const CameraHold& hold);
 void unlock_camera();
 bool camera_locked();
+// (round MV) A measurement under way (the console's `measure on`): the world frozen by the caller, and every logic frame
+// drawn exactly once - no late frame skipped, no max_fps frames between (devtools' keeps_every_frame) - so a camera move
+// is the same frames on every run.
+void set_measuring(bool on);
+[[nodiscard]] bool measuring();
 // The renderer, a viewport's camera before it's drawn (render_pc/draw_frame.cpp): placed while locked.
 void place_camera(gfx::ViewCam* camera, int viewport);
 // TeleportSkaterStanding (sys/main.cpp, after the game's own commands).

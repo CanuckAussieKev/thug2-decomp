@@ -46,7 +46,8 @@ std::string status_text(const PathReferenceStatus& status, const PathReferenceRe
     return text;
 }
 
-constexpr const char* kRefUsage = "pt ref <samples a pixel, 1 - 1048576> [EV100] [even] [analytic] [open] [only disc,sky,emit,lamps] [direct | bounces <n>] [nee | bsdf]";
+constexpr const char* kRefUsage = "pt ref <samples a pixel, 1 - 1048576> [EV100] [even] [analytic] [open] [only disc,sky,emit,lamps] [direct | bounces <n>] [nee | bsdf] [as <name>]";
+constexpr uint32_t kMostLinearFrames = 4096;
 
 } // namespace
 
@@ -104,6 +105,38 @@ std::atomic<uint32_t>& upscaler_probe_asked()
 void request_upscaler_probe(uint32_t frames) { upscaler_probe_asked().store(frames); }
 
 uint32_t take_upscaler_probe() { return upscaler_probe_asked().exchange(0); }
+
+namespace {
+struct LinearFramesSlot {
+    std::mutex mutex;
+    LinearFramesRequest request;
+    bool asked = false;
+};
+LinearFramesSlot& linear_frames_slot()
+{
+    static LinearFramesSlot made;
+    return made;
+}
+} // namespace
+
+void request_linear_frames(LinearFramesRequest request)
+{
+    LinearFramesSlot& own = linear_frames_slot();
+    const std::scoped_lock lock(own.mutex);
+    own.request = std::move(request);
+    own.asked = true;
+}
+
+LinearFramesRequest take_linear_frames()
+{
+    LinearFramesSlot& own = linear_frames_slot();
+    const std::scoped_lock lock(own.mutex);
+    if (!own.asked) {
+        return {};
+    }
+    own.asked = false;
+    return own.request;
+}
 
 void request_path_reference(PathReferenceRequest request)
 {
@@ -173,6 +206,11 @@ std::string path_console_command(const std::string& arguments)
                     return kRefUsage;
                 }
                 request.bounces = static_cast<uint32_t>(bounces);
+            } else if (word == "as") {
+                in >> request.name; // (round MV: the captures' name)
+                if (request.name.empty() || request.name.find_first_of("\\/:") != std::string::npos) {
+                    return kRefUsage;
+                }
             } else if (word == "only") {
                 std::string kinds;
                 in >> kinds;
@@ -222,13 +260,37 @@ std::string path_console_command(const std::string& arguments)
         return text::format("pt: the upscaler's input and output compared over %ld frames (the log's \"upscaler probe\")",
                             frames);
     }
+    if (verb == "frames") {
+        // (round MV) the next frames' linear light, for the motion measurements
+        LinearFramesRequest frames;
+        std::string count;
+        std::string every;
+        std::string extra;
+        in >> count >> frames.folder >> every >> extra;
+        if (every == "inputs") {
+            every.clear();
+            extra = "inputs";
+        }
+        frames.inputs = extra == "inputs";
+        const long wanted = std::strtol(count.c_str(), nullptr, 10);
+        const long step = every.empty() ? 1 : std::strtol(every.c_str(), nullptr, 10);
+        if (wanted <= 0 || wanted > static_cast<long>(kMostLinearFrames) || step <= 0 || frames.folder.empty() ||
+            frames.folder.find_first_of(":") != std::string::npos || frames.folder.find("..") != std::string::npos) {
+            return "pt frames <count, 1 - 4096> <folder under Screenshots> [every] [inputs]";
+        }
+        frames.count = static_cast<uint32_t>(wanted);
+        frames.every = static_cast<uint32_t>(step);
+        get_log("pt: the next %ld frames' linear light (each %ld-th) into Screenshots\\%s", wanted, step, frames.folder.c_str());
+        request_linear_frames(frames);
+        return text::format("pt: %ld frames' linear light asked", wanted);
+    }
     if (verb == "off") {
         request_path_reference({});
         get_log("pt: reference off");
         return "pt: off";
     }
     if (!verb.empty() && verb != "status") {
-        return "pt ref <samples> [EV100] [even] [analytic] [open] [only <kinds>] | pt off | pt status | pt upscaler";
+        return "pt ref <samples> [EV100] [even] [analytic] [open] [only <kinds>] [as <name>] | pt frames <count> <folder> [every] | pt off | pt status | pt upscaler";
     }
     return status_text(path_reference_status(), path_reference_request());
 }
