@@ -88,6 +88,9 @@ enum class Prepared : uint8_t { kDraw, kNone, kRingFull };
 struct Emission {
     VkPipeline pipeline = VK_NULL_HANDLE; // VK_NULL_HANDLE: the draw's own
     bool light_inputs = true;
+    // (round DECAL) into a pass the caller opened on other attachments (the decals' inputs - vulkan_surface_light.cpp):
+    // the device's targets' pass not opened for it
+    bool caller_pass = false;
 };
 // Its commands recorded in the stream (the pass on the device's targets opened when it isn't). The caller holds the lock.
 void emit_draw(Backend& state, const PreparedDraw& draw, const Emission& how = {});

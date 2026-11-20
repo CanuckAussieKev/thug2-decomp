@@ -469,9 +469,11 @@ constexpr const char* kLightInputsGlsl = R"(layout(set = 1, binding = 0) uniform
 layout(set = 1, binding = 1) uniform sampler2D light_lamps_map;
 layout(set = 1, binding = 2) uniform sampler2D light_lamps_on_map;
 layout(set = 1, binding = 3) uniform sampler2D light_depth_map;
+#ifndef LIGHT_LAYER_WRITE
 layout(set = 1, binding = 4) uniform sampler2D light_decals_map;
-layout(set = 1, binding = 6) uniform sampler2D light_specular_map;
 layout(set = 1, binding = 7) uniform sampler2D light_layer_map;
+#endif
+layout(set = 1, binding = 6) uniform sampler2D light_specular_map;
 bool light_at = false;    // the fragment is on the surface the inputs were made for
 bool light_exact = false; // ... at its very depth (the surface the prepass kept - Ray Reconstruction's guides)
 void light_find()
@@ -505,8 +507,14 @@ vec4 light_in_now()
 vec3 light_lamps_now() { return light_here() ? texelFetch(light_lamps_map, ivec2(gl_FragCoord.xy), 0).rgb : vec3(0.0); }
 // (round DB) the decals' material layers over the surface (the deferred decal's DBuffer - vulkan_surface_light.h): the
 // albedo's (albedo x a + rgb) and the roughness's and F0's (roughness x a + r, F0 x a + g); none: (0, 0, 0, 1)
+#ifdef LIGHT_LAYER_WRITE
+// (round DECAL: a layer being laid writes these inputs - it reads none of them)
+vec4 light_decals_now() { return vec4(0.0, 0.0, 0.0, 1.0); }
+vec4 light_layer_now() { return vec4(0.0, 0.0, 0.0, 1.0); }
+#else
 vec4 light_decals_now() { return light_here() ? texelFetch(light_decals_map, ivec2(gl_FragCoord.xy), 0) : vec4(0.0, 0.0, 0.0, 1.0); }
 vec4 light_layer_now() { return light_here() ? texelFetch(light_layer_map, ivec2(gl_FragCoord.xy), 0) : vec4(0.0, 0.0, 0.0, 1.0); }
+#endif
 vec3 light_lamps_on_now()
 {
     return light_here() ? texelFetch(light_lamps_on_map, ivec2(gl_FragCoord.xy), 0).rgb : vec3(0.0);
@@ -1243,6 +1251,13 @@ void surface_finish(std::string& out, const FragmentKey& key)
         layer_m = decal_layer_onto("surface_m", "    ");
         layer_lit = decal_layer_onto("surface_lit", "    ");
         layer_m_inner = decal_layer_onto("surface_m", "        ");
+        if ((key.light & kLightLayerWrite) != 0U) {
+            // (round DECAL: a layer being laid - its material where the decals' layers would be laid over a surface's,
+            // its albedo final there: what it writes over the decals' inputs - layer_write_out)
+            layer_m = "    layer_write_m = surface_m;\n";
+            layer_lit = "    layer_write_m = surface_lit;\n";
+            layer_m_inner = "        layer_write_m = surface_m;\n";
+        }
     }
     // (round BIAS) The lamps input - a white diffuser's light (ReSTIR DI's lamps, ReSTIR GI's diffuse, the front layer's)
     // - goes on the material's diffuse lobe as the light model has it: albedo x (1 - E) (brdf_ambient's diffuse part,
@@ -1341,6 +1356,16 @@ bool surface_light_out(const FragmentKey& key)
     return (key.surface & kSurfaceLighting) != 0U && (key.surface & (kSurfaceCel | kSurfaceCelHull)) == 0U && key.water == 0U;
 }
 
+// (NOT ORIGINAL - round DECAL) A see-through layer laid into the surface under it (ff_key.h kLightLayer): its laying
+// (kLightLayerWrite - the decals' inputs written) and its shaded draw (discarded where it was laid). Only on a draw lit
+// per pixel with the inputs (its material apart from its light, its face for the layer test).
+bool layer_key(const FragmentKey& key)
+{
+    return (key.light & kLightLayer) != 0U && (key.light & kLightInputs) != 0U && surface_light_out(key);
+}
+bool layer_write(const FragmentKey& key) { return layer_key(key) && (key.light & kLightLayerWrite) != 0U; }
+bool layer_laid(const FragmentKey& key) { return layer_key(key) && (key.light & kLightLayerWrite) == 0U; }
+
 void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sampled)
 {
     add(out, {"layout(set = 0, binding = ", num(kFragmentUniformsBinding), ", std140) uniform FragmentUniforms {"});
@@ -1426,7 +1451,15 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
         if (key.surface != 0) { // (round DB: a surface lit per pixel - its eye position and face - lies on the prepass's)
             add(out, {"#define LIGHT_LAYERS\n#define LIGHT_LAYER_LIFT ", num(kLayerLift)});
         }
+        if (layer_write(key)) {
+            add(out, {"#define LIGHT_LAYER_WRITE"}); // (round DECAL: the decals' inputs written, not read)
+        }
         add(out, {kLightInputsGlsl}); // (NOT ORIGINAL - round V: the surface's light inputs)
+    }
+    if (layer_write(key)) {
+        // (NOT ORIGINAL - round DECAL) a layer laid over the surface under it: its material (surface_finish) and the
+        // second attachment, the layer's roughness and F0 (vulkan_surface_light.h SurfaceInputs::decals / layer)
+        add(out, {"BrdfMaterial layer_write_m;\nlayout(location = 1) out vec4 o_layer;"});
     }
     if (key.surface != 0 || (key.light & (kLightInputs | kLightShare)) != 0U) {
         add(out, {kLightHelpersGlsl});
@@ -1966,6 +1999,9 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     add(out, {"void main()\n{"});
     if ((key.light & (kLightInputs | kLightShare)) != 0U) {
         add(out, {"    light_find();"}); // (NOT ORIGINAL - round V / DB: before any branch - its derivatives)
+        if (layer_write(key)) {
+            add(out, {"    layer_write_m = brdf_material(vec3(0.0), vec3(0.04), 1.0);"}); // (round DECAL)
+        }
         if ((key.light & kLightFront) != 0U) {
             add(out, {"    light_front_find(light_at);"}); // (round FL: the front layer, where the inputs' surface isn't)
         }
@@ -2003,6 +2039,22 @@ std::string fragment_shader_glsl(const FragmentKey& key)
         // (NOT ORIGINAL - round V: a blended draw's prepass keeps only its mostly opaque part - its translucent edges
         // don't hide what was drawn behind them; vulkan_surface_light.h)
         add(out, {"    if (colour.a < 0.5) discard;"});
+    }
+    if (layer_write(key)) {
+        // (NOT ORIGINAL - round DECAL: laid where it lies on the surface the inputs were made for - its material over the
+        // decals' inputs by its alpha, DBuffer's blend: albedo' = albedo x (1 - a) + its albedo x a; roughness and F0
+        // the same - vulkan_surface_light.h; nothing elsewhere: it is drawn there as before)
+        add(out, {"    if (!light_at) discard;\n"
+                  "    float layer_a = clamp(colour.a, 0.0, 1.0);\n"
+                  "    o_colour = vec4(min(layer_write_m.albedo, vec3(1.0)) * layer_a, 1.0 - layer_a);\n"
+                  "    o_layer = vec4(clamp(layer_write_m.roughness, 0.0, 1.0) * layer_a, "
+                  "clamp(dot(layer_write_m.f0, vec3(1.0 / 3.0)), 0.0, 1.0) * layer_a, 0.0, 1.0 - layer_a);\n}"});
+        return out;
+    }
+    if (layer_laid(key)) {
+        // (NOT ORIGINAL - round DECAL: where it lies on the surface the inputs were made for it was laid into that
+        // surface's material - kLightLayerWrite - and is drawn as that surface; not a second time over it)
+        add(out, {"    if (light_at) discard;"});
     }
     if (water) {
         add(out, {"    colour.a = water_alpha;"});

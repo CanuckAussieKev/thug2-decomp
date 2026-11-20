@@ -3108,7 +3108,8 @@ game paints over a surface (Boston's crosswalk, 0.8 units over its asphalt) was 
   environment's weight (the share of the store's specular estimate the reflections pass may take over) stays the
   surface's own roughness's: the reflections pass sees the surface, not its decals. A colour lit already (no albedo
   apart from its light) takes the layer as over a white surface: x (a + rgb).
-- **A layer lying on the surface** (`ff_key.h` kLayerLift, 2 units; `light_find` at the start of the fragment shader):
+- **A layer lying on the surface** (`ff_key.h` kLayerLift, 2 units - 4 since round DECAL; `light_find` at the start of
+  the fragment shader):
   a fragment lit per pixel is the surface the inputs were made for when its depth is the prepass's (within 1 % of the
   distance, as before) or when it lies within kLayerLift of that surface along its own normal - the depth is affine in
   1 / w, its slope read off the fragment's own screen derivatives, the prepass surface's 1 / w follows from its depth,
@@ -3179,6 +3180,64 @@ lamps input (ReSTIR DI's) does; with indirect_light passes no layer is lit.
 Not done: the layers behind the front one keep their own light (Lumen's too); light from behind a pane (transmitted
 diffuse) is not the layer's; the lamps' specular highlight on glass is the reflections pass's emitters only (analytic
 lamps without a surface give none there).
+
+### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
+
+Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3
+units off their brick, alpha-blended (blend 5), alpha-tested, **no depth written**. Such a draw was a transparency (round
+RG: blended by its alpha without writing depth): lit apart - its own light, the front layer's or the wall's raw inputs -
+and drawn into Ray Reconstruction's transparency layer, which RR composites over the denoised picture but never
+denoises (DLSS-RR guide 3.4.10). The bounce light's raw noise on those cards (ReSTIR GI's diffuse and specular, the
+lamps') therefore reached the screen as coloured specks over the cards' footprints - most of each card is fully opaque
+(58 % of one card's texels at 255) - while the rest of the wall was clean. Measured at the user's spot (the night wall
+right of the planter): every alpha-blended draw left out - specks 20.7 -> 0 a frame; the cards drawn in the colour instead
+of the transparency layer - 0; the guides and the prepass kept as they were with the cards not drawn by the prepass
+(they never were: no depth) - no change. So not the guides alternating (round FA's guess), the transparency layer.
+
+The standard (UE's DBuffer decals; RTX Remix's decal textures): a mark lying on a surface edits that surface's material
+before it is lit, and the surface is lit once with the composite. Round DB built the inputs for the procedural marks
+(`SurfaceInputs::decals / layer`); now the game's own overlays use them:
+
+- **Which**: a kept draw of the relit world lit per pixel, blended by its alpha, writing no depth, without an
+  environment-mapped stage (the game's painted reflections - no material) - `surface_light_finish` adds
+  `FragmentKey::light`'s `kLightLayer`. Objects' overlays (a character's prints, hair cards) are not laid.
+- **Where**: per fragment, where it lies on the surface the inputs were made for - round DB's layer test (`light_find`,
+  the distance along the fragment's own normal from the prepass's surface) with `kLayerLift` now 4 units (was 2: the
+  cards stand 2.7 - 3.3 off). Elsewhere (a card hanging off an edge, a sign in the air) it is drawn as before.
+- **Laid** (`vulkan_surface_light.cpp` `lay_layers`, at the shading's start - after the decals' pass): each such draw is
+  emitted from its own preparation with its laying variant (`kLightLayerWrite`: the material the shading would light -
+  a relit surface's albedo after its tint, roughness, F0 - written as (albedo x a, 1 - a) and (roughness x a, F0 x a, 0,
+  1 - a)) into a pass of the two inputs alone (`PipelineKey::dbuffer`: DBuffer's blend, each layer over the last, the
+  game's order). The variant reads none of the inputs it writes.
+- **Shaded**: the surface under it reads the composite material as it reads a procedural mark's - its colour, ReSTIR GI's
+  specular on the composite's specular albedo, the lamps input on the composite's diffuse, and Ray Reconstruction's
+  guides written from it. The card's own shaded draw (colour and transparency layer alike) discards the laid fragments.
+- **The rays agree** (`vulkan_rt_scene.h`): a camera ray's surface (`trace_drawn`) takes the solid surface behind a
+  blended world triangle lying on it (within `RAY_LAYER_LIFT` = kLayerLift along its normal, facing as it does -
+  `RAY_LAYER_FACING`, ~25 degrees) unless the pixel's depth is the blended one's (a layer that writes depth: the
+  crosswalk's paint, kept by the prepass); and a light ray leaving a surface (`ray_light_leaving`: ReSTIR DI's
+  visibility, ReSTIR GI's and the light list's samples, the sun shadows' and the lamps pass's rays) passes the blended
+  world layers lying on that surface - before, the card shaded its own wall by its alpha (darkened twice). A card
+  standing across a surface still shades it.
+
+Measured (1280 x 720, DLSS Quality + RR, `measure on`; speck_count over the band, `out/scripts/peaks.ts` - isolated
+points a frame, for the pans - a pixel's own median means nothing while the picture moves): the user's spot, held 28.6
+-> 0 flickering specks, deviation 1.46 -> 0.46; pan (0.15 degrees a frame) isolated specks 5.6 -> 2.6 (median 5 -> 1).
+Round FA's 12-56-57 spot: the wall held 67.5 -> 0.05, deviation 2.19 -> 0.32, the column 22 -> 0.1; pan isolated specks
+10.5 -> 0.2. The cards' brightness against the plain
+wall (path-traced reference, 4096 samples): reference 1.29 / 0.80 (two cards), before 0.81 / 0.60, after 1.24 - 1.35 /
+1.05 - the cards were too dark (lit apart, their wall shaded by them); now within the reference's noise for one, a
+quarter over it for the other.
+
+Check: `thug2_vulkan_rt_lights_check` "round DECAL" - a card 3.3 units over the floor, alpha-blended without depth, half
+alpha: the floor's colour equals the floor with the card's layer set in the decals' inputs, the albedo guide is the
+composite (floor x (1 - a) + card x a), nothing of the card in the transparency layer (all three fail without the
+laying). `thug2_ff_shader_check --light` compiles the relit keys' layer and laying variants.
+
+Not done: the path tracer's reference still meets the cards by their coverage as surfaces of their own (3.3 units off -
+the same light); a ray's hit on the wall (a bounce, a reflection) sees the bare wall, the card apart (Lumen's surface
+cache captures decals; ours would need the card in the hit's material); the ambient occlusion's rays still count a card
+over their surface; a draw recorded again (its preparation lost mid-view) discards where it lies without being laid.
 
 ### Time of day (`tod`, `tod_cycle`)
 
@@ -6076,7 +6135,9 @@ One light list, one way to sample it:
   camera ray's choice of them; with Ray Reconstruction off the whole wall has the same coloured noise and RR clears all of
   it but over them - the guides there alternate per pixel between the overlay and the wall (the prepass keeps the overlay
   where its filtered alpha is over half). The standard: DBuffer decals - the guides as the layered material (round DB's
-  model, which keeps the guides of the kept surface). (2) The scaffold's lamp (P3) in ReSTIR DI's lamps: 4.8 / 255.
+  model, which keeps the guides of the kept surface). (Round DECAL found the cause: the overlays write no depth - the
+  prepass never kept them -, they were transparencies drawn into Ray Reconstruction's transparency layer, never
+  denoised; now laid into the wall's material - "Round DECAL" above.) (2) The scaffold's lamp (P3) in ReSTIR DI's lamps: 4.8 / 255.
 
 ### The picture in motion against the reference, and the light grid's slots (round MV)
 - **A repeatable move** (tools/game/motion_error.ts; README "tools/game"): the automation's `camera ... <turn> <frames>`

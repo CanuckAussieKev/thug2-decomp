@@ -146,7 +146,7 @@ const float OFFSET_SCALE = 1.0; // the ray's start pushed off the surface by thi
 const uint OBJECTS_MASK = 0x02u; // (kMaskObjects: the skater, peds, vehicles)
 const float RAY_LENGTH = 1.0e6;  // (world units: further than any level's far plane)
 
-float blocked_by(uint mask, vec3 origin, vec3 direction)
+float blocked_by(uint mask, vec3 origin, vec3 face, vec3 direction)
 {
     if (mask == 0u) {
         return 0.0;
@@ -155,7 +155,7 @@ float blocked_by(uint mask, vec3 origin, vec3 direction)
     // (added for the alpha-tested casters - a cannon's spoked wheels, railings, foliage: instance mask 0x04) the one
     // lighting path's ray test (vulkan_rt_scene.h cutout_rays_glsl): light goes through their holes
     // (round PT-B) and the seen-through surfaces by their share (vulkan_rt_scene.h ray_light: the one light ray)
-    return 1.0 - ray_light_share(mask, origin, direction, RAY_LENGTH);
+    return 1.0 - ray_light_share_leaving(mask, origin, face, direction, RAY_LENGTH);
 #else
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0,
@@ -279,8 +279,8 @@ void main()
         vec3 origin = here + normal * offset;
         uint rays = uint(pc.shape.y);
         if (rays <= 1u || pc.shape.x <= 0.0) {
-            occlusion = blocked_by(world_mask, origin, light);
-            cast_by_objects = blocked_by(objects_mask, origin, light);
+            occlusion = blocked_by(world_mask, origin, normal, light);
+            cast_by_objects = blocked_by(objects_mask, origin, normal, light);
         } else {
             vec3 across = normalize(abs(light.y) < 0.99 ? cross(light, vec3(0.0, 1.0, 0.0))
                                                          : cross(light, vec3(1.0, 0.0, 0.0)));
@@ -293,8 +293,8 @@ void main()
                 float radius = sqrt((float(i) + 0.5) / float(rays)) * pc.shape.x;
                 float angle = float(i) * 2.39996323 + turn;
                 vec3 toward = normalize(light + (across * cos(angle) + up * sin(angle)) * radius);
-                sum += blocked_by(world_mask, origin, toward);
-                objects_sum += blocked_by(objects_mask, origin, toward);
+                sum += blocked_by(world_mask, origin, normal, toward);
+                objects_sum += blocked_by(objects_mask, origin, normal, toward);
             }
             occlusion = sum / float(rays);
             cast_by_objects = objects_sum / float(rays);

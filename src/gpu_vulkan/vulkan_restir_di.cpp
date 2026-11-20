@@ -393,7 +393,7 @@ Surface primary(ivec2 p)
     float t;
     mat4x3 to_world;
     HitSurface h;
-    if (!trace_drawn(eye, dir, reach, instance, primitive, id, bary, t, to_world) ||
+    if (!trace_drawn(eye, dir, reach, expected, instance, primitive, id, bary, t, to_world) ||
         (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected) ||
         !hit_surface(instance, primitive, id, bary, to_world, dir, h) || h.hidden) {
 #ifdef CHECK
@@ -536,7 +536,7 @@ bool light_point(uint e, vec2 uv, Surface s, out LightPoint lp)
 // What of the light gets from it to the surface (the one light ray - vulkan_rt_scene.h ray_light).
 vec3 seen(Surface s, LightPoint lp)
 {
-    return ray_light(s.object ? LIGHT_RAYS_ON_OBJECT : LIGHT_RAYS, s.at + s.ng * ray_offset(s.at), lp.dir, lp.reach);
+    return ray_light_leaving(s.object ? LIGHT_RAYS_ON_OBJECT : LIGHT_RAYS, s.at + s.ng * ray_offset(s.at), s.ng, lp.dir, lp.reach);
 }
 bool seen_at_all(vec3 through) { return max(through.r, max(through.g, through.b)) > 0.0; }
 

@@ -877,7 +877,7 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
             motion_mask = key.blend != 0U && key.motion != kMotionSurface ? VkColorComponentFlags{VK_COLOR_COMPONENT_B_BIT}
                                           : VkColorComponentFlags{VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT};
         }
-        const std::array<VkPipelineColorBlendAttachmentState, 2> blend_attachments{{
+        std::array<VkPipelineColorBlendAttachmentState, 2> blend_attachments{{
             blend_attachment,
             {.blendEnable = key.blend != 0U && key.motion != kMotionSurface ? VK_TRUE : VK_FALSE,
              .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
@@ -888,7 +888,22 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
              .alphaBlendOp = VK_BLEND_OP_MAX,
              .colorWriteMask = motion_mask},
         }};
-        const uint32_t attachment_count = key.motion != 0U ? 2U : 1U;
+        // (round DECAL - PipelineKey::dbuffer) the decals' two inputs, each layer over the last as the decals' pass lays
+        // its marks (vulkan_scatter.cpp): the base's weight a product, the layers' premultiplied values a sum over it
+        if (key.dbuffer != 0U) {
+            for (VkPipelineColorBlendAttachmentState& over : blend_attachments) {
+                over = {.blendEnable = VK_TRUE,
+                        .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+                        .dstColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+                        .colorBlendOp = VK_BLEND_OP_ADD,
+                        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+                        .dstAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+                        .alphaBlendOp = VK_BLEND_OP_ADD,
+                        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
+                                          VK_COLOR_COMPONENT_A_BIT};
+            }
+        }
+        const uint32_t attachment_count = key.motion != 0U || key.dbuffer != 0U ? 2U : 1U;
         const VkPipelineColorBlendStateCreateInfo blend{.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
                                                         .pNext = nullptr,
                                                         .flags = 0,
@@ -909,7 +924,8 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
                                                        .flags = 0,
                                                        .dynamicStateCount = static_cast<uint32_t>(kDynamic.size()),
                                                        .pDynamicStates = kDynamic.data()};
-        const std::array<VkFormat, 2> colour_formats{static_cast<VkFormat>(key.colour_format), kMotionFormat};
+        const std::array<VkFormat, 2> colour_formats{static_cast<VkFormat>(key.colour_format),
+                                                     key.dbuffer != 0U ? static_cast<VkFormat>(key.colour_format) : kMotionFormat};
         const VkPipelineRenderingCreateInfo rendering{.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                                                       .pNext = nullptr,
                                                       .viewMask = 0,

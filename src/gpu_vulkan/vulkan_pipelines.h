@@ -55,7 +55,11 @@ struct PipelineKey {
     // (round RG) Drawn into Ray Reconstruction's transparency layer (vulkan_surface_light.h surface_light_layer): its
     // alpha blended as the layer's coverage - premultiplied "over" - not as the colour's
     uint8_t layer = 0;
-    std::array<uint8_t, 2> spare{};
+    // (round DECAL - vulkan_surface_light.h, the game's layers laid) The pass's two attachments are the decals' inputs
+    // (colour_format each - SurfaceInputs::decals / layer), no depth: each blended over the last with DBuffer's blend (src
+    // x 1 + dst x src alpha; alpha dst x src alpha) - the key's own blend states unused.
+    uint8_t dbuffer = 0;
+    uint8_t spare = 0;
 
     bool operator==(const PipelineKey&) const = default;
 };

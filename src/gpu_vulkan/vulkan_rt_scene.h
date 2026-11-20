@@ -186,12 +186,19 @@ std::string_view scene_geometry_glsl();
 // (round CW) The surface the per-surface lighting's prepass keeps at a pixel (vulkan_surface_light.h):
 //   bool drawn_kept(uint instance, uint primitive, uint id, vec2 barycentrics) - an opaque / cut-out one by its alpha
 //        test, a blended one (HIT_COVERAGE / HIT_GLASS) at least half opaque, never a filter or an added one
-//   bool trace_drawn(vec3 origin, vec3 dir, float reach, out instance, primitive, id, barycentrics, t, to_world) - the
-//        nearest such surface along a camera ray, every drawn instance (RAY_DRAWN 0x87) asked
+//   bool trace_drawn(vec3 origin, vec3 dir, float reach, float expected, out instance, primitive, id, barycentrics, t,
+//        to_world) - the nearest such surface along a camera ray, every drawn instance (RAY_DRAWN 0x87) asked; (round
+//        DECAL) a blended world one lying on the solid surface behind it (within RAY_LAYER_LIFT - ff_key.h kLayerLift -
+//        along its own normal: layer_gap) is that surface's material layer, unless the pixel's depth (`expected`, its
+//        distance; negative: unknown) is the blended one's own (a layer that writes depth, kept by the prepass)
+//   float layer_gap(uint instance, uint primitive, mat4x3 to_world, vec3 dir, float t, float t_behind) - how far a
+//        triangle met at t lies from the point at t_behind along its own normal
 // (round PT-B - one light ray: engine/gfx/rt_surface_class.h) Every light ray's visibility:
 //   vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach) - what the seen-through instances (0x80) of the
 //        kinds `mask` picks (world 0x01 / 0x04, objects 0x02) let through before `reach`: their hit_blend_transmittance
-//        multiplied, whatever their order (the caller has found nothing solid there)
+//        multiplied, whatever their order (the caller has found nothing solid there); (round DECAL) a blended world layer
+//        lying on the ray's own surface (within RAY_LAYER_LIFT of the origin along its normal) lets it all through - it
+//        is that surface's material, laid in its albedo
 //   vec3 ray_light(uint mask, vec3 origin, vec3 direction, float reach) - 0 when ray_blocked, else seen_through
 //   float ray_light_share(...) - the same as one share (the mean of the three channels), for a pass that keeps one
 std::string_view cutout_rays_glsl();

@@ -540,7 +540,7 @@ Surface primary(ivec2 p)
     float t;
     mat4x3 to_world;
     HitSurface h;
-    if (!trace_drawn(eye, dir, reach, instance, primitive, id, bary, t, to_world) ||
+    if (!trace_drawn(eye, dir, reach, expected, instance, primitive, id, bary, t, to_world) ||
         (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected) ||
         !hit_surface(instance, primitive, id, bary, to_world, dir, h) || h.hidden) {
 #ifdef CHECK
@@ -798,7 +798,7 @@ float target_at(Surface s, vec3 eye, Reservoir r, out vec3 dir, out float reach,
     return target_of(s, dir, r.bounce);
 }
 // What of the light gets from the sample to the surface (the one light ray - vulkan_rt_scene.h ray_light).
-vec3 seen(Surface s, vec3 dir, float reach) { return ray_light(rays_of(s), s.at + s.ng * ray_offset(s.at), dir, reach); }
+vec3 seen(Surface s, vec3 dir, float reach) { return ray_light_leaving(rays_of(s), s.at + s.ng * ray_offset(s.at), s.ng, dir, reach); }
 bool seen_at_all(vec3 through) { return max(through.r, max(through.g, through.b)) > 0.0; }
 
 // (round WS) The specular reservoir - ReSTIR GI's reuse of the environment's specular (Ouyang et al. 2021 resample with
