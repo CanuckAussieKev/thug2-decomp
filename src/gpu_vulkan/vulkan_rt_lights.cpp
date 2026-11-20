@@ -270,9 +270,9 @@ vec3 light_tint(uint id)
 
 // How much of a ray is blocked before `reach` (the cut-outs by their alpha; round PT-B: the seen-through surfaces by
 // their share - the one light ray, vulkan_rt_scene.h ray_light).
-float blocked(uint mask, vec3 origin, vec3 direction, float reach)
+float blocked(uint mask, vec3 origin, vec3 face, vec3 direction, float reach)
 {
-    return 1.0 - ray_light_share(mask, origin, direction, reach);
+    return 1.0 - ray_light_share_leaving(mask, origin, face, direction, reach);
 }
 
 const uint MOST = 8u;
@@ -363,7 +363,7 @@ void main()
         vec3 to = at - origin;
         float dist = length(to);
         float stop = dist - u_lights.lights[chosen[k]].at.w; // (a lamp's own fixture doesn't shadow it)
-        float seen = 1.0 - blocked(mask, origin, to / max(dist, 1e-6), stop);
+        float seen = 1.0 - blocked(mask, origin, normal, to / max(dist, 1e-6), stop);
         lit += light[k] * light_tint(floatBitsToUint(u_lights.lights[chosen[k]].more.x)) * seen;
         through += seen * weight[k];
         total += weight[k];

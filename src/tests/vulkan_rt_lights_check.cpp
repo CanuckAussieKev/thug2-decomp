@@ -2614,6 +2614,7 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
 
 void run_decal_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally);
 void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally);
+void run_overlay_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally);
 
 void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
 {
@@ -2919,6 +2920,7 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
         render::vulkan::set_surface_light_guides_forced(false);
     }
     run_decal_layers(gpu, meshes, tally); // (round DB: with the lit glow's texture and program)
+    run_overlay_layers(gpu, meshes, tally); // (round DECAL: the same)
     run_front_layer(gpu, meshes, tally);  // (round FL: the same)
     if (lit_glow_draw().shader != nullptr) {
         gpu.release_pixel_shader(lit_glow_draw().shader);
@@ -3012,10 +3014,14 @@ bool floor_point(const Vec3& eye, int x, int y, double height, Vec3* at)
     return true;
 }
 
-// A frame of the view lit per surface (from kLayerEye): the floor lit per pixel, the paint over it or not.
+// A frame of the view lit per surface (from kLayerEye): the floor lit per pixel, the paint over it or not - (round DECAL)
+// or `overlay`: the paint as the game's overlay cards (alpha-blended, no depth written) kOverlayLift over the floor, and
+// Ray Reconstruction's transparency layer read into `layer` (null: not read).
+enum class Paint : uint8_t { kNone, kPainted, kOverlay };
+constexpr double kOverlayLift = 3.3; // (Boston's painted shadow cards over their brick walls: 2.7 - 3.3)
 bool draw_layers(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, render::GpuTexture* white,
-                 render::GpuTexture* checker, bool paint, uint64_t frame, std::vector<uint8_t>* texels,
-                 std::vector<uint8_t>* guides)
+                 render::GpuTexture* checker, Paint paint, uint64_t frame, std::vector<uint8_t>* texels,
+                 std::vector<uint8_t>* guides, std::vector<uint8_t>* layer = nullptr)
 {
     using render::GpuRenderState;
     rt::FrameRecord& record = rt::frame_record();
@@ -3064,12 +3070,14 @@ bool draw_layers(render::Gpu& gpu, const Targets& targets, std::span<const Scene
     };
     gpu.set_texture(0, white);
     quad(0.0, 0.0);
-    if (paint) {
+    if (paint != Paint::kNone) {
         gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 1);
         gpu.set_render_state(GpuRenderState::kSrcBlend, value::kBlendSrcAlpha);
         gpu.set_render_state(GpuRenderState::kDestBlend, value::kBlendInvSrcAlpha);
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, paint == Paint::kOverlay ? 0U : 1U);
         gpu.set_texture(0, checker);
-        quad(kPaintLift, kPaintInset);
+        quad(paint == Paint::kOverlay ? kOverlayLift : kPaintLift, kPaintInset);
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
         gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
     }
     gpu.set_pixel_shader(nullptr);
@@ -3080,12 +3088,25 @@ bool draw_layers(render::Gpu& gpu, const Targets& targets, std::span<const Scene
     rt::set_world_surfaces_drawing(false);
     rt::opaque_view_drawn(view_drawn());
     bool read = true;
-    if (guides != nullptr) {
+    if (guides != nullptr || layer != nullptr) {
+        // (both found before the work is finished for the reads - a new submission: they are the drawing one's) (round
+        // DECAL) and Ray Reconstruction's transparency layer (none drawn this view: empty)
         render::vulkan::Backend& state = render::vulkan::backend();
         const std::scoped_lock lock(state.mutex);
-        render::vulkan::Image* const image = render::vulkan::surface_light_guides(state);
-        guides->resize(static_cast<std::size_t>(kTargetWidth) * kTargetHeight * 16);
-        read = image != nullptr && render::vulkan::finish_work(state) && state.memory.read_image_level(image, 0, guides);
+        render::vulkan::Image* const guide_image = render::vulkan::surface_light_guides(state);
+        render::vulkan::Image* const layer_image = render::vulkan::surface_light_layer(state);
+        read = render::vulkan::finish_work(state);
+        if (guides != nullptr) {
+            guides->resize(static_cast<std::size_t>(kTargetWidth) * kTargetHeight * 16);
+            read = read && guide_image != nullptr && state.memory.read_image_level(guide_image, 0, guides);
+        }
+        if (layer != nullptr) {
+            layer->clear();
+            if (layer_image != nullptr) {
+                layer->resize(static_cast<std::size_t>(kTargetWidth) * kTargetHeight * 8);
+                read = read && state.memory.read_image_level(layer_image, 0, layer);
+            }
+        }
     }
     read = read && render::vulkan::read_surface(targets.colour, texels);
     gpu.end_scene();
@@ -3135,28 +3156,28 @@ void run_decal_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally
     uint64_t frame = 1000;
     MarkListener mark;
     for (int pass = 0; ok && pass < 2; ++pass) { // (the second time round: the TLAS of the frame before built)
-        ok = draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &bare, nullptr);
+        ok = draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, Paint::kNone, frame++, &bare, nullptr);
     }
     rt::add_view_listener(&mark);
     mark.albedo = {kOilLinear, kOilLinear, kOilLinear, 0.0F};
     mark.layer = {kOilRoughness, oil_f0, 0.0F, 0.0F};
-    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &oil, &oil_guides);
+    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, Paint::kNone, frame++, &oil, &oil_guides);
     mark.layer = {kRoughLayer, oil_f0, 0.0F, 0.0F};
-    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &rough, nullptr);
+    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, Paint::kNone, frame++, &rough, nullptr);
     // (round BIAS) the lamps input on oil: none, then kLampsIn
     std::vector<uint8_t> oil_unlit;
     std::vector<uint8_t> oil_lamps;
     mark.layer = {kOilRoughness, oil_f0, 0.0F, 0.0F};
     mark.albedo = {kOilLinear, kOilLinear, kOilLinear, 0.0F};
     mark.lamps = {0.0F, 0.0F, 0.0F, 0.0F};
-    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &oil_unlit, nullptr);
+    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, Paint::kNone, frame++, &oil_unlit, nullptr);
     mark.lamps = {kLampsIn, kLampsIn, kLampsIn, 0.0F};
-    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &oil_lamps, nullptr);
+    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, Paint::kNone, frame++, &oil_lamps, nullptr);
     mark.lamps = {0.0F, 0.0F, 0.0F, -1.0F};
     mark.albedo = {0.0F, 0.0F, 0.0F, kMark};
     mark.layer = {0.0F, 0.0F, 0.0F, 1.0F};
-    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, false, frame++, &floor_marked, nullptr) &&
-         draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, true, frame++, &painted_marked, nullptr);
+    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, Paint::kNone, frame++, &floor_marked, nullptr) &&
+         draw_layers(gpu, targets, meshes, lit_glow_draw().texture, checker, Paint::kPainted, frame++, &painted_marked, nullptr);
     rt::remove_view_listener(&mark);
     scene_eye() = kEye;
     tally->check(ok && mark.marked == 6, text::format("the layers' frames drawn and read (%d marked)", mark.marked));
@@ -3294,6 +3315,154 @@ void run_decal_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally
     }
     if (checker != nullptr) {
         gpu.release_texture(checker);
+    }
+    gpu.set_render_target(0, nullptr);
+    gpu.set_depth_surface(nullptr);
+    for (GpuSurface* surface : {targets.colour, targets.depth}) {
+        if (surface != nullptr) {
+            gpu.release_surface(surface);
+        }
+    }
+    rt::set_cel_world({});
+    render::vulkan::set_hdr_settings({});
+    rt::set_hdr_colour(hdr_before);
+}
+
+// --- (round DECAL) the game's overlay cards laid into the surface under them -------------------------------------------
+// UE's DBuffer decals for the game's own overlays (vulkan_surface_light.h "laid"): the floor lit per pixel (as round DB's,
+// from kLayerEye) and over it an overlay card kOverlayLift above - alpha-blended, no depth written, grey at half alpha:
+// Boston's painted shadows. Laid, the floor is one surface with the composite material: its colour as the same floor
+// with the decals' inputs set to the card's layer (albedo F (1 - a) + P a - MarkListener), Ray Reconstruction's albedo
+// guide the composite, and nothing of the card in the transparency layer (before: the card was a transparency drawn
+// there - not denoised - and the guide was the bare floor's).
+constexpr uint32_t kOverlayTexel = 0x40404040U; // (grey 64 - 0.251 -, alpha 64: drawn x 2 - 0.502)
+constexpr double kOverlayTolerance = 0.02;      // (a share of the expected; half floats and the guide's 8 bits)
+
+void run_overlay_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
+{
+    text::print("round DECAL - the game's overlay cards laid into the surface under them (DBuffer decals):\n");
+    render::vulkan::set_rt_light_settings({});
+    render::vulkan::set_rt_shadow_settings({});
+    render::vulkan::set_hdr_settings({.on = true});
+    const bool hdr_before = rt::hdr_colour();
+    rt::set_hdr_colour(true);
+    const std::array<float, 3> up{0.0F, 1.0F, 0.0F};
+    rt::set_cel_world({.relit = true, .sun = {1.0F, 1.0F, 1.0F}, .toward = up});
+    const render::GpuSurfaceDesc colour{.width = kTargetWidth,
+                                        .height = kTargetHeight,
+                                        .format = value::kFormatA16B16G16R16F,
+                                        .samples = 0,
+                                        .quality = 0,
+                                        .lockable_or_discard = true};
+    render::GpuSurfaceDesc depth = colour;
+    depth.format = value::kFormatD24S8;
+    depth.lockable_or_discard = false;
+    Targets targets;
+    render::GpuTexture* card = nullptr;
+    bool ok = gpu.create_render_target(colour, &targets.colour) == value::kResultOk &&
+              gpu.create_depth_surface(depth, &targets.depth) == value::kResultOk &&
+              make_checker(gpu, kOverlayTexel, kOverlayTexel, &card) && lit_glow_draw().texture != nullptr &&
+              lit_glow_draw().shader != nullptr;
+    const auto forced = [](bool on) {
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::set_surface_light_guides_forced(on);
+        render::vulkan::set_surface_light_layer_forced(on);
+        render::vulkan::set_surface_light_lay_lit_forced(on);
+    };
+    forced(true);
+    scene_eye() = kLayerEye;
+    std::vector<uint8_t> bare;
+    std::vector<uint8_t> bare_guides;
+    std::vector<uint8_t> laid;
+    std::vector<uint8_t> laid_guides;
+    std::vector<uint8_t> laid_layer;
+    std::vector<uint8_t> marked;
+    uint64_t frame = 2000;
+    for (int pass = 0; ok && pass < 2; ++pass) { // (the second time round: the TLAS of the frame before built)
+        ok = draw_layers(gpu, targets, meshes, lit_glow_draw().texture, card, Paint::kNone, frame++, &bare, &bare_guides);
+    }
+    const uint64_t laid_before = render::vulkan::surface_light_stats().laid;
+    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, card, Paint::kOverlay, frame++, &laid, &laid_guides,
+                           &laid_layer);
+    const uint64_t laid_draws = render::vulkan::surface_light_stats().laid - laid_before;
+    // the card's layer as the decals' inputs: its albedo P x a over the floor's x (1 - a); its roughness and F0 the floor's
+    // (the same program and material)
+    const auto paint = static_cast<float>(rt::linear_from_display(64.0 / kByteRange)); // (its albedo the texel's colour)
+    const auto a = static_cast<float>(2.0 * 64.0 / kByteRange);                       // (its alpha drawn x 2)
+    MarkListener mark;
+    mark.albedo = {paint * a, paint * a, paint * a, 1.0F - a};
+    mark.layer = {0.0F, 0.0F, 0.0F, 1.0F};
+    rt::add_view_listener(&mark);
+    ok = ok && draw_layers(gpu, targets, meshes, lit_glow_draw().texture, card, Paint::kNone, frame++, &marked, nullptr);
+    rt::remove_view_listener(&mark);
+    scene_eye() = kEye;
+    forced(false);
+    tally->check(ok && mark.marked == 1 && laid_draws >= 1,
+                 text::format("the overlay's frames drawn and read (%llu draws laid)", static_cast<unsigned long long>(laid_draws)));
+    int pixels = 0;
+    int colour_wrong = 0;
+    int guide_wrong = 0;
+    int in_layer = 0;
+    double colour_worst = 0.0;
+    double guide_got = 0.0;
+    double guide_want = 0.0;
+    double guide_floor = 0.0;
+    for (int y = 0; ok && y < kRows; ++y) {
+        for (int x = 0; x < kColumns; ++x) {
+            Vec3 at{};
+            const double inner = kFloorHalf - kPaintInset - kEdgeMargin;
+            if (!floor_point(kLayerEye, x, y, kOverlayLift, &at) || std::abs(x_of(at)) > inner || std::abs(z_of(at)) > inner) {
+                continue;
+            }
+            ++pixels;
+            const Rgb got = linear_pixel_at(laid, x, y);
+            const Rgb want = linear_pixel_at(marked, x, y);
+            bool bad = false;
+            for (std::size_t c = 0; c < 3; ++c) {
+                const double error = std::abs(core::at(got, c) - core::at(want, c));
+                colour_worst = std::max(colour_worst, error);
+                bad = bad || error > std::max(kLayerTolerance, kOverlayTolerance * core::at(want, c));
+            }
+            colour_wrong += bad ? 1 : 0;
+            const std::size_t g = ((static_cast<std::size_t>(y) * kTargetWidth) + static_cast<std::size_t>(x)) * 16;
+            uint32_t floor_word = 0;
+            uint32_t laid_word = 0;
+            std::memcpy(&floor_word, &core::at(bare_guides, g), sizeof(floor_word));
+            std::memcpy(&laid_word, &core::at(laid_guides, g), sizeof(laid_word));
+            if (floor_word == 0U) {
+                continue; // (no surface wrote the floor's guide there - its far edge)
+            }
+            const double floor_albedo = rt::linear_from_display(static_cast<double>(floor_word & 0xFFU) / kByteRange);
+            const double got_albedo = rt::linear_from_display(static_cast<double>(laid_word & 0xFFU) / kByteRange);
+            const double want_albedo = (floor_albedo * (1.0 - a)) + (static_cast<double>(paint) * a);
+            guide_got += got_albedo;
+            guide_floor += floor_albedo;
+            guide_want += want_albedo;
+            // (8 bits display-encoded, the floor's own guide read the same way: two steps)
+            guide_wrong += std::abs(rt::display_from_linear(got_albedo) - rt::display_from_linear(want_albedo)) > 2.0 / kByteRange ? 1 : 0;
+            if (!laid_layer.empty()) {
+                const std::size_t l = ((static_cast<std::size_t>(y) * kTargetWidth) + static_cast<std::size_t>(x)) * 8;
+                const auto alpha = static_cast<uint16_t>(core::at(laid_layer, l + 6) | (core::at(laid_layer, l + 7) << 8U));
+                in_layer += half_to_double(alpha) > 0.0 ? 1 : 0;
+            }
+        }
+    }
+    tally->check(ok && pixels > 1000 && colour_wrong == 0,
+                 text::format("under the card the floor is lit once with the composite material (as the floor with the card's "
+                              "layer in the decals' inputs): %d pixels, %d off (worst %.4f)",
+                              pixels, colour_wrong, colour_worst));
+    tally->check(ok && pixels > 1000 && guide_wrong == 0,
+                 text::format("Ray Reconstruction's albedo guide is the composite (mean %.4f, the floor's x (1 - a) + the "
+                              "card's x a: %.4f; the floor's %.4f): %d of %d pixels off",
+                              guide_got / std::max(pixels, 1), guide_want / std::max(pixels, 1),
+                              guide_floor / std::max(pixels, 1), guide_wrong, pixels));
+    tally->check(ok && pixels > 1000 && in_layer == 0,
+                 text::format("nothing of the card in Ray Reconstruction's transparency layer (it isn't denoised): %d of %d "
+                              "pixels covered (the layer %s)",
+                              in_layer, pixels, laid_layer.empty() ? "not drawn" : "drawn, its other draws there"));
+    if (card != nullptr) {
+        gpu.release_texture(card);
     }
     gpu.set_render_target(0, nullptr);
     gpu.set_depth_surface(nullptr);

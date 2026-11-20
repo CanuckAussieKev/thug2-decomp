@@ -38,6 +38,16 @@
 //      of its light. Every other fragment - glass, a glow, a particle in front - keeps its own light: no pass multiplies
 //      it. The relit world and lit objects are lit per pixel there whether or not rt_pbr is on (the inputs need the
 //      light model's terms apart). The prepared draws are emitted as prepared - none is translated twice.
+//      (Round DECAL - UE's DBuffer decals for the game's own overlays.) First, the see-through draws lit per pixel
+//      (blended by their alpha, writing no depth: painted shadows, grime and stain cards over a wall) are laid where they
+//      lie on the surface the inputs were made for (the layer test, ff_key.h kLayerLift): each writes its material over
+//      the decals' inputs (FragmentKey::light kLightLayerWrite - albedo, roughness and F0 by its alpha, DBuffer's blend,
+//      PipelineKey::dbuffer) as the decals' pass lays its marks; then that surface is shaded with the composite material
+//      and writes Ray Reconstruction's guides from it, and the overlay's own shaded draw is discarded there
+//      (kLightLayer) - neither a second surface lit apart nor a transparency over the denoised picture. Before, such an
+//      overlay was a transparency: lit apart (its own light - the front layer's or the wall's raw inputs) and drawn into
+//      Ray Reconstruction's transparency layer, which it doesn't denoise - Boston's walls kept their painted shadows'
+//      bounce-light noise as specks while every other wall was clean.
 // Without ray tracing, relit data, on a multisampled target, with cel shading, or outside a view, nothing changes: the
 // draws are made as they come and the passes draw over the colour as before (the original's look keeps its path).
 namespace render::vulkan {
@@ -120,6 +130,9 @@ void set_surface_light_guides_forced(bool forced);
 [[nodiscard]] Image* surface_light_layer(Backend& state);
 // (the checks) The layer drawn without Ray Reconstruction denoising. The caller holds the lock.
 void set_surface_light_layer_forced(bool forced);
+// (round DECAL, the checks) A lit object's see-through overlays laid into their surfaces as the relit world's are (the
+// checks draw their floors as lit objects). The caller holds the lock.
+void set_surface_light_lay_lit_forced(bool forced);
 // (round RG) Whether the draws being recorded are the layer's (the pipeline key's alpha blend - PipelineKey::layer).
 [[nodiscard]] bool surface_light_in_layer();
 // (round FL - the front layer, vulkan_front_layer.h; UE5 Lumen's Front Layer Translucency) The view's images for it: the
@@ -164,6 +177,7 @@ struct SurfaceLightStats {
     uint64_t rewritten = 0; // kept draws' buffers kept before they were written again
     uint64_t layered = 0;   // (round RG) of the shaded, drawn into Ray Reconstruction's transparency layer
     uint64_t front = 0;     // (round FL) see-through draws drawn into the front layer's depth
+    uint64_t laid = 0;      // (round DECAL) see-through draws laid into the surfaces' material layers
 };
 [[nodiscard]] SurfaceLightStats surface_light_stats();
 

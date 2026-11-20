@@ -533,6 +533,18 @@ void add_light_keys(ff_check::KeySets& sets)
             if (sets.fragment.insert(key).second) {
                 ++added;
             }
+            // (round DECAL: a see-through overlay laid into its surface - its shaded draw and its laying)
+            for (const uint8_t layer : {render::vulkan::kLightLayer,
+                                        static_cast<uint8_t>(render::vulkan::kLightLayer | render::vulkan::kLightLayerWrite)}) {
+                FragmentKey laid = key;
+                laid.light = static_cast<uint8_t>(kLightInputs | layer);
+                if ((layer & render::vulkan::kLightLayerWrite) != 0U) {
+                    laid.motion = 0;
+                }
+                if (sets.fragment.insert(laid).second) {
+                    ++added;
+                }
+            }
         }
     }
     text::print("light: %u fragment keys with the light inputs or depth alone added\n", static_cast<unsigned>(added));

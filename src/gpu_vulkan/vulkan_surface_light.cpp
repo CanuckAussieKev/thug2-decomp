@@ -151,6 +151,7 @@ struct LightState {
     uint64_t layer_frame = 0;  // the frame whose view drew it (0: none)
     bool layer_forced = false; // (the checks': drawn without Ray Reconstruction)
     bool in_layer = false;     // its draws being recorded (vulkan_draws.cpp's pipeline key: the layer's alpha blend)
+    bool lay_lit_forced = false; // (round DECAL, the checks': a lit object's overlays laid as the relit world's are)
     std::vector<DeviceBuffer> kept_buffers; // (kept draws' vertices and indices whose buffers were written again)
     std::unordered_set<VkBuffer> kept_reads; // the buffers the kept draws read now
     // (round FL) the front layer (vulkan_front_layer.h): the see-through draws' depth (the view's depth format and size),
@@ -223,6 +224,13 @@ bool transparency(const GpuStateBlock& block)
 // (glass, a soft overlay - its light is a surface's, unlike a glow's added light). Lit per pixel and of the light model's
 // world or objects too (surface_light_finish's kLightFront).
 bool see_through(const GpuStateBlock& block) { return blend_of(block) == Blend::kAlpha && !surface_draw(block); }
+
+// (round DECAL) Whether a draw's stages read an environment map (texture coordinates from the reflection vector - the
+// game's painted reflections).
+bool environment_mapped(const VertexKey& vertex)
+{
+    return std::ranges::any_of(vertex.coords, [](const TexCoordKey& coord) { return coord.gen == TexGen::kCameraSpaceReflection; });
+}
 
 // A kept draw's prepass pipeline: its shaded pipeline's key (`shaded`) with the fragment half depth alone
 // (depth_only_fragment - `half`: a blended draw's) and nothing written to or blended into the colour; the vertex half,
@@ -790,6 +798,99 @@ void draw_kept(Backend& state)
     }
 }
 
+// (round DECAL - UE's DBuffer decals) The see-through overlays lit per pixel (kLightLayer: painted shadows, grime, stains
+// - blended by their alpha, writing no depth) laid into the material layers of the surfaces they lie on, before the
+// shading: each kept draw emitted from its own preparation with its laying variant (kLightLayerWrite: where it lies on
+// the inputs' surface - the layer test, kLayerLift - its albedo, roughness and F0 x its alpha over the decals' inputs,
+// the rest kept x (1 - alpha); nothing elsewhere) into a pass of the two inputs alone (PipelineKey::dbuffer: DBuffer's
+// blend - each over the last, as the decals' pass lays its marks), in the game's order. The surface under it is then
+// shaded once with the composite material - by the light inputs made for it - and writes Ray Reconstruction's guides
+// from it; the overlay's shaded draw discards those fragments (kLightLayer). Outside a pass, after the decals' pass.
+void lay_layers(Backend& state)
+{
+    LightState& own = light_state();
+    const auto laid = [&state](const KeptDraw& draw) {
+        return prepared_now(state, draw) && (draw.prepared.key.shaders.fragment.light & kLightLayer) != 0U;
+    };
+    if (own.decals.image == VK_NULL_HANDLE || own.layer_material.image == VK_NULL_HANDLE ||
+        own.decals.format != own.layer_material.format || std::ranges::none_of(own.kept, laid)) {
+        return;
+    }
+    restore_sampled_layouts(state, own.kept);
+    VkCommandBuffer commands = outside_pass(state);
+    std::array<Image*, 2> layers{&own.decals, &own.layer_material};
+    std::array<VkRenderingAttachmentInfo, 2> attachments{};
+    for (std::size_t i = 0; i < layers.size(); ++i) {
+        Image* const image = core::at(layers, i);
+        Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
+        VkRenderingAttachmentInfo& info = core::at(attachments, i);
+        info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        info.imageView = image->attachment_view != VK_NULL_HANDLE ? image->attachment_view : image->view;
+        info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        info.resolveMode = VK_RESOLVE_MODE_NONE;
+        info.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    }
+    VkRenderingInfo rendering{};
+    rendering.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    rendering.renderArea = {.offset = {.x = 0, .y = 0},
+                            .extent = {.width = own.decals.extent.width, .height = own.decals.extent.height}};
+    rendering.layerCount = 1;
+    rendering.colorAttachmentCount = static_cast<uint32_t>(attachments.size());
+    rendering.pColorAttachments = attachments.data();
+    vkCmdBeginRendering(commands, &rendering);
+    state.bound = BoundState{};
+    uint64_t drawn = 0;
+    for (const KeptDraw& draw : own.kept) {
+        if (!laid(draw)) {
+            continue;
+        }
+        PipelineKey key = draw.prepared.key;
+        FragmentKey& fragment = key.shaders.fragment;
+        fragment.light = static_cast<uint8_t>((fragment.light & ~(kLightGuides | kLightFront)) | kLightLayerWrite);
+        fragment.motion = 0;
+        key.motion = 0;
+        key.layer = 0;
+        key.dbuffer = 1;
+        key.colour_format = static_cast<uint32_t>(own.decals.format);
+        key.depth_format = static_cast<uint32_t>(VK_FORMAT_UNDEFINED);
+        key.samples = 1;
+        key.blend = 0;
+        key.source_blend = 0;
+        key.dest_blend = 0;
+        key.blend_operation = 0;
+        key.write_mask = 0x0F;
+        std::string error;
+        const VkPipeline pipeline = state.pipelines.pipeline(key, &error);
+        if (pipeline == VK_NULL_HANDLE) {
+            if (first_report(state, kReportFailed + 0x40)) {
+                get_log("vulkan: per-surface lighting: a layer's laying pipeline couldn't be made (%s) - drawn as before "
+                        "where it lies: %s",
+                        error.c_str(), describe(key.shaders.fragment).c_str());
+            }
+            continue;
+        }
+        emit_draw(state, draw.prepared, {.pipeline = pipeline, .light_inputs = true, .caller_pass = true});
+        ++drawn;
+    }
+    vkCmdEndRendering(commands);
+    state.bound = BoundState{};
+    // (the layers' writes read by the shading's draws - and its guides - as the decals' pass's are)
+    const VkMemoryBarrier written{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                                  .pNext = nullptr,
+                                  .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                                  .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                                                   VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT};
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
+                             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                         0, 1, &written, 0, nullptr, 0, nullptr);
+    const uint64_t serial = state.frames.serial();
+    own.decals.used = serial;
+    own.layer_material.used = serial;
+    own.stats.laid += drawn;
+}
+
 bool begin_inputs(Backend& state);
 
 // A view's leftovers shaded (a view that ended without its opaque_drawn): its inputs begun - nothing traced, no lamps,
@@ -810,6 +911,7 @@ void flush(Backend& state)
             Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
         }
         state.bound = BoundState{};
+        lay_layers(state); // (round DECAL: the overlays that discard where they lie on a surface laid in it)
         draw_kept(state);
     }
     own.phase = Phase::kIdle;
@@ -951,14 +1053,17 @@ public:
         state.bound = BoundState{}; // (the inputs pushed afresh: draw_kept's draws then keep them)
         const SurfaceLightStats before = own.stats;
         const std::size_t kept = own.kept.size();
+        lay_layers(state); // (round DECAL: the overlays laid into their surfaces' material first)
         draw_kept(state);
         if (own.stats.views <= 3 || own.stats.views % 3600 == 0) {
             get_log("vulkan: per-surface lighting: view %llu: %zu draws kept, %llu prepassed so far, %llu shaded now (%llu of "
-                    "them recorded again); %llu world draws into other targets, %llu buffers kept before a write so far",
+                    "them recorded again, %llu laid into their surfaces); %llu world draws into other targets, %llu "
+                    "buffers kept before a write so far",
                     static_cast<unsigned long long>(own.stats.views), kept,
                     static_cast<unsigned long long>(own.stats.prepassed),
                     static_cast<unsigned long long>(own.stats.shaded - before.shaded),
                     static_cast<unsigned long long>(own.stats.recorded - before.recorded),
+                    static_cast<unsigned long long>(own.stats.laid - before.laid),
                     static_cast<unsigned long long>(own.stats.elsewhere),
                     static_cast<unsigned long long>(own.stats.rewritten));
         }
@@ -1198,9 +1303,21 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
     }
     // (round FL) a see-through surface lit by the light model - the relit world's glass and overlays, an object's
     // windows - reads the front layer where it is the nearest see-through surface (its prepass: surface_light_front_prepass)
-    if (own.front_on && fragment.light == kLightInputs && see_through(block) &&
-        (fragment.surface & (kSurfaceRelit | kSurfaceLit)) != 0U) {
+    const bool overlay = fragment.light == kLightInputs && see_through(block) &&
+                         (fragment.surface & (kSurfaceRelit | kSurfaceLit)) != 0U;
+    if (own.front_on && overlay) {
         fragment.light = static_cast<uint8_t>(fragment.light | kLightFront);
+    }
+    // (round DECAL - UE's DBuffer decals) such an overlay of the relit world is a material layer of the surface it lies
+    // on: laid into the decals' inputs before the shading (lay_layers) and discarded there by its shaded draw. Not a
+    // draw whose stages read an environment map (the game's painted reflections on glass and chrome: a reflection is no
+    // material - the reflections pass owns it), not an object's (a character's hair and prints keep their own light and
+    // shadow - the rays' layer rule is the world's too: vulkan_rt_scene.h), and not where the view has no decals'
+    // inputs to lay it in.
+    if (overlay && ((fragment.surface & kSurfaceRelit) != 0U || own.lay_lit_forced) && !environment_mapped(shaders->vertex) &&
+        own.decals.image != VK_NULL_HANDLE &&
+        own.layer_material.image != VK_NULL_HANDLE) {
+        fragment.light = static_cast<uint8_t>(fragment.light | kLightLayer);
     }
     (void)state;
 }
@@ -1389,6 +1506,8 @@ void surface_light_buffer_rewritten(Backend& state, VkBuffer buffer, VkDeviceSiz
 void set_surface_light_guides_forced(bool forced) { light_state().guides_forced = forced; }
 
 void set_surface_light_layer_forced(bool forced) { light_state().layer_forced = forced; }
+
+void set_surface_light_lay_lit_forced(bool forced) { light_state().lay_lit_forced = forced; }
 
 Image* surface_light_layer(Backend& state)
 {

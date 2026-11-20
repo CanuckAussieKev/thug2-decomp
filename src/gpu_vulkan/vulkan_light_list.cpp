@@ -465,7 +465,7 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
             return vec3(0.0);
         }
         float pdf = e.pdf / LL_SUN_RADIANCE.w;
-        return LL_SUN_RADIANCE.rgb * sun_kept(p) * ray_light(mask, p, dir, LL_REACH) / pdf;
+        return LL_SUN_RADIANCE.rgb * sun_kept(p) * ray_light_leaving(mask, p, ng, dir, LL_REACH) / pdf;
     }
     if (kind == LIGHT_SKY) {
         uint cell;
@@ -478,7 +478,7 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
         if (!(pdf > 0.0)) {
             return vec3(0.0);
         }
-        return radiance * ray_light(mask, p, dir, LL_REACH) / pdf;
+        return radiance * ray_light_leaving(mask, p, ng, dir, LL_REACH) / pdf;
     }
     LocalLight l;
 #ifdef LL_POOL
@@ -556,7 +556,7 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
     if (surface && (dot(dir, ng) <= 0.0 || !(dot(dir, n) > 1.0e-4))) {
         return vec3(0.0);
     }
-    return l.light * ray_light(mask, p, dir, l.reach) / l.pdf;
+    return l.light * ray_light_leaving(mask, p, ng, dir, l.reach) / l.pdf;
 }
 
 #ifdef LL_CACHE

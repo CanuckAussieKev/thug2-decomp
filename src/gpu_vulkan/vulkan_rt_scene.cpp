@@ -30,6 +30,7 @@
 #include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_volume_light.h"
+#include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
@@ -2592,7 +2593,8 @@ std::string_view cutout_rays_glsl()
     static const std::string made = [] {
         std::string text = "const float HIT_GLASS_F0 = " +
                            std::to_string(std::get<0>(rt::material_f0(rt::MaterialKind::kGlass))) +
-                           ";\nconst float HIT_BLEND_GAMMA = " + std::to_string(rt::kDisplayGamma) + ";\n";
+                           ";\nconst float HIT_BLEND_GAMMA = " + std::to_string(rt::kDisplayGamma) +
+                           ";\nconst float RAY_LAYER_LIFT = " + std::to_string(kLayerLift) + ";\n"; // (round DECAL)
         text += R"(
 // (round PF - the path tracer's cost) What the tests of a candidate hit read, read once each: a ray's candidates on
 // cut-out and seen-through surfaces are most of the device's time in the light rays (every pass's ray_light), and each
@@ -2781,6 +2783,9 @@ vec3 hit_blend_transmittance(HitBlend b, float cos_theta)
 // light rays from there were shaded by the paint over it, texel by texel as its alpha (dark blotches over the paint).
 const uint RAY_DRAWN = 0x87u; // (kMaskWorld, kMaskObjects, kMaskAlphaTested, kMaskNoShadow - not kMaskAddsLight)
 const uint RAY_INSTANCE_APART = 512u; // (round PG: rt::kDrawnApart - drawn by a pass of its own, never the prepass's)
+const uint RAY_INSTANCE_OBJECT = 32u; // (rt::kObject)
+// (round DECAL) a layer lies on a surface facing as it does: |cos| between the two faces at least this (~25 degrees)
+const float RAY_LAYER_FACING = 0.9;
 bool drawn_kept(uint instance, uint primitive, uint id, vec2 barycentrics)
 {
     uint flags = geometry_record(instance).instance_flags;
@@ -2793,19 +2798,60 @@ bool drawn_kept(uint instance, uint primitive, uint id, vec2 barycentrics)
     HitBlend b = hit_blend(instance, primitive, id, barycentrics);
     return (b.kind == HIT_COVERAGE || b.kind == HIT_GLASS) && b.coverage >= 0.5;
 }
-// The nearest surface the prepass keeps along a camera ray (drawn_kept) before `reach`; false: none.
-bool trace_drawn(vec3 origin, vec3 dir, float reach, out uint instance, out uint primitive, out uint id,
+// (round DECAL) How far a blended surface met at `t` along `dir` lies from `t_behind` along the blended triangle's own
+// normal (its world face from its corners) - a layer on the surface behind it within RAY_LAYER_LIFT (ff_key.h kLayerLift:
+// the raster's layer test, the same thickness); a huge value when its corners can't be read.
+float layer_gap(uint instance, uint primitive, mat4x3 to_world, vec3 dir, float t, float t_behind)
+{
+    HitVertices v;
+    if (!hit_vertices(instance, primitive, v)) {
+        return 1.0e30;
+    }
+    vec3 n = cross(to_world * vec4(v.position[1] - v.position[0], 0.0), to_world * vec4(v.position[2] - v.position[0], 0.0));
+    float l = length(n);
+    return l > 0.0 ? abs(t_behind - t) * abs(dot(n / l, dir)) : 1.0e30;
+}
+// The nearest surface the prepass keeps along a camera ray (drawn_kept) before `reach`; false: none. (Round DECAL) A
+// blended surface the test keeps that lies on the solid surface behind it (layer_gap within RAY_LAYER_LIFT) is that
+// surface's material layer - the raster lays it there (vulkan_surface_light.h, the game's overlays: no depth of theirs
+// kept) - unless the pixel's depth (`expected`, the distance the prepass's depth gives; negative: none known) is its own:
+// a blended layer that writes depth (a road's painted crosswalk) the prepass kept.
+bool trace_drawn(vec3 origin, vec3 dir, float reach, float expected, out uint instance, out uint primitive, out uint id,
                  out vec2 barycentrics, out float t, out mat4x3 to_world)
 {
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, RAY_DRAWN, origin, 0.0, dir, reach);
+    bool blended = false; // (the nearest blended candidate the test keeps)
+    float blended_t = reach;
+    uint blended_instance = 0u;
+    uint blended_primitive = 0u;
+    uint blended_id = 0u;
+    vec2 blended_bary = vec2(0.0);
+    mat4x3 blended_world = mat4x3(1.0);
     while (rayQueryProceedEXT(query)) {
-        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
-            drawn_kept(rayQueryGetIntersectionInstanceIdEXT(query, false),
-                       rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
-                       rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
-                       rayQueryGetIntersectionBarycentricsEXT(query, false))) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) != gl_RayQueryCandidateIntersectionTriangleEXT) {
+            continue;
+        }
+        uint i = rayQueryGetIntersectionInstanceIdEXT(query, false);
+        uint p = rayQueryGetIntersectionPrimitiveIndexEXT(query, false);
+        uint m = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
+        vec2 bc = rayQueryGetIntersectionBarycentricsEXT(query, false);
+        if (!drawn_kept(i, p, m, bc)) {
+            continue;
+        }
+        if ((geometry_record(i).instance_flags & HIT_INSTANCE_TRANSPARENT) == 0u) {
             rayQueryConfirmIntersectionEXT(query);
+            continue;
+        }
+        float candidate_t = rayQueryGetIntersectionTEXT(query, false);
+        if (candidate_t < blended_t) {
+            blended = true;
+            blended_t = candidate_t;
+            blended_instance = i;
+            blended_primitive = p;
+            blended_id = m;
+            blended_bary = bc;
+            blended_world = rayQueryGetIntersectionObjectToWorldEXT(query, false);
         }
     }
     instance = 0u;
@@ -2814,14 +2860,48 @@ bool trace_drawn(vec3 origin, vec3 dir, float reach, out uint instance, out uint
     barycentrics = vec2(0.0);
     t = reach;
     to_world = mat4x3(1.0);
-    if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
+    bool solid = rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT;
+    float solid_t = solid ? rayQueryGetIntersectionTEXT(query, true) : reach;
+    if (blended && blended_t < solid_t) {
+        bool own_depth = expected >= 0.0 && abs(blended_t - expected) < abs(solid_t - expected);
+        bool layer = solid && !own_depth && (geometry_record(blended_instance).instance_flags & RAY_INSTANCE_OBJECT) == 0u &&
+                     layer_gap(blended_instance, blended_primitive, blended_world, dir, blended_t, solid_t) <= RAY_LAYER_LIFT;
+        if (layer) {
+            // (lying on it: facing as the solid surface does - a card standing across it is a surface of its own)
+            HitVertices a;
+            HitVertices b;
+            mat4x3 solid_world = rayQueryGetIntersectionObjectToWorldEXT(query, true);
+            layer = hit_vertices(blended_instance, blended_primitive, a) &&
+                    hit_vertices(rayQueryGetIntersectionInstanceIdEXT(query, true),
+                                 rayQueryGetIntersectionPrimitiveIndexEXT(query, true), b);
+            if (layer) {
+                vec3 na = cross(blended_world * vec4(a.position[1] - a.position[0], 0.0),
+                                blended_world * vec4(a.position[2] - a.position[0], 0.0));
+                vec3 nb = cross(solid_world * vec4(b.position[1] - b.position[0], 0.0),
+                                solid_world * vec4(b.position[2] - b.position[0], 0.0));
+                float la = length(na);
+                float lb = length(nb);
+                layer = la > 0.0 && lb > 0.0 && abs(dot(na / la, nb / lb)) >= RAY_LAYER_FACING;
+            }
+        }
+        if (!layer) {
+            instance = blended_instance;
+            primitive = blended_primitive;
+            id = blended_id;
+            barycentrics = blended_bary;
+            t = blended_t;
+            to_world = blended_world;
+            return true;
+        }
+    }
+    if (!solid) {
         return false;
     }
     instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
     primitive = rayQueryGetIntersectionPrimitiveIndexEXT(query, true);
     id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, true);
     barycentrics = rayQueryGetIntersectionBarycentricsEXT(query, true);
-    t = rayQueryGetIntersectionTEXT(query, true);
+    t = solid_t;
     to_world = rayQueryGetIntersectionObjectToWorldEXT(query, true);
     return true;
 }
@@ -2833,8 +2913,27 @@ bool trace_drawn(vec3 origin, vec3 dir, float reach, out uint instance, out uint
 const uint RAY_SEEN_THROUGH = 0x80u;  // (kMaskNoShadow)
 const uint RAY_WORLD_KINDS = 0x05u;   // (kMaskWorld, kMaskAlphaTested)
 const uint RAY_OBJECT_KINDS = 0x02u;  // (kMaskObjects)
-const uint RAY_INSTANCE_OBJECT = 32u; // (rt::kObject)
 const uint RAY_APART_KINDS = 0x08u;   // (round PG: kMaskDrawnApart - the seen-through ones drawn apart with them)
+// (round DECAL) A light ray leaves a surface (its face `ray_leaving_face`, set by ray_light_leaving; 0: not known): a
+// blended layer lying on that surface - an alpha-blended (HIT_COVERAGE) world triangle facing as the surface does
+// (RAY_LAYER_FACING) that the ray meets within RAY_LAYER_LIFT of its origin along the triangle's own normal (the
+// raster's layer test: a painted shadow, grime, a stain card a few units off its wall) - is that surface's material
+// layer, laid into its albedo (vulkan_surface_light.h), not a cover between it and the light: it lets the light
+// through. Before, the light on a wall under its own painted shadow card was cut by the card's alpha - the card
+// darkened it twice. A card standing across the surface (a sign's foot) still shades it.
+vec3 ray_leaving_face = vec3(0.0);
+bool layer_at_origin(uint instance, uint primitive, mat4x3 to_world, vec3 dir, float t)
+{
+    float face_length = length(ray_leaving_face);
+    HitVertices v;
+    if (!(face_length > 0.0) || !hit_vertices(instance, primitive, v)) {
+        return false;
+    }
+    vec3 n = cross(to_world * vec4(v.position[1] - v.position[0], 0.0), to_world * vec4(v.position[2] - v.position[0], 0.0));
+    float l = length(n);
+    return l > 0.0 && abs(dot(n / l, ray_leaving_face / face_length)) >= RAY_LAYER_FACING &&
+           t * abs(dot(n / l, dir)) <= RAY_LAYER_LIFT;
+}
 vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach)
 {
     vec3 through = vec3(1.0);
@@ -2844,42 +2943,62 @@ vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach)
     if (reach <= 0.0 || !(world || objects || apart)) {
         return through;
     }
-    rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, RAY_SEEN_THROUGH, origin, 0.0, dir, reach);
-    while (rayQueryProceedEXT(query)) {
-        if (rayQueryGetIntersectionTypeEXT(query, false) != gl_RayQueryCandidateIntersectionTriangleEXT) {
-            continue;
+    float from = 0.0;
+    // (at most twice more past a layer an opacity micromap committed at the origin - what lies behind it still counts)
+    for (uint part = 0u; part < 3u; ++part) {
+        rayQueryEXT query;
+        rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, RAY_SEEN_THROUGH, origin, from, dir, reach);
+        while (rayQueryProceedEXT(query)) {
+            if (rayQueryGetIntersectionTypeEXT(query, false) != gl_RayQueryCandidateIntersectionTriangleEXT) {
+                continue;
+            }
+            uint i = rayQueryGetIntersectionInstanceIdEXT(query, false);
+            uint kinds = geometry_record(i).instance_flags;
+            bool object = (kinds & RAY_INSTANCE_OBJECT) != 0u;
+            if ((kinds & RAY_INSTANCE_APART) != 0u ? !apart : (object ? !objects : !world)) {
+                continue;
+            }
+            uint p = rayQueryGetIntersectionPrimitiveIndexEXT(query, false);
+            uint m = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
+            vec2 bc = rayQueryGetIntersectionBarycentricsEXT(query, false);
+            HitBlend b = hit_blend(i, p, m, bc);
+            if (!object && b.kind == HIT_COVERAGE && b.coverage > 0.0 &&
+                layer_at_origin(i, p, rayQueryGetIntersectionObjectToWorldEXT(query, false), dir,
+                                rayQueryGetIntersectionTEXT(query, false))) {
+                continue;
+            }
+            float cos_theta = 1.0;
+            HitVertices v;
+            if (b.kind == HIT_GLASS && hit_vertices(i, p, v)) {
+                mat4x3 w = rayQueryGetIntersectionObjectToWorldEXT(query, false);
+                vec3 n = cross(w * vec4(v.position[1] - v.position[0], 0.0), w * vec4(v.position[2] - v.position[0], 0.0));
+                float l = length(n);
+                cos_theta = l > 0.0 ? dot(n / l, dir) : 1.0;
+            }
+            through *= b.kind == HIT_SOLID ? (cutout_kept(i, p, m, bc) ? vec3(0.0) : vec3(1.0))
+                                           : hit_blend_transmittance(b, cos_theta);
+            if (max(through.r, max(through.g, through.b)) <= 0.0) {
+                rayQueryTerminateEXT(query);
+            }
         }
-        uint i = rayQueryGetIntersectionInstanceIdEXT(query, false);
-        uint kinds = geometry_record(i).instance_flags;
-        bool object = (kinds & RAY_INSTANCE_OBJECT) != 0u;
-        if ((kinds & RAY_INSTANCE_APART) != 0u ? !apart : (object ? !objects : !world)) {
-            continue;
+        // (round OM - vulkan_rt_micromaps.h) a blended world surface's opacity micromap commits where it covers wholly - a
+        // share of 0 that its candidate would have given; (round DECAL) unless it is a layer on the ray's own surface
+        if (!world || rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
+            return through;
         }
-        uint p = rayQueryGetIntersectionPrimitiveIndexEXT(query, false);
-        uint m = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
-        vec2 bc = rayQueryGetIntersectionBarycentricsEXT(query, false);
-        HitBlend b = hit_blend(i, p, m, bc);
-        float cos_theta = 1.0;
-        HitVertices v;
-        if (b.kind == HIT_GLASS && hit_vertices(i, p, v)) {
-            mat4x3 w = rayQueryGetIntersectionObjectToWorldEXT(query, false);
-            vec3 n = cross(w * vec4(v.position[1] - v.position[0], 0.0), w * vec4(v.position[2] - v.position[0], 0.0));
-            float l = length(n);
-            cos_theta = l > 0.0 ? dot(n / l, dir) : 1.0;
+        uint c = rayQueryGetIntersectionInstanceIdEXT(query, true);
+        uint flags = geometry_record(c).instance_flags;
+        if ((flags & HIT_INSTANCE_TRANSPARENT) == 0u || (flags & RAY_INSTANCE_OBJECT) != 0u) {
+            return through;
         }
-        through *= b.kind == HIT_SOLID ? (cutout_kept(i, p, m, bc) ? vec3(0.0) : vec3(1.0))
-                                       : hit_blend_transmittance(b, cos_theta);
-        if (max(through.r, max(through.g, through.b)) <= 0.0) {
-            rayQueryTerminateEXT(query);
-        }
-    }
-    // (round OM - vulkan_rt_micromaps.h) a blended world surface's opacity micromap commits where it covers wholly - a
-    // share of 0 that its candidate would have given
-    if (world && rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT) {
-        uint flags = geometry_record(rayQueryGetIntersectionInstanceIdEXT(query, true)).instance_flags;
-        if ((flags & HIT_INSTANCE_TRANSPARENT) != 0u && (flags & RAY_INSTANCE_OBJECT) == 0u) {
+        float committed = rayQueryGetIntersectionTEXT(query, true);
+        if (!layer_at_origin(c, rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                             rayQueryGetIntersectionObjectToWorldEXT(query, true), dir, committed)) {
             return vec3(0.0);
+        }
+        from = committed * 1.0001 + 1.0e-3;
+        if (from >= reach) {
+            return through;
         }
     }
     return through;
@@ -2900,6 +3019,20 @@ vec3 ray_light(uint mask, vec3 origin, vec3 direction, float reach)
 float ray_light_share(uint mask, vec3 origin, vec3 direction, float reach)
 {
     vec3 t = ray_light(mask, origin, direction, reach);
+    return (t.r + t.g + t.b) * (1.0 / 3.0);
+}
+// (round DECAL) The same for a ray leaving a surface whose face (its geometric normal, any length; 0: none) is known:
+// the blended layers lying on it let the light through (layer_at_origin).
+vec3 ray_light_leaving(uint mask, vec3 origin, vec3 face, vec3 direction, float reach)
+{
+    ray_leaving_face = face;
+    vec3 t = ray_light(mask, origin, direction, reach);
+    ray_leaving_face = vec3(0.0);
+    return t;
+}
+float ray_light_share_leaving(uint mask, vec3 origin, vec3 face, vec3 direction, float reach)
+{
+    vec3 t = ray_light_leaving(mask, origin, face, direction, reach);
     return (t.r + t.g + t.b) * (1.0 / 3.0);
 }
 )";

@@ -191,14 +191,28 @@ constexpr uint8_t kLightGuides = 0x10;
 // there in place of its vertex's light store (kLightFrontDepthBinding - kLightFrontSunBinding). Set only in a view whose
 // front layer is lit (ReSTIR GI's); the key's last bits but two stay spare.
 constexpr uint8_t kLightFront = 0x20;
-constexpr uint8_t kLightKnown = kLightInputs | kLightShare | kLightDepthOnly | kLightDepthHalf | kLightGuides | kLightFront;
+// (round DECAL - the deferred decal's DBuffer for the game's own overlays: vulkan_surface_light.h "layers laid")
+// kLightLayer (with kLightInputs, on a see-through draw lit per pixel - blended by its alpha, writing no depth: a painted
+// shadow, grime, a stain card): where the fragment lies on the surface the inputs were made for (light_find's layer test,
+// kLayerLift) it was laid into that surface's material layers before the shading - its colour, roughness and F0 are the
+// surface's now, lit once with it, its guides the composite - so the shaded draw discards it there; elsewhere (hanging
+// off an edge, a card in the air) it is drawn as before.
+// kLightLayerWrite (with kLightInputs and kLightLayer): that laying - the same draw writes its material over the
+// decals' inputs (two attachments, DBuffer's blend) where it lies on the surface, nothing elsewhere; the inputs it
+// writes are never read by it.
+constexpr uint8_t kLightLayer = 0x40;
+constexpr uint8_t kLightLayerWrite = 0x80;
+constexpr uint8_t kLightKnown =
+    kLightInputs | kLightShare | kLightDepthOnly | kLightDepthHalf | kLightGuides | kLightFront | kLightLayer | kLightLayerWrite;
 // (round DB) How far a surface lit per pixel may lie from the prepass's surface, along its own normal, and still be lit
 // as that surface (world units, inches): a layer the game lays over another - a road's painted markings, a decal
 // mesh, lifted 0.5 - 1 unit (Boston's crosswalk 0.8) - and the surface under it are one surface lit once with their
 // composite material (the deferred decal's model), whatever the view's angle; before, a fragment had to be within 1 %
 // of the distance along the view ray, which a layer 0.8 over its surface fails at grazing views. (Ray Reconstruction's
-// guides keep the exact test: the surface the prepass kept writes them.)
-constexpr float kLayerLift = 2.0F;
+// guides keep the exact test: the surface the prepass kept writes them.) (Round DECAL: 4 - Boston's painted shadow and
+// grime cards stand 2.7 - 3.3 units off their brick walls; the same thickness in the rays - vulkan_rt_scene.h
+// RAY_LAYER_LIFT: a layer on the surface a light ray leaves lets the light through.)
+constexpr float kLayerLift = 4.0F;
 // (NOT ORIGINAL - [Graphics] rt_water, gpu_vulkan/vulkan_water.h) FragmentKey::water: 1 - the program's colour shaded
 // as water (waves, reflection, refraction, depth colour, foam, the sun's glitter) where the surface faces up - on the
 // same programs as the per-pixel lighting, independent of its bits (a key may have water alone). The vertex half's

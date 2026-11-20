@@ -1479,7 +1479,7 @@ Prepared prepare_draw(Backend& state, const GpuStateBlock& block, const DrawCall
 
 void emit_draw(Backend& state, const PreparedDraw& draw, const Emission& how)
 {
-    if (!ensure_pass(state, nullptr)) {
+    if (!how.caller_pass && !ensure_pass(state, nullptr)) {
         return;
     }
     VkCommandBuffer commands = stream(state);
