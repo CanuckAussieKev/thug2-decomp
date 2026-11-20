@@ -6078,6 +6078,50 @@ One light list, one way to sample it:
   where its filtered alpha is over half). The standard: DBuffer decals - the guides as the layered material (round DB's
   model, which keeps the guides of the kept surface). (2) The scaffold's lamp (P3) in ReSTIR DI's lamps: 4.8 / 255.
 
+### The picture in motion against the reference, and the light grid's slots (round MV)
+- **A repeatable move** (tools/game/motion_error.ts; README "tools/game"): the automation's `camera ... <turn> <frames>`
+  turns the held camera about the world's up and stops it after that many frames - the pose a function of the frame
+  count (game/rider/test_view.h `camera_pose_at`); the console's `measure on` freezes the world as the original's pause
+  and draws every logic frame once (no late frame skipped, no max_fps frames); `pt frames <count> <folder> [every]
+  [inputs]` saves the frames' linear light after the upscaler (Ray Reconstruction's output, over the frame's
+  pre-exposure) as EXR with each frame's camera, and with `inputs` Ray Reconstruction's own inputs (the colour, depth,
+  motion, guides); `pt ref ... as <name>` names a reference, the automation's `waitfor pt` waits for it. A session at a
+  spot: per motion (a pan of 15 degrees in a second, a 90-degree turn in half a second, a dolly of 90 units in a second)
+  and per lighting term (`rt_debug_view`) the hold, the move and 30 frames after it; each term's picture converged at the
+  move's middle and end (300 frames held); two independent references there (2048 paths a pixel each - their
+  difference is the reference's own noise, taken out of the error). The error: display luma after one exposure (ACES +
+  sRGB), split into its fine part (less its 15 x 15 mean: noise, specks) and its broad part (the mean: blotches, a region
+  too bright or dark), newly revealed pixels (seen by fewer than 8 frames before) apart from those with history.
+- **What it showed** (BO night, the user's p1 - the bank's kickers -, 1280 x 720 drawn, DLSS Quality + RR):
+  - against the reference, the realtime picture is mostly biased, not noisy: its mean 0.55 x the reference's in the pan's
+    view (the bank's windows: emitting in the reference, ~300 x the light the realtime frame gives them), 0.88 in the
+    turn's; eight replays of the same move averaged come no closer than one (display RMSE 19.8 -> 19.3), and its fine
+    error against the reference is the same moving and converged (7.6 / 7.7) - the picture's detail differs, not its noise;
+  - against its own converged picture, the move's error is ~70 % broad: blotches 30 - 300 pixels across that move with the
+    camera and take seconds to settle (30 frames after a stop they are still 2.8 of 3.6) - "the noise that goes when you
+    stand still long enough". By term the largest were ReSTIR DI's lamps (broad 2.9 in the pan, 2.7 in the turn) and their
+    specular (2.4), then the reflections pass's shine on the kickers (fine 2.7);
+  - Ray Reconstruction's motion vectors are right: against the depth and the two frames' cameras 0.002 - 0.03 pixels, none
+    over a pixel (a static world turned 3 degrees a frame); its output follows its input's mean (0.95 - 0.97) except while
+    the camera's exposure climbs fast after a turn (pre-exposure x 1.05 - 1.08 a frame: 0.83 - 0.87) - the darkening that
+    lingers after a camera move.
+- **The cause of the lamps' blotches: the light grid's shared draw** (ReGIR's correlation - Boksansky et al. 2021). A cell's
+  slots are drawn again each frame and shared by every pixel of its 128 units; with 64 of them how many the cell's main
+  lamps got was an error common to the whole region, which the reservoirs then keep for their history. Tried, one at a
+  time, against the converged picture of each: no spatial reuse - worse (fine noise up); the history from the temporal
+  reservoir alone (GI's way) - no better; a history of 5 frames instead of 20 - worse; no grid (the list by power) -
+  broad down, fine up, the turn worse; 256 and 512 slots - broad down, fine unchanged.
+- **Fix: 512 slots a cell** (`kGridSlots` - RTXDI's ReGIR default, lightsPerCell 512). Its build +0.6 ms at 1280 x 720
+  (ReSTIR DI 2.8 -> 3.4 ms). p1, against each run's converged picture: the lamps' broad error in the pan 2.9 -> 1.8, at
+  its stop 2.3 -> 1.5, their specular's at the stop 2.3 -> 1.2, in the turn 2.7 -> 1.8; the whole picture during the pan
+  4.0 -> 3.6, the turn 7.2 -> 4.8, the dolly 3.8 -> 3.3. What stays: the darkening after a move (the exposure, above),
+  GI's revealed pixels, the shine's reflections.
+- **Tried and taken back:** the reflections pass under Ray Reconstruction with one GGX visible-normal sample a pixel and
+  frame (no fixed cone pattern, no 3 x 3 blur) and the guides edited where its reflection replaces the pixel's specular
+  (specular albedo, roughness, hit distance): its term fell little and the edited guides showed the shine's quads round
+  the bank's ceiling lights as darker rectangles. The standard is one specular path for those surfaces (the material's
+  coat as the specular lobe GI's ray samples, its guides written by the shading) - not done in this round.
+
 ### What is drawn apart, in the rays (round PG)
 
 The last gap of stage 3: what the game draws in passes of its own after the ray-traced lighting - the clutter's items,
