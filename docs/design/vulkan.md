@@ -6166,3 +6166,59 @@ so it casts shadows and is met by the bounce, reflection and fog light rays and 
   `lod_distance_scale` 3 - 26,000 items within range, ~31,000 instances in the TLAS): the main thread ~+1.3 ms (the
   TLAS's writer +0.8, the clutter's record 0.4), the device +0.15 ms (clutter) and +0.3 ms (particles) at equal clocks,
   the scene's builds +0.07 ms.
+
+### Each renderer's surfaces and emitters as the frame's (round BIAS)
+
+Round MV found the realtime picture at BO's night spots 0.55 - 0.9 x the reference and no closer when averaged: a bias.
+Measured term by term against the reference at a held camera (`tools/game/motion_error.ts terms` - every
+`rt_debug_view` term converged against `pt ref ... only <kinds> | direct | bounces 0 | 2`, `pt ref ... bounces 0` new:
+what the camera sees emit), each mismatch traced to the side that was wrong:
+
+- **A hit's colour is the surface's composed colour** (reference and every ray wrong). The frame's shading lights the
+  colour the game composes from a material's passes (render_pc/pixel_shaders.cpp generated_pixel_shader); a ray's hit
+  read the first pass alone. BO's bank ceiling (a dark layer over an olive base) was 2 x lighter in every ray, and the
+  bank's windows - glass panes whose only pass is environment mapped - read the environment map's texture at the
+  mesh's coordinates: white, lit by the lamps 140 units in front of them, the reference's "300 x" windows. Now
+  rt::Material::layers carries each later pass (texture, mode, coordinates, alpha source, colour) and
+  vulkan_rt_materials.h `material_colour` composes them as the pixel shader does (modes 1 - 10, 12, 13); hit_surface and
+  hit_emission read it (`hit_composed_colour`) - so the path tracer, ReSTIR DI's traced albedo, GI's secondary
+  surfaces, the reflections' hits and the emitters' scan see the frame's surface. Record 112 -> 196 bytes.
+- **An environment-mapped pass is no albedo** (both wrong). Its colour is a painted reflection; the reflections pass
+  traces the surface's reflection. On a surface lit per pixel the frame took the environment map's texel (sampled
+  along the reflection vector) as albedo and lit it - a second, lamp-lit reflection; now that stage's texel reads black
+  (ff_shaders.cpp `environment_texel_black`, its alpha kept; the stages are the draw's: u.alpha_reference.w - the
+  fragment key has no room), and the rays' composite takes the same rule (an environment first pass black, environment
+  layers colour 0). BO's bank windows are dark glass with their reflection.
+- **The lamps input on the diffuse lobe is A (1 - E)** (realtime wrong). The light model's diffuse (brdf_direct,
+  brdf_ambient, the reference's BSDF) is albedo x (1 - E), E the specular lobe's directional albedo; the shading put the
+  lamps input - ReSTIR DI's lamps, GI's diffuse, the front layer's - on albedo x it, counting what the specular reflects
+  twice (4 - 30 % too bright on dielectrics, most at grazing views). The processor check's model already had it.
+- **Emitters whatever their class for rays** (realtime wrong, reference noisy). The emitters' scan listed only
+  instances that cast and weren't seen through: a lamp's globe or a lit pane that emits (masks 0x80 / 0x40) was never
+  sampled by ReSTIR DI - its light on BO's plaza floor missing - and the reference found it by its BSDF rays alone. Now
+  every instance with a store that emits is listed; the reference's next-event estimation takes an emitter as ReSTIR DI
+  does (the sampled point's own surface, a light ray that stops short of it - `ray_light`), and a BSDF ray meeting a
+  listed added surface takes the MIS weight.
+- **The radiance cache's miss continues the path** (realtime wrong). `cache_lookup` (vulkan_light_list.cpp) tells a
+  cell without resolved samples (SHaRC's query miss); ReSTIR GI's secondary vertex then traces on along its cosine lobe
+  (`trace_secondary` with go_on: the next vertex's direct light + its reflectance x its bounce, the cache read again at
+  each; two vertices, then Russian roulette by the light the path carries, at most 12) instead of taking 0. An entry is
+  trusted from 32 kept samples (SHaRC's sample threshold: a young entry's update paths end in other young entries - at 8
+  the cold room's first frames were -7 %). Readers that can't trace on (the update paths' last vertex, the reflections'
+  hits, the front layer) take a young entry's light, else 0. One trace call in the loop: a second inlined
+  trace_secondary (ray queries and the light sample) made the GI shader lose the device.
+- Not changed, measured equal: the light lists (175 lamps, 611 emitting triangles - one scan, one record per lamp),
+  ReSTIR DI's estimator (an exact sum over every lamp at each pixel - a diagnostic - equal to ReSTIR's result within
+  2 %; no grid, no boiling filter, no reuse: the same means), Ray Reconstruction (its output's mean its input's).
+
+Checks: thug2_vulkan_rt_materials_check (a material's passes composed - alpha blend, fixed blend, modulate, add, an
+environment first pass black - texel for texel), thug2_vulkan_rt_lights_check (the lamps input on the oil layer: A
+(1 - E) x it at every floor pixel's N.V), thug2_vulkan_restir_gi_check (the room's first two frames with the cache cold:
+within 3 % of the reference's every bounce - -0.1 %; a miss read as 0: -60 %).
+
+Measured (BO at night, the user's three spots, realtime / reference whole picture, before -> after; the references' own
+noise 0.4 - 0.6 %): p1 (the bank) 0.56 -> 1.14 (less the game's additive glows the frame draws and the store doesn't
+emit - 21 % of p1's light, open: 0.94), its lamps' and emitters' direct light 0.43 -> 0.95, its indirect with the
+reflections pass 0.93 -> 0.99; p2 0.83 -> 0.88, direct 0.88 -> 0.95, GI 0.40 -> 0.51; p3 0.60 -> 0.71, direct 0.64 ->
+0.77, GI 0.30 -> 0.29. Open: GI's diffuse under RTXDI's boiling filter (-29 % at p2 - near-lamp bounces are its
+"outliers"), GI's remaining deficit near lamps (p2 0.68 without the filter, p3 ~0.3), the additive glows' single owner.

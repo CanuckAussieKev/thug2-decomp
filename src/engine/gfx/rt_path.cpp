@@ -198,11 +198,13 @@ std::string path_console_command(const std::string& arguments)
                 request.bounces = 1; // (path tracing, stage 4: the direct light alone - ReSTIR DI's yardstick)
             } else if (word == "bounces") {
                 // (round MB) the paths cut at that many bounces: `bounces 2` is what a one-bounce indirect light reaches -
-                // its difference from the whole is the further bounces' share
+                // its difference from the whole is the further bounces' share; (round BIAS) `bounces 0` what the camera
+                // sees emit or shine itself (the emitters, the sky), no light reflected - the realtime `emission` view's
                 std::string most;
                 in >> most;
-                const long bounces = std::strtol(most.c_str(), nullptr, 10);
-                if (bounces <= 0 || bounces > static_cast<long>(kMostBounces)) {
+                char* end = nullptr;
+                const long bounces = std::strtol(most.c_str(), &end, 10);
+                if (end == most.c_str() || bounces < 0 || bounces > static_cast<long>(kMostBounces)) {
                     return kRefUsage;
                 }
                 request.bounces = static_cast<uint32_t>(bounces);
@@ -234,7 +236,8 @@ std::string path_console_command(const std::string& arguments)
             request.ev100 = value;
         }
         request_path_reference(request);
-        const std::string cut = request.bounces == 1                ? ", the direct light alone (one bounce)"
+        const std::string cut = request.bounces == 0   ? ", what the camera sees emit (no bounce)"
+                                : request.bounces == 1 ? ", the direct light alone (one bounce)"
                                 : request.bounces < kMostBounces ? text::format(", %u bounces at most", request.bounces)
                                                                   : std::string();
         get_log("pt: reference asked - %u samples a pixel, EV100 %s, lights %s, light counted: %s%s%s%s%s", request.samples,

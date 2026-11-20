@@ -240,7 +240,7 @@ bool same_material(const rt::Material& a, const rt::Material& b)
            a.colour == b.colour && a.flags == b.flags && a.address_u == b.address_u && a.address_v == b.address_v &&
            a.filter == b.filter && a.reflectivity == b.reflectivity && a.environment_pass == b.environment_pass &&
            a.reflection_class == b.reflection_class && a.reflection_mask == b.reflection_mask &&
-           a.mask_passes == b.mask_passes && a.least_texel_alpha == b.least_texel_alpha;
+           a.mask_passes == b.mask_passes && a.layers == b.layers && a.least_texel_alpha == b.least_texel_alpha;
 }
 
 // The vertex buffer a mesh was last drawn from (MeshRef::render: the current one, then the next is current).
@@ -590,7 +590,40 @@ bool cutout_material(const MaterialRef* material)
     return true;
 }
 
-// A material as a hit shader reads it: its first pass.
+// (round BIAS) The later passes composed over the first into the surface's colour (rt::Material::layers - the game's
+// generated pixel shader's blends, pixel_shaders.cpp): each pass's texture, mode, coordinates, alpha source and colour;
+// the environment-mapped passes black (their colour is the reflection). Modes that compose no colour (0, 11 - the
+// specular's vertex alpha, and the rest) aren't kept.
+void layers_of(const MaterialRef* material, rt::Material* out)
+{
+    const uint32_t passes = std::min(material->pass_count(), kPassCount);
+    for (uint32_t pass = 1; pass < passes && pass <= rt::Material::kLayerPasses; ++pass) {
+        const uint32_t mode = blend_mode(material, pass);
+        const bool composes = (mode >= 1U && mode <= static_cast<uint32_t>(kBlendModeFixBrighten)) ||
+                              mode == static_cast<uint32_t>(kBlendModeLerpPrevious) ||
+                              mode == static_cast<uint32_t>(kBlendModeLerpFromPrevious);
+        if (!composes) {
+            continue;
+        }
+        // (an environment-mapped pass is a painted reflection: composed as black - its alpha kept for the blends -, as
+        // the frame's shading takes it: ff_shaders.cpp environment_texel_black)
+        const float paint = (core::at(material->pass_flags(), pass) & kPassEnvironment) != 0U ? 0.0F : kDoubled;
+        const TextureImage* texture = core::at(material->textures(), pass);
+        const uint32_t address = core::at(material->address_modes(), pass);
+        const std::array<float, 4>& colour = core::at(material->pass_color(), pass);
+        core::at(out->layers, pass - 1) = {
+            .texture = texture != nullptr ? texture->texture : nullptr,
+            .mode = mode,
+            .uv_set = pass,
+            .address_u = sampler_address(address & kLowHalf),
+            .address_v = sampler_address(address >> kHalfBits),
+            .texture_alpha = (core::at(material->pass_flags(), pass) & kPassTextureAlpha) != 0U,
+            .colour = {core::at(colour, 0) * paint, core::at(colour, 1) * paint, core::at(colour, 2) * paint,
+                       std::clamp(core::at(colour, 3), 0.0F, 1.0F)}};
+    }
+}
+
+// A material as a hit shader reads it: its first pass, and (round BIAS) the later ones composed over it.
 rt::Material material_of(const MaterialRef* material)
 {
     rt::Material out;
@@ -633,6 +666,7 @@ rt::Material material_of(const MaterialRef* material)
         out.least_texel_alpha = out.texture == nullptr ? 1.0F : texels.known ? static_cast<float>(texels.least) * kPerByte : 0.0F;
     }
     reflectivity_of(material, &out);
+    layers_of(material, &out);
     return out;
 }
 
@@ -2593,8 +2627,13 @@ std::string describe_screen_point(float across, float down)
         const auto& row = core::at(view, i);
         core::at(direction, i) = (std::get<2>(row) * ahead) + (std::get<0>(row) * x) + (std::get<1>(row) * y);
     }
-    const rt::ProbeResult found =
-        rt->probe({.origin = camera.position, .direction = direction, .max_distance = 100000.0F});
+    // (round BIAS) the surface under what adds light over it (mask 0x40 - glows, cards, a window's lit panes drawn
+    // additively: light passes them whole, the frame shades what is behind) - those reported below as seen in front
+    constexpr uint32_t kAddsLightMask = 0x40;
+    const rt::ProbeResult found = rt->probe({.origin = camera.position,
+                                             .direction = direction,
+                                             .max_distance = 100000.0F,
+                                             .cull_mask = rt::kAllMasks & ~kAddsLightMask});
     if (!found.traced || !found.hit) {
         return text::format("rt probe %.3f %.3f: %s", static_cast<double>(across), static_cast<double>(down),
                             found.traced ? "miss" : "no scene");

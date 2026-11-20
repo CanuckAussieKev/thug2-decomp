@@ -2980,7 +2980,19 @@ vec3 store_emission(vec3 emit, vec3 linear, float alpha, uint texels)
 {
     return lamp_texel_shown(linear, alpha, texels) ? emit * linear : vec3(0.0);
 }
-// (round PT4b) The light a triangle of the world sends at a point (hit_surface's `emitted` alone - no normals, no
+// (round BIAS) The surface's colour at a hit as the frame's shading has it: its passes composed as the game composes
+// them (vulkan_rt_materials.h material_colour), each layer at its own texture coordinate set. Every ray's base colour and
+// emission read it - one definition of the surface with the frame.
+vec4 hit_composed_colour(uint instance, uint primitive, uint id, vec2 barycentrics, vec2 uv, float vertex_alpha)
+{
+    Material m = material(id);
+    vec2 layer_uv[3];
+    for (uint k = 0u; k < 3u; ++k) {
+        layer_uv[k] = (m.layer_mode[k] & 255u) != 0u ? hit_uv_set(instance, primitive, barycentrics, (m.layer_mode[k] >> 8) & 15u)
+                                                     : uv;
+    }
+    return material_colour(id, uv, layer_uv, vertex_alpha);
+}// (round PT4b) The light a triangle of the world sends at a point (hit_surface's `emitted` alone - no normals, no
 // material: ReSTIR DI's target evaluates it at every candidate); false where nothing is there (a cut-out texel, a hidden
 // mesh). (Round P10) An object's from its store as a world mesh's: an object drawn with its own colours is relit where it
 // stands (its tint and emission taken apart by the bake); one without a store sends nothing.
@@ -3006,7 +3018,7 @@ bool hit_emission(uint instance, uint primitive, uint id, vec2 barycentrics, out
     if (hidden) {
         return false;
     }
-    vec4 texel = material_texel_lod(id, uv, 0.0) * surface.colour;
+    vec4 texel = hit_composed_colour(instance, primitive, id, barycentrics, uv, hit_colour(v, barycentrics).a);
     emitted = store_emission(emit, linear_from_display(clamp(texel.rgb, 0.0, 1.0)),
                              material_drawn_alpha(id, uv, hit_colour(v, barycentrics).a), texels);
     return true;
@@ -3055,7 +3067,7 @@ bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4
     }
     Material surface = material(id);
     vec2 uv = hit_uv_set(instance, primitive, barycentrics, surface.uv_set);
-    vec4 texel = material_texel_lod(id, uv, 0.0) * surface.colour;
+    vec4 texel = hit_composed_colour(instance, primitive, id, barycentrics, uv, hit_colour(v, barycentrics).a);
     // (stage 3: the alpha the game draws and tests - material_drawn_alpha -, not x the pass's fixed alpha)
     s.alpha = material_drawn_alpha(id, uv, hit_colour(v, barycentrics).a);
     s.cut_out = !material_alpha_passes(id, s.alpha);

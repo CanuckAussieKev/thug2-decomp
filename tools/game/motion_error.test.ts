@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
     cameraMotion,
     cameraPoseAt,
+    cellMeans,
     compare,
     display,
     halfToFloat,
@@ -14,8 +15,10 @@ import {
     type Picture,
     parseFrames,
     planCommands,
+    planTermCommands,
     readExr,
     type TapFrame,
+    termRows,
 } from "./motion_error.ts";
 
 // An uncompressed scanline EXR as the game writes it (vulkan_path_reference.cpp exr_half_bytes): B, G, R halves.
@@ -175,4 +178,48 @@ test("the plan holds, moves, captures and references every motion", () => {
     assert.ok(lines.some((l) => /^camera .* 3 30$/.test(l)));
     assert.equal(lines.filter((l) => l.startsWith("console pt frames 8 mv/p1/seed_pan_")).length, 2);
     assert.equal(lines.at(-3), "console measure off");
+});
+
+test("terms: a picture's cell means and the whole", () => {
+    const p: Picture = { width: 4, height: 2, rgb: new Float32Array(4 * 2 * 3) };
+    for (let i = 0; i < 8; i++) p.rgb.fill(i < 4 ? 0 : 1, i * 3, i * 3 + 3); // the top row 0, the bottom 1
+    const m = cellMeans(p, 2, 2);
+    assert.equal(m.length, 5);
+    assert.ok(Math.abs(m[0]!) < 1e-9 && Math.abs(m[2]! - 1) < 1e-6 && Math.abs(m[4]! - 0.5) < 1e-6);
+});
+
+test("terms: each realtime view less the emission it holds, against the reference's same light", () => {
+    const rt = new Map<string, number[]>([
+        ["off", [10]],
+        ["lamps", [5]],
+        ["lamps_specular", [3]],
+        ["emission", [1]],
+        ["gi", [2]],
+        ["gi_specular", [1.5]],
+        ["sky", [1.2]],
+        ["reflections", [1.5]],
+    ]);
+    const ref = new Map<string, number[]>([
+        ["full", [12]],
+        ["direct", [9]],
+        ["b0_emit", [0.5]],
+        ["b0_distant", [0.1]],
+        ["local_direct", [6.5]],
+        ["distant_direct", [0.3]],
+    ]);
+    const rows = new Map(termRows(rt, ref).map((r) => [r.term.trim(), r]));
+    assert.deepEqual(rows.get("local direct (DI)")!.realtime, [6]); // 5 + 3 - 2 x 1
+    assert.deepEqual(rows.get("local direct (DI)")!.reference, [6]); // 6.5 - 0.5
+    assert.deepEqual(rows.get("indirect (GI)")!.realtime, [1.5]);
+    assert.deepEqual(rows.get("indirect (GI)")!.reference, [3]);
+    assert.ok(Math.abs(rows.get("emission + sky seen")!.reference[0]! - 0.6) < 1e-9);
+    assert.ok(Math.abs(rows.get("disc + sky direct")!.realtime[0]! - 0.2) < 1e-9);
+});
+
+test("terms: the session holds each view, then the references", () => {
+    const lines = planTermCommands(kSpots[0]!, 256, "_t");
+    assert.ok(lines.includes("console set rt_debug_view emission"));
+    assert.ok(lines.some((l) => l.startsWith("console pt frames 1 bias/p1_t/rt_lamps ")));
+    assert.ok(lines.includes("console pt ref 256 0.89 only emit bounces 0 as bias_p1_t_b0_emit"));
+    assert.equal(lines.filter((l) => l === "waitfor pt 3000").length, 10);
 });

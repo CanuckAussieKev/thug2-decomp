@@ -423,27 +423,23 @@ vec3 sample_light(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rn
         if (max(f.r, max(f.g, f.b)) <= 0.0) {
             return vec3(0.0);
         }
-        uint hit_instance;
-        uint hit_primitive;
-        uint hit_id;
-        vec2 hit_bary;
-        float t;
-        mat4x3 hit_world;
-        if (!trace_closest(p, dir, d * 1.001 + ray_offset(y), hit_instance, hit_primitive, hit_id, hit_bary, t, hit_world) ||
-            hit_instance != entry.x || hit_primitive != entry.y) {
-            return vec3(0.0);
-        }
+        // (round BIAS) the sampled point's own surface - its emission there - and the light ray to it (ray_light: nothing
+        // solid before it, the seen-through surfaces' transmittance), as ReSTIR DI's light_point and the list's other
+        // readers take an emitter: an emitter that is itself seen through or adds light (a lamp's globe, a lit pane - mask
+        // 0x80 / 0x40, which no light ray stops at) is listed and sampled like any other. Before, the light ray had to stop
+        // on the triangle itself, so such emitters weren't listed and their light came by the BSDF's rays alone.
         HitSurface s;
-        if (!hit_surface(hit_instance, hit_primitive, hit_id, hit_bary, hit_world, dir, s) || !(s.area > 0.0)) {
+        if (!hit_surface(entry.x, entry.y, instance_material(entry.x), b.yz, to_world, dir, s) || !(s.area > 0.0) ||
+            s.cut_out || s.hidden) {
             return vec3(0.0);
         }
         float cos_light = abs(dot(s.normal, dir));
         if (!(cos_light > 0.0)) {
             return vec3(0.0);
         }
-        float pdf = e.pdf / s.area * t * t / cos_light;
+        float pdf = e.pdf / s.area * d * d / cos_light;
         float w = mis ? path_power_heuristic(pdf, path_bsdf_pdf(m, n, v, dir)) : 1.0;
-        return f * s.emitted * path_seen_through(p, dir, t) * (w / pdf); // (stage 3: the blended surfaces between)
+        return f * s.emitted * transmittance(p, dir, max(d * 0.999 - ray_offset(y), 0.0)) * (w / pdf);
     }
     LightRecord light = lamps[light_index(e.payload)];
     vec3 from;
@@ -516,7 +512,19 @@ vec3 trace_path(vec3 origin, vec3 dir, inout uint rng)
             }
             ++crossed;
             if (blend.kind == HIT_ADDED) {
-                radiance += weight * s.emitted * counted(LIGHT_TRIANGLE);
+                // (round BIAS: an added surface that emits is listed - next-event estimation samples it too - so a BSDF
+                // ray that meets it takes the MIS weight as an opaque emitter does)
+                uint added_slot = listed_slot(instance, primitive);
+                float added_w = 1.0;
+                if (depth > 0u && strategy == STRATEGY_MIS && added_slot != 0u) {
+                    float cos_light = abs(dot(s.normal, dir));
+                    float light_pdf = cos_light > 0.0 && s.area > 0.0 ?
+                        light_entries[LIST_TRIANGLES + added_slot - 1u].pdf / s.area * t * t / cos_light : 0.0;
+                    added_w = path_power_heuristic(last_pdf, light_pdf);
+                } else if (depth > 0u && strategy == STRATEGY_LIGHTS && added_slot != 0u) {
+                    added_w = 0.0;
+                }
+                radiance += weight * s.emitted * counted(LIGHT_TRIANGLE) * added_w;
             } else if (blend.kind == HIT_FILTER) {
                 weight *= blend.tint;
             } else if (path_next(rng) < hit_glass_reflectance(dot(s.normal, dir))) {
@@ -1979,6 +1987,7 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
     if (checking && own.overrides.force_material) {
         block.force = {own.overrides.roughness, own.overrides.f0, own.overrides.albedo_scale, 1.0F};
     }
+
     block.output = {rt::frame_pre_exposure(), 0.0F, 0.0F, 0.0F};
     block.counts = {own.instances, own.lamp_count, own.triangles, 0U};
     const bool ready = own.phase == ListPhase::kReady && (!own.cloud_map || map_now);

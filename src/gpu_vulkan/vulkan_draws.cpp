@@ -399,6 +399,15 @@ bool set_uniforms(Backend& state, const GpuStateBlock& block, const VertexKey& k
         core::at(fragment.alpha_reference, 1) = 1.0F;
         core::at(fragment.alpha_reference, 2) = static_cast<float>(linear_stages);
     }
+    // (NOT ORIGINAL - round BIAS) the stages sampled along the reflection vector - the game's environment maps (w: a bit
+    // per stage): a surface lit per pixel takes no albedo from them (ff_shaders.cpp environment_texel_black)
+    uint32_t environment_stages = 0;
+    for (uint32_t stage = 0; stage < kStageCount; ++stage) {
+        if ((key.coord_mask & (1U << stage)) != 0U && core::at(key.coords, stage).gen == TexGen::kCameraSpaceReflection) {
+            environment_stages |= 1U << stage;
+        }
+    }
+    core::at(fragment.alpha_reference, 3) = static_cast<float>(environment_stages);
     // NOT ORIGINAL - the upscaler (vulkan_motion.h): the frame before's transforms; a scaled view's pre-transformed
     // positions put into its drawn part
     if (key.motion != 0U) {

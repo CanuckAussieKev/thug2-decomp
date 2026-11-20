@@ -20,7 +20,7 @@
 //
 // The descriptor set (layout(): bind it at any set number - the GLSL below reads THUG2_MATERIAL_SET, 1 by default):
 //   binding 0  readonly buffer, scalar layout: MaterialRecord records[] - row n is MaterialId n (ids are never reused,
-//              so the rows grow with the session: 92 bytes each); row 0 and rows never set are untextured white
+//              so the rows grow with the session: kMaterialRecordBytes each); row 0 and rows never set are untextured white
 //   binding 1  sampler samplers[kMaterialSamplerCount] - address u x address v (wrap, mirror, clamp, border transparent
 //              black) x filter (nearest, linear), written once per set; sampled at an explicit level (a ray has no
 //              derivatives), so no anisotropy. (Not immutable samplers: the AMD driver here read every index of an
@@ -54,7 +54,7 @@ inline constexpr uint32_t kMaterialRecordsBinding = 0;
 inline constexpr uint32_t kMaterialSamplersBinding = 1;
 inline constexpr uint32_t kMaterialTexturesBinding = 2;
 
-// A row of binding 0 (scalar layout: 112 bytes). The GLSL's `Material` has the same members in the same order.
+// A row of binding 0 (scalar layout: 196 bytes). The GLSL's `Material` has the same members in the same order.
 struct MaterialRecord {
     uint32_t texture = 0; // slot in textures[] (0: white)
     uint32_t sampler = 0; // index in samplers[]
@@ -92,8 +92,17 @@ struct MaterialRecord {
     // (added for the surface reflections' floor) the roughness the surface's reflection never goes under (its kind's:
     // stone, paint and wood are never mirrors whatever their maps say)
     float least_roughness = 0.0F;
+    // (round BIAS) rt::Material::layers: each later pass composed over the first - its texture slot (0: white), sampler
+    // index, mode word (its blend mode in bits 0 - 7, its coordinate set in 8 - 11, kLayerTextureAlpha; 0: none) and its
+    // colour (doubled) with its fixed alpha
+    std::array<uint32_t, rt::Material::kLayerPasses> layer_texture{};
+    std::array<uint32_t, rt::Material::kLayerPasses> layer_sampler{};
+    std::array<uint32_t, rt::Material::kLayerPasses> layer_mode{};
+    std::array<std::array<float, 4>, rt::Material::kLayerPasses> layer_colour{};
 };
-inline constexpr std::size_t kMaterialRecordBytes = 112;
+inline constexpr std::size_t kMaterialRecordBytes = 196;
+inline constexpr uint32_t kLayerUvSetShift = 8;
+inline constexpr uint32_t kLayerTextureAlpha = 1U << 12;
 inline constexpr uint32_t kMaskUvSetShift = 4;
 inline constexpr uint32_t kMaskTextureAlpha = 1U << 8; // the alpha the texel's alone (else x the vertex alpha, doubled)
 static_assert(sizeof(MaterialRecord) == kMaterialRecordBytes);
@@ -103,7 +112,8 @@ uint32_t material_sampler_index(const rt::Material& material);
 // A record as the table writes it for `material` with its texture in `slot` (its mask passes' textures in
 // `mask_slots`; no surface map: the table adds it).
 MaterialRecord material_record(const rt::Material& material, uint32_t slot,
-                               const std::array<uint32_t, rt::Material::kMaskPasses>& mask_slots = {});
+                               const std::array<uint32_t, rt::Material::kMaskPasses>& mask_slots = {},
+                               const std::array<uint32_t, rt::Material::kLayerPasses>& layer_slots = {});
 // MaterialRecord::f0 for `material` whose surface map's class gives `map_f0` (0: no map): water's reflection class wins.
 [[nodiscard]] float record_f0(const rt::Material& material, float map_f0);
 // (added for the surface reflections) A record whose material isn't water or glass and isn't seen through, its texture
@@ -119,7 +129,8 @@ void surface_reflection(const rt::Material& material, const Texture* colour, Mat
 //                     vec4 colour; float reflectivity; uint environment_pass;
 //                     uint reflection_class; uint reflection_mask; uint surface_slot; float f0;
 //                     uint mask_texture[3]; uint mask_sampler[3]; uint mask_mode[3];
-//                     float kind_roughness; float kind_roughness_weight; float least_roughness; };
+//                     float kind_roughness; float kind_roughness_weight; float least_roughness;
+//                     uint layer_texture[3]; uint layer_sampler[3]; uint layer_mode[3]; vec4 layer_colour[3]; };
 //   const uint MATERIAL_ALPHA_TESTED = 2u, MATERIAL_TRANSPARENT = 64u;   (rt::InstanceFlag's values)
 //   Material material(uint id)                       - the record (id: rt::MaterialId; 0: untextured white)
 //   vec4 material_texel(uint id, vec2 uv)            - its texture at level 0 through its sampler (non-uniform indexing)
@@ -139,6 +150,12 @@ void surface_reflection(const rt::Material& material, const Texture* colour, Mat
 //                                                      without a map
 //   float material_mask_alpha(uint id, uint k, vec2 uv, float lod) - mask pass k's texel alpha (uv: its set's
 //                                                      coordinates, (mask_mode[k] >> 4) & 15)
+//   (round BIAS) vec4 material_colour(uint id, vec2 uv, vec2 layer_uv[3], float vertex_alpha) - the surface's colour as
+//                                                      the game composes its passes (display-referred, before the
+//                                                      vertex colour): the first pass's texel x colour, each layer
+//                                                      blended into it by its mode; alpha the first pass's texel's.
+//                                                      layer_uv[k]: layer k's set's coordinates
+//                                                      ((layer_mode[k] >> 8) & 15); vertex_alpha as material_drawn_alpha's
 // The UVs are the caller's: the material says which set (uv_set) its texture uses.
 std::string_view material_glsl();
 
@@ -242,6 +259,7 @@ private:
     std::vector<MaterialRecord> records_;           // by MaterialId
     std::vector<Texture*> record_textures_;         // by MaterialId: the texture its slot came from
     std::vector<std::array<Texture*, rt::Material::kMaskPasses>> record_mask_textures_; // ... its mask passes'
+    std::vector<std::array<Texture*, rt::Material::kLayerPasses>> record_layer_textures_; // (round BIAS) its layers'
     std::vector<uint32_t> dirty_;                   // rows changed since the last make_visible
     std::vector<uint8_t> dirty_mark_;               // by row
     std::unordered_map<Texture*, uint32_t> slots_;  // the textures with a slot

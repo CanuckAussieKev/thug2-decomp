@@ -13,6 +13,13 @@
 //     those with history; the references' own noise taken out.
 //   node tools/game/motion_error.ts compare <a.exr> <b.exr> [--exposure E] [--grid CxR]
 //     two linear pictures: their means and the display-space error, whole and per cell.
+//   node tools/game/motion_error.ts terms <spot> [--ref-samples N] [--tag t] [--out file]
+//     (round BIAS) the light term by term, the camera held: each realtime view converged (rt_debug_view, 400 frames)
+//     and the reference's matching light (`pt ref` with only / direct / bounces 0, 1, 2) at the spot's pose.
+//   node tools/game/motion_error.ts terms-analyse <Screenshots folder> <spot> [--tag t] [--grid CxR] [--json out.json]
+//     realtime / reference per term (each view less the emission it holds), whole and per cell.
+//   node tools/game/motion_error.ts pair <a.exr> [b.exr ...] <out.png> [--exposure E]
+//     linear pictures side by side through one exposure (`pt frames` ones taken to the global unit first).
 //   node tools/game/motion_error.ts motion <folder>
 //     Ray Reconstruction's motion vectors (`pt frames ... inputs`) against the depth and the two frames' cameras (a
 //     frozen world: the camera's motion is all there is), and the albedo guide of the frame before fetched through them.
@@ -29,7 +36,10 @@ const USAGE =
     "usage: motion_error.ts plan <spot> [--motions pan,turn,dolly] [--terms off,...] [--ref-samples N] [--seeds N] [--out file]\n" +
     "       motion_error.ts analyse <Screenshots folder> <spot> [--json out.json] [--crops folder]\n" +
     "       motion_error.ts compare <a.exr> <b.exr> [--exposure E] [--grid CxR]\n" +
-    "       motion_error.ts motion <pt frames ... inputs folder>";
+    "       motion_error.ts motion <pt frames ... inputs folder>\n" +
+    "       motion_error.ts terms <spot> [--ref-samples N] [--tag t] [--out file]\n" +
+    "       motion_error.ts terms-analyse <Screenshots folder> <spot> [--tag t] [--grid CxR] [--json out.json]\n" +
+    "       motion_error.ts pair <a.exr> [b.exr ...] <out.png> [--exposure E]";
 
 // --- linear pictures ---------------------------------------------------------------------------------------------------
 
@@ -959,6 +969,290 @@ function compareCommand(a: string, b: string, exposure: number, grid: string): n
     return 0;
 }
 
+// --- (round BIAS) the light term by term against the reference, the camera held ---------------------------------------
+
+// The realtime views captured converged (each holds the surfaces' own emission: the `emission` view is that alone).
+export const kTermViews = [
+    "off",
+    "lamps",
+    "lamps_specular",
+    "gi",
+    "gi_specular",
+    "sky",
+    "reflections",
+    "fog",
+    "front",
+    "emission",
+];
+// The references: a name and its `pt ref` words. `b0_*` what the camera sees emit (no bounce), `*_direct` one bounce.
+export const kTermReferences: { name: string; words: string }[] = [
+    { name: "full", words: "" },
+    { name: "full2", words: "" },
+    { name: "direct", words: "direct" },
+    { name: "b2", words: "bounces 2" },
+    { name: "b0_emit", words: "only emit bounces 0" },
+    { name: "b0_distant", words: "only disc,sky bounces 0" },
+    { name: "local_direct", words: "only emit,lamps direct" },
+    { name: "emit_direct", words: "only emit direct" },
+    { name: "lamps_direct", words: "only lamps direct" },
+    { name: "distant_direct", words: "only disc,sky direct" },
+];
+export const kTermConvergeFrames = 400;
+
+export function planTermCommands(spot: Spot, refSamples: number, tag = ""): string[] {
+    const folder = `bias/${spot.name}${tag}`;
+    const pose = `camera ${fixed(spot.camera)} ${fixed(spot.direction, 6)}`;
+    const out: string[] = [
+        "waitfor level bo 600",
+        `teleport ${fixed(spot.skater, 1)} ${spot.heading}`,
+        "wait 90",
+        "console measure on",
+        pose,
+    ];
+    for (const view of kTermViews) {
+        out.push(`console set rt_debug_view ${view}`, `wait ${kTermConvergeFrames}`);
+        out.push(`console pt frames 1 ${folder}/rt_${view} 1`, "wait 3");
+    }
+    out.push("console set rt_debug_view off", "wait 60");
+    for (const ref of kTermReferences) {
+        const words = ref.words ? ` ${ref.words}` : "";
+        out.push(
+            `console pt ref ${refSamples} ${kEv100}${words} as bias_${spot.name}${tag}_${ref.name}`,
+            "waitfor pt 3000",
+            "console pt off",
+            "wait 5",
+        );
+    }
+    out.push("console measure off", "camera off", "wait 5");
+    return out;
+}
+
+// A picture's mean luma over the cells of a grid (the last: the whole picture).
+export function cellMeans(p: Picture, cols: number, rows: number): number[] {
+    const sums = new Array<number>(cols * rows + 1).fill(0);
+    const counts = new Array<number>(cols * rows + 1).fill(0);
+    for (let y = 0; y < p.height; y++) {
+        const r = Math.min(rows - 1, Math.floor((y * rows) / p.height));
+        for (let x = 0; x < p.width; x++) {
+            const c = Math.min(cols - 1, Math.floor((x * cols) / p.width));
+            const i = (y * p.width + x) * 3;
+            const l = luma(p.rgb[i]!, p.rgb[i + 1]!, p.rgb[i + 2]!);
+            if (!Number.isFinite(l)) continue;
+            sums[r * cols + c]! += l;
+            counts[r * cols + c]!++;
+            sums[cols * rows]! += l;
+            counts[cols * rows]!++;
+        }
+    }
+    return sums.map((s, i) => (counts[i]! > 0 ? s / counts[i]! : 0));
+}
+
+// The comparisons: each realtime term (its view less the emission every view holds) against the reference's same light.
+export interface TermRow {
+    term: string;
+    realtime: number[];
+    reference: number[];
+}
+export function termRows(rt: Map<string, number[]>, ref: Map<string, number[]>): TermRow[] {
+    const cells = (rt.get("off") ?? ref.get("full") ?? []).length;
+    const pick = (m: Map<string, number[]>, name: string): number[] =>
+        m.get(name) ?? new Array<number>(cells).fill(Number.NaN);
+    const combine = (parts: [Map<string, number[]>, string, number][]): number[] =>
+        Array.from({ length: cells }, (_, i) =>
+            parts.reduce((s, [m, name, k]) => (k === 0 ? s : s + k * pick(m, name)[i]!), 0),
+        );
+    const fullMean = combine([
+        [ref, "full", 0.5],
+        [ref, "full2", 0.5],
+    ]);
+    return [
+        { term: "whole", realtime: pick(rt, "off"), reference: ref.has("full2") ? fullMean : pick(ref, "full") },
+        // (what the camera sees shine itself: the surfaces' emission and the sky - the realtime view holds both)
+        {
+            term: "emission + sky seen",
+            realtime: pick(rt, "emission"),
+            reference: combine([
+                [ref, "b0_emit", 1],
+                [ref, "b0_distant", 1],
+            ]),
+        },
+        {
+            term: "  emitters seen",
+            realtime: new Array<number>(cells).fill(Number.NaN),
+            reference: pick(ref, "b0_emit"),
+        },
+        {
+            term: "local direct (DI)",
+            realtime: combine([
+                [rt, "lamps", 1],
+                [rt, "lamps_specular", 1],
+                [rt, "emission", -2],
+            ]),
+            reference: combine([
+                [ref, "local_direct", 1],
+                [ref, "b0_emit", -1],
+            ]),
+        },
+        {
+            term: "  emitters direct",
+            realtime: new Array<number>(cells).fill(Number.NaN),
+            reference: combine([
+                [ref, "emit_direct", 1],
+                [ref, "b0_emit", -1],
+            ]),
+        },
+        {
+            term: "  lamps direct",
+            realtime: new Array<number>(cells).fill(Number.NaN),
+            reference: pick(ref, "lamps_direct"),
+        },
+        {
+            term: "disc + sky direct",
+            realtime: combine([
+                [rt, "sky", 1],
+                [rt, "emission", -1],
+            ]),
+            reference: combine([
+                [ref, "distant_direct", 1],
+                [ref, "b0_distant", -1],
+            ]),
+        },
+        {
+            term: "indirect (GI)",
+            realtime: combine([
+                [rt, "gi", 1],
+                [rt, "gi_specular", 1],
+                [rt, "emission", -2],
+            ]),
+            reference: combine([
+                [ref, "full", ref.has("full2") ? 0.5 : 1],
+                [ref, "full2", ref.has("full2") ? 0.5 : 0],
+                [ref, "direct", -1],
+            ]),
+        },
+        {
+            // (the reflections pass is the frame's second specular estimator - the game's shine, glass and water: its
+            // light is indirect too, the reference's paths hold it)
+            term: "  + reflections",
+            realtime: combine([
+                [rt, "gi", 1],
+                [rt, "gi_specular", 1],
+                [rt, "reflections", 1],
+                [rt, "emission", -3],
+            ]),
+            reference: combine([
+                [ref, "full", ref.has("full2") ? 0.5 : 1],
+                [ref, "full2", ref.has("full2") ? 0.5 : 0],
+                [ref, "direct", -1],
+            ]),
+        },
+        {
+            term: "  one bounce",
+            realtime: new Array<number>(cells).fill(Number.NaN),
+            reference: combine([
+                [ref, "b2", 1],
+                [ref, "direct", -1],
+            ]),
+        },
+        {
+            term: "reflections",
+            realtime: combine([
+                [rt, "reflections", 1],
+                [rt, "emission", -1],
+            ]),
+            reference: new Array<number>(cells).fill(Number.NaN),
+        },
+        {
+            term: "fog",
+            realtime: combine([
+                [rt, "fog", 1],
+                [rt, "emission", -1],
+            ]),
+            reference: new Array<number>(cells).fill(Number.NaN),
+        },
+        {
+            term: "front",
+            realtime: combine([
+                [rt, "front", 1],
+                [rt, "emission", -1],
+            ]),
+            reference: new Array<number>(cells).fill(Number.NaN),
+        },
+        {
+            term: "reference noise",
+            realtime: pick(ref, "full"),
+            reference: pick(ref, "full2"),
+        },
+    ];
+}
+
+// A linear picture in the global unit: a `pt frames` frame (frames.txt beside it) over its pre-exposure, a reference as
+// it is.
+function globalUnit(file: string): Picture {
+    const list = path.join(path.dirname(file), "frames.txt");
+    if (!fs.existsSync(list)) return readExr(fs.readFileSync(file));
+    const k = Number(/frame_(\d+)\.exr$/.exec(file)?.[1] ?? "1");
+    const frame = parseFrames(fs.readFileSync(list, "utf8"))[k - 1];
+    return frame ? loadLinear(file, frame.preExposure) : readExr(fs.readFileSync(file));
+}
+
+// Pictures side by side (each through the same exposure, ACES + sRGB) as one PNG - e.g. realtime | reference.
+function pairCommand(files: string[], out: string, exposure: number): number {
+    const pictures = files.map(globalUnit);
+    const width = pictures.reduce((s, p) => s + p.width, 0);
+    const height = Math.max(...pictures.map((p) => p.height));
+    const rgb = new Uint8Array(width * height * 3);
+    let x0 = 0;
+    for (const p of pictures) {
+        const shown = crop(display(p, exposure), p.width, 0, 0, p.width, p.height);
+        for (let y = 0; y < p.height; y++)
+            rgb.set(shown.subarray(y * p.width * 3, (y + 1) * p.width * 3), (y * width + x0) * 3);
+        x0 += p.width;
+    }
+    fs.writeFileSync(out, encodePng({ width, height, rgb }));
+    print(`wrote ${out} (${width} x ${height})`);
+    return 0;
+}
+
+function termsAnalyse(root: string, spotName: string, tag: string, grid: string, json?: string): number {
+    const [cols, rows] = grid.split("x").map(Number) as [number, number];
+    const rt = new Map<string, number[]>();
+    const ref = new Map<string, number[]>();
+    for (const view of kTermViews) {
+        const file = path.join(root, "bias", `${spotName}${tag}`, `rt_${view}`, "frame_0001.exr");
+        if (fs.existsSync(file)) rt.set(view, cellMeans(globalUnit(file), cols, rows));
+    }
+    for (const r of kTermReferences) {
+        const file = path.join(root, `bias_${spotName}${tag}_${r.name}_reference.exr`);
+        if (fs.existsSync(file)) ref.set(r.name, cellMeans(readExr(fs.readFileSync(file)), cols, rows));
+    }
+    const rowsOut = termRows(rt, ref);
+    const n = cols * rows;
+    const f = (v: number): string => (Number.isFinite(v) ? v.toPrecision(3) : "-");
+    print(
+        `${spotName}${tag}: realtime / reference (mean luma, global unit) - whole picture, then the ${grid} cells' ratios`,
+    );
+    for (const row of rowsOut) {
+        const a = row.realtime[n]!;
+        const b = row.reference[n]!;
+        const ratio = Number.isFinite(a) && Number.isFinite(b) && b !== 0 ? (a / b).toFixed(3) : "-";
+        print(`${row.term.padEnd(20)} ${f(a).padStart(9)} ${f(b).padStart(9)}  x ${ratio}`);
+        if (Number.isFinite(a) && Number.isFinite(b)) {
+            for (let r = 0; r < rows; r++) {
+                const cells: string[] = [];
+                for (let c = 0; c < cols; c++) {
+                    const i = r * cols + c;
+                    const x = row.reference[i]! !== 0 ? row.realtime[i]! / row.reference[i]! : Number.NaN;
+                    cells.push((Number.isFinite(x) ? x.toFixed(2) : "-").padStart(6));
+                }
+                print(`${"".padEnd(24)}${cells.join("")}`);
+            }
+        }
+    }
+    if (json) fs.writeFileSync(json, JSON.stringify({ spot: spotName + tag, grid, rows: rowsOut }, null, 1));
+    return 0;
+}
+
 function main(): number {
     const { values, positionals } = parseCli(USAGE, {
         options: {
@@ -1007,6 +1301,28 @@ function main(): number {
             values.tag as string,
             Number(values.display),
         );
+    if (verb === "terms" && rest.length === 1) {
+        const spot = kSpots.find((s) => s.name === rest[0]);
+        if (!spot) {
+            print(`no spot ${rest[0]} (p1, p2, p3)`);
+            return 2;
+        }
+        const samples = values["ref-samples"] === "2048" ? 1024 : Number(values["ref-samples"]);
+        const text = planTermCommands(spot, samples, values.tag as string).join("\n") + "\n";
+        if (values.out) fs.writeFileSync(values.out as string, text);
+        else print(text);
+        return 0;
+    }
+    if (verb === "terms-analyse" && rest.length === 2)
+        return termsAnalyse(
+            rest[0]!,
+            rest[1]!,
+            values.tag as string,
+            values.grid as string,
+            values.json as string | undefined,
+        );
+    if (verb === "pair" && rest.length >= 2)
+        return pairCommand(rest.slice(0, -1), rest[rest.length - 1]!, Number(values.exposure));
     if (verb === "motion" && rest.length === 1) return motionCommand(rest[0]!);
     if (verb === "compare" && rest.length === 2)
         return compareCommand(rest[0]!, rest[1]!, Number(values.exposure), values.grid as string);
