@@ -2,6 +2,9 @@
 
 #include <span>
 #include <string>
+#include <vector>
+
+#include "platform/screenshot_files.h"
 
 // NOT ORIGINAL - the screenshot key (ours, added at the user's request: "to reference to you things that I have
 // noticed"; not the game's and not PartyMod's).
@@ -72,5 +75,14 @@ std::string start_series(int frames, const std::string& folder, SeriesOptions op
 bool series_running();
 // The last series' result: "ok: <n> frames in <folder>" or "error: ...".
 std::string series_result();
+
+// NOT ORIGINAL - for the clip recorder (devtools/clip.h), which builds its sidecar the same way: the sidecar's
+// sections (screenshot, build, game, skater, camera + the extensions') for a picture of this size, read now.
+std::vector<Section> state_sections(int width, int height, const std::string& taken);
+// A number that changes when the level or scene changes (the clip stops then).
+uint32_t level_key();
+// The output folder named by [features] <setting_key> (else `default_name`; relative: to the game folder), made if it
+// isn't there, ending in a backslash; "" if it can't be made.
+std::string make_output_folder(const char* setting_key, const char* default_name);
 
 } // namespace sys::screenshot

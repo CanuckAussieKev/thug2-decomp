@@ -392,7 +392,7 @@ void tick_message()
 
 // --- taking and writing ---
 
-std::string get_folder();
+std::string get_folder(const char* setting_key = "screenshot_dir", const char* default_name = "Screenshots");
 
 // The disk's part of a picture, on the worker: the folder made, the name picked (a free one of the stem), the sidecar's
 // fields that name files or stat them filled in and its text made. False (job.error says why) when there is no folder
@@ -486,16 +486,16 @@ void emit_out(const std::shared_ptr<Job>& job)
 }
 
 // The folder (ending in a backslash): [features] screenshot_dir or Screenshots, in the game folder unless absolute.
-std::string folder_path()
+std::string folder_path(const char* setting_key = "screenshot_dir", const char* default_name = "Screenshots")
 {
     std::array<char, MAX_PATH> setting = {""};
-    build_info::fetch_text("features", "screenshot_dir", "", setting.data(), sizeof(setting));
+    build_info::fetch_text("features", setting_key, "", setting.data(), sizeof(setting));
     std::string folder = setting.data();
     while (!folder.empty() && (folder.back() == ' ' || folder.back() == '\t')) {
         folder.pop_back();
     }
     if (folder.empty()) {
-        folder = "Screenshots";
+        folder = default_name;
     }
     const bool absolute = folder.size() >= 2 && (core::at(folder, 1) == ':' || (core::at(folder, 0) == '\\' && core::at(folder, 1) == '\\'));
     if (!absolute) {
@@ -513,9 +513,9 @@ std::string folder_path()
 }
 
 // The folder, made if it isn't there; "" if it can't be.
-std::string get_folder()
+std::string get_folder(const char* setting_key, const char* default_name)
 {
-    std::string folder = folder_path();
+    std::string folder = folder_path(setting_key, default_name);
     fs::disk().make_folders(folder.c_str());
     if (fs::disk().kind(folder.c_str()) != fs::PathKind::kFolder) {
         get_log("screenshot: can't make the folder %s", folder.c_str());
@@ -928,6 +928,22 @@ void note_view(int viewport, std::span<const float, 3> position, std::span<const
     }
     view().frame = frame_loop::frames_run();
     view().noted = true;
+}
+
+std::vector<Section> state_sections(int width, int height, const std::string& taken)
+{
+    TickCycle frame;
+    frame.width = width;
+    frame.height = height;
+    frame.format = PixelFormat::kX8r8g8b8;
+    return gather_sections(frame, {.png = "", .folder = "", .taken = taken});
+}
+
+uint32_t level_key() { return current_load_state() ^ (main_scene_key() * 31U); }
+
+std::string make_output_folder(const char* setting_key, const char* default_name)
+{
+    return get_folder(setting_key, default_name);
 }
 
 } // namespace sys::screenshot

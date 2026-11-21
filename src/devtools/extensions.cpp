@@ -7,6 +7,7 @@
 #include <string>
 
 #include "devtools/automation.h"
+#include "devtools/clip.h"
 #include "devtools/restart_tester.h"
 #include "devtools/screenshot.h"
 #include "game/rider/test_view.h"
@@ -83,9 +84,23 @@ namespace sys::screenshot {
 namespace {
 class ScreenshotExtension final : public ext::Extension {
 public:
-    void prepare_input() override { prepare_all(); }
+    void prepare_input() override
+    {
+        prepare_all();
+        clip::prepare_all();
+    }
+    void device_lost() override { clip::device_lost(); }
+    bool holds_quit() override
+    {
+        clip::shutdown(); // (a clip in progress is written before the game goes)
+        return false;
+    }
     void view_drawn(const ext::ViewNote& view) override { note_view(view.viewport, view.position, view.forward); }
-    void before_present(bool rendering) override { screenshot::before_present(rendering); }
+    void before_present(bool rendering) override
+    {
+        screenshot::before_present(rendering);
+        clip::before_present(rendering);
+    }
     bool keeps_every_frame() override { return series_running() || frontend::test_view::measuring(); }
     bool request_event_shot(const std::string& note) override { return screenshot::request_event_shot(note); }
     void show_notice(const std::string& text) override { screenshot::show_notice(text); }

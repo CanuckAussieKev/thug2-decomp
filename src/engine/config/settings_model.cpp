@@ -1075,6 +1075,11 @@ std::vector<Decl> declarations()
             .live(O::kSwitch),
         feature("skip_intro_movies", K::kSwitch, "0").tab(G::kGameplay, t::kOptSkipIntro, t::kOptSkipIntroHelp).restart(t::kRestartStartUp),
         feature("restart_tester", K::kSwitch, "1").tab(G::kGameplay, t::kOptRestartTester, t::kOptRestartTesterHelp).live(O::kSwitch),
+        feature("clips", K::kSwitch, "1").live(O::kSelf),
+        feature("clip_scale", K::kNumber, "50").live(O::kSelf),
+        feature("clip_max_seconds", K::kNumber, "300").live(O::kSelf),
+        feature("clip_quality", K::kNumber, "80").live(O::kSelf),
+        feature("clip_fps", K::kNumber, "60").live(O::kSelf),
         feature("screenshots", K::kSwitch, "1").tab(G::kGameplay, t::kOptScreenshots, t::kOptScreenshotsHelp).live(O::kSelf),
         Decl("frontend", "respect_locks", K::kChoice, "0")
             .tab(G::kGameplay, t::kOptLocks, t::kOptLocksHelp)

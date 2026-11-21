@@ -243,6 +243,16 @@ public:
     virtual void screen_shot(const char* name, int unused) = 0;
     // The frame as it will be shown, copied (the screenshot key's: screenshot_capture.h).
     virtual bool capture_back_buffer(sys::screenshot::TickCycle* out, std::string* error) = 0;
+    // NOT ORIGINAL - the clip recorder's capture (devtools/clip.h): a ring of staging buffers, so no frame waits for
+    // the GPU. capture_ring_submit copies the frame as it will be shown into a staging buffer under `id` and, once
+    // the ring is full, hands back the oldest one (`*have`: its id in `*ready_id`, its pixels in `ready` - skipped
+    // when `ready` is null: the caller has no room for it); `marker_seconds` >= 0 then draws the REC marker
+    // over the frame (after the copy: it is on screen, never in the clip). capture_ring_drain hands back the next
+    // frame still in the ring (false: none), capture_ring_release frees the buffers.
+    virtual bool capture_ring_submit(uint64_t id, int marker_seconds, bool marker_lit, sys::screenshot::TickCycle* ready,
+                                     uint64_t* ready_id, bool* have, std::string* error) = 0;
+    virtual bool capture_ring_drain(sys::screenshot::TickCycle* ready, uint64_t* ready_id) = 0;
+    virtual void capture_ring_release() = 0;
     // The back buffer's width the device was made with; whether the screen copies were made (device.h).
     virtual uint32_t presented_width() = 0;
     virtual bool screen_copies_made() = 0;

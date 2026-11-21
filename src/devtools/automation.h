@@ -68,6 +68,9 @@ class Struct;
 //                                         afterload` while -level loads it); done at once (armed) - the series is
 //                                         written while the next commands run; the log's "screenshot: series - ok"
 //                                         line says when
+//   clip start | stop                     the clip recorder started / stopped as its key does (devtools/clip.h);
+//                                         done at once - the clip is written while the next commands run (the log's
+//                                         "clip: saved" line says when)
 //   trace <frames>                        the local skater traced for the next <frames> game frames (1-36000) into
 //                                         thug2-decomp-trace.txt (rewritten): a line a frame - frame, position,
 //                                         velocity, the up row's y, the SkaterState state (0 ground, 1 air, 2 wall,
@@ -171,6 +174,7 @@ enum class Op : uint8_t {
     kConsole,
     kQuit,
     kScreenshot,
+    kClip,
     kJumpTo,
     kViewCam,
     kCapture,

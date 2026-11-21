@@ -2,7 +2,9 @@
 
 #include "media_ffmpeg/ffmpeg_video_read.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
@@ -23,7 +25,46 @@ namespace {
 constexpr int kUnitRange = 1 << 16; // (swscale's brightness 0, contrast and saturation 1: 16.16 fixed point)
 
 // A decoded frame as a PNG file's bytes (empty if it couldn't be made).
-std::vector<uint8_t> frame_png(const Api& lib, const AVFrame* frame)
+// `rgb` (width x height) cut to the options' rectangle and scaled (bilinear); the new size in `width` / `height`.
+void crop_and_scale(const FrameOptions& options, std::vector<uint8_t>* rgb, int* width, int* height)
+{
+    int x0 = std::clamp(options.crop_x, 0, *width - 1);
+    int y0 = std::clamp(options.crop_y, 0, *height - 1);
+    int w = options.crop_width > 0 ? std::min(options.crop_width, *width - x0) : *width - x0;
+    int h = options.crop_height > 0 ? std::min(options.crop_height, *height - y0) : *height - y0;
+    if (options.crop_width <= 0 && options.crop_height <= 0 && options.crop_x == 0 && options.crop_y == 0 &&
+        options.scale_percent == 100) {
+        return;
+    }
+    const int out_w = std::max(1, w * options.scale_percent / 100);
+    const int out_h = std::max(1, h * options.scale_percent / 100);
+    std::vector<uint8_t> out(static_cast<size_t>(out_w) * out_h * 3);
+    const auto at = [&](int x, int y, int channel) {
+        return static_cast<double>(
+            rgb->at((static_cast<size_t>(y0 + std::clamp(y, 0, h - 1)) * *width + x0 + std::clamp(x, 0, w - 1)) * 3 + channel));
+    };
+    for (int y = 0; y < out_h; ++y) {
+        const double source_y = (y + 0.5) * h / out_h - 0.5;
+        const int iy = static_cast<int>(std::floor(source_y));
+        const double fy = source_y - iy;
+        for (int x = 0; x < out_w; ++x) {
+            const double source_x = (x + 0.5) * w / out_w - 0.5;
+            const int ix = static_cast<int>(std::floor(source_x));
+            const double fx = source_x - ix;
+            for (int channel = 0; channel < 3; ++channel) {
+                const double top = at(ix, iy, channel) * (1 - fx) + at(ix + 1, iy, channel) * fx;
+                const double bottom = at(ix, iy + 1, channel) * (1 - fx) + at(ix + 1, iy + 1, channel) * fx;
+                out.at((static_cast<size_t>(y) * out_w + x) * 3 + channel) =
+                    static_cast<uint8_t>(std::lround(top * (1 - fy) + bottom * fy));
+            }
+        }
+    }
+    *rgb = std::move(out);
+    *width = out_w;
+    *height = out_h;
+}
+
+std::vector<uint8_t> frame_png(const Api& lib, const AVFrame* frame, const FrameOptions& options)
 {
     SwsContext* scale = lib.scale_context(frame->width, frame->height, static_cast<AVPixelFormat>(frame->format),
                                           frame->width, frame->height, AV_PIX_FMT_RGB24, SWS_POINT, nullptr, nullptr,
@@ -39,8 +80,11 @@ std::vector<uint8_t> frame_png(const Api& lib, const AVFrame* frame)
     lib.scale(scale, std::data(frame->data), std::data(frame->linesize), 0, frame->height, planes.data(),
               strides.data());
     lib.scale_free_context(scale);
+    int width = frame->width;
+    int height = frame->height;
+    crop_and_scale(options, &rgb, &width, &height);
     std::vector<uint8_t> png;
-    if (!sys::screenshot::encode_png(rgb.data(), frame->width, frame->height, &png)) {
+    if (!sys::screenshot::encode_png(rgb.data(), width, height, &png)) {
         png.clear();
     }
     return png;
@@ -48,7 +92,7 @@ std::vector<uint8_t> frame_png(const Api& lib, const AVFrame* frame)
 
 } // namespace
 
-VideoReport read_video(const std::string& path, const std::set<int64_t>& wanted)
+VideoReport read_video(const std::string& path, const std::set<int64_t>& wanted, const FrameOptions& options)
 {
     VideoReport report;
     const Api* lib = api();
@@ -90,7 +134,7 @@ VideoReport read_video(const std::string& path, const std::set<int64_t>& wanted)
         while (lib->receive_frame(context, frame) >= 0) {
             ++report.frames;
             if (wanted.contains(report.frames)) {
-                std::vector<uint8_t> png = frame_png(*lib, frame);
+                std::vector<uint8_t> png = frame_png(*lib, frame, options);
                 decoded_all = decoded_all && !png.empty();
                 report.pngs[report.frames] = std::move(png);
             }

@@ -39,6 +39,7 @@
 #include "media_ffmpeg/ffmpeg_movie.h"
 #include "media_ffmpeg/ffmpeg_video.h"
 #include "engine/media/video_writer.h"
+#include "app/clip_frames.h"
 #include "app/encode_video.h"
 #include "engine/script/host.h"
 #include "script_qb/qb_host.h"
@@ -85,6 +86,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine
     // NOT ORIGINAL: -encode-video - the exe as a video encoder (app/encode_video.h), before anything of the game's (no
     // log of its own: a game's log in the folder is left as it is).
     if (int exit_code = 0; app::run_encode_video(&exit_code)) {
+        return exit_code;
+    }
+    // NOT ORIGINAL: -clip-frames - the exe as a clip reader (app/clip_frames.h), the same way.
+    if (int exit_code = 0; app::run_clip_frames(&exit_code)) {
         return exit_code;
     }
     // NOT ORIGINAL: the debugger output and the run log's error lines behind the base layer's sinks; thug2-decomp.log

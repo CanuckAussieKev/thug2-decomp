@@ -225,6 +225,16 @@ public:
     {
         return gfx::screenshot_capture::capture_back_buffer(out, error);
     }
+    bool capture_ring_submit(uint64_t id, int marker_seconds, bool marker_lit, sys::screenshot::TickCycle* ready,
+                             uint64_t* ready_id, bool* have, std::string* error) override
+    {
+        return gfx::screenshot_capture::ring_submit(id, marker_seconds, marker_lit, ready, ready_id, have, error);
+    }
+    bool capture_ring_drain(sys::screenshot::TickCycle* ready, uint64_t* ready_id) override
+    {
+        return gfx::screenshot_capture::ring_drain(ready, ready_id);
+    }
+    void capture_ring_release() override { gfx::screenshot_capture::ring_release(); }
     uint32_t presented_width() override { return render::presented_width(); }
     bool screen_copies_made() override { return render::screen_copies_made(); }
     [[noreturn]] void show_disc_error() override { render::show_disc_error(); }

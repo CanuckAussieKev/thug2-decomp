@@ -91,6 +91,11 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   %TEMP%\thug2-shots unless -ShotDir. Don't pipe it into `Select-Object -First` (that stops it before it closes the game).
   `-Renderer d3d9|vulkan` writes `[Graphics] renderer=` in a workspace's ini first (Vulkan is the game's default: a
   Direct3D 9 test run says `-Renderer d3d9`; load_check.ps1 passes its own `-Renderer` on).
+- **clip_frames.ts** `<clip.mp4> <out folder> [--every N | --frames a,b,c | --at seconds,...] [--crop x,y,w,h] [--scale PERCENT]
+  [--game <folder>]` - frames out of a clip the clip key recorded, as `vf_<video frame>.png` plus `index.txt` / `index.json`
+  pairing each with its line of the clip's sidecar (displayed frame, game frame, frame time, camera position and direction).
+  The clip is decoded by the game's exe (`thug2-decomp.exe -clip-frames`, FFmpeg's decoders - no ffmpeg.exe; found next to
+  the clip's `Videos` folder or in `--game`). Default `--every 60`; `--crop` + `--scale 400` looks closely at a part.
 - **Commands instead of keys (prefer these):** the game's test-automation channel (src/devtools/automation.h; on in
   the workspaces - `[features] automation=1`, set by make_workspace.ps1; never on in the main install). The game reads
   `<folder>\thug2-decomp-commands.txt` once a frame and writes `<folder>\thug2-decomp-status.json` (readable while it
@@ -130,6 +135,11 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
     after the next level's loading screen (not the front end's) and is done at once (armed): with `-Level`, a level's
     first frame onward (a `camera` given before the load holds through it). Script command too:
     `TeleportSkaterStanding pos=(x, y, z) heading=f`.
+    `clip start` / `clip stop` start and stop the clip recorder as its key does (F4; src/devtools/clip.h): `Videos	hug2_<time>.mp4`
+    (the picture the screenshot key takes, at `[features] clip_scale=` percent of its size, `clip_fps` / `[demo] video_fps` a
+    second, repeating the last frame when the game is slower) and a sidecar `.txt` of the same name: the game's state at the
+    start and the stop, the frames written / dropped, the cost, and a line per displayed frame - `frame`, `vf` (the video frame
+    it first shows in), `time_s`, `game` (the game's frame), `dt_ms` and the camera's position and direction.
     `screenshot` takes one picture as the screenshot key does (the picture, its sidecar and the folder's work are on a
     worker thread; the log's "screenshot: saved" line).
     E.g. the user's screenshot spot, still and drifting sideways:
