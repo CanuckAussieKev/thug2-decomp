@@ -830,6 +830,36 @@ void check_device(render::Gpu& gpu, Tally* tally)
     tally->check(read && stats.list_ready && stats.listed == static_cast<uint32_t>(kDiscSides),
                  text::format("the emitting triangles listed by the shared scan: %u (the disc's %d); %u lamps", stats.listed,
                               kDiscSides, stats.lamps));
+    // (round lightdrop) the world's emission written again while the level's first light comes in (the relit store's, over
+    // seconds): the emitters' list in use is kept - it names the same triangles - while the rescan runs and is taken in;
+    // it never goes empty (BO's street lamps, emitting surfaces, were dark for the frames of each rescan)
+    {
+        RunPlan rewritten = plan;
+        rewritten.batches = 1;
+        rewritten.frames = 40;
+        rewritten.settle = 8;
+        int calls = 0;
+        int empty_frames = 0;
+        const int first_rewrite = rewritten.settle + 2;
+        rewritten.lamps_at = [&](int /*frame*/) {
+            ++calls;
+            if (calls > first_rewrite) {
+                if (calls % 3 == 0) {
+                    rt::note_store_emission_written();
+                }
+                if (!vk::restir_stats().list_ready) {
+                    ++empty_frames;
+                }
+            }
+            return still_lamps;
+        };
+        const Answer again = restir(gpu, targets, everything, rewritten, region_a, &read);
+        not_finite += again.not_finite;
+        tally->check(read && calls > first_rewrite + 20 && empty_frames == 0 && vk::restir_stats().listed == static_cast<uint32_t>(kDiscSides),
+                     text::format("the emission rewritten every 3rd frame: the list kept in use through every rescan (%d of %d frames "
+                                  "without one), %u triangles listed",
+                                  empty_frames, calls - first_rewrite, vk::restir_stats().listed));
+    }
     tally->check(read && agrees(full.mean, ref_a.mean),
                  text::format("still: ReSTIR (temporal + spatial) %.5f +- %.5f, the reference %.5f +- %.5f (%+.2f %%)",
                               full.mean, full.sigma, ref_a.mean, ref_a.sigma,
