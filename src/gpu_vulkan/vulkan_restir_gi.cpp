@@ -282,7 +282,8 @@ layout(set = 0, binding = 21, rgba16f) uniform image2D io_specular;
 layout(set = 0, binding = 22, r16f) uniform writeonly image2D o_specular_hit;
 #endif
 layout(std430, set = 0, binding = 24) buffer Counters { uint bad_samples; uint counter_spare[3]; };
-// (round MB) the radiance cache: 4 words an entry - its key (x the check word, 0: free; y the frame it was updated), this
+// (round MB) the radiance cache: 4 words an entry - its key (x the check word, 0: free; y the frame it was updated; z
+// (round PERF) the samples it has taken since it was claimed, at most CACHE_COUNT_MOST - cache_lookup's trust), this
 // frame's sums (low words rgb + the samples; high words rgb), its light (float bits: rgb the bounce in the global unit,
 // w its samples)
 layout(std430, set = 0, binding = 31) buffer Cache { uvec4 cache[]; };
@@ -1011,6 +1012,7 @@ void main()
         float k = float(low.w);
         vec3 mean = (l.rgb * kept + sum) / (kept + k);
         CACHE_LIGHT(i) = floatBitsToUint(vec4(good3(mean), kept + k));
+        CACHE_KEY(i).z = min(CACHE_KEY(i).z + low.w, CACHE_COUNT_MOST); // (round PERF - cache_lookup's trust)
         CACHE_LOW(i) = uvec4(0u);
         CACHE_HIGH(i) = uvec4(0u);
     } else if (pass.counts.z - key.y <= CACHE_STALE) {
@@ -1584,6 +1586,7 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
     source += "const uint CACHE_CAPACITY = " + std::to_string(kCacheCapacity) + "u;\n";
     source += "const uint CACHE_PROBES = " + std::to_string(kCacheProbes) + "u;\n";
     source += "const uint CACHE_STALE = " + std::to_string(kCacheStale) + "u;\n";
+    source += "const uint CACHE_COUNT_MOST = 65536u;\n"; // (round PERF: an entry's sample count, capped)
     source += "const uint CACHE_BLOCK = " + std::to_string(kCacheBlock) + "u;\n";
     source += "const uint CACHE_PATH = " + std::to_string(kCachePath) + "u;\n";
     source += "const uint RESOLVE_GROUP = " + std::to_string(kResolveGroup) + "u;\n";

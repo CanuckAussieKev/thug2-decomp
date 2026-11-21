@@ -16,7 +16,7 @@ namespace devtools::fps_counter {
 
 struct Stats {
     double fps = 0.0;        // frames drawn in the last second
-    double ticks = 0.0;      // of which ticks (not render-only frames)
+    double ticks = 0.0;      // the simulation's ticks in that second, drawn or not (round PERF)
     double mean_ms = 0.0;    // the mean frame time
     double low_fps = 0.0;    // the 1% low: 1000 / the 99th percentile of the frame times
     double worst_ms = 0.0;   // the slowest frame
