@@ -4,6 +4,7 @@
 add_library(thug2_devtools STATIC
     restart_tester.cpp
     screenshot.cpp
+    clip.cpp
     extensions.cpp
     automation.cpp
     automation_commands.cpp

@@ -2,6 +2,7 @@
 // and camera commands and the start of each order. NOT ORIGINAL.
 
 #include "devtools/automation.h"
+#include "devtools/clip.h"
 #include "devtools/console.h"
 #include <windows.h>
 #include <SDL3/SDL.h>
@@ -458,6 +459,10 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         if (!sys::screenshot::request_event_shot("automation")) {
             get_log("automation: screenshot - one is still being written, dropped");
         }
+        get_finish(runner, "ok");
+        return true;
+    case Op::kClip:
+        sys::clip::request(command.target == "start" ? sys::clip::Request::kStart : sys::clip::Request::kStop);
         get_finish(runner, "ok");
         return true;
     case Op::kQuit: {

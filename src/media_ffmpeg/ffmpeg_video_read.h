@@ -25,6 +25,16 @@ struct VideoReport {
 
 // The file at `path` decoded whole; the frames in `wanted` (from 1) made PNG files (BT.709 video range back to full-range
 // RGB, as the writer made it).
-VideoReport read_video(const std::string& path, const std::set<int64_t>& wanted);
+//
+// `options` (the clip tool's): a rectangle cut out of each frame first (width 0: the whole frame; clamped to the frame) and
+// the picture then scaled to scale_percent of that size (bilinear; 100: as it is).
+struct FrameOptions {
+    int crop_x = 0;
+    int crop_y = 0;
+    int crop_width = 0;
+    int crop_height = 0;
+    int scale_percent = 100;
+};
+VideoReport read_video(const std::string& path, const std::set<int64_t>& wanted, const FrameOptions& options = {});
 
 } // namespace media::ffmpeg

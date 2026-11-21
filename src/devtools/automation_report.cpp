@@ -100,6 +100,8 @@ std::string describe(const OrderCode& command)
         return "quit";
     case Op::kScreenshot:
         return "screenshot";
+    case Op::kClip:
+        return "clip " + command.target;
     case Op::kCrash:
         return "crash " + command.target;
     case Op::kJumpTo:

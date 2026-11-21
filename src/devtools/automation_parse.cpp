@@ -599,6 +599,16 @@ bool parse_screenshot(const CommandWords& words, OrderCode& command, std::string
     return true;
 }
 
+bool parse_clip(const CommandWords& words, OrderCode& command, std::string* error)
+{
+    command.op = Op::kClip;
+    if (words.tokens->size() != 2 || (get_lower(words.tokens->at(1)) != "start" && get_lower(words.tokens->at(1)) != "stop")) {
+        return fail_with(error, "clip start | stop");
+    }
+    command.target = get_lower(words.tokens->at(1));
+    return true;
+}
+
 struct CommandParser {
     const char* keyword;
     bool (*parse)(const CommandWords& words, OrderCode& command, std::string* error);
@@ -625,6 +635,7 @@ constexpr auto kCommandParsers = std::to_array<CommandParser>({
     {.keyword = "console", .parse = parse_console},
     {.keyword = "crash", .parse = parse_crash},
     {.keyword = "screenshot", .parse = parse_screenshot},
+    {.keyword = "clip", .parse = parse_clip},
     {.keyword = "quit", .parse = parse_quit},
 });
 
