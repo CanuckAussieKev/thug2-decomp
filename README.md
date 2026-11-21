@@ -350,6 +350,10 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `start_at` | (none) | With a start level: the skater put standing at `x,y,z[,heading]` once it's up (as `-at`) |
 | `screenshots` | 1 | The screenshot key (Print Screen, or F12 if Windows' Snipping Tool takes it): a PNG and a `.txt` of the game's state; `screenshot_dir=` changes the folder |
 | `clips` | 1 | The clip key (F4; `[Keybinds] RecordClip=`): press to start recording, press again to stop - an .mp4 and a `.txt` (the game's state at the start and the stop, a line per frame with the camera) in `Videos` next to the exe. `clip_dir=` the folder, `clip_scale=` the size as a percentage of the game's (default 50), `clip_max_seconds=` (300), `clip_quality=` 1-100 and `clip_fps=` (default: `[demo]` `video_quality` / `video_fps`). A red dot and the time show while recording (not in the clip); a level change ends it. `node tools/game/clip_frames.ts` takes frames out of a clip as PNGs |
+| `clip_scale` | 50 | A clip's size as a percentage of the picture's (10-100) |
+| `clip_max_seconds` | 300 | A clip stops by itself after this many seconds |
+| `clip_quality` | 80 | A clip's quality, 1 (smallest) to 100 (best) |
+| `clip_fps` | 60 | A clip's frame rate (1-60) |
 | `restart_tester` | 1 | F8 puts the skater at the level's next unvisited restart |
 | `live_pause` | 1 | In single-player Free Skate the pause menu doesn't freeze the world: peds, cars, particles, the sky and the level's scripts keep going and every frame is drawn (graphics changes in Options show behind the menu); the skater is held where he was, his score and combo untouched. Career / story, classic, timed and 2-player modes, network games, the park editor and demos pause as ever; 0 = the original freeze everywhere (Options: Gameplay, Pause) |
 | `level_select_loading_screens` | 1 | A level's loading screen is its level select picture with a clean bar over it (when the overlay was made with `make_menu_level.ts`; 0 = the original loading pictures) |
