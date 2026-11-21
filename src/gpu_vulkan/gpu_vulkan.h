@@ -185,13 +185,16 @@ void set_hdr_settings(const HdrSettings& settings);
 // `on` is false, or when ray tracing isn't enabled on the device. (Retired by the physical air: rt_fog_strength - a
 // multiplier on the air's light -, rt_fog_anisotropy - the phase is the aerosol's -, rt_fog_haze_density and
 // rt_fog_haze_height - the haze is the weather's aerosol.)
-inline constexpr unsigned kRtFogSteps = 32;     // (rt_fog_quality 1's steps)
-// rt_fog_quality 0 / 1 / 2: the march's steps, the light list's candidates a step pair (round WF; was the lamps at most) and the march's resolution (1 / the
-// scale of the viewport's on each axis; changed by the street air: a quarter's at Low and Medium, half at High)
-inline constexpr std::array<unsigned, 3> kRtFogQualitySteps{16, 32, 48};
+inline constexpr unsigned kRtFogSteps = 64;     // (rt_fog_quality 1's froxel slices)
+// rt_fog_quality 0 / 1 / 2 (round FOG - the froxel grid, vulkan_rt_fog.h): its slices, the light list's candidates a
+// sample, a froxel column's side in pixels (about 160 x 90 x 64 at 2560 x 1440 at Medium) and the samples a froxel takes
+// a frame
+inline constexpr std::array<unsigned, 3> kRtFogQualitySteps{48, 64, 64};
 inline constexpr std::array<unsigned, 3> kRtFogQualityLamps{2, 4, 8}; // (round WF: the light list's candidates)
-inline constexpr std::array<unsigned, 3> kRtFogQualityScale{4, 4, 2};
-inline constexpr unsigned kRtFogScale = 4;    // (rt_fog_quality 1's scale)
+inline constexpr std::array<unsigned, 3> kRtFogQualityScale{16, 16, 12};
+inline constexpr unsigned kRtFogScale = 16;    // (rt_fog_quality 1's scale)
+inline constexpr std::array<unsigned, 3> kRtFogQualitySamples{2, 4, 6};
+inline constexpr unsigned kRtFogSamples = 4; // (rt_fog_quality 1's)
 // (added by the distinct shafts) the air's sun map's side (texels - rt_volume_light.h air_map_half) at rt_fog_quality
 // 0 / 1 / 2
 inline constexpr std::array<unsigned, 3> kRtFogQualityMap{512, 1024, 1536};
@@ -204,8 +207,8 @@ struct RtFogSettings {
     bool on = false;
     float density = 1.0F;                 // x the level's fog thickness (1: as thick as the game's; 0 - 8)
     float height = 0.0F;                  // world units over which the fog thins by e above the camera (0: even)
-    unsigned steps = kRtFogSteps;         // samples along each ray (4 - 128)
-    // (round WF) the light list's candidates each step pair of the march resamples its local lights from (0: no lamps or
+    unsigned steps = kRtFogSteps;         // (round FOG) the froxel grid's slices (16 - 128, whole rows of 8)
+    // (round WF) the light list's candidates each froxel sample resamples its local lights from (0: no lamps or
     // emitters in the air; 0 - 8 - vulkan_rt_fog.h kFogMostCandidates)
     unsigned lamps = 4;
     RtFogMode mode = RtFogMode::kReplace;
@@ -213,15 +216,16 @@ struct RtFogSettings {
     // the aerial perspective - the weather's aerosol and the air, the sky's own coefficients
     bool haze = true;
     // (changed by the physical air) the weather (rt_fog_air, Options "Air": clear, hazy, misty - a visibility; rt_sky.h
-    // Weather - the sky's aerosol too), and the march's resolution (rt_fog_quality's: 2 or 4)
+    // Weather - the sky's aerosol too), and (round FOG) a froxel column's side in pixels (rt_fog_quality's; 2 - 32)
     render::rt::Weather weather = render::rt::Weather::kClear;
     unsigned scale = kRtFogScale;
+    unsigned samples = kRtFogSamples; // (round FOG) the points a froxel takes a frame (rt_fog_quality's; 1 - 16)
     unsigned map = kRtFogMap; // (added by the distinct shafts) the air's sun map's side (rt_fog_quality's; 64 - 2048)
     // (added by the physical air) the air's sun map used at all - how the near air's visibility is sampled, not what it
-    // is: the checks judge the march's integral against exact visibility without it
+    // is: the checks judge the froxels' integral against exact visibility without it
     bool air_map = true;
     // (added by the god rays - rt_volume_light.h god_ray_peak) the forward peak's shadows resolved at the screen's
-    // resolution (rt_fog_god_rays, Options "God rays": on / off - off: the march keeps the whole phase)
+    // resolution (rt_fog_god_rays, Options "God rays": on / off - off: the froxels keep the whole phase)
     bool god_rays = true;
 };
 void set_rt_fog_settings(const RtFogSettings& settings);

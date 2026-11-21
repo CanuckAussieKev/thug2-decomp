@@ -9,92 +9,78 @@
 #include "engine/gfx/rt_scene.h"
 
 // NOT ORIGINAL - volumetric fog and light shafts (docs/design/vulkan.md "Volumetric fog"; [Graphics] rt_fog - gpu_vulkan.h's
-// RtFogSettings). After a viewport's whole world is drawn (rt::world_view_drawn, ViewOrder::kFog: after the transparent
-// passes, the particles and the weather, before tone mapping and the 2D), compute passes over images of a quarter of the
-// viewport's size on each axis (half at rt_fog_quality 2: RtFogSettings::scale), then one full-screen pass over the
-// colour target:
-//   1. march: each texel takes one pixel of its 4 x 4 (2 x 2) block - a different one each frame, in ordered-dither
-//      order - and follows the view ray from the camera to the depth's surface (the sky: to the fog's end) through
-//      `steps` segments, closer together near the eye (b t^2). The fog is the level's own
-//      (rt::ViewDrawn::fog): the game's linear range fog f(d) = (end - d) / (end - start) is a medium whose extinction is
-//      1 / (end - d) between start and end - integrated exactly over each segment, so its transmittance T is the game's
-//      f (to the power rt_fog_density), whatever the step count - times the height falloff exp(-(y - camera y) / H)
-//      (rt_fog_height = H; 0: even). At one point in each segment (jittered: interleaved gradient noise + the frame's
-//      golden-ratio offset) a ray query toward the sun (the level's baked sun - engine/gfx/rt_sun.h, as R4's shadows
-//      use it, or the console's `rt sun` override; masks 0x01 world + 0x02 objects, the first hit ends it) says whether
-//      that point is lit. The light scattered there toward the eye:
-//          L = fog colour x (a + (1 - a) x lit x phase x tint)   (a = 0.5: the share the sky and the surroundings give)
-//      phase = the weather's aerosol's (Cornette-Shanks, rt_sky.h), x 4 pi (1 on average over the sphere: an unshadowed
-//      fog looks as the game's does), tint = 1 (the bake gives the sun no colour; the fog's carries the hue). No sun (the
-//      fit not run yet, or a level whose bake shows none - indoors, the Foundry): L = the fog colour - no shafts.
-//      Accumulated front to back: in += T (1 - e^-tau) L, T *= e^-tau (stopped once T is under 1e-4). (Changed by the
-//      street air, for its cost:) the steps go in pairs, one point of each pair - the first or the second by turns,
-//      frame to frame - tracing the light's shadow ray and (round WF) the local light the light list's resampling chose (RIS
-//      over the list's local group - every lamp and emitting surface by power; vulkan_light_list.h) for both.
-//      The street air (engine/gfx/rt_volume_light.h street_air - outdoors, where a sun or moon lights the level) is a
-//      second medium along every ray of the level's own fog: the weather's aerosol near the ground (one layer) and the
-//      falling rain or snow, its extinction added to the fog's, its light kFogStreetAirLight per unit of light (the level
-//      fog's display-referred light), mixed with the fog's by their shares of each segment's optical depth.
-//   (added by the distinct shafts) 0. the air's sun map (rt_volume_light.h air_map_half) - a square of rt_fog_quality's
-//      512 / 1024 / 1536 texels across the light's way round the eye (kAirMapReach each way), each the distance down the
-//      light's way to the first thing its ray hits; the march reads it at every step inside the square (a bilinear
-//      compare, the light's disc's penumbra) instead of a ray each other step - the near air's shadows sharp.
-//   2. temporal: the texel's point reprojected through the viewport's camera of the frame before; the histories read there
-//      (bilinear over the texels whose distance agrees). (Round NK - NVIDIA NRD ReLAX's two histories, its defaults:) a
-//      fast history, blended with this frame's march by 1 / its length up to kFogFastHistory and never clamped; then the
-//      slow one, clamped to the fast history's 3 x 3 neighbourhood (its mean +- kFogHistorySpread deviations, inside its
-//      least and most - added by the distinct shafts), blended by 1 / its length up to kFogMaxHistory. Each frame's march
-//      is one resampled light a step pair (RIS) and one ray of each kind - noisy by design; before round NK the slow
-//      history was clamped to that one march's own 3 x 3 and lasted 12 frames: where the nine samples missed the light
-//      the box shut and the history was thrown away - the dark air's grain ("an untuned TV" at night, the camera
-//      ~12 stops up), and its mean darkened;
-//   (added by the god rays - rt_volume_light.h god_ray_peak; rt_fog_god_rays) the march leaves out the phase's forward
-//      peak and adds up its potential (raw info's a); 2a. what each texel of half the viewport's pixels puts in the
-//      light's way (its sky share, the distance of what stands there); 2b. three radial passes toward the light's place
-//      on the screen (10 taps over 1/100, 1/10 and the whole of the way) - the composite adds the peak x the potential x
-//      what is open along the line (the air before what stands on it shadowed by it), the light's colour, the setting.
-//   3. composite (full resolution, a blend): colour = colour x T + in - the low-resolution result upsampled with
-//      weights falling off with the difference between each texel's distance and the pixel's own (depth-aware); every
-//      sample of a multisampled target the pixel's value, alpha kept. (Changed by the physical air:) the aerial march's
-//      light is linear radiance - its composite reads a copy of the colour and writes colour x T + in (round F: linear).
+// RtFogSettings). (Round FOG - rewritten as froxel volumetric fog: Wronski 2014 "Volumetric Fog" (AC4), Hillaire 2015
+// "Physically Based and Unified Volumetric Rendering in Frostbite", UE4/5's volumetric fog; the per-pixel march and its
+// ReLAX-style histories retired - their few light samples a frame bubbled and crawled near small bright lights.)
+// After a viewport's whole world is drawn (rt::world_view_drawn, ViewOrder::kFog: after the transparent passes, the
+// particles and the weather, before tone mapping, the upscaler and the 2D):
+//   0. the air's sun map (rt_volume_light.h air_map_half) - a square of rt_fog_quality's 512 / 1024 / 1536 texels across
+//      the light's way round the eye, each the distance down the light's way to the first thing its ray hits; the
+//      froxels read it inside the square (a bilinear compare, the light's disc's penumbra) instead of tracing.
+//   1. the froxels' light: a camera-aligned grid - a column per RtFogSettings::scale x scale pixels of the viewport,
+//      RtFogSettings::steps slices deep, slice x's near face at n ((far / n + 1)^(x / slices) - 1) from the eye
+//      (exponential; far the fog's end - the level's, the haze's - or the aerial air's reach, n = far / 400). Each froxel
+//      takes RtFogSettings::samples points a frame, each at a random place across the froxel and stratified along it
+//      (the frame's golden-ratio offset), and at each: the sun's or the moon's share (its shadow ray toward a point of its
+//      disc - masks 0x01 world + 0x02 objects + 0x08 the drawn-apart, the cut-outs by their alpha -, or the air's sun
+//      map; the clouds' shadow map), the local lights' light toward the eye (the light list's local group by resampled
+//      importance sampling - every lamp and emitting surface by power, the same lights ReSTIR DI and GI sample;
+//      vulkan_light_list.h) and the sky's open share (a ray toward the upper hemisphere: the shade's light gets in only
+//      through what is open). Then the history: the froxel's centre reprojected into the grid of the frame before, its
+//      light read there trilinearly and blended exponentially (1 / (frames + 1) while young, then 1 / kFogMaxHistory) -
+//      Frostbite's and UE's temporal reprojection. Two volumes: (the lamps' light, the sun's share), (the lamps' light
+//      with Rayleigh's phase, the sky's share).
+//   2. the integration: each column front to back along its ray (Hillaire's energy-conserving form: a slice's light S x
+//      (1 - e^-tau) / sigma_t, each medium's optical depth exact over the slice). The media are the level's own
+//      (rt::ViewDrawn::fog): its linear range fog f(d) = (end - d) / (end - start) as a medium of extinction 1 / (end - d)
+//      between start and end - so its transmittance is the game's f (to the power rt_fog_density) - times the height
+//      falloff exp(-(y - camera y) / H) (rt_fog_height); the street air near the ground (engine/gfx/rt_volume_light.h
+//      street_air - the weather's aerosol, the falling rain or snow); or, in a level without fog, the atmosphere's air
+//      (below). The light the level's fog scatters toward the eye: fog colour x (a + (1 - a) x (sun x phase x tint +
+//      lamps)) - a = 0.5, the share the sky and the surroundings give; phase the weather's aerosol's (Cornette-Shanks,
+//      rt_sky.h) x 4 pi; no sun (indoors): the fog's colour and the lamps. Each slice keeps what lies before its far face
+//      (the light, the transmittance), its own source and the god rays' potentials; the level fog's sky pixels their
+//      own line (a share of the sunlit light, nothing dimmed).
+//   (the god rays - rt_volume_light.h god_ray_peak; rt_fog_god_rays) the froxels leave out the phase's forward peak and
+//      add up its potential; 2a. what each texel of half the viewport's pixels puts in the light's way; 2b. three radial
+//      passes toward the light's place on the screen - the composite adds the peak x the potential x what is open along
+//      the line, no more than the froxels' own shadow allows.
+//   3. the composite (full resolution, a blend): each pixel reads the volume at its depth - the integral before the
+//      slice holding it (bilinear across the columns), then the slice's source from its near face to the pixel's depth,
+//      its optical depth exact along the pixel's own ray: colour x T + in. Every sample of a multisampled target the
+//      pixel's value, alpha kept. Ray Reconstruction's transparency layer, where it is drawn, gets the same at the front
+//      layer's depth (vulkan_front_layer.h): its light x T + its coverage x in. The aerial air's light is linear
+//      radiance; the level fog's display-referred (decoded as the frame's inputs are).
 // Modes (rt_fog_mode):
 //   0 replace (the default): the level's own fog is turned off in the draws (rt_fog_replaces_level_fog; the Vulkan
 //     Gpu's fixed-function emulation) and the pass draws it instead - the same colour, distances and transmittance, but
-//     darker where the world shadows the fog from the sun and brighter looking into the sun. Its limit: the transparent
-//     passes and the particles don't write depth, so they get the fog of the surface behind them.
-//   1 shafts: the level's own fog kept as the game draws it; only the sunlit part of the light, L = fog colour x (1 - a)
-//     x lit x phase x tint x 0.5, is added (T = 1: nothing taken away).
-// The sky (the depth's far value - the sky dome, or the fog-coloured clear with distance clipping) is never dimmed: it
-//   gets the sunlit light only, x 0.1 (the shafts against the sky, darker gaps where the world blocks the sun) - except
-//   in the sky model's aerial haze (below), which hazes it as the world at the far plane.
-// No fog in the level (ViewFog::on false, or end <= start - THUG2's levels draw fog only where a script asks for it, or
-//   with [Graphics] DistanceClipping=1 and Fog=1): with rt_fog_haze=1 (the default) and a sun, a thin haze is drawn in
-//   shafts mode - colour kFogHazeColour, from the camera to kFogHazeEnd - only its sunlit light added (the shafts, the
-//   glow toward the sun; nothing dimmed, the shade left as the level lit it); else the pass is skipped and nothing
-//   changes.
-// (Round F) The light added is never clamped: the frame is linear light (rt_hdr retired).
-// The histories are kept per viewport (its rectangle and target size): up to kFogViewSlots (split screen's two), the
-// least recently drawn dropped; a viewport not drawn in the frame before starts again.
+//     darker where the world shadows the fog from the sun and brighter looking into the sun. Without Ray Reconstruction's
+//     transparency layer the transparent passes and the particles get the fog of the surface behind them.
+//   1 shafts: the level's own fog kept as the game draws it; only the sunlit part of the light, x 0.5, is added (T = 1).
+// The sky (the depth's far value) is never dimmed: it gets the sunlit light only, x 0.1 - except in the sky model's
+//   aerial air, which hazes it as the world at the far plane.
+// No fog in the level (ViewFog::on false, or end <= start): with rt_fog_haze=1 (the default) and a sun, a thin haze is
+//   drawn in shafts mode - colour kFogHazeColour, from the camera to kFogHazeEnd; with the sky model the atmosphere's
+//   air (aerial perspective, below); else the pass is skipped and nothing changes.
+// The light added is never clamped: the frame is linear light.
+// The froxels' history is kept per viewport (its rectangle and target size): up to kFogViewSlots (split screen's two),
+// the least recently drawn dropped; a viewport not drawn in the frame before, or a camera cut, starts again.
 namespace render::vulkan {
 
 struct Backend;
 
-// (round NK - NRD ReLAX's maxAccumulatedFrameNum / maxFastAccumulatedFrameNum defaults; was 12, one history)
-inline constexpr uint32_t kFogMaxHistory = 30;  // frames
-inline constexpr uint32_t kFogFastHistory = 6;  // frames
-// (round NK) a history that starts again is seeded with this many marches (vulkan_rt_history.h seed_frames - the
-// longest one history held before round NK: nothing fades in, the cut's frame not 30 marches long)
-inline constexpr uint32_t kFogSeedFrames = 12;
-// (added by the distinct shafts) the slow history held within this many deviations of the fast history's 3 x 3 mean
-// (step 2; round NK: ReLAX's historyClampingColorBoxSigmaScale 2 - was 1.5 of the noisy march's own)
-inline constexpr float kFogHistorySpread = 2.0F;
+// (round FOG) the froxels' history: blended by 1 / its frames up to this (an exponential history of weight 1 - 1 /
+// kFogMaxHistory: 0.95 - Frostbite's and UE's)
+inline constexpr uint32_t kFogMaxHistory = 20; // frames
+// a history that starts again is seeded with this many frames of the froxels' light (vulkan_rt_history.h seed_frames)
+inline constexpr uint32_t kFogSeedFrames = 8;
 inline constexpr uint32_t kFogViewSlots = 4;
 // (world, objects: what shadows the fog; round PG: what is drawn apart - the clutter, particles, billboards)
 inline constexpr uint32_t kFogMask = 0x01 | 0x02 | 0x08;
 // (added by the volumetric light) with the material table and the frame's geometry the cut-outs too, by their alpha
 // (vulkan_rt_scene.h cutout_rays_glsl: light through foliage, fences and grates - the one lighting path's test)
 inline constexpr uint32_t kFogCutoutMask = 0x01 | 0x02 | 0x04 | 0x08;
-// (round WF) the most candidates a step pair of the march resamples from the light list (rt_fog_quality's most)
+// (round WF) the most candidates a sample resamples from the light list (rt_fog_quality's most)
 inline constexpr uint32_t kFogMostCandidates = 8;
 inline constexpr float kFogAmbientShare = 0.5F;   // a above
 inline constexpr float kFogSkyShare = 0.1F;
@@ -171,18 +157,23 @@ struct RtFogTiming {
 // Every viewport's history forgotten (the next pass starts again, the frame index back to 0). The caller holds the lock.
 void rt_fog_reset_history(Backend& state);
 
-// For the check: one of the low-resolution images of the viewport last drawn with `rect` read back (the frame's work
-// finished first): width x height texels of 4 floats.
+// For the check: one of the images of the viewport last drawn with `rect` read back (the frame's work finished first):
+// width x height texels of 4 floats. (Round FOG) The resolve's images hold a texel per froxel column: the fog the
+// column's middle pixel sees, read from the volume as the composite reads it (without the god rays' peak).
 enum class RtFogImage : uint8_t {
-    kRaw,     // step 1: rgb the light scattered toward the eye, a the transmittance
-    kRawInfo, // step 1: r the distance marched to (-1: the sky), g the full-resolution pixel's x, b its y (viewport's)
-    kHistory, // step 2: as kRaw
-    kHistoryInfo, // step 2: r the distance, g the history's length
+    kRaw,         // the resolve: rgb the light scattered toward the eye, a the transmittance (the colour kept by)
+    kRawInfo,     // r the distance to the pixel's surface (-1: the sky), g the pixel's x, b its y (viewport's), a the
+                  // god rays' potential
+    kHistory,     // as kRaw (there is one result: the froxels' history is in their light)
+    kHistoryInfo, // r the distance, g the frames the froxels' history holds (with this one), b, a the pixel
     // (added by the god rays) step 2b's last radial pass (half the viewport's pixels): r the light's surroundings open
     // along the texel's line to the light x the peak's weight, g the weight (r / g: what is open); none when no rays ran
     kRays,
-    // (round W2) step 1: r the god rays' potential under the march's own shadow (the sun's rays, the air's sun map)
-    kRawLit,
+    kRawLit, // (round W2) r the god rays' potential under the froxels' own shadow
+    // (round FOG) the volumes, their slices side by side (8 a row): the froxels' light after its history (rgb the lamps',
+    // a the sun's share seen), and the integral before each slice's far face (rgb the light, a the transmittance)
+    kLight,
+    kIntegrated,
 };
 struct RtFogTexels {
     uint32_t width = 0;
