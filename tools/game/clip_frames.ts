@@ -174,6 +174,11 @@ export function parseFacts(stderr: string): ClipFacts | { error: string } {
 function runExe(exe: string, game: string, args: string[]): { facts: ClipFacts | { error: string }; stderr: string } {
     const run = spawnSync(exe, args, { cwd: game, encoding: "utf8", maxBuffer: 1 << 26 });
     const stderr = run.stderr ?? "";
+    if (run.status !== 0)
+        return {
+            facts: { error: `the exe exited with ${run.status ?? run.error?.message}: ${stderr.trim()}` },
+            stderr,
+        };
     return { facts: parseFacts(stderr), stderr };
 }
 

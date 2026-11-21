@@ -31,6 +31,7 @@
 #include "engine/file/disk_files.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/render_device.h"
+#include "engine/gfx/renderer.h"
 #include "engine/media/video_writer.h"
 #include "engine/pad_input/input_event.h"
 #include "engine/sys/mlp.h"
@@ -49,7 +50,7 @@ using screenshot::TickCycle;
 
 constexpr int kDefaultScale = 50;
 constexpr int kDefaultMaxSeconds = 300;
-constexpr size_t kQueueMax = 4; // frames waiting for the encoder (~15 MB each at 1440p)
+constexpr size_t kQueueMax = 8; // frames waiting for the encoder (~15 MB each at 1440p)
 constexpr size_t kPoolMax = 6;
 constexpr int kLogLines = 20;
 constexpr size_t kTextSize = 192;
@@ -87,6 +88,8 @@ struct Job {
     std::string name;
     media::VideoFormat format;
     int scale = kDefaultScale;
+    int source_width = 0; // the picture's size when known at the start: the encoder opens while the first frames come
+    int source_height = 0;
     std::vector<Section> sections;
     std::vector<std::string> log_tail;
     std::vector<Prop> summary; // (the main thread's part of the clip section)
@@ -179,6 +182,39 @@ std::string with_ending(const std::string& png_name, const char* ending)
 
 // --- the encoder's thread ---
 
+// `source` (RGB, sw x sh) as dw x dh: each new pixel the average of the source pixels it covers (the same size: copied).
+void area_scale(const std::vector<uint8_t>& source, int sw, int sh, int dw, int dh, std::vector<uint8_t>* out)
+{
+    if (sw == dw && sh == dh) {
+        *out = source;
+        return;
+    }
+    out->assign(static_cast<size_t>(dw) * static_cast<size_t>(dh) * 3U, 0);
+    for (int y = 0; y < dh; ++y) {
+        const int y0 = static_cast<int>(static_cast<int64_t>(y) * sh / dh);
+        const int y1 = std::max(y0 + 1, static_cast<int>(static_cast<int64_t>(y + 1) * sh / dh));
+        for (int x = 0; x < dw; ++x) {
+            const int x0 = static_cast<int>(static_cast<int64_t>(x) * sw / dw);
+            const int x1 = std::max(x0 + 1, static_cast<int>(static_cast<int64_t>(x + 1) * sw / dw));
+            std::array<int, 3> sum = {0, 0, 0};
+            for (int sy = y0; sy < y1 && sy < sh; ++sy) {
+                const size_t row = static_cast<size_t>(sy) * static_cast<size_t>(sw);
+                for (int sx = x0; sx < x1 && sx < sw; ++sx) {
+                    const size_t at = (row + static_cast<size_t>(sx)) * 3U;
+                    sum[0] += source[at];
+                    sum[1] += source[at + 1];
+                    sum[2] += source[at + 2];
+                }
+            }
+            const int count = std::max(1, (std::min(y1, sh) - y0) * (std::min(x1, sw) - x0));
+            const size_t to = (static_cast<size_t>(y) * static_cast<size_t>(dw) + static_cast<size_t>(x)) * 3U;
+            for (size_t channel = 0; channel < 3; ++channel) {
+                (*out)[to + channel] = static_cast<uint8_t>(sum.at(channel) / count);
+            }
+        }
+    }
+}
+
 // The frames go in at a fixed rate: slot k is shown at k / fps seconds and holds the latest frame at or before that
 // time (a slower game repeats its last frame, a faster one has frames skipped).
 class Encoder {
@@ -188,6 +224,9 @@ public:
     void run()
     {
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+        if (job_.source_width > 0 && job_.source_height > 0) {
+            open(job_.source_width, job_.source_height); // (the hardware encoder takes a moment to start: the frames wait in the queue)
+        }
         for (;;) {
             Item item;
             {
@@ -244,11 +283,11 @@ private:
         }
     }
 
-    bool open()
+    bool open(int width, int height)
     {
         media::VideoFormat format = job_.format;
-        format.width = std::max(2, current_.width * job_.scale / kPercent) & ~1;
-        format.height = std::max(2, current_.height * job_.scale / kPercent) & ~1;
+        format.width = std::max(2, width * job_.scale / kPercent) & ~1;
+        format.height = std::max(2, height * job_.scale / kPercent) & ~1;
         std::string error;
         writer_ = media::open_video(job_.video_path, format, &error);
         if (!writer_) {
@@ -263,17 +302,19 @@ private:
 
     void emit_one()
     {
-        if (!writer_ && !open()) {
+        if (!writer_ && !open(current_.width, current_.height)) {
             return;
         }
         if (!rgb_valid_) {
-            if (current_.bytes.empty() || !screenshot::to_rgb(current_, &rgb_)) {
+            if (current_.bytes.empty() || !screenshot::to_rgb(current_, &full_)) {
                 fail("a picture couldn't be read");
                 return;
             }
+            // (scaled here, by area: the writer's own scaling of a smaller size shows broken chroma)
+            area_scale(full_, current_.width, current_.height, job_.width, job_.height, &rgb_);
             rgb_valid_ = true;
         }
-        if (!writer_->add_frame(rgb_, current_.width, current_.height)) {
+        if (!writer_->add_frame(rgb_, job_.width, job_.height)) {
             fail(writer_->error());
             return;
         }
@@ -330,7 +371,8 @@ private:
     int fps_;
     TickCycle current_;
     bool have_current_ = false;
-    std::vector<uint8_t> rgb_;
+    std::vector<uint8_t> full_; // the picture as RGB
+    std::vector<uint8_t> rgb_;  // and at the video's size
     bool rgb_valid_ = false;
     bool broken_ = false;
     std::unique_ptr<media::VideoWriter> writer_;
@@ -504,6 +546,8 @@ std::string start_recording()
     job->scale = setting_int("clip_scale", kDefaultScale, 10, 400);
     rec->fps = job->format.fps;
     rec->max_seconds = setting_int("clip_max_seconds", kDefaultMaxSeconds, 1, 24 * 3600);
+    job->source_width = render::renderer().back_buffer_width();
+    job->source_height = render::renderer().back_buffer_height();
     rec->level = screenshot::level_key();
     rec->game_frame_start = frame_loop::frames_run();
     rec->baseline_ms = clip.frame_ms;

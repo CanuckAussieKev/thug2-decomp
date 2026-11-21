@@ -14,6 +14,7 @@
 #include "base/core/parse_number.h"
 #include "engine/file/disk.h"
 #include "engine/file/disk_files.h"
+#include "fs_win32/win32_disk.h"
 #include "game/front_end/start_level.h"
 #include "media_ffmpeg/ffmpeg_video_read.h"
 #include "platform/std_streams.h"
@@ -67,6 +68,7 @@ bool run_clip_frames(int* exit_code)
         return false;
     }
     *exit_code = 1;
+    fs::install_disk(fs::win32::disk()); // (this mode runs before the game's start-up installs it)
     const std::string folder = option_value(line, "frames-out");
     std::set<int64_t> wanted; // (the decoder counts from 1)
     for (const int index : numbers_of(option_value(line, "frames"))) {
