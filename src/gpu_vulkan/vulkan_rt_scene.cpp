@@ -3129,16 +3129,30 @@ vec4 hit_composed_colour(uint instance, uint primitive, uint id, vec2 barycentri
 // material: ReSTIR DI's target evaluates it at every candidate); false where nothing is there (a cut-out texel, a hidden
 // mesh). (Round P10) An object's from its store as a world mesh's: an object drawn with its own colours is relit where it
 // stands (its tint and emission taken apart by the bake); one without a store sends nothing.
-bool hit_emission(uint instance, uint primitive, uint id, vec2 barycentrics, out vec3 emitted)
+// (round PERF2) With the triangle's corners already read (`v` - hit_vertices of the same instance and primitive): the
+// texture's texel read once for the drawn alpha and the composed colour, the first uv set taken from the corners, and
+// no colour work where the store emits nothing there - the same light (ReSTIR DI evaluates it at every candidate).
+vec2 hit_uv_of(HitVertices v, vec2 barycentrics)
+{
+    float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
+    vec2 uv = vec2(0.0);
+    for (uint k = 0u; k < 3u; ++k) {
+        uv += v.uv[k] * weights[k];
+    }
+    return uv;
+}
+bool hit_emission_of(uint instance, uint primitive, uint id, vec2 barycentrics, HitVertices v, out vec3 emitted)
 {
     emitted = vec3(0.0);
-    HitVertices v;
-    if (!hit_vertices(instance, primitive, v)) {
-        return false;
-    }
     Material surface = material(id);
-    vec2 uv = hit_uv_set(instance, primitive, barycentrics, surface.uv_set);
-    if (!material_alpha_passes(id, material_drawn_alpha(id, uv, hit_colour(v, barycentrics).a))) {
+    // (hit_uv_set's set 0 - and a set the mesh lacks - is the corners' first: hit_vertices')
+    uint sets = (v.flags >> 8) & 15u;
+    vec2 uv = surface.uv_set == 0u || surface.uv_set >= sets ? hit_uv_of(v, barycentrics)
+                                                            : hit_uv_set(instance, primitive, barycentrics, surface.uv_set);
+    float vertex_alpha = hit_colour(v, barycentrics).a;
+    vec4 first = material_texel_lod(id, uv, 0.0);
+    float drawn_alpha = material_drawn_alpha_from(id, first, vertex_alpha);
+    if (!material_alpha_passes(id, drawn_alpha)) {
         return false;
     }
     vec3 tint;
@@ -3151,10 +3165,29 @@ bool hit_emission(uint instance, uint primitive, uint id, vec2 barycentrics, out
     if (hidden) {
         return false;
     }
-    vec4 texel = hit_composed_colour(instance, primitive, id, barycentrics, uv, hit_colour(v, barycentrics).a);
-    emitted = store_emission(emit, linear_from_display(clamp(texel.rgb, 0.0, 1.0)),
-                             material_drawn_alpha(id, uv, hit_colour(v, barycentrics).a), texels);
+    if (!(max(emit.r, max(emit.g, emit.b)) > 0.0)) {
+        return true; // (store_emission: emit x anything - none)
+    }
+    Material m = material(id);
+    vec2 layer_uv[3];
+    for (uint k = 0u; k < 3u; ++k) {
+        uint layer_set = (m.layer_mode[k] >> 8) & 15u;
+        layer_uv[k] = (m.layer_mode[k] & 255u) == 0u ? uv
+                      : (layer_set == 0u || layer_set >= sets ? hit_uv_of(v, barycentrics)
+                                                              : hit_uv_set(instance, primitive, barycentrics, layer_set));
+    }
+    vec4 texel = material_colour_from(id, first, layer_uv, vertex_alpha);
+    emitted = store_emission(emit, linear_from_display(clamp(texel.rgb, 0.0, 1.0)), drawn_alpha, texels);
     return true;
+}
+bool hit_emission(uint instance, uint primitive, uint id, vec2 barycentrics, out vec3 emitted)
+{
+    emitted = vec3(0.0);
+    HitVertices v;
+    if (!hit_vertices(instance, primitive, v)) {
+        return false;
+    }
+    return hit_emission_of(instance, primitive, id, barycentrics, v, emitted);
 }
 bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4x3 object_to_world, vec3 direction,
                  out HitSurface s)

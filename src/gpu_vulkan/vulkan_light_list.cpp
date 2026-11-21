@@ -707,7 +707,7 @@ LightPick light_pick_at(uint e, uint count, vec2 uv)
         }
         vec3 bc = path_triangle_point(uv.x, uv.y);
         vec3 emitted;
-        if (!hit_emission(listed.x, listed.y, instance_material(listed.x), bc.yz, emitted)) {
+        if (!hit_emission_of(listed.x, listed.y, instance_material(listed.x), bc.yz, tri, emitted)) { // (round PERF2)
             return p;
         }
         p.y = a * bc.x + b * bc.y + c * bc.z;
