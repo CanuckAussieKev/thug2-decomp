@@ -5673,7 +5673,7 @@ specular input against the reference's direct light, -0.30 %.
      triangle, its normal and the shading normal, the albedo); where the ray doesn't end at the depth's point (a
      seen-through surface drawn in the prepass) the pixel gets no lamps, as the lamps pass gave none. Kept for the next
      frame (position, both normals as octahedral words, the albedo).
-  2. 16 candidates from the alias table (a point uniform on a triangle, a lamp's own point - rt_lights.h's lamp model),
+  2. 8 candidates (16 before round PERF - RTXDI's default is 8) from the alias table (a point uniform on a triangle, a lamp's own point - rt_lights.h's lamp model),
      resampled toward the target p^ = the luminance of the light a white diffuser there would get from it, unshadowed -
      a triangle's own emission at the sample (vulkan_rt_scene.h `hit_emission`: the store's emission x the texel, on a
      lamp drawn in a texture its lamp texels alone). The BRDF is left out: the shading puts the light on its own
@@ -6282,7 +6282,8 @@ what the camera sees emit), each mismatch traced to the side that was wrong:
   cell without resolved samples (SHaRC's query miss); ReSTIR GI's secondary vertex then traces on along its cosine lobe
   (`trace_secondary` with go_on: the next vertex's direct light + its reflectance x its bounce, the cache read again at
   each; two vertices, then Russian roulette by the light the path carries, at most 12) instead of taking 0. An entry is
-  trusted from 32 kept samples (SHaRC's sample threshold: a young entry's update paths end in other young entries - at 8
+  trusted from 32 samples taken since it was claimed (round PERF: counted in its key, not its faded weight - that settled
+  under 32 wherever fewer than 2 samples a frame arrive, a miss for good; SHaRC's sample threshold: a young entry's update paths end in other young entries - at 8
   the cold room's first frames were -7 %). Readers that can't trace on (the update paths' last vertex, the reflections'
   hits, the front layer) take a young entry's light, else 0. One trace call in the loop: a second inlined
   trace_secondary (ray queries and the light sample) made the GI shader lose the device.
