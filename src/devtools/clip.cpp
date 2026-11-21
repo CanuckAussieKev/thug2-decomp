@@ -700,8 +700,15 @@ void before_present(bool rendering)
             stop_recording("stopped");
             return;
         }
-        if (start && !clip.recording && rendering && !render::engine_parts().loading_screen_up()) {
-            const std::string failed = start_recording();
+        if (start && !clip.recording) {
+            std::string failed;
+            if (!rendering) {
+                failed = "this frame isn't drawn";
+            } else if (render::engine_parts().loading_screen_up()) {
+                failed = "a loading screen is up";
+            } else {
+                failed = start_recording();
+            }
             if (!failed.empty()) {
                 get_log("clip: not started - %s", failed.c_str());
                 screenshot::show_notice("Clip failed: " + failed);
