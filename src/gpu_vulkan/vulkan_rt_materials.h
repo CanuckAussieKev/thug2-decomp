@@ -155,6 +155,8 @@ void surface_reflection(const rt::Material& material, const Texture* colour, Mat
 //                                                      vertex colour): the first pass's texel x colour, each layer
 //                                                      blended into it by its mode; alpha the first pass's texel's.
 //                                                      layer_uv[k]: layer k's set's coordinates
+//   (round PERF2) material_colour_from(uint id, vec4 first, ...) / material_drawn_alpha_from(uint id, vec4 first, float
+//                                                      vertex_alpha) - the same from the first pass's texel already read
 //                                                      ((layer_mode[k] >> 8) & 15); vertex_alpha as material_drawn_alpha's
 // The UVs are the caller's: the material says which set (uv_set) its texture uses.
 std::string_view material_glsl();

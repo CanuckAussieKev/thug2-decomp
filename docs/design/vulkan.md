@@ -6287,6 +6287,18 @@ what the camera sees emit), each mismatch traced to the side that was wrong:
   the cold room's first frames were -7 %). Readers that can't trace on (the update paths' last vertex, the reflections'
   hits, the front layer) take a young entry's light, else 0. One trace call in the loop: a second inlined
   trace_secondary (ray queries and the light sample) made the GI shader lose the device.
+  Round PERF2: an entry is also trusted 16 frames after it was claimed (its key's w; CACHE_FRAMES, its history's
+  length) with any samples - a young entry lacks the frames its feedback takes, not samples; and a first secondary
+  vertex that misses adds its continued path's light to its cell (the update paths' sample), so cells only the
+  pixels' rays reach (specular hits, surfaces behind the camera) get entries instead of continuing every frame.
+- **Round PERF2: one secondary path a pixel, in its own pass.** ReSTIR GI's samples are PASS_SAMPLE, before the
+  temporal reuse (RTXDI's order: initial samples, then temporal resampling) - the shader that did both lost the device
+  when edited (an instruction fault in the shader's own code, from the first frames), split it doesn't. Each pixel
+  traces one path, its lobe chosen by its share of the reflectance (`lobe_share`: the reference's
+  path_specular_probability held to 0.1 - 0.9, a metal always specular), its candidate's W 1 / (pdf x the lobe's
+  chance); the other reservoir's candidate that frame is none (M 1). One BRDF-sampled path a pixel is what RTXDI's
+  ReSTIR GI and Cyberpunk 2077's path tracing trace; both lobes' paths every pixel before. BO at night, 1707 x 960
+  drawn: GI samples + temporal 20.8 -> 6 ms.
 - Not changed, measured equal: the light lists (175 lamps, 611 emitting triangles - one scan, one record per lamp),
   ReSTIR DI's estimator (an exact sum over every lamp at each pixel - a diagnostic - equal to ReSTIR's result within
   2 %; no grid, no boiling filter, no reuse: the same means), Ray Reconstruction (its output's mean its input's).
