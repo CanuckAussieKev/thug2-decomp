@@ -7,15 +7,16 @@
 // render_pc draws a level; its acceleration structures are built here and handed over with rt_fog_set_scene;
 // rt::world_view_drawn runs the passes through the listener, as draw_viewport does. The processor answers each pixel
 // from the camera's own position and lens (not the matrices): the surface its ray hits, and the fog along it.
-//   - One frame (the march as it is): every low-resolution texel's distance against the processor's; its transmittance
-//     against exp(-integral) of the extinction - the game's own (end - d) / (end - start); its light against the
-//     processor's march of the same pixel with the same jitter and steps (the shaft's edges may land on either side of a
-//     sample: a share of texels may differ by up to one step's light); no NaN.
+//   (Round FOG: the pass is froxel volumetric fog - vulkan_rt_fog.h. Its resolve gives a texel per froxel column: the
+//   fog the column's middle pixel sees, read from the volume as the composite reads it.)
+//   - One frame: every resolve texel's distance against the processor's; its transmittance against exp(-integral) of
+//     the extinction - the game's own (end - d) / (end - start), whatever the grid; no NaN.
 //   - The shaft: texels whose rays cross it are lighter than those that don't, by about what the processor's exact
 //     integral says.
-//   - A still camera: after kStillFrames frames the history against the exact integral (2048 steps): nearer than one
-//     frame's march (the temporal accumulation converges), mean and 95th-percentile error bounded; the colour target
-//     the composite: surface x T + light within a few levels where the pixel's neighbours are on its surface.
+//   - A still camera: after kStillFrames frames the froxels' light against the exact integral (2048 steps), mean and
+//     95th-percentile error bounded; the grain held still (kGrainFrames frames: each texel's light's deviation frame to
+//     frame bounded - noisy in-scattering fails it); the colour target the composite: surface x T + light within a few
+//     levels where the pixel's neighbours are on its surface.
 //   - A moved camera: no NaN, the error after it bounded (no ghost).
 //   - Shafts mode (rt_fog_mode=1): T = 1 everywhere, pixels whose rays never cross sunlit fog unchanged.
 //   - The sky: never dimmed; lighter only by the shafts' share.
@@ -113,9 +114,6 @@ constexpr float kFogEnd = 500.0F;
 constexpr std::array<float, 3> kFogColour{0.6F, 0.65F, 0.7F};
 constexpr unsigned kSteps = 32;
 constexpr int kStillFrames = 40;
-// (the first frame of a history seeds it with kFogSeedFrames marches - vulkan_rt_history.h: its last march, the one the
-// raw image holds, is frame index kFogSeedFrames - 1, and every frame after counts on from there)
-constexpr uint64_t kFirstMarch = render::vulkan::kFogSeedFrames - 1;
 constexpr double kPerByte = 1.0 / 255.0;
 // (changed by the street air) the march's block (2: the exact cases; the quarter-resolution case 4)
 uint32_t& march_scale()
@@ -745,21 +743,6 @@ Fogged march(const ViewRay& ray, const Marching& how)
     return out;
 }
 
-// The pass's jitter for a pixel (the viewport's) in frame `frame` (interleaved gradient noise + the golden ratio).
-double jitter_of(Pixel pixel, uint64_t frame)
-{
-    constexpr float kNoiseScale = 52.9829189F;
-    constexpr float kNoiseX = 0.06711056F;
-    constexpr float kNoiseY = 0.00583715F;
-    constexpr double kGoldenRatio = 0.6180339887498949;
-    const float noise =
-        kNoiseScale *
-        std::fmod((kNoiseX * static_cast<float>(pixel.x)) + (kNoiseY * static_cast<float>(pixel.y)), 1.0F);
-    const double frame_offset = std::fmod(static_cast<double>(frame) * kGoldenRatio, 1.0);
-    const double sum = static_cast<double>(noise - std::floor(noise)) + static_cast<float>(frame_offset);
-    return sum - std::floor(sum);
-}
-
 // The exact integral (2048 steps, each sampled at its middle) of the fog through a pixel.
 constexpr uint32_t kFineSteps = 2048;
 constexpr double kMiddle = 0.5;
@@ -1241,28 +1224,28 @@ Seen seen_at(const View& view, Pixel pixel)
     return seen_along({.origin = view.eye, .direction = direction_at(view, pixel)});
 }
 
-// One frame's march, texel by texel, against the processor's.
-void compare_raw(const View& view, uint64_t frame, bool shafts, Tally* tally)
+// (round FOG) The resolve, texel by texel (each froxel column's middle pixel): its distance and sky against the
+// processor's, its transmittance against exp(-integral) - the volume's integral before the pixel's slice and the slice's
+// own part exact along the pixel's ray, so the game's fog is kept whatever the grid. (Its light is judged once the
+// froxels' history has converged - compare_converged; one frame's samples are the history's business.)
+void compare_raw(const View& view, bool shafts, Tally* tally)
 {
     render::vulkan::RtFogTexels raw;
     render::vulkan::RtFogTexels info;
     const bool read =
         read_fog(render::vulkan::RtFogImage::kRaw, &raw) && read_fog(render::vulkan::RtFogImage::kRawInfo, &info);
-    tally->check(read, "the march's images read back");
+    tally->check(read, "the resolve's images read back");
     if (!read) {
         return;
     }
     tally->check(
         count_not_finite(raw) == 0 && count_not_finite(info) == 0,
-        text::format("no NaN or infinity in the march (%d, %d texels)", count_not_finite(raw), count_not_finite(info)));
+        text::format("no NaN or infinity in the resolve (%d, %d texels)", count_not_finite(raw), count_not_finite(info)));
     std::vector<double> distance_errors;
     std::vector<double> transmittance_errors;
-    std::vector<double> light_errors;
     int sky_wrong = 0;
     int surface_pixels = 0;
     int sky_pixels = 0;
-    double one_step = 0.0;
-    std::vector<double> step_lights;
     for (std::size_t i = 0; i < raw.texels.size(); ++i) {
         const std::array<float, 4>& got = core::at(raw.texels, i);
         const std::array<float, 4>& where = core::at(info.texels, i);
@@ -1279,37 +1262,20 @@ void compare_raw(const View& view, uint64_t frame, bool shafts, Tally* tally)
         distance_errors.push_back(std::abs(gpu_distance - seen.distance) / seen.distance);
         const double transmittance = shafts ? 1.0 : exact_transmittance(seen.distance);
         transmittance_errors.push_back(std::abs(static_cast<double>(core::at(got, 3)) - transmittance));
-        const Fogged want = march({.eye = view.eye, .direction = direction, .distance = gpu_distance},
-                                  {.steps = kSteps,
-                                   .jitter = jitter_of(pixel, frame),
-                                   .shafts = shafts,
-                                   .pairs = true,
-                                   .parity = static_cast<uint32_t>(frame & 1U),
-                                   .pixel_x = pixel.x,
-                                   .pixel_y = pixel.y,
-                                   .frame = frame});
-        light_errors.push_back(light_error(got, want));
-        // (a sample on either side of the shaft's edge: a pair of steps' light - the light's rays a pair at a time)
-        one_step = std::max(one_step, 2.0 * want.largest_step);
+
     }
     tally->check(sky_wrong <= kMostSkyDifferences,
                  text::format("the sky where the processor sees it (%d of %d texels differ)", sky_wrong, sky_pixels));
-    const int scale_squared = static_cast<int>((march_scale() / 2) * (march_scale() / 2));
+    const int scale_squared = static_cast<int>(march_scale() * march_scale() / 4);
     tally->check(surface_pixels > kLeastSurfaceTexels / scale_squared,
                  text::format("%d texels on a surface", surface_pixels));
     tally->check(percentile(distance_errors, kNinetyNinth) < kMostDistanceError,
-                 text::format("the distance marched to: 99th percentile relative error %.2g",
+                 text::format("the distance to the surface: 99th percentile relative error %.2g",
                               percentile(distance_errors, kNinetyNinth)));
     tally->check(percentile(transmittance_errors, kAll) < kMostTransmittanceError,
                  text::format("the transmittance = exp(-integral) = %s: largest error %.2g (16-bit floats)",
                               shafts ? "1 (shafts mode)" : "(end - d) / (end - start)",
                               percentile(transmittance_errors, kAll)));
-    tally->check(percentile(light_errors, kNinetyEighth) < kMostLightError &&
-                     percentile(light_errors, kAll) < one_step + kStepSlack,
-                 text::format("the light against the processor's march (same jitter, %u steps): 98%% within %.2g, all "
-                              "within %.3f (a pair of steps' %.3f)",
-                              kSteps, percentile(light_errors, kNinetyEighth), percentile(light_errors, kAll),
-                              one_step));
 }
 
 // The shaft: texels whose ray crosses sunlit fog against those that don't (the exact integral says which).
@@ -1326,12 +1292,8 @@ void compare_shaft(const View& view, Tally* tally)
     std::vector<double> inside;
     std::vector<double> outside;
     std::vector<double> inside_want;
-    const uint32_t width = history.width;
     for (std::size_t i = 0; i < history.texels.size(); ++i) {
-        const Pixel pixel{
-            .x = std::min(static_cast<int>(i % width) * static_cast<int>(march_scale()), static_cast<int>(kTargetWidth) - 1),
-            .y = std::min(static_cast<int>(i / width) * static_cast<int>(march_scale()),
-                          static_cast<int>(kTargetHeight) - 1)};
+        const Pixel pixel = pixel_of(core::at(info.texels, i), 2);
         const Seen seen = seen_at(view, pixel);
         if (seen.solid == kNoSurface) {
             continue;
@@ -1358,30 +1320,26 @@ void compare_shaft(const View& view, Tally* tally)
                               mean(inside), mean(inside_want), mean(outside)));
 }
 
-// The exact light for a texel's block (the pixels its frames march, averaged: 2 x 2, or 4 x 4); false when they don't
-// all see one surface.
+// The exact light for a resolve texel's pixel; false when the pixel or its neighbours across the froxel column don't
+// all see one surface (the column's light is its volume's: a surface's edge inside it is the grid's resolution).
 bool block_light(const View& view, Pixel pixel, Fogged* out)
 {
-    const int scale = static_cast<int>(march_scale());
-    const Pixel corner{.x = (pixel.x / scale) * scale, .y = (pixel.y / scale) * scale};
+    const int half = static_cast<int>(march_scale() / 2);
+    const std::size_t solid = seen_at(view, pixel).solid;
     *out = Fogged{};
-    std::size_t first = kNoSurface;
-    const int pixels = scale * scale;
-    for (int which = 0; which < pixels; ++which) {
-        const Pixel each{.x = std::min(corner.x + (which % scale), static_cast<int>(kTargetWidth) - 1),
-                         .y = std::min(corner.y + (which / scale), static_cast<int>(kTargetHeight) - 1)};
-        const Seen seen = seen_at(view, each);
-        if (which == 0) {
-            first = seen.solid;
-        }
-        if (seen.solid != first || seen.solid == kNoSurface) {
-            return false;
-        }
-        const Fogged one = exact_at(view, each, false);
-        for (std::size_t channel = 0; channel < 3; ++channel) {
-            core::at(out->light, channel) += core::at(one.light, channel) / static_cast<double>(pixels);
+    if (solid == kNoSurface) {
+        return false;
+    }
+    for (int dy = -half; dy <= half; dy += std::max(half, 1)) {
+        for (int dx = -half; dx <= half; dx += std::max(half, 1)) {
+            const Pixel each{.x = std::clamp(pixel.x + dx, 0, static_cast<int>(kTargetWidth) - 1),
+                             .y = std::clamp(pixel.y + dy, 0, static_cast<int>(kTargetHeight) - 1)};
+            if (seen_at(view, each).solid != solid) {
+                return false;
+            }
         }
     }
+    *out = exact_at(view, pixel, false);
     return true;
 }
 
@@ -1394,17 +1352,14 @@ void compare_converged(const View& view, Tally* tally, bool all_full = true,
 {
     render::vulkan::RtFogTexels history;
     render::vulkan::RtFogTexels info;
-    render::vulkan::RtFogTexels raw;
     const bool read = read_fog(render::vulkan::RtFogImage::kHistory, &history) &&
-                      read_fog(render::vulkan::RtFogImage::kHistoryInfo, &info) &&
-                      read_fog(render::vulkan::RtFogImage::kRaw, &raw);
+                      read_fog(render::vulkan::RtFogImage::kHistoryInfo, &info);
     tally->check(read, "the history read back");
     if (!read) {
         return;
     }
     tally->check(count_not_finite(history) == 0, text::format("no NaN in the history (%d)", count_not_finite(history)));
     std::vector<double> history_errors;
-    std::vector<double> raw_errors;
     int full = 0;
     int counted = 0;
     for (std::size_t i = 0; i < history.texels.size(); ++i) {
@@ -1416,7 +1371,6 @@ void compare_converged(const View& view, Tally* tally, bool all_full = true,
         ++counted;
         full += core::at(was, 1) >= static_cast<float>(full_length) ? 1 : 0;
         history_errors.push_back(light_error(core::at(history.texels, i), want));
-        raw_errors.push_back(light_error(core::at(raw.texels, i), want));
     }
     tally->check(full == counted || (!all_full && full * 10 >= counted * 9),
                  text::format("every history full (%d of %d at %u frames)", full, counted, full_length));
@@ -1424,8 +1378,52 @@ void compare_converged(const View& view, Tally* tally, bool all_full = true,
                      percentile(history_errors, kNinetyFifth) < kMostConverged95,
                  text::format("converged against the exact integral: mean error %.4f, 95th percentile %.4f",
                               mean(history_errors), percentile(history_errors, kNinetyFifth)));
-    tally->check(mean(history_errors) < mean(raw_errors),
-                 text::format("nearer than one frame's march (its mean error %.4f)", mean(raw_errors)));
+}
+
+// (round FOG) The grain of the in-scattered light with the camera held still: kGrainFrames frames' resolve, each texel's
+// deviation frame to frame over its mean light - what bubbled and crawled near small bright lights while each pixel's
+// march took a few light samples a frame. Noisy in-scattering fails it.
+constexpr int kGrainFrames = 16;
+constexpr double kMostGrain = 0.01;      // the texels' mean deviation, a share of their light
+constexpr double kMostGrain99 = 0.04;    // ... their 99th percentile
+constexpr double kLeastGrainLight = 0.02; // the texels judged: lit at least this
+void compare_grain(render::Gpu& gpu, const Targets& targets, const Vec3& eye, Tally* tally)
+{
+    std::vector<std::vector<double>> frames;
+    for (int frame = 0; frame < kGrainFrames; ++frame) {
+        draw_frame(gpu, targets, eye);
+        render::vulkan::RtFogTexels resolved;
+        if (!read_fog(render::vulkan::RtFogImage::kHistory, &resolved)) {
+            tally->check(false, "the grain: the resolve read back");
+            return;
+        }
+        std::vector<double> lumas;
+        lumas.reserve(resolved.texels.size());
+        for (const std::array<float, 4>& texel : resolved.texels) {
+            lumas.push_back((0.2126 * core::at(texel, 0)) + (0.7152 * core::at(texel, 1)) + (0.0722 * core::at(texel, 2)));
+        }
+        frames.push_back(std::move(lumas));
+    }
+    std::vector<double> grain;
+    for (std::size_t i = 0; i < frames.front().size(); ++i) {
+        double sum = 0.0;
+        double squares = 0.0;
+        for (const std::vector<double>& lumas : frames) {
+            sum += core::at(lumas, i);
+            squares += core::at(lumas, i) * core::at(lumas, i);
+        }
+        const double middle = sum / kGrainFrames;
+        if (middle < kLeastGrainLight) {
+            continue;
+        }
+        grain.push_back(std::sqrt(std::max((squares / kGrainFrames) - (middle * middle), 0.0)) / middle);
+    }
+    tally->check(grain.size() > kLeastShaftTexels && mean(grain) < kMostGrain &&
+                     percentile(grain, kNinetyNinth) < kMostGrain99,
+                 text::format("the grain held still over %d frames: %zu lit texels' light deviates %.4f of itself on "
+                              "average, %.4f at the 99th percentile (at most %.2f, %.2f)",
+                              kGrainFrames, grain.size(), mean(grain), percentile(grain, kNinetyNinth), kMostGrain,
+                              kMostGrain99));
 }
 
 // Whether the pixels around one (within `radius`) see its surface.
@@ -1629,7 +1627,7 @@ void run_replace(render::Gpu& gpu, const Scene& scene, Tally* tally)
         const View view = view_from(kEye, kTargetWidth, kTargetHeight);
         tally->check(draw_frame(gpu, targets, kEye) == 1, "the listener recorded the passes");
         tally->check(render::vulkan::rt_fog_replaces_level_fog(), "the draws leave the level's fog out");
-        compare_raw(view, kFirstMarch, false, tally);
+        compare_raw(view, false, tally);
         text::print("  the first frame (its history seeded - vulkan_rt_history.h):\n");
         compare_converged(view, tally, true, render::vulkan::kFogSeedFrames);
         int passes = 1;
@@ -1637,9 +1635,10 @@ void run_replace(render::Gpu& gpu, const Scene& scene, Tally* tally)
             passes += static_cast<int>(draw_frame(gpu, targets, kEye));
         }
         tally->check(passes == kStillFrames, text::format("%d frames, %d passes", kStillFrames, passes));
-        compare_raw(view, kFirstMarch + kStillFrames - 1, false, tally);
+        compare_raw(view, false, tally);
         compare_converged(view, tally);
         compare_shaft(view, tally);
+        compare_grain(gpu, targets, kEye, tally);
         std::vector<uint8_t> texels;
         const bool read = read_colour(targets, &texels);
         tally->check(read, "the target read back");
@@ -1663,7 +1662,7 @@ void run_shafts(render::Gpu& gpu, const Scene& scene, Tally* tally)
         const View view = view_from(kEye, kTargetWidth, kTargetHeight);
         tally->check(draw_frame(gpu, targets, kEye) == 1, "the listener recorded the passes");
         tally->check(!render::vulkan::rt_fog_replaces_level_fog(), "the draws keep the level's fog");
-        compare_raw(view, kFirstMarch, true, tally);
+        compare_raw(view, true, tally);
         for (int frame = 1; frame < kStillFrames; ++frame) {
             draw_frame(gpu, targets, kEye);
         }
@@ -1994,11 +1993,11 @@ void run_quarter(render::Gpu& gpu, const Scene& scene, Tally* tally)
     if (made) {
         const View view = view_from(kEye, kTargetWidth, kTargetHeight);
         tally->check(draw_frame(gpu, targets, kEye) == 1, "the listener recorded the passes");
-        compare_raw(view, kFirstMarch, false, tally);
+        compare_raw(view, false, tally);
         for (int frame = 1; frame < kStillFrames; ++frame) {
             draw_frame(gpu, targets, kEye);
         }
-        compare_raw(view, kFirstMarch + kStillFrames - 1, false, tally);
+        compare_raw(view, false, tally);
         compare_converged(view, tally, false);
     }
     release_targets(gpu, targets);
@@ -2448,6 +2447,7 @@ void run_perf(render::Gpu& gpu, const Scene& scene, Tally* tally)
         render::vulkan::RtFogSettings settings = base;
         settings.steps = core::at(render::vulkan::kRtFogQualitySteps, quality);
         settings.scale = core::at(render::vulkan::kRtFogQualityScale, quality);
+        settings.samples = core::at(render::vulkan::kRtFogQualitySamples, quality);
         settings.map = core::at(render::vulkan::kRtFogQualityMap, quality);
         settings.god_rays = run != kWithoutRays;
         use_settings(settings, scene.top.handle);
@@ -2461,8 +2461,9 @@ void run_perf(render::Gpu& gpu, const Scene& scene, Tally* tally)
         const uint64_t samples = after.samples - before.samples;
         const double milliseconds =
             samples == 0 ? 0.0 : (after.milliseconds - before.milliseconds) / static_cast<double>(samples);
-        text::print("  %-6s (%u steps, 1/%u): %.3f ms (%llu passes timed)\n", core::at(kNames, run), settings.steps,
-                    settings.scale, milliseconds, static_cast<unsigned long long>(samples));
+        text::print("  %-6s (%u slices, %u-pixel columns, %u samples): %.3f ms (%llu passes timed)\n",
+                    core::at(kNames, run), settings.steps, settings.scale, settings.samples, milliseconds,
+                    static_cast<unsigned long long>(samples));
         if (run == 1) {
             tally->check(samples > 0 && milliseconds < kMostMediumMilliseconds,
                          text::format("  Medium within %.1f ms at %ux%u", kMostMediumMilliseconds, kPerfWidth,

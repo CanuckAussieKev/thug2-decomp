@@ -1407,6 +1407,7 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
     vk::RtFogSettings fog;
     fog.on = true;
     fog.steps = kAerialSteps;
+    fog.scale = 2; // (round FOG: 2-pixel froxel columns - a resolve texel each, as the march's 2 x 2 blocks were)
     fog.haze = true;
     vk::set_rt_fog_settings(fog);
     render::rt::set_aerosol(test_aerosol()); // (after the settings: they put the weather's in place)
@@ -1466,7 +1467,10 @@ void run_aerial(render::Gpu& gpu, const Scene& scene, Tally* tally)
                 open_shade += aerial_light(direction, core::at(info_texel, 0), false);
                 ++texels;
             }
-            constexpr double kMostIndoor = 0.01;
+            // (round FOG: 4 % - was 1 % for the per-pixel march, which stopped at the wall. A froxel holding the wall takes
+            // its samples on both sides of it, and the pixel's last slice takes that froxel's light: the air just inside a
+            // closed room gets a share of the open air's light behind the wall - froxel fog's own leak, a slice deep)
+            constexpr double kMostIndoor = 0.04;
             tally->check(texels > kLeastSurfaceTexels && open_shade > 0.0 && inside <= kMostIndoor * open_shade,
                          text::format("a closed room's air: %.2f%% of the light the same air gets from the sky in the open (%d texels; "
                                       "at most %.0f%%)",

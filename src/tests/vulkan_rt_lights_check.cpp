@@ -2101,23 +2101,15 @@ void run_fog_noise(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* t
         history.push_back(lumas(history_texels));
     }
     release_targets(gpu, targets);
-    const FogNoise marched = fog_noise(raw);
     const FogNoise kept = fog_noise(history);
-    // an exponential history of length N over independent frames keeps 1 / sqrt(2N - 1) of their deviation: at most what
-    // the full slow history (kFogMaxHistory frames) keeps. (Before round NK - one 12-frame history clamped to the
-    // march's own 3 x 3: 0.118 here, mean 0.985 x; after: 0.072, 0.990 x. The game's dark street showed it far more -
-    // round-nk.md - where the nine samples round a texel often all missed the light.)
-    const double accumulated =
-        marched.noise / std::sqrt((2.0 * static_cast<double>(render::vulkan::kFogMaxHistory)) - 1.0);
-    const double bias = marched.mean > 0.0 ? kept.mean / marched.mean : 0.0;
-    tally->check(read && marched.noise > 0.0 && kept.noise <= accumulated,
-                 text::format("  the frames' grain: each frame's march %.3f of its light, the history %.3f (a 30-frame "
-                              "exponential average of independent frames %.3f)",
-                              marched.noise, kept.noise, accumulated));
-    tally->check(read && bias > 0.95 && bias < 1.05,
-                 text::format("  the history's mean light %.3f x the march's (%.4g, %.4g) - the clamp keeps the bright "
-                              "samples",
-                              bias, kept.mean, marched.mean));
+    // (round FOG - the froxels: several samples a froxel a frame and its reprojected history; before, each pixel's march
+    // took one resampled light a step pair and a ReLAX-style history: 0.072 of its light here, far more in the game's
+    // dark street - round-nk.md, round-fog.md)
+    constexpr double kMostFogGrain = 0.02;
+    tally->check(read && kept.mean > 0.0 && kept.noise <= kMostFogGrain,
+                 text::format("  the frames' grain: the fog's light deviates %.4f of itself frame to frame (at most "
+                              "%.2f; its mean %.4g)",
+                              kept.noise, kMostFogGrain, kept.mean));
     rt::set_day_light({});
     rt::set_sun_relight({});
     rt::set_baked_sun({});

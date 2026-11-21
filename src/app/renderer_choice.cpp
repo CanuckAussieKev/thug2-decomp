@@ -261,8 +261,8 @@ render::vulkan::HdrSettings make_hdr(const Resolution& in_effect)
 }
 
 // NOT ORIGINAL - volumetric fog, its light shafts and the haze of a level without fog (gpu_vulkan/vulkan_rt_fog.h).
-// rt_fog_quality picks the march's steps, its resolution and the lamps that light the air; rt_fog_steps, when given
-// (above 0), the steps.
+// rt_fog_quality picks the froxel grid's slices and resolution, the samples a froxel takes and the lamps' candidates;
+// rt_fog_steps, when given (above 0), the slices.
 render::vulkan::RtFogSettings make_rt_fog(const Resolution& in_effect)
 {
     const render::vulkan::RtFogSettings defaults;
@@ -279,6 +279,7 @@ render::vulkan::RtFogSettings make_rt_fog(const Resolution& in_effect)
         .haze = in_effect.on("rt_fog_haze"),
         .weather = render::rt::parse_weather(in_effect.value("rt_fog_air").c_str()),
         .scale = core::at(render::vulkan::kRtFogQualityScale, quality),
+        .samples = core::at(render::vulkan::kRtFogQualitySamples, quality),
         .map = core::at(render::vulkan::kRtFogQualityMap, quality),
         .god_rays = in_effect.on("rt_fog_god_rays")};
 }

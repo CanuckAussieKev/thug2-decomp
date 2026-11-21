@@ -1080,6 +1080,24 @@ Now:
 
 ### Volumetric fog and light shafts
 
+(Round FOG - rewritten as froxel volumetric fog, as Wronski's "Volumetric Fog" (AC4, 2014), Hillaire's "Physically Based
+and Unified Volumetric Rendering in Frostbite" (2015) and Unreal Engine's volumetric fog do it; vulkan_rt_fog.h has the
+passes. The per-pixel march with its few resampled lights a step pair and its ReLAX-style histories (round NK, below) is
+retired: near small, very bright emitters - BO's neon strips at night - it gave soft blue-white blobs that bubbled and
+crawled with the camera still. Now: a camera-aligned grid (a column per `rt_fog_quality` 16 / 16 / 12 pixels, 48 / 64 / 64
+slices spread exponentially from the eye to the fog's end or the aerial air's reach); each froxel takes 2 / 4 / 6 jittered
+samples a frame of the light that reaches it - the sun's or moon's share (its ray, the air's sun map, the clouds' map),
+the light list's local lights by RIS (candidates from ReSTIR DI's light grid - ReGIR - inside it, the pool outside; a
+light's point never taken nearer than the froxel's own size), the sky's open share - blended with the grid of the frame
+before reprojected (1 / frames, then 1 / 20: 0.95 history); a 3 x 3 x 3 tent over the froxels' local-light light as it is
+integrated; each column integrated front to back (each medium's optical depth exact over a slice: the level's fog
+transmittance stays the game's f); the composite reads the integral before the pixel's slice and follows the slice's
+source to the pixel's depth along its own ray. Ray Reconstruction's transparency layer gets the same at the front layer's
+depth. The composite stays where it was, before the upscaler. BO at night (1280 x 720, the brief's spot, held still -
+speck_count std of the building): the picture 4.11 -> 2.49, the fog term 1.85 -> 1.14 with no flickering specks left;
+what remains is a slow drift of the air near the strips over about a second: ReGIR's cell picks are shared by every point
+of a cell for a frame, and the history only averages that over its 20 frames.)
+
 (Its air was rewritten by the physical air - "The physical air, sun and camera": the weather's aerosol, no looks, no
 cap; what follows is its history.)
 
