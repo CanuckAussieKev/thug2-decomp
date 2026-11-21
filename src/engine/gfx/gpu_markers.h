@@ -36,7 +36,7 @@ inline constexpr uint16_t kDiGrid = 7;        // ReSTIR DI: the emitters' scan, 
 inline constexpr uint16_t kDiTemporal = 8;    // ReSTIR DI: the candidates and the temporal reuse
 inline constexpr uint16_t kDiSpatial = 9;     // ReSTIR DI: the spatial reuse and the light inputs
 inline constexpr uint16_t kGiCache = 10;      // ReSTIR GI: the radiance cache's update and resolve
-inline constexpr uint16_t kGiTemporal = 11;   // ReSTIR GI: the samples and the temporal reuse
+inline constexpr uint16_t kGiTemporal = 11;   // ReSTIR GI: the temporal reuse (round PERF2: the samples are kGiSamples)
 inline constexpr uint16_t kGiSpatial = 12;    // ReSTIR GI: the spatial reuse and the light inputs
 inline constexpr uint16_t kFogMap = 13;       // the fog: the air's sun map
 inline constexpr uint16_t kFogLight = 14;     // the fog: the froxels' light (each with its history)
@@ -44,7 +44,8 @@ inline constexpr uint16_t kFogIntegrate = 15; // the fog: the froxel columns int
 inline constexpr uint16_t kFogRays = 16;      // the fog: the god rays' mask and radial passes
 inline constexpr uint16_t kFogComposite = 17; // the fog: the composite over the frame
 inline constexpr uint16_t kLightPool = 18;    // the light list's presampled pool (vulkan_light_list.h kLightPoolSize)
-inline constexpr uint16_t kCount = 19;
+inline constexpr uint16_t kGiSamples = 19;    // (round PERF2) ReSTIR GI: each pixel's secondary path (its new samples)
+inline constexpr uint16_t kCount = 20;
 } // namespace section
 
 struct Mark {

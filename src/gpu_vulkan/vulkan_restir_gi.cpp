@@ -258,8 +258,8 @@ layout(std430, set = 0, binding = 9) readonly buffer SkyAlias { uvec2 sky_alias[
 #define LL_CACHE_ON ((pass.counts.w & 64u) != 0u)
 )";
 
-// The two passes (PASS_TEMPORAL: the surface, the initial sample, the temporal reuse, a mirror's specular ray;
-// PASS_SPATIAL: the spatial reuse and the result). CHECK: the check's variant - the surface from camera rays, the result
+// The passes (PASS_SAMPLE - round PERF2: the surface and the pixel's secondary path, one lobe's; PASS_TEMPORAL: the
+// temporal reuse; PASS_SPATIAL: the spatial reuse and the result; PASS_CACHE / PASS_RESOLVE: the radiance cache's). CHECK: the check's variant - the surface from camera rays, the result
 // accumulated. CLOUD_MAP: the disc's light through the clouds' shadow map.
 constexpr const char* kGiBody = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
@@ -283,7 +283,8 @@ layout(set = 0, binding = 22, r16f) uniform writeonly image2D o_specular_hit;
 #endif
 layout(std430, set = 0, binding = 24) buffer Counters { uint bad_samples; uint counter_spare[3]; };
 // (round MB) the radiance cache: 4 words an entry - its key (x the check word, 0: free; y the frame it was updated; z
-// (round PERF) the samples it has taken since it was claimed, at most CACHE_COUNT_MOST - cache_lookup's trust), this
+// (round PERF) the samples it has taken since it was claimed, at most CACHE_COUNT_MOST - cache_lookup's trust; w (round
+// PERF2) the frames it has been resolved since it was claimed, at most CACHE_COUNT_MOST - the same), this
 // frame's sums (low words rgb + the samples; high words rgb), its light (float bits: rgb the bounce in the global unit,
 // w its samples)
 layout(std430, set = 0, binding = 31) buffer Cache { uvec4 cache[]; };
@@ -596,6 +597,7 @@ struct Secondary {
     vec3 reflectance;
     float t;
     vec3 beyond; // (round BIAS) with go_on: the bounce at it (E / pi) - the cache's, else the path continued (below)
+    bool missed; // (round PERF2) with go_on: its cell had no trusted entry - beyond is the continued path's: a new sample
 };
 // (round BIAS) The radiance cache's misses: SHaRC's query (cache_lookup) takes a cell it has no entry for as a miss and
 // the path goes on - read as 0, every newly seen region's bounce was dark for the ~64 frames the cache takes to fill
@@ -611,7 +613,7 @@ const uint CACHE_MISS_SURE = 2u;      // (the vertices before the roulette)
 Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, bool go_on, inout uint rng)
 {
     Secondary out_s = Secondary(false, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), vec3(0.0), GI_REACH,
-                                vec3(0.0));
+                                vec3(0.0), false);
     float travelled = 0.0;
     uint skipped = 0u;
     uint vertices = 0u;
@@ -664,6 +666,7 @@ Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, bool go_on, inout ui
             out_s.beyond += through * cached;
             break;
         }
+        out_s.missed = out_s.missed || vertices == 1u;
         float most = max(through.r, max(through.g, through.b));
         if (vertices > CACHE_MISS_VERTICES || !(most > 0.0)) {
             break;
@@ -870,7 +873,7 @@ Reservoir load_specular(bool history, uint i)
     return reservoir_of(spec_res[at], spec_res[at + 1u]);
 }
 
-#ifdef PASS_CACHE
+#if defined(PASS_CACHE) || defined(PASS_SAMPLE)
 // (round MB) The cache's entry for a point (claimed if it has none yet: the probes' first free slot); false when the
 // probes are all taken by other cells (the sample is dropped).
 bool cache_claim(vec3 at, vec3 ng, out uint entry)
@@ -923,6 +926,9 @@ void cache_add(vec3 at, vec3 ng, vec3 light, inout uint rng)
     cache_add_word(entry, 2u, words.b);
     atomicAdd(CACHE_LOW(entry).w, 1u);
 }
+#endif
+
+#ifdef PASS_CACHE
 // The update paths (SHaRC's): one pixel of each CACHE_BLOCK x CACHE_BLOCK block a frame (at random), its surface the
 // first vertex; CACHE_PATH rays, each along the cosine lobe of the vertex it leaves; at every surface met its direct
 // light by next-event estimation and its reflectance. Back from the last: the light coming into a vertex along its ray
@@ -1013,14 +1019,133 @@ void main()
         vec3 mean = (l.rgb * kept + sum) / (kept + k);
         CACHE_LIGHT(i) = floatBitsToUint(vec4(good3(mean), kept + k));
         CACHE_KEY(i).z = min(CACHE_KEY(i).z + low.w, CACHE_COUNT_MOST); // (round PERF - cache_lookup's trust)
+        CACHE_KEY(i).w = min(CACHE_KEY(i).w + 1u, CACHE_COUNT_MOST);     // (round PERF2 - the same)
         CACHE_LOW(i) = uvec4(0u);
         CACHE_HIGH(i) = uvec4(0u);
     } else if (pass.counts.z - key.y <= CACHE_STALE) {
         CACHE_LIGHT(i) = floatBitsToUint(vec4(l.rgb, kept));
+        CACHE_KEY(i).w = min(CACHE_KEY(i).w + 1u, CACHE_COUNT_MOST);
     } else {
         CACHE_KEY(i) = uvec4(0u);
         CACHE_LIGHT(i) = uvec4(0u);
     }
+}
+#endif
+
+#ifdef PASS_SAMPLE
+// (round PERF2) The chance a pixel's secondary path takes the specular lobe: the lobe's share of the surface's
+// reflectance (path_specular_probability - the reference path tracer's lobe choice), held within LOBE_LEAST of 0 and 1
+// so neither lobe of a surface with both goes unsampled for long (a pick of 1 in 100 would come back x 100); a metal has
+// no diffuse lobe - always the specular.
+const float LOBE_LEAST = 0.1;
+float lobe_share(Surface s, BrdfMaterial m, float nv)
+{
+    return s.metal ? 1.0 : clamp(path_specular_probability(m, nv), LOBE_LEAST, 1.0 - LOBE_LEAST);
+}
+// (round PERF2) Each pixel's new samples - its own pass before the temporal reuse, as RTXDI's ReSTIR GI makes its
+// initial samples (the one shader that did both lost the device when edited: the driver faulted on the shader's own
+// code). The pixel's surface (put for the passes after), then one secondary path a pixel, its lobe chosen at random by
+// its share of the surface's reflectance (lobe_share - one BRDF-sampled path a pixel, as RTXDI's ReSTIR GI and Cyberpunk
+// 2077's path tracing trace it): the diffuse lobe's candidate - a direction from the sky's distribution or the cosine
+// lobe, its pdf the mix's - or the specular lobe's - one ray along a visible normal of its GGX lobe -, its pdf x the
+// lobe's chance. The other reservoir's candidate this frame is none (M 1, no sample: drawn from the same mixture, the
+// estimate stays unbiased). Before, both lobes' paths every pixel every frame: twice the rays, light samples and cache
+// misses. Stored as this frame's reservoirs (res_a, the specular's first two words) for the temporal pass to take up.
+void main()
+{
+    ivec2 local = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(local, pass.rect.zw))) {
+        return;
+    }
+    uint i = uint(local.y * pass.rect.z + local.x);
+    put_surface(i, primary(pass.rect.xy + local));
+    // (the surface as every pass after this one reads it back - the lobes' choice made with the same numbers)
+    Surface s = surface_of(now_at[i], now_more[i]);
+    if (!s.valid) {
+        store_reservoir(false, i, no_reservoir(0.0));
+        store_specular(false, i, no_reservoir(0.0));
+        return;
+    }
+    uint rng = path_sequence_start(uint(local.x), uint(local.y), pass.counts.z, pass.params.w);
+    vec3 v = view_of(s, pass.eye.xyz);
+    float nv = max(dot(s.n, v), 1.0e-4);
+    BrdfMaterial m = material_of(s);
+    float alpha = brdf_alpha(s.rough);
+    vec3 origin = s.at + s.ng * ray_offset(s.at);
+    uint mask = rays_of(s);
+
+    bool has_specular = max(s.f0.r, max(s.f0.g, s.f0.b)) > 0.0;
+    float specular_chance = has_specular ? lobe_share(s, m, nv) : 0.0;
+    bool take_specular = path_next(rng) < specular_chance;
+    float sky_share = pass.sky_dist.x > 0.0 ? pass.tune.w : 0.0;
+    vec3 dir = vec3(0.0, 1.0, 0.0);
+    float pdf = 0.0;
+    if (take_specular) {
+        vec3 h = path_to_world(s.n, path_ggx_visible_normal(path_to_local(s.n, v), alpha, path_next(rng), path_next(rng)));
+        dir = 2.0 * dot(v, h) * h - v;
+        if (dot(dir, s.ng) > 0.0 && dot(dir, s.n) > 0.0) {
+            pdf = specular_chance * path_ggx_reflection_pdf(nv, clamp(dot(s.n, h), 0.0, 1.0), alpha);
+        }
+    } else {
+        float pick = path_next(rng);
+        float u1 = path_next(rng);
+        float u2 = path_next(rng);
+        float u3 = path_next(rng);
+        float u4 = path_next(rng);
+        if (pick < sky_share) {
+            uint cell;
+            dir = sky_sample(u1, u2, u3, u4, cell);
+        } else {
+            dir = path_to_world(s.n, path_cosine_direction(u1, u2));
+        }
+        if (dot(dir, s.ng) > 0.0 && dot(dir, s.n) > 0.0) {
+            pdf = (1.0 - specular_chance) *
+                  (sky_share * sky_density(dir) + (1.0 - sky_share) * dot(s.n, dir) / PATH_PI);
+        }
+    }
+    Reservoir r = no_reservoir(1.0);
+    Reservoir spec = has_specular ? no_reservoir(1.0) : no_reservoir(0.0);
+    if (pdf > 0.0) {
+        // (round FA) the specular's hit takes its light from candidates of its own - the specular is each frame's own
+        // ray, no reuse averages a light grid cell's shared error (vulkan_light_list.h light_sample_glsl:
+        // ll_cell_candidates)
+        ll_cell_candidates = !take_specular;
+        Secondary sec = trace_secondary(mask, origin, dir, true, rng);
+        ll_cell_candidates = true;
+        // (round PERF2) a vertex whose cell had no trusted entry continued its path along its cosine lobe: that path's
+        // light is a sample of the cell's bounce (E / pi - what the update paths add), so it goes into the cache too. The
+        // update paths start at the pixels and follow the cosine lobe; cells only this pass's rays reach (the specular
+        // rays' hits, surfaces behind the camera) never had an entry - every ray that met them went on, frame after frame
+        // (BO at night, 1707 x 960: 4.6 ms of the pass's 7.1). The sample is the one an update path's vertex adds there
+        // (SHaRC's update: every vertex of a path its own cell's sample).
+        if (sec.hit && sec.missed) {
+            cache_add(sec.at, sec.n, sec.beyond, rng);
+        }
+        Reservoir c;
+        c.M = 1.0;
+        c.W = good(1.0 / pdf);
+        if (sec.hit) {
+            c.kind = KIND_SURFACE;
+            c.y = sec.at;
+            c.ny = sec.n;
+            c.bounce = with_bounces(sec);
+        } else {
+            c.kind = KIND_SKY;
+            c.y = dir;
+            c.ny = -dir;
+            c.bounce = good3(sky_radiance(dir));
+        }
+        float t = take_specular ? specular_target_of(s, v, dir, c.bounce) : target_of(s, dir, c.bounce);
+        if (t > 0.0 && c.W > 0.0) {
+            if (take_specular) {
+                spec = c;
+            } else {
+                r = c;
+            }
+        }
+    }
+    store_reservoir(false, i, r);
+    store_specular(false, i, spec);
 }
 #endif
 
@@ -1033,59 +1158,30 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
     weight = 0.0;
     spec = no_reservoir(0.0);
     spec_weight = 0.0;
-    Surface s = primary(pass.rect.xy + local);
-    put_surface(i, s);
+    Surface s = surface_of(now_at[i], now_more[i]);
     if (!s.valid) {
         return no_reservoir(0.0);
     }
-    uint rng = path_sequence_start(uint(local.x), uint(local.y), pass.counts.z, pass.params.w);
+    uint rng = path_sequence_start(uint(local.x), uint(local.y), pass.counts.z ^ 0x68E31DA4u, pass.params.w + 5u);
     vec3 eye = pass.eye.xyz;
-    vec3 v = view_of(s, eye);
-    float nv = max(dot(s.n, v), 1.0e-4);
-    BrdfMaterial m = material_of(s);
-    float alpha = brdf_alpha(s.rough);
     float cap = float(pass.params.z);
-    vec3 origin = s.at + s.ng * ray_offset(s.at);
-    uint mask = rays_of(s);
+    bool has_specular = max(s.f0.r, max(s.f0.g, s.f0.b)) > 0.0;
 
-    // 1. one sample: a direction from the sky's distribution or the cosine lobe, its pdf the mix's
-    float sky_share = pass.sky_dist.x > 0.0 ? pass.tune.w : 0.0;
-    float pick = path_next(rng);
-    float u1 = path_next(rng);
-    float u2 = path_next(rng);
-    float u3 = path_next(rng);
-    float u4 = path_next(rng);
-    vec3 dir;
-    if (pick < sky_share) {
-        uint cell;
-        dir = sky_sample(u1, u2, u3, u4, cell);
-    } else {
-        dir = path_to_world(s.n, path_cosine_direction(u1, u2));
+    // 1. (round PERF2) this frame's candidates - the sample pass's (above): the diffuse reservoir's and the specular's,
+    // their targets here
+    vec3 c_dir;
+    float c_reach;
+    float c_g;
+    Reservoir r = load_a(i);
+    float chosen = r.kind != KIND_NONE && r.W > 0.0 ? target_at(s, eye, r, c_dir, c_reach, c_g) : 0.0;
+    if (!(chosen > 0.0)) {
+        r = no_reservoir(r.M);
     }
-    Reservoir r = no_reservoir(1.0);
-    float chosen = 0.0;
-    if (dot(dir, s.ng) > 0.0 && dot(dir, s.n) > 0.0) {
-        float pdf = sky_share * sky_density(dir) + (1.0 - sky_share) * dot(s.n, dir) / PATH_PI;
-        Secondary sec = trace_secondary(mask, origin, dir, true, rng);
-        Reservoir c;
-        c.M = 1.0;
-        if (sec.hit) {
-            c.kind = KIND_SURFACE;
-            c.y = sec.at;
-            c.ny = sec.n;
-            c.bounce = with_bounces(sec);
-        } else {
-            c.kind = KIND_SKY;
-            c.y = dir;
-            c.ny = -dir;
-            c.bounce = good3(sky_radiance(dir));
-        }
-        float t = target_of(s, dir, c.bounce);
-        if (t > 0.0 && pdf > 0.0) {
-            c.W = good(1.0 / pdf);
-            r = c;
-            chosen = t;
-        }
+    Reservoir spec_candidate = load_specular(false, i);
+    float s_chosen = spec_candidate.kind != KIND_NONE && spec_candidate.W > 0.0
+                         ? specular_target_at(s, eye, spec_candidate, c_dir, c_reach, c_g) : 0.0;
+    if (!(s_chosen > 0.0)) {
+        spec_candidate = no_reservoir(spec_candidate.M);
     }
 
     // 2. the reservoir this point had last frame, its sample reconnected here - (round PT4d) a neighbour's in its 4 x 4
@@ -1167,42 +1263,12 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
     }
     weight = r.kind != KIND_NONE && r.W > 0.0 ? good(kept_target * r.W) : 0.0;
 
-    // 3. the surface's specular (round WS: a reservoir of its own - specular_target_of): the candidate one ray along a
-    // visible normal of its lobe (round BR: every surface's - before, those of roughness 0.3 and more took it from the
-    // diffuse reservoir's sample, which lands in a GGX lobe by chance), then last frame's specular reservoir reconnected
-    // here as the diffuse one is (its target at this view, the Jacobian validated - jacobian_kept)
-    if (max(s.f0.r, max(s.f0.g, s.f0.b)) > 0.0) {
-        spec = no_reservoir(1.0);
-        float s_chosen = 0.0;
-        vec3 h = path_to_world(s.n, path_ggx_visible_normal(path_to_local(s.n, v), alpha, path_next(rng), path_next(rng)));
-        vec3 l = 2.0 * dot(v, h) * h - v;
-        if (dot(l, s.ng) > 0.0 && dot(l, s.n) > 0.0) {
-            float pdf = path_ggx_reflection_pdf(nv, clamp(dot(s.n, h), 0.0, 1.0), alpha);
-            // (round FA) its hit's light from candidates of its own - the specular is each frame's own ray, no reuse
-            // averages a light grid cell's shared error (vulkan_light_list.h light_sample_glsl: ll_cell_candidates)
-            ll_cell_candidates = false;
-            Secondary sec = trace_secondary(mask, origin, l, true, rng);
-            ll_cell_candidates = true;
-            Reservoir c;
-            c.M = 1.0;
-            if (sec.hit) {
-                c.kind = KIND_SURFACE;
-                c.y = sec.at;
-                c.ny = sec.n;
-                c.bounce = with_bounces(sec);
-            } else {
-                c.kind = KIND_SKY;
-                c.y = l;
-                c.ny = -l;
-                c.bounce = good3(sky_radiance(l));
-            }
-            float t = specular_target_of(s, v, l, c.bounce);
-            if (t > 0.0 && pdf > 0.0) {
-                c.W = good(1.0 / pdf);
-                spec = c;
-                s_chosen = t;
-            }
-        }
+    // 3. the surface's specular (round WS: a reservoir of its own - specular_target_of): the candidate the specular lobe's
+    // ray of step 1 when the pixel took that lobe (round BR: every surface's - before, those of roughness 0.3 and more took
+    // it from the diffuse reservoir's sample, which lands in a GGX lobe by chance), then last frame's specular reservoir
+    // reconnected here as the diffuse one is (its target at this view, the Jacobian validated - jacobian_kept)
+    if (has_specular) {
+        spec = spec_candidate;
         float s_kept = s_chosen;
         if (has_then_spec && (pass.counts.w & FLAG_SPECULAR_REUSE) != 0u && s.rough >= SPECULAR_REUSE_ROUGHNESS &&
             rough_alike(s, then_spec)) {
@@ -1563,7 +1629,7 @@ void main()
 #endif
 )";
 
-enum class Shader : uint8_t { kSky, kTemporal, kSpatial, kCache, kResolve };
+enum class Shader : uint8_t { kSky, kSample, kTemporal, kSpatial, kCache, kResolve };
 
 std::string float_text(float value) { return text::format("%.9g", static_cast<double>(value)); }
 
@@ -1577,6 +1643,7 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
         source += sky_grid_prelude(sky, kBindingTransmittance, kBindingSkyView, kBindingCloudNoise);
     }
     switch (which) {
+    case Shader::kSample: source += "#define PASS_SAMPLE\n"; break;
     case Shader::kTemporal: source += "#define PASS_TEMPORAL\n"; break;
     case Shader::kSpatial: source += "#define PASS_SPATIAL\n"; break;
     case Shader::kCache: source += "#define PASS_CACHE\n"; break;
@@ -1608,7 +1675,7 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
         source += restir_denoiser_glsl();
     }
     source += rt_lamp_glsl();
-    if ((which == Shader::kTemporal || which == Shader::kCache) && cloud_map) {
+    if ((which == Shader::kSample || which == Shader::kCache) && cloud_map) {
         source += "#define CLOUD_MAP\n" + cloud_map_glsl(kBindingCloudMap);
     }
     source += "const uint SKY_WIDTH = " + std::to_string(rt::lights::kSkyGridWidth) + "u;\n";
@@ -1781,6 +1848,7 @@ struct GiState {
     VkPipelineLayout layout = VK_NULL_HANDLE;
     VkDescriptorSetLayout material_layout = VK_NULL_HANDLE;
     std::array<VkPipeline, kSkyGridSources> sky{};
+    std::array<VkPipeline, 4> sample{};   // (round PERF2) each pixel's secondary path [check x 2 + cloud map]
     std::array<VkPipeline, 4> temporal{}; // [check x 2 + cloud map]
     std::array<VkPipeline, 2> spatial{};  // [check]
     std::array<VkPipeline, 4> cache_update{};    // (round MB) the radiance cache's update paths [check x 2 + cloud map]
@@ -1987,6 +2055,13 @@ bool ensure_pipelines(Backend& state, bool check, bool cloud_map, SkyGridSource 
     if (sky_pipeline == VK_NULL_HANDLE) {
         sky_pipeline = make_compute(device, own.layout, shader_source(Shader::kSky, false, false, sky), error);
         if (sky_pipeline == VK_NULL_HANDLE) {
+            return false;
+        }
+    }
+    VkPipeline& sample = core::at(own.sample, (check ? 2U : 0U) + (cloud_map ? 1U : 0U));
+    if (sample == VK_NULL_HANDLE) {
+        sample = make_compute(device, own.layout, shader_source(Shader::kSample, check, cloud_map, sky), error);
+        if (sample == VK_NULL_HANDLE) {
             return false;
         }
     }
@@ -2766,6 +2841,16 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, own.timing.pool, (slot * kTimingStamps) + 1);
     }
     {
+        // (round PERF2) each pixel's secondary path - its own pass before the reuse (RTXDI's ReSTIR GI: the initial
+        // samples, then the temporal resampling)
+        const FrameStep step(state.frames, commands, gpu_markers::section::kGiSamples);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
+                          core::at(own.sample, (check ? 2U : 0U) + (map_now ? 1U : 0U)));
+        vkCmdDispatch(commands, groups_x, groups_y, 1);
+        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    }
+    {
         const FrameStep step(state.frames, commands, gpu_markers::section::kGiTemporal); // (round PF)
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
                           core::at(own.temporal, (check ? 2U : 0U) + (map_now ? 1U : 0U)));
@@ -2840,6 +2925,11 @@ void release_restir_gi(Backend& state)
     GiState& own = gi_state();
     const VkDevice device = state.context.device();
     for (VkPipeline& pipeline : own.sky) {
+        if (pipeline != VK_NULL_HANDLE) {
+            vkDestroyPipeline(device, pipeline, nullptr);
+        }
+    }
+    for (VkPipeline& pipeline : own.sample) {
         if (pipeline != VK_NULL_HANDLE) {
             vkDestroyPipeline(device, pipeline, nullptr);
         }

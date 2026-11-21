@@ -504,7 +504,7 @@ bool light_point(uint e, vec2 uv, Surface s, out LightPoint lp)
         }
         float g = cos_here * cos_there / (PATH_PI * d2);
         vec3 emitted;
-        if (!hit_emission(listed.x, listed.y, instance_material(listed.x), bc.yz, emitted)) {
+        if (!hit_emission_of(listed.x, listed.y, instance_material(listed.x), bc.yz, tri, emitted)) { // (round PERF2: its corners read once)
             return false;
         }
         lp.light = max(emitted, vec3(0.0)) * g;

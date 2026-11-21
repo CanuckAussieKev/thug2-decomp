@@ -63,7 +63,7 @@ constexpr std::array<const char*, section::kCount> kSections{
     "ReSTIR DI's candidates and temporal reuse",
     "ReSTIR DI's spatial reuse",
     "ReSTIR GI's radiance cache",
-    "ReSTIR GI's samples and temporal reuse",
+    "ReSTIR GI's temporal reuse",
     "ReSTIR GI's spatial reuse",
     "the fog's air sun map",
     "the fog's froxel light",
@@ -71,6 +71,7 @@ constexpr std::array<const char*, section::kCount> kSections{
     "the fog's god rays",
     "the fog's composite",
     "the light list's presampled pool",
+    "ReSTIR GI's samples",
 };
 
 constexpr std::array<const char*, kPhaseCount> kPhases{

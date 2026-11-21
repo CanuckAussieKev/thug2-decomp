@@ -193,10 +193,11 @@ float material_mask_alpha(uint id, uint k, vec2 uv, float lod)
 // Display-referred, held to 0 - 1 (the pixel shader's registers); alpha the first pass's texel's (the coverage).
 // Environment-mapped passes (painted reflections) add no colour: a first one is black, later ones aren't layers.
 const uint MATERIAL_LAYER_TEXTURE_ALPHA = 4096u;
-vec4 material_colour(uint id, vec2 uv, vec2 layer_uv[3], float vertex_alpha)
+// (round PERF2) ... from the first pass's texel already read (material_texel_lod at the point's uv, lod 0) - a caller
+// that has it (its drawn alpha's) doesn't sample the texture twice
+vec4 material_colour_from(uint id, vec4 first, vec2 layer_uv[3], float vertex_alpha)
 {
     Material m = material(id);
-    vec4 first = material_texel_lod(id, uv, 0.0);
     // (an environment-mapped first pass is a painted reflection - the reflections pass's light -, no albedo: ff_shaders.cpp
     // environment_texel_black, the frame's rule)
     vec3 r0 = m.environment_pass == 0u ? vec3(0.0) : first.rgb * m.colour.rgb;
@@ -233,6 +234,19 @@ vec4 material_colour(uint id, vec2 uv, vec2 layer_uv[3], float vertex_alpha)
         }
     }
     return vec4(clamp(r0, vec3(0.0), vec3(1.0)), first.a * m.colour.a);
+}
+vec4 material_colour(uint id, vec2 uv, vec2 layer_uv[3], float vertex_alpha)
+{
+    return material_colour_from(id, material_texel_lod(id, uv, 0.0), layer_uv, vertex_alpha);
+}
+// (round PERF2) material_drawn_alpha from the first pass's texel already read
+float material_drawn_alpha_from(uint id, vec4 first, float vertex_alpha)
+{
+    float a = first.a;
+    if ((material(id).flags & MATERIAL_TEXTURE_ALPHA) == 0u) {
+        a = clamp(2.0 * vertex_alpha * a, 0.0, 1.0);
+    }
+    return a;
 }
 )";
 

@@ -228,6 +228,8 @@ std::string_view cutout_rays_glsl();
 //   bool hit_emission(uint instance, uint primitive, uint id, vec2 barycentrics, out vec3 emitted) - (round PT4b) the
 //     same `emitted` alone (no normals, no material - a light sample's own emission, ReSTIR DI's target at every
 //     candidate); false where hit_surface would say cut_out or hidden, or the instance isn't live
+//   bool hit_emission_of(uint instance, uint primitive, uint id, vec2 barycentrics, HitVertices v, out vec3 emitted) -
+//     (round PERF2) the same with the triangle's corners already read (hit_vertices): the texel read once
 // How a ray meets a blended surface (hit_blend) is cutout_rays_glsl's: it goes before this.
 std::string_view hit_surface_glsl();
 inline constexpr float kHitMetalF0 = 0.2F; // (a surface map's F0 at least this: a metal - the reflections' HIT_METAL_F0)
