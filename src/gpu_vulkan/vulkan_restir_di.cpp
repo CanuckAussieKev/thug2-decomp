@@ -1202,10 +1202,16 @@ struct RestirState {
     std::array<DeviceBuffer, 2> emitters{};
     int list_now = -1;
     DeviceBuffer membership;
-    DeviceBuffer slots;
+    // per triangle its place in a list + 1: one for each list buffer, so a scan in flight fills the idle one's while the
+    // list in use keeps its own (each names its own list's places)
+    std::array<DeviceBuffer, 2> slots{};
     DeviceBuffer read_back;
-    uint64_t list_key = 0;    // the world and the lamps' surfaces the list in use was scanned from
+    uint64_t list_key = 0;    // the world, its emission and the lamps' surfaces the list in use was scanned from
     uint64_t scan_key = 0;    // ... and the scan in flight's
+    // which triangles the list names (the world's instances): its places hold while this does; the emission the
+    // triangles carry changes under them (the relit store's first light, written over frames) without changing it
+    uint64_t list_structure = 0;
+    uint64_t scan_structure = 0;
     uint64_t scan_serial = 0; // its submission (0: none in flight)
     int scan_buffer = 0;
     std::vector<float> triangle_powers;
@@ -1446,8 +1452,9 @@ constexpr uint64_t kFnvPrime = 1099511628211ULL;
 uint64_t mix(uint64_t key, uint64_t value) { return (key ^ value) * kFnvPrime; }
 
 // The world the emitters' list names triangles of: its instances (world ones come first in the frame record - their
-// places are the list's), the emission the world's light store holds (round PX) and the cut.
-uint64_t world_key_of(const rt::FrameRecord& record, const SceneLighting& lighting)
+// places are the list's): which triangles a list's places name. world_key_of adds the emission the world's light store
+// holds (round PX) and the cut: what the powers were measured from - a list of an older emission keeps its triangles.
+uint64_t world_structure_of(const rt::FrameRecord& record)
 {
     uint64_t key = kFnvBasis;
     uint32_t place = 0;
@@ -1457,11 +1464,17 @@ uint64_t world_key_of(const rt::FrameRecord& record, const SceneLighting& lighti
         }
         ++place;
     }
-    return mix(mix(key, lighting.cut), lighting.store_emission);
+    return key;
+}
+
+uint64_t world_key_of(uint64_t structure, const SceneLighting& lighting)
+{
+    return mix(mix(structure, lighting.cut), lighting.store_emission);
 }
 
 // The scan of the frame's world recorded (its list into the buffer not in use, read back into read_back).
-bool record_scan(Backend& state, RestirState& own, VkCommandBuffer commands, const SceneView& scene, uint64_t key)
+bool record_scan(Backend& state, RestirState& own, VkCommandBuffer commands, const SceneView& scene, uint64_t key,
+                 uint64_t structure)
 {
     std::vector<uint32_t> triangles;
     scene_instance_triangles(state, &triangles);
@@ -1475,19 +1488,20 @@ bool record_scan(Backend& state, RestirState& own, VkCommandBuffer commands, con
     firsts.back() = static_cast<uint32_t>(total);
     const int into = own.list_now == 0 ? 1 : 0;
     DeviceBuffer& list = core::at(own.emitters, static_cast<std::size_t>(into));
+    DeviceBuffer& slots = core::at(own.slots, static_cast<std::size_t>(into));
     const VkBufferUsageFlags storage =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     const VkDeviceSize list_bytes =
         (kEmitterHeaderWords + (static_cast<VkDeviceSize>(kEmitterEntryWords) * kListCapacity)) * sizeof(uint32_t);
     if (!ensure_buffer(state, &list, list_bytes, storage, BufferPlace::kDevice) ||
-        !ensure_buffer(state, &own.slots, std::max<VkDeviceSize>(total, 1) * sizeof(uint32_t), storage,
+        !ensure_buffer(state, &slots, std::max<VkDeviceSize>(total, 1) * sizeof(uint32_t), storage,
                        BufferPlace::kDevice) ||
         !upload_buffer(state, &own.membership, firsts.data(), firsts.size() * sizeof(uint32_t)) ||
         !ensure_buffer(state, &own.read_back, list_bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT, BufferPlace::kReadBack)) {
         return false;
     }
     vkCmdFillBuffer(commands, list.buffer, 0, kEmitterHeaderWords * sizeof(uint32_t), 0);
-    vkCmdFillBuffer(commands, own.slots.buffer, 0, VK_WHOLE_SIZE, 0);
+    vkCmdFillBuffer(commands, slots.buffer, 0, VK_WHOLE_SIZE, 0);
     barrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_HOST_BIT,
             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_HOST_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
@@ -1511,7 +1525,7 @@ bool record_scan(Backend& state, RestirState& own, VkCommandBuffer commands, con
     const VkDescriptorBufferInfo block_info{.buffer = span->buffer, .offset = span->offset, .range = sizeof(RestirBlock)};
     const VkDescriptorBufferInfo list_info{.buffer = list.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     const VkDescriptorBufferInfo membership_info{.buffer = own.membership.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
-    const VkDescriptorBufferInfo slots_info{.buffer = own.slots.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
+    const VkDescriptorBufferInfo slots_info{.buffer = slots.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     std::array<VkWriteDescriptorSet, 6> writes{};
     const auto write = [&writes](std::size_t at, uint32_t binding, VkDescriptorType type, const VkDescriptorBufferInfo* info,
                                  const void* next) {
@@ -1548,6 +1562,7 @@ bool record_scan(Backend& state, RestirState& own, VkCommandBuffer commands, con
     barrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_HOST_BIT,
             VK_ACCESS_HOST_READ_BIT);
     own.scan_key = key;
+    own.scan_structure = structure;
     own.scan_serial = state.frames.serial();
     own.scan_buffer = into;
     return true;
@@ -1572,6 +1587,7 @@ void adopt_scan(Backend& state, RestirState& own)
     }
     own.list_now = own.scan_buffer;
     own.list_key = own.scan_key;
+    own.list_structure = own.scan_structure;
     own.scan_serial = 0;
     own.table_key = 0; // (made again with the new triangles)
     ++own.lists;
@@ -1712,16 +1728,20 @@ bool keep_local_lights(Backend& state, RestirState& own, VkCommandBuffer command
         return false;
     }
     const rt::FrameRecord& record = rt::frame_record();
-    const uint64_t world_key = world_key_of(record, lighting);
-    // the emitters' list: a finished scan taken into use; a new one when the world or its lamps' surfaces changed
+    const uint64_t structure = world_structure_of(record);
+    const uint64_t world_key = world_key_of(structure, lighting);
+    // the emitters' list: a finished scan taken into use; a new one when the world or its lamps' surfaces changed. A scan
+    // of the same triangles under an older emission is taken in (its powers a little old until the next scan's): the list
+    // never empties while only the emission under its triangles changes - the relit store's first light is written over
+    // seconds, and a gap of a scan's frames without a list took every emitting surface's light (BO's street lamps) away.
     if (own.scan_serial != 0 && state.frames.completed() >= own.scan_serial) {
-        if (own.scan_key == world_key) {
+        if (own.scan_structure == structure) {
             adopt_scan(state, own);
         } else {
             own.scan_serial = 0; // (the world changed while it ran: scanned again)
         }
     }
-    if (own.list_now >= 0 && own.list_key != world_key) {
+    if (own.list_now >= 0 && own.list_structure != structure) {
         own.list_now = -1; // (its places name another world's triangles: none until the new scan is in)
         own.triangle_powers.clear();
         own.table_key = 0;
@@ -1731,7 +1751,7 @@ bool keep_local_lights(Backend& state, RestirState& own, VkCommandBuffer command
                 VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_SHADER_WRITE_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
                 VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT);
-        if (!record_scan(state, own, commands, scene, world_key)) {
+        if (!record_scan(state, own, commands, scene, world_key, structure)) {
             if (first_report(state, kReportBuffers)) {
                 get_log("restir: the emitters' list couldn't be made - the lamps alone");
             }
@@ -1750,7 +1770,8 @@ bool keep_local_lights(Backend& state, RestirState& own, VkCommandBuffer command
         !upload_buffer(state, &own.membership, empty_list.data(), sizeof(empty_list))) {
         return false;
     }
-    if (own.slots.buffer == VK_NULL_HANDLE && !upload_buffer(state, &own.slots, empty_list.data(), sizeof(empty_list))) {
+    if (core::at(own.slots, 0).buffer == VK_NULL_HANDLE &&
+        !upload_buffer(state, &core::at(own.slots, 0), empty_list.data(), sizeof(empty_list))) {
         return false;
     }
     own.local_lamps = lighting.lamps;
@@ -1798,7 +1819,8 @@ bool keep_light_pool(Backend& state, RestirState& own, VkCommandBuffer commands,
     const VkDescriptorBufferInfo geometry_info{.buffer = scene.geometry, .offset = 0, .range = scene.geometry_bytes};
     const VkDescriptorBufferInfo block_info{.buffer = span->buffer, .offset = span->offset, .range = sizeof(RestirBlock)};
     const std::array<VkDescriptorBufferInfo, 6> buffers{whole(own.lights), whole(list),       whole(own.lamps),
-                                                        whole(own.membership), whole(own.slots), whole(own.light_pool)};
+                                                        whole(own.membership), whole(core::at(own.slots, static_cast<std::size_t>(std::max(own.list_now, 0)))),
+                                                        whole(own.light_pool)};
     const std::array<uint32_t, 6> buffer_bindings{kBindingLights,     kBindingEmitters, kBindingLamps,
                                                   kBindingMembership, kBindingSlots,    kBindingLightPool};
     std::array<VkWriteDescriptorSet, 9> writes{};
@@ -1866,7 +1888,7 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
     out->emitters = list.buffer;
     out->lamps = own.lamps.buffer;
     out->membership = own.membership.buffer;
-    out->slots = own.slots.buffer;
+    out->slots = core::at(own.slots, static_cast<std::size_t>(std::max(own.list_now, 0))).buffer;
     out->table = own.lights.buffer;
     out->entries = own.entries;
     out->triangle_powers = own.list_now >= 0 ? own.triangle_powers : std::vector<float>{};
@@ -2059,6 +2081,7 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     SceneLighting lighting;
     if (check) {
         lighting.lamps = rt::path::analytic_lamps(own.overrides.lamps, own.overrides.lamps_surfaced);
+        lighting.store_emission = rt::store_emission(); // (the world's emission as the game's frame reads it)
     } else {
         lighting = scene_lighting(false, true);
     }
@@ -2383,7 +2406,8 @@ void release_restir_di(Backend& state)
     if (own.timing.pool != VK_NULL_HANDLE) {
         vkDestroyQueryPool(device, own.timing.pool, nullptr);
     }
-    for (DeviceBuffer* buffer : {&core::at(own.emitters, 0), &core::at(own.emitters, 1), &own.membership, &own.slots,
+    for (DeviceBuffer* buffer : {&core::at(own.emitters, 0), &core::at(own.emitters, 1), &own.membership, &core::at(own.slots, 0),
+                                 &core::at(own.slots, 1),
                                  &own.read_back, &own.lights, &own.lamps, &own.reservoirs_a, &own.reservoirs_b,
                                  &core::at(own.at, 0), &core::at(own.at, 1), &core::at(own.more, 0), &core::at(own.more, 1),
                                  &own.sums, &own.counters, &own.bounds, &own.cells, &own.grid_picks, &own.light_pool, &own.shared}) {
