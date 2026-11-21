@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <numeric>
 #include <vector>
@@ -50,6 +51,10 @@ struct State {
     Clock::time_point window_start{};
     std::vector<double> frame_ms;
     int ticks = 0;
+    // (round PERF) the simulation's tick number when the window began - its ticks a second are the ticks run, drawn or
+    // not: below 60 frames a second the loop still runs 60 ticks and skips drawing some (engine/sys/mlp.cpp), so the
+    // drawn ticks alone read as the frame rate - a game apparently slowed that wasn't
+    uint64_t tick_at_start = 0;
     Stats shown_stats;
     Clock::time_point last_ini_read{};
     // (frame generation: the frames handed to the display, made ones too - GpuContext::frames_shown)
@@ -121,17 +126,18 @@ void note_frame(Clock::time_point now)
         const double ms = std::chrono::duration<double, std::milli>(now - s.last_frame).count();
         if (ms < kStallMs) {
             s.frame_ms.push_back(ms);
-            if (!frame_blend::frame().extra) {
-                ++s.ticks;
-            }
         }
     } else {
         s.window_start = now;
+        s.tick_at_start = frame_blend::frame().tick;
     }
     s.last_frame = now;
     s.have_last = true;
     const double window = std::chrono::duration<double>(now - s.window_start).count();
     if (window >= kWindowSeconds) {
+        const uint64_t tick = frame_blend::frame().tick;
+        s.ticks = static_cast<int>(tick >= s.tick_at_start ? tick - s.tick_at_start : 0);
+        s.tick_at_start = tick;
         s.shown_stats = summarise(s.frame_ms, s.ticks);
         // (the frames and ticks per second over the window's true length)
         const double scale = kWindowSeconds / window;

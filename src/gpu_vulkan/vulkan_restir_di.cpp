@@ -89,7 +89,11 @@ constexpr double kSingular = 1e-300;
 // The estimator's settings (fixed - no per-level values): the initial candidates a pixel, the spatial neighbours, the
 // reservoirs' sample count kept at most (x the candidates), the neighbours' radius (pixels), the tests a reused surface
 // passes - its normal within acos 0.9, its plane within this share of the distance.
-constexpr uint32_t kInitialCandidates = 16;
+// (round PERF) 8 initial candidates - RTXDI's default (8 local light samples a pixel). 16 cost twice the candidates'
+// light evaluations for no measurable gain under the reuse (BO at night, the bank, 60 frames held, 1280 x 720 drawn:
+// each pixel's temporal deviation 0.49 -> 0.46 of 255, the specks the same, the mean 48.9 -> 49.1) - the candidates
+// and temporal pass 4.1 - 4.9 -> 2.9 ms. The history's cap is in candidates (kHistoryCap x them): the same 20 frames.
+constexpr uint32_t kInitialCandidates = 8;
 constexpr uint32_t kSpatialNeighbours = 2;
 constexpr uint32_t kMostSpatial = 4;
 constexpr uint32_t kHistoryCap = 20;

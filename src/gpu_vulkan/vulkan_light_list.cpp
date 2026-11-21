@@ -604,7 +604,13 @@ void cache_key(vec3 at, vec3 ng, out uint slot, out uint check)
 // (SHaRC's sample threshold: the kept samples an entry needs before a caller that can go on takes it - a young entry's
 // update paths end in the cache's other young entries, low: trusted at 8 the cold room's first frames were -7 %, at 32
 // within 0.2 % - thug2_vulkan_restir_gi_check)
-const float CACHE_TRUSTED_SAMPLES = 32.0;
+// (round PERF) The threshold counts the samples the entry has taken since it was claimed (its key's z - the resolve pass
+// adds each frame's), not its light's faded weight: that weight fades by 1 - 1 / CACHE_FRAMES every frame, so an entry
+// fewer than 2 samples a frame reach (a cell behind the camera, only an update path's later vertex meets) settled under
+// 32 and stayed a miss for good - every secondary vertex there continued its path, up to 12 vertices with a light sample
+// each (BO at night, 1707 x 960: GI's temporal pass 16.5 ms, 7.3 ms with every entry trusted). SHaRC's own threshold is
+// a sample count too.
+const uint CACHE_TRUSTED_SAMPLES = 32u;
 bool cache_lookup(vec3 at, vec3 ng, out vec3 bounce)
 {
     bounce = vec3(0.0);
@@ -623,7 +629,8 @@ bool cache_lookup(vec3 at, vec3 ng, out vec3 bounce)
                 return false;
             }
             bounce = max(l.rgb, vec3(0.0));
-            return l.w >= CACHE_TRUSTED_SAMPLES; // (a young entry: still a miss - its light is returned all the same)
+            // (a young entry: still a miss - its light is returned all the same)
+            return cache[i * 4u].z >= CACHE_TRUSTED_SAMPLES;
         }
         if (there == 0u) {
             break;
