@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <mutex>
 #include <numbers>
+#include <thread>
 #include <vector>
 
 #include "base/core/checked_index.h"
@@ -419,6 +420,12 @@ double cloud_amount(double coverage)
     const double at = saturate(coverage) * static_cast<double>(kCloudTenths - 1);
     const auto low = std::min(static_cast<std::size_t>(at), kCloudTenths - 2);
     return lerp(core::at(amounts, low), core::at(amounts, low + 1), at - static_cast<double>(low));
+}
+
+void start_cloud_amounts()
+{
+    static std::once_flag started;
+    std::call_once(started, [] { std::thread([] { (void)tenth_amounts(); }).detach(); });
 }
 
 double cloud_clouded_share(double amount)

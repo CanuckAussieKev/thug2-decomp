@@ -2035,6 +2035,25 @@ VkPipeline wet_pipeline(Backend& state, bool sky, std::string* why = nullptr)
     return made;
 }
 
+// (round PERF5) Every trace a view with these samples can switch to while it plays - with or without the sky, the
+// puddles' (single-sampled), lit by the light list when `listed` - made together at the view's first frame, behind the
+// level's appearance. Made one by one on first use, a variant first needed in play (the first puddle seen with the sky)
+// held the main loop for a driver compile of 1 - 2 s.
+void make_view_traces(Backend& state, bool multisampled, bool listed)
+{
+    for (const bool sky : {false, true}) {
+        if (!multisampled) {
+            (void)wet_pipeline(state, sky);
+        }
+        if (listed) {
+            (void)listed_pipeline(state, false, multisampled, sky);
+            if (!multisampled) {
+                (void)listed_pipeline(state, true, false, sky);
+            }
+        }
+    }
+}
+
 } // namespace
 
 bool make_rt_reflection_wet_trace(Backend& state, std::string* error)
@@ -2202,13 +2221,15 @@ bool record_rt_reflection_pass(Backend& state, const rt::ViewDrawn& view)
     depth_barrier(commands, depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true);
 
     // 1. the rays
+    FrameLightList frame_list;
+    const bool lit_by_list = restir_gi_frame_lights(state, &frame_list);
+    make_view_traces(state, colour->samples != VK_SAMPLE_COUNT_1_BIT, lit_by_list);
     const VkPipeline wet_trace =
         wet != nullptr && colour->samples == VK_SAMPLE_COUNT_1_BIT ? wet_pipeline(state, sky_seen) : VK_NULL_HANDLE;
     // (round WF) a view ReSTIR GI lit: its hits lit by the same light list and cache
-    FrameLightList frame_list;
     std::optional<RingSpan> list_span;
     VkPipeline listed = VK_NULL_HANDLE;
-    if (restir_gi_frame_lights(state, &frame_list)) {
+    if (lit_by_list) {
         listed = listed_pipeline(state, wet_trace != VK_NULL_HANDLE, colour->samples != VK_SAMPLE_COUNT_1_BIT, sky_seen);
         if (listed != VK_NULL_HANDLE) {
             const ListBlock list_block = list_block_of(frame_list, scene, state.frame);
