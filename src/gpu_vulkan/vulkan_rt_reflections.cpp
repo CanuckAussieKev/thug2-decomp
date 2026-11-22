@@ -32,6 +32,7 @@
 #include "gpu_vulkan/vulkan_debug_view.h"
 #include "gpu_vulkan/vulkan_formats.h"
 #include "gpu_vulkan/vulkan_memory.h"
+#include "gpu_vulkan/vulkan_pass_profile.h"
 #include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_restir_gi.h"
@@ -568,40 +569,44 @@ void main()
                     vec4 seen = vec4(0.0);
                     if (weight <= 0.0) {
                         // (nothing of it shows: no ray)
-                    } else if (rough > 0.0) {
+                    } else {
                         // a rough surface: rays spread over a cone round the mirror direction (a golden-angle disc of
                         // directions, turned by a quarter of its step in each pixel of a 2 x 2 block - the apply's
                         // 3 x 3 blur then sees four times the directions, with no noise), their hits averaged; the
-                        // share that hit something scales the weight (the misses keep the game's environment map)
+                        // share that hit something scales the weight (the misses keep the game's environment map). A
+                        // mirror: its one ray. (Round PERF3: one loop for both - one inlined copy of the reflected ray's
+                        // shading, its light sample and its light ray in the shader, not two: its code 1.1 MB, 255
+                        // registers.)
                         vec3 across = normalize(abs(mirror.y) < 0.99 ? cross(mirror, vec3(0.0, 1.0, 0.0))
                                                                      : cross(mirror, vec3(1.0, 0.0, 0.0)));
                         vec3 up = cross(mirror, across);
-                        uint rays = max(uint(pass.rays.x), 1u);
+                        uint rays = rough > 0.0 ? max(uint(pass.rays.x), 1u) : 1u;
                         float turn = 6.2831853 / float(rays) * (float((p.x & 1) + 2 * (p.y & 1)) / 4.0);
                         vec3 sum = vec3(0.0);
                         float hits = 0.0;
+                        vec4 one = vec4(0.0);
                         for (uint i = 0u; i < rays; ++i) {
-                            float radius = sqrt((float(i) + 0.5) / float(rays)) * rough;
-                            float angle = float(i) * 2.39996323 + turn;
-                            vec3 d = normalize(mirror + (across * cos(angle) + up * sin(angle)) * radius);
-                            if (dot(d, n) <= 0.0) {
-                                d = mirror; // (below the surface: the mirror direction instead)
+                            vec3 d = mirror;
+                            if (rough > 0.0) {
+                                float radius = sqrt((float(i) + 0.5) / float(rays)) * rough;
+                                float angle = float(i) * 2.39996323 + turn;
+                                d = normalize(mirror + (across * cos(angle) + up * sin(angle)) * radius);
+                                if (dot(d, n) <= 0.0) {
+                                    d = mirror; // (below the surface: the mirror direction instead)
+                                }
                             }
-                            vec4 one = reflected(point + n * offset, d, t);
+                            one = reflected(point + n * offset, d, t);
                             if (adds && one.a == 0.0) {
                                 one = vec4(estimate, 1.0);
                             }
                             sum += one.rgb * one.a;
                             hits += one.a;
                         }
-                        if (hits > 0.0) {
+                        if (rough <= 0.0) {
+                            seen = one;
+                        } else if (hits > 0.0) {
                             // (negative: a rough pixel - the apply pass blurs it with its rough neighbours)
                             seen = vec4(sum / hits, -(hits / float(rays)));
-                        }
-                    } else {
-                        seen = reflected(point + n * offset, mirror, t);
-                        if (adds && seen.a == 0.0) {
-                            seen = vec4(estimate, 1.0);
                         }
                     }
                     if (seen.a != 0.0) {
@@ -1121,7 +1126,7 @@ VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::str
     }
     const VkComputePipelineCreateInfo info{.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
                                            .pNext = nullptr,
-                                           .flags = 0,
+                                           .flags = pipeline_statistics_flags(), // (round PERF3)
                                            .stage = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
                                                      .pNext = nullptr,
                                                      .flags = 0,
@@ -1135,6 +1140,7 @@ VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::str
     VkPipeline pipeline = VK_NULL_HANDLE;
     const VkResult made = vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
     vkDestroyShaderModule(device, module, nullptr);
+    log_pipeline_statistics(device, pipeline, source); // (round PERF3: with frame_profile)
     if (made != VK_SUCCESS) {
         *error = "vkCreateComputePipelines failed";
         return VK_NULL_HANDLE;

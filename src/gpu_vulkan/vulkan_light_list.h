@@ -121,7 +121,10 @@ inline constexpr uint32_t kLightPoolWords = 8;
 // presampled as the pool is - the first kLightGridPicks slots of every cell, each a pick with a point on it, its pdf the
 // slot's (1 / its unbiased contribution weight; a triangle's per unit of its area). Two words of header (the grid's
 // corner and a cell's side; its cells across x, y, z and the picks a cell), then the picks (kLightPoolWords 32-bit words
-// each, the pool's layout - light_pool_read). Made with the grid each frame ReSTIR DI runs.
+// each, the pool's layout - light_pool_read). Made with the grid each frame ReSTIR DI runs. (Round PERF3) A third header
+// word (the grid's frame stamp, the cells' shift on each axis - the cells kept by their place in the world) in a second
+// header pick, and after the picks a state word a cell (x the stamp of the frame it was made in, y of the frame it was
+// last read in - its readers mark it; light_grid_reader_glsl's light_grid_slot): only cells read lately are made.
 inline constexpr uint32_t kLightGridPicks = 16;
 struct RestirLocalLights {
     VkBuffer light_pool = VK_NULL_HANDLE; // (round PF) the presampled pool (kLightPoolSize picks)

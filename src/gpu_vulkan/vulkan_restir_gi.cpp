@@ -32,6 +32,7 @@
 #include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_memory.h"
+#include "gpu_vulkan/vulkan_pass_profile.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_rt_clouds.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
@@ -1235,9 +1236,21 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
         if (total > 0.0) {
             float z = 0.0;
             float target = 0.0;
-            if (path_next(rng) * total < w_h) {
+            // (round PERF3) the one ray either choice traces, then what it decides - one inlined light ray for the two
+            bool take_h = path_next(rng) * total < w_h;
+            Surface from = s;
+            vec3 ray_dir = h_dir;
+            float ray_reach = h_reach;
+            bool traced = true;
+            if (!take_h) {
+                from = then;
+                float t_g;
+                traced = target_at(then, pass.prev_eye.xyz, r, ray_dir, ray_reach, t_g) > 0.0;
+            }
+            bool visible = traced && seen_at_all(seen(from, ray_dir, ray_reach));
+            if (take_h) {
                 // its light, seen from here: then this pixel's sample could have been it too
-                if (seen_at_all(seen(s, h_dir, h_reach))) {
+                if (visible) {
                     out_r = h;
                     target = t_h;
                     z = h.M + r.M;
@@ -1247,11 +1260,7 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
                 target = chosen;
                 z = r.M;
                 // could last frame's reservoir have made it: its surface's target and a ray from there
-                vec3 t_dir;
-                float t_reach;
-                float t_g;
-                if (target_at(then, pass.prev_eye.xyz, r, t_dir, t_reach, t_g) > 0.0 &&
-                    seen_at_all(seen(then, t_dir, t_reach))) {
+                if (visible) {
                     z += h.M;
                 }
             }
@@ -1963,7 +1972,7 @@ VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::str
     }
     const VkComputePipelineCreateInfo info{.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
                                            .pNext = nullptr,
-                                           .flags = 0,
+                                           .flags = pipeline_statistics_flags(), // (round PERF3)
                                            .stage = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
                                                      .pNext = nullptr,
                                                      .flags = 0,
@@ -1977,6 +1986,7 @@ VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::str
     VkPipeline pipeline = VK_NULL_HANDLE;
     const VkResult made = vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
     vkDestroyShaderModule(device, module, nullptr);
+    log_pipeline_statistics(device, pipeline, source); // (round PERF3: with frame_profile)
     if (made != VK_SUCCESS) {
         *error = "vkCreateComputePipelines failed";
         return VK_NULL_HANDLE;

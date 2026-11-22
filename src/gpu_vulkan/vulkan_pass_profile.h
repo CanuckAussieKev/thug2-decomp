@@ -71,4 +71,11 @@ private:
     uint32_t dropped_ = 0; // marks past kStampsPerSlot in a submission
 };
 
+// (round PERF3) With frame_profile on and the device's support: the flag a pipeline is made with to have its compiled
+// shaders' statistics read (else 0), and those statistics in the log ("shader stats: <name>: ...").
+// The context sets whether they can be (Context::pipeline_statistics); source names the pass in the log.
+void set_pipeline_statistics(bool on);
+[[nodiscard]] VkPipelineCreateFlags pipeline_statistics_flags();
+void log_pipeline_statistics(VkDevice device, VkPipeline pipeline, const std::string& source);
+
 } // namespace render::vulkan

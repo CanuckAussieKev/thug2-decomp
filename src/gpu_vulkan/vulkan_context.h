@@ -219,6 +219,8 @@ public:
     [[nodiscard]] bool draws_supported() const { return dynamic_rendering_ && push_descriptors_; }
     // The ray-tracing extensions and features are enabled (asked for in ContextOptions, and the device has them).
     [[nodiscard]] bool ray_tracing_enabled() const { return ray_tracing_; }
+    // NOT ORIGINAL - (round PERF3) the compiled shaders' statistics can be asked for (frame_profile on, the device has them)
+    [[nodiscard]] bool pipeline_statistics() const { return pipeline_statistics_; }
     // NOT ORIGINAL - (round OM) VK_EXT_opacity_micromap enabled (with ray tracing; ContextOptions::opacity_micromaps) and
     // the finest 4-state subdivision level it takes (maxOpacity4StateSubdivisionLevel)
     [[nodiscard]] bool opacity_micromaps_enabled() const { return opacity_micromaps_; }
@@ -319,6 +321,7 @@ private:
     bool ray_tracing_ = false;
     bool opacity_micromaps_wanted_ = true; // (NOT ORIGINAL - round OM)
     bool opacity_micromaps_ = false;
+    bool pipeline_statistics_ = false;
     uint32_t opacity_micromap_levels_ = 0;
     ContextAdditions* additions_ = nullptr; // (NOT ORIGINAL - ContextOptions::additions)
     SwapchainOwner* owner_ = nullptr;       // (NOT ORIGINAL - set_swapchain_owner)
