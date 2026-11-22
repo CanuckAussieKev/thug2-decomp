@@ -5627,6 +5627,16 @@ through the tone curve at that EV. `pt off` ends it.
   keeps one visibility a ray takes the mean of its three channels (`ray_light_share`) - a filter's tint is kept only
   by the bounce light's rays and the path tracer. The bounce light's rays find their hit as before (the solid
   surfaces) and take its light (or the sky's) times what the seen-through surfaces before it let through.
+- (Round PERF3) **One inlined `ray_light` a code path.** GLSL has no calls: each call site is a copy of the two walks and
+  the blended surfaces' candidate code. With `[debug] frame_profile` the ray-traced passes log their compiled shaders'
+  statistics (`shader stats:` - VK_KHR_pipeline_executable_properties: registers, code size, local memory); they showed
+  ReSTIR GI's samples and cache passes at 255 registers (8 warps an SM) with 390 - 420 KB of code and the reflections'
+  at 1.1 MB, and an experiment that skipped the seen-through walk's candidates at run time with the code kept cost the
+  same as with them - the code's size and registers were the cost, not the work (~5 ms over the frame). So
+  `light_sample` takes each kind's light and reach (disc, sky, local) and traces one ray at its end; the reflections'
+  rough cone and mirror share one loop; the temporal reuses' two exclusive rays and the spatial reuse's chosen ray and
+  Z rays (DI) share one call. A new caller keeps to one call site a path (or a loop around it). Merging the two walks
+  into one query was measured slower (a blocked ray then evaluates the blended candidates met before its blocker).
 - **The relit bake** (rt::ProbeRequest with `cutouts`): the probe returns the same share (`ProbeResult::seen_through`
   - the mean of the channels, before the hit or the ray's end); the sun's and the sky's open rays count by it, a
   lamp's link weight is multiplied by it, a bounce ray's hit colour too. Relit data v15 (relit_data.h).
@@ -5693,6 +5703,13 @@ specular input against the reference's direct light, -0.30 %.
      every candidate - Boston's courtyard lit by 1 candidate in tens, the reservoirs finding and losing its lamps over
      seconds. The check's 4 near lamps among 120 far: each pixel's variation over the frames 2.5 x lower with the
      candidates alone and with the temporal reuse. Cost +0.3 ms at 1280x720.)
+     (Round PERF3: only the cells read lately are made. Every reader - ReSTIR DI's pixels, the light list's readers at
+     secondary vertices and froxels - marks the cell it reads in a state word a cell (after the grid's picks: the frame
+     it was made in, the frame it was last wanted); the grid makes a cell while it was wanted within 16 grid frames; a
+     reader whose cell wasn't made this frame takes the list by power (DI) or the pool (the list's readers) - unbiased,
+     fewer near candidates for the frame the grid takes to make it. The cells keep their place in the world: each axis's
+     index is the world cell's modulo the cells across, so a cell keeps its index and its marks while the grid follows
+     the camera. All 16384 cells x 512 slots were made every frame before: BO at night 2.2 -> 0.41 ms.)
   3. One ray (vulkan_rt_scene.h `ray_light`: cut-outs by their alpha, seen-through surfaces by their transmittance) to
      the chosen light; one it doesn't reach is dropped (W = 0, M kept: visibility reuse).
   4. Temporal: the point taken back through last frame's camera to last frame's reservoir there, kept when that
