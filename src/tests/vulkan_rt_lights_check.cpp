@@ -3727,7 +3727,10 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                  text::format("  the glass pane (the front layer) under the lamp: %d pixels, its light %.4f x the lamp "
                               "model's",
                               glass_pixels, glass_ratio));
-    tally->check(ok && glass_pixels > 500 && shaded_wrong == 0,
+    // (the floor behind is read from a separate frame: since ReSTIR DI traces one light ray a pixel with RTXDI's basic
+    // bias correction - round BUDGET - its per-pixel frame-to-frame variation passes 3 % at a few pixels; ~4.6 % of them
+    // measured. A wrong pane shading misses at most of them, so up to 8 % may be off.)
+    tally->check(ok && glass_pixels > 500 && shaded_wrong * 100 <= glass_pixels * 8,
                  text::format("  ... and the pane drawn by it (its albedo x the layer's light over the floor behind): %d of %d "
                               "pixels off",
                               shaded_wrong, glass_pixels));
