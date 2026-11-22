@@ -6324,6 +6324,14 @@ what the camera sees emit), each mismatch traced to the side that was wrong:
   cache sample and stores the pixel's samples. The same rays, numbers and random sequences as the one loop. The sample
   pass's registers 241 -> 128 (the loop's live state was the peak, not the duplicated code); the continued pass 229
   over a dense queue. BO at night, 1707 x 960: GI samples 3.61 -> 2.40 + 0.16 ms; a second spot 2.95 -> 1.89 + 0.24.
+- **Round PERF6: ReSTIR DI's first pass in three** (the same wavefront split). PASS_PRIMARY finds each pixel's surface
+  (the camera ray, its hit surface) and writes the shared rows (round OM - now always, GI reading them or not);
+  PASS_CANDIDATES resamples the 8 initial candidates (light points alone) and keeps the pick - entry, point, the
+  weights' sum, its target, the random state after them; PASS_TEMPORAL evaluates the pick's light point again, traces
+  its ray, takes last frame's reservoir and traces the reuse's ray. The same samples, numbers and random sequence (the
+  check's means equal to the last digit). Registers 168 -> 80 / 80 / 128. With frame_profile, the passes count what
+  they did each frame (pixels, grid fallbacks, candidates, rays, the candidates the rays meet, history, cells made) and a
+  pass far above its usual time is logged with the counts ("restir slow pass").
 - Not changed, measured equal: the light lists (175 lamps, 611 emitting triangles - one scan, one record per lamp),
   ReSTIR DI's estimator (an exact sum over every lamp at each pixel - a diagnostic - equal to ReSTIR's result within
   2 %; no grid, no boiling filter, no reuse: the same means), Ray Reconstruction (its output's mean its input's).
