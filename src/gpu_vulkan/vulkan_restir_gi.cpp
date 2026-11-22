@@ -1616,6 +1616,8 @@ void main()
 #endif
 
 #ifdef PASS_SPATIAL
+const float DISOCCLUDED_M = 4.0;            // (round BUDGET2) a history this short ...
+const uint DISOCCLUDED_NEIGHBOURS = 2u;     // ... takes this many spatial neighbours
 void put_result(ivec2 p, uint i, Surface s, vec3 diffuse, vec3 specular, float hit, vec3 full)
 {
 #ifdef CHECK
@@ -1787,7 +1789,11 @@ void main()
     taken[0] = load_a(i);
     where[0] = s;
     if ((pass.counts.w & FLAG_SPATIAL) != 0u) {
-        for (uint k = 0u; k < min(pass.params.y, MOST_SPATIAL); ++k) {
+        // (round BUDGET2) one neighbour, two where the pixel's history is short - newly seen, its reservoir a few frames'
+        // samples (RTXDI's disocclusion boost: with one neighbour everywhere GI's error after a fast turn doubled)
+        uint wanted = pass.params.y > 0u && taken[0].M < DISOCCLUDED_M ? max(pass.params.y, DISOCCLUDED_NEIGHBOURS)
+                                                                         : pass.params.y;
+        for (uint k = 0u; k < min(wanted, MOST_SPATIAL); ++k) {
             float angle = 2.0 * PATH_PI * path_next(rng);
             float radius = pass.tune.x * sqrt(path_next(rng));
             ivec2 q = local + ivec2(round(vec2(cos(angle), sin(angle)) * radius));

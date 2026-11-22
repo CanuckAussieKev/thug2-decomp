@@ -661,7 +661,9 @@ void cache_key(vec3 at, vec3 ng, out uint slot, out uint check)
 // every entry is younger than both.
 const uint CACHE_TRUSTED_SAMPLES = 32u;
 const uint CACHE_TRUSTED_FRAMES = 16u;
-const float CACHE_TRUSTED_DIRECT = 4.0; // (round BUDGET2: the direct part's kept samples a path may end on)
+// (round BUDGET2) the direct part's kept samples a path may end on (16: the continued pass +0.4 ms at the bench spot, the
+// GI term's error after a fast turn no different within the sessions' spread)
+const float CACHE_TRUSTED_DIRECT = 4.0;
 // The entry of a point's cell, CACHE_CAPACITY for none.
 uint cache_find(vec3 at, vec3 ng)
 {

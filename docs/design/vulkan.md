@@ -6356,6 +6356,29 @@ what the camera sees emit), each mismatch traced to the side that was wrong:
     frames (was 20) - UE's and Frostbite's budget.
   - Not done this round: the reflections folded into ReSTIR GI's specular path (water, glass and lacquer replace E of
     the game's environment map - a design of its own).
+- **Round BUDGET2: the budget, second round** (same target). Each change the practice of shipping path tracers:
+  - The radiance cache ends paths (SHaRC's intended use, not only its misses): an entry also keeps the direct light a
+    white diffuser there gets (E / pi, the update paths' light samples - the bounce alone stays what the readers that
+    sample their own direct light take). A ReSTIR GI path ends at its first vertex where the cell is trusted and the
+    ray's footprint (its length x 1 / sqrt(pi x its lobe's pdf)) covers the cell: the vertex sends its reflectance x the
+    cell's whole light, no light sample. The sample pass then holds no light sampling at all: a path that doesn't end is
+    queued whole and the continued pass traces its first ray again (96 registers, was 128 / 166).
+  - ReSTIR GI's spatial reuse with one neighbour, two where the pixel's history is under 4 samples (RTXDI's disocclusion
+    boost; its rays-for-Z kept); the specular reservoir's reuse code (off in the game since round WS) compiled only into
+    the check's shaders.
+  - Measured (BO at night, 1707 x 960 drawn, the bank): ReSTIR GI 6.3 -> 4.5 ms, reflections 2.8 -> 1.2, the GPU frame
+    17.9 -> 15.3; the picture's motion error (pan / turn, whole frame) 5.2 / 6.9 -> 4.0 / 6.3 of 255; the converged
+    picture's mean against the path-traced reference +1.9 % / +2.1 %. Open: GI's own term after a fast turn (its broad
+    error 1.1 -> 2.5: cells of the cache newly trusted).
+  - RTXDI's basic bias correction for GI (Z by targets, no rays) was measured and **not kept**: the check's room -5.8 %
+    (spatial alone) / -12 % (temporal and spatial), the glossy floor -2.2 / -4.8 %.
+  - The reflections pass: a rough pixel (lacquer, a kerb's sheen) traces one ray a frame, its point on the cone's disc
+    drawn anew each frame (the same distribution as the four rays of a fixed disc it replaces; the apply's 3 x 3 blur and
+    Ray Reconstruction's history gather the directions), and its reflected hit ends at the radiance cache where the
+    footprint covers the cell; in a view ReSTIR GI lit, the map-shaded surfaces (weight 0 there) skip the reads.
+  - Not done: folding the reflections into GI's specular path - water, glass, car paint and puddles replace E of the
+    game's painted environment map, painted glass keeps its own colour under the reflection, puddles follow the decals'
+    wet mask and the rain's rings: GI's specular has none of these classes; moving them is a design of its own.
 - Not changed, measured equal: the light lists (175 lamps, 611 emitting triangles - one scan, one record per lamp),
   ReSTIR DI's estimator (an exact sum over every lamp at each pixel - a diagnostic - equal to ReSTIR's result within
   2 %; no grid, no boiling filter, no reuse: the same means), Ray Reconstruction (its output's mean its input's).
