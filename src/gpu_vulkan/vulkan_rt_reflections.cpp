@@ -361,65 +361,79 @@ vec3 own_environment(uint instance, uint primitive, vec2 barycentrics, HitVertic
     return (v.flags & GEOMETRY_COLOUR) != 0u ? linear_from_display(hit_colour(v, barycentrics).rgb * 2.0) : vec3(0.0);
 }
 
-// What the reflection ray from `origin` along `direction` sees (a: 1 when it hit something); `travelled`: the path so
-// far (the footprint's).
-vec4 reflected(vec3 origin, vec3 direction, float travelled)
+// (round PERF4) What the reflection ray from `origin` along `direction` meets first (the cut-outs by their alpha): its
+// material, instance, triangle, barycentrics, transform and distance; false where it meets nothing.
+bool reflection_hit(vec3 origin, vec3 direction, out uint id, out uint instance, out uint primitive, out vec2 barycentrics,
+                    out mat4x3 to_world, out float t)
 {
     uint mask = uint(pass.extra.z) & 0xFFu; // (round PG: the reflected rays' mask - kReflectedRayMask)
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, mask, origin, 0.0, direction, pass.params.y);
     while (rayQueryProceedEXT(query)) {
         if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
-            uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
+            uint candidate_id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
             HitVertices candidate;
             bool keep = true;
             if (hit_vertices(rayQueryGetIntersectionInstanceIdEXT(query, false),
                              rayQueryGetIntersectionPrimitiveIndexEXT(query, false), candidate)) {
-                keep = material_alpha_passes_at(id, hit_uv(candidate, rayQueryGetIntersectionBarycentricsEXT(query, false)));
+                keep = material_alpha_passes_at(candidate_id,
+                                                hit_uv(candidate, rayQueryGetIntersectionBarycentricsEXT(query, false)));
             }
             if (keep) {
                 rayQueryConfirmIntersectionEXT(query);
             }
         }
     }
+    id = 0u;
+    instance = 0u;
+    primitive = 0u;
+    barycentrics = vec2(0.0);
+    to_world = mat4x3(1.0);
+    t = 0.0;
     if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
-#ifdef SKY
-        // (added by the sky) rt_sky: the miss sees the sky drawn - its atmosphere and clouds - as linear light, as the
-        // frame holds it (round F: nothing converted, nothing clamped)
-        vec3 sky = sky_for_ray(direction, pass.sky_to_pixel, pass.sky_sun, pass.sky_low, pass.sky_rect);
-        return vec4(min(max(sky, vec3(0.0)), vec3(65504.0)), 1.0);
-#else
-        return vec4(0.0);
-#endif
+        return false;
     }
-    uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, true);
-    uint instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
-    float t = rayQueryGetIntersectionTEXT(query, true);
-    vec2 barycentrics = rayQueryGetIntersectionBarycentricsEXT(query, true);
+    id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, true);
+    instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
+    primitive = rayQueryGetIntersectionPrimitiveIndexEXT(query, true);
+    barycentrics = rayQueryGetIntersectionBarycentricsEXT(query, true);
+    to_world = rayQueryGetIntersectionObjectToWorldEXT(query, true);
+    t = rayQueryGetIntersectionTEXT(query, true);
+    return true;
+}
+
+// What a ray from `origin` along `direction` meeting the triangle (`id`, `instance`, `primitive`) at `t` sees there
+// (`travelled`: the path before `origin` - the footprint's), lit as the surface's own pixels are. `given`: the normal it
+// is shaded with (the pixel's own surface: its mesh's smooth normal), or zero for the triangle's own, facing the ray.
+// (Round PERF4) The one shading of a reflected ray's hit and of the painted glass's own colour - two inlined copies of
+// list_hit_light and hit_light before (the pass's code and registers).
+vec3 hit_shown(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x3 to_world, vec3 origin, vec3 direction,
+               float t, float travelled, vec3 given)
+{
     HitVertices v;
-    hit_vertices(instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true), v);
+    hit_vertices(instance, primitive, v);
     vec3 a, b, c;
-    world_corners(v, rayQueryGetIntersectionObjectToWorldEXT(query, true), a, b, c);
-    vec3 n = cross(b - a, c - a);
-    n = length(n) > 0.0 ? normalize(n) : -direction;
-    if (dot(n, direction) > 0.0) {
-        n = -n;
+    world_corners(v, to_world, a, b, c);
+    vec3 n = given;
+    if (!(dot(given, given) > 0.0)) {
+        n = cross(b - a, c - a);
+        n = length(n) > 0.0 ? normalize(n) : -direction;
+        if (dot(n, direction) > 0.0) {
+            n = -n;
+        }
     }
     float width = pass.ambient.w * (travelled + t);
-    vec2 uv = hit_uv(v, barycentrics);
-    vec3 texel = (material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) * material(id).colour).rgb;
+    vec3 texel = (material_texel_lod(id, hit_uv(v, barycentrics), level_for(id, v, a, b, c, width)) * material(id).colour).rgb;
 #ifdef LIST_LIT
-    // (round WF) a view ReSTIR GI lit: the hit lit by the same light list and radiance cache (list_hit_light)
+    // (round WF) a view ReSTIR GI lit: the hit lit by the same light list and radiance cache (list_hit_light) - (round FL)
+    // the painted glass's own colour too, as the front layer lights the see-through surfaces, not the light store's
     vec3 listed;
-    if (list_hit_light(id, instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true), barycentrics,
-                       rayQueryGetIntersectionObjectToWorldEXT(query, true), direction, listed)) {
-        return vec4(min(max(listed, vec3(0.0)), vec3(65504.0)), 1.0);
+    if (list_hit_light(id, instance, primitive, barycentrics, to_world, direction, listed)) {
+        return listed;
     }
 #endif
     // (round O) the hit lit as its own pixels are - the light store's light now (hit_light)
-    vec3 light = hit_light(id, instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true), barycentrics, v, texel,
-                           origin + direction * t, n, -direction, travelled + t);
-    return vec4(min(max(light, vec3(0.0)), vec3(65504.0)), 1.0);
+    return hit_light(id, instance, primitive, barycentrics, v, texel, origin + direction * t, n, -direction, travelled + t);
 }
 
 void main()
@@ -532,25 +546,16 @@ void main()
                     }
                     vec4 share = specular_share(f0, cosine, r);
                     float weight = share.w * left_out;
+                    float painted_kept = 0.0;
                     if (painted) {
-                        vec4 texel = material_texel_lod(id, hit_uv(v, bary), lod);
                         // The game drew its environment map there in place of the texture (its pixel shader's lerp by
                         // the alpha): the glass's own colour - the texel x the pass's colour, lit as its own pixels
                         // are (round O: hit_light - the light store's light now; the original's look its vertex colour
                         // doubled or the frame's lights) - is put back under the reflection: the pane shows (1 - E) of
                         // it, the reflection the rest; the environment map is kept only for what the rays miss (the base
-                        // layer, premultiplied; linear light, as the frame).
-                        vec3 own;
-#ifdef LIST_LIT
-                        // (round FL) a view ReSTIR GI lit: the glass's own colour lit by the light list and the
-                        // radiance cache, as the front layer lights the see-through surfaces - not the light store's
-                        if (!list_hit_light(id, hit_instance, primitive, bary,
-                                            rayQueryGetIntersectionObjectToWorldEXT(query, true), view, own))
-#endif
-                        own = hit_light(id, hit_instance, primitive, bary, v, texel.rgb * surface.colour.rgb, point,
-                                        sn, -view, t);
-                        float kept = mask * (1.0 - clamp(weight, 0.0, 1.0));
-                        base_layer = vec4(own * kept, kept);
+                        // layer, premultiplied; linear light, as the frame). (Round PERF4: its light is the ray loop's
+                        // step 0 below - hit_shown, the reflected hits' shading.)
+                        painted_kept = mask * (1.0 - clamp(weight, 0.0, 1.0));
                     }
                     weight *= mask;
                     vec3 mirror = reflect(view, sn);
@@ -567,27 +572,28 @@ void main()
                     vec3 estimate = adds && weight > 0.0 ? own_environment(hit_instance, primitive, bary, v, sn, object)
                                                          : vec3(0.0);
                     vec4 seen = vec4(0.0);
-                    if (weight <= 0.0) {
-                        // (nothing of it shows: no ray)
-                    } else {
+                    mat4x3 surface_world = rayQueryGetIntersectionObjectToWorldEXT(query, true);
+                    {
                         // a rough surface: rays spread over a cone round the mirror direction (a golden-angle disc of
                         // directions, turned by a quarter of its step in each pixel of a 2 x 2 block - the apply's
                         // 3 x 3 blur then sees four times the directions, with no noise), their hits averaged; the
                         // share that hit something scales the weight (the misses keep the game's environment map). A
                         // mirror: its one ray. (Round PERF3: one loop for both - one inlined copy of the reflected ray's
                         // shading, its light sample and its light ray in the shader, not two: its code 1.1 MB, 255
-                        // registers.)
+                        // registers. Round PERF4: the painted glass's own colour its step 0 - the same shading, once.)
+                        // (nothing of it shows - weight 0: no ray)
                         vec3 across = normalize(abs(mirror.y) < 0.99 ? cross(mirror, vec3(0.0, 1.0, 0.0))
                                                                      : cross(mirror, vec3(1.0, 0.0, 0.0)));
                         vec3 up = cross(mirror, across);
-                        uint rays = rough > 0.0 ? max(uint(pass.rays.x), 1u) : 1u;
+                        uint rays = weight <= 0.0 ? 0u : (rough > 0.0 ? max(uint(pass.rays.x), 1u) : 1u);
                         float turn = 6.2831853 / float(rays) * (float((p.x & 1) + 2 * (p.y & 1)) / 4.0);
                         vec3 sum = vec3(0.0);
                         float hits = 0.0;
                         vec4 one = vec4(0.0);
-                        for (uint i = 0u; i < rays; ++i) {
+                        for (uint ray_step = painted ? 0u : 1u; ray_step <= rays; ++ray_step) {
+                            uint i = ray_step - 1u;
                             vec3 d = mirror;
-                            if (rough > 0.0) {
+                            if (ray_step > 0u && rough > 0.0) {
                                 float radius = sqrt((float(i) + 0.5) / float(rays)) * rough;
                                 float angle = float(i) * 2.39996323 + turn;
                                 d = normalize(mirror + (across * cos(angle) + up * sin(angle)) * radius);
@@ -595,14 +601,56 @@ void main()
                                     d = mirror; // (below the surface: the mirror direction instead)
                                 }
                             }
-                            one = reflected(point + n * offset, d, t);
+                            // step 0: the pixel's own surface, seen along the view (the camera ray's hit); the rest the
+                            // reflected rays' hits
+                            uint h_id = id;
+                            uint h_instance = hit_instance;
+                            uint h_primitive = primitive;
+                            vec2 h_bary = bary;
+                            mat4x3 h_world = surface_world;
+                            float h_t = t;
+                            vec3 from = eye;
+                            vec3 along = view;
+                            float before = 0.0;
+                            vec3 given = sn;
+                            bool met = true;
+                            if (ray_step > 0u) {
+                                from = point + n * offset;
+                                along = d;
+                                before = t;
+                                given = vec3(0.0);
+                                met = reflection_hit(from, d, h_id, h_instance, h_primitive, h_bary, h_world, h_t);
+                            }
+                            vec3 light = vec3(0.0);
+                            if (met) {
+                                light = hit_shown(h_id, h_instance, h_primitive, h_bary, h_world, from, along, h_t, before,
+                                                  given);
+                            }
+                            if (ray_step == 0u) {
+                                base_layer = vec4(light * painted_kept, painted_kept);
+                                continue;
+                            }
+                            if (met) {
+                                one = vec4(min(max(light, vec3(0.0)), vec3(65504.0)), 1.0);
+                            } else {
+#ifdef SKY
+                                // (added by the sky) rt_sky: the miss sees the sky drawn - its atmosphere and clouds -
+                                // as linear light, as the frame holds it (round F: nothing converted, nothing clamped)
+                                vec3 sky = sky_for_ray(d, pass.sky_to_pixel, pass.sky_sun, pass.sky_low, pass.sky_rect);
+                                one = vec4(min(max(sky, vec3(0.0)), vec3(65504.0)), 1.0);
+#else
+                                one = vec4(0.0);
+#endif
+                            }
                             if (adds && one.a == 0.0) {
                                 one = vec4(estimate, 1.0);
                             }
                             sum += one.rgb * one.a;
                             hits += one.a;
                         }
-                        if (rough <= 0.0) {
+                        if (rays == 0u) {
+                            // (no ray)
+                        } else if (rough <= 0.0) {
                             seen = one;
                         } else if (hits > 0.0) {
                             // (negative: a rough pixel - the apply pass blurs it with its rough neighbours)

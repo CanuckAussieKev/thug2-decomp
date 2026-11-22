@@ -50,10 +50,20 @@ inline constexpr int kUncappedFrames = 1000;
 // When a tick's frame `index` (1 .. frames - 1; 0 is the tick's own) is due: evenly across the tick, from the time the
 // tick was due (`tick_time`, `tick_length` performance-counter ticks).
 uint64_t frame_due(uint64_t tick_time, uint64_t tick_length, int index, int frames);
-// Whether a render-only frame started at `now` that takes about `cost` would end by the next tick (`next_tick`).
-bool frame_fits(uint64_t now, uint64_t cost, uint64_t next_tick);
+// Whether a render-only frame may start at `now`: before the next tick is due (`next_tick`), and - while the renderer
+// can reach the cap - ending by then by its smoothed `cost`. (Round PERF4) A renderer slower than the cap (its cost at
+// least the cap's frame interval, `cap_interval` - the device the limit) starts its frames whenever the next tick isn't
+// due yet: they come back to back at the device's own rate, each blended by its own start, so the motion shown advances
+// as evenly as the frames are shown (the main loop waits for no frame's share of a tick then either). Before, a frame
+// slower than a tick never fitted: frames were drawn only on the ticks (their own, a late one skipped) and after waits
+// for a tick - shown every ~23 ms at 40 fps with the motion advancing 13 - 33 ms: the judder of "a stuttery 40 fps".
+bool frame_fits(uint64_t now, uint64_t cost, uint64_t next_tick, uint64_t cap_interval);
+// (round PERF4) The cap's frame interval in counter ticks (`frequency` a second): 1 / max_fps; 0 uncapped.
+uint64_t cap_interval(int max_fps, uint64_t frequency);
 // The smoothed cost after a render-only frame that took `took`: a quarter of the new time, which counts as at most one
-// tick (`tick_length`) - a hitch (a texture load, the window moved) mustn't stop the frames for long.
+// tick (`tick_length`) - a hitch (a texture load, the window moved) mustn't stop the frames for long. (Round PERF4) A
+// frame of a whole tick or more makes it exactly a tick: the renderer is slower than the ticks now (frame_fits) - a
+// smoothed cost only ever came near a tick, and its frames stayed out.
 uint64_t cost_after_frame(uint64_t cost, uint64_t took, uint64_t tick_length);
 // The smoothed cost after a tick whose frames it refused: an eighth less, so the frames are tried again - the estimate
 // only learns from frames drawn, and without this a cost once too high would keep every frame out for good.

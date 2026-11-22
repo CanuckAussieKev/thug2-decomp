@@ -49,6 +49,29 @@ test("the summary: drawn frames' spacing (a skipped loop's time added to the nex
     assert.ok(Math.abs(s.fps - 3 / 0.09) < 1e-9);
 });
 
+test("the frames presented: their spacing and how far the motion each shows is off it", () => {
+    // (three loops' presents - one with a render-only frame too: at 0, 24, 48, 72 ms showing 0, 24, 55, 72)
+    const row = (f: number, s: [number, number][]): string =>
+        JSON.stringify({ f, d: 1, l: 0, t: 24, w: 24, p: [0], s });
+    const text = [
+        JSON.stringify({ phases: ["pace"] }),
+        JSON.stringify({ f: 1, d: 1, l: 1, t: 10, w: 10, p: [0] }),
+        row(2, [[1000, 500]]),
+        row(3, [
+            [1024, 524],
+            [1048, 555],
+        ]),
+        row(4, [[1072, 572]]),
+        ...[5, 6, 7, 8, 9].map((f) => row(f, [])),
+    ].join("\n");
+    const s = summarise(parseFrames(text), 0);
+    assert.equal(s.presented, 4);
+    assert.equal(s.spacing50, 24);
+    // off by 0, 7, 7 (sorted 0, 7, 7: the median 7)
+    assert.equal(s.motionOff50, 7);
+    assert.equal(s.motionOff99, 7);
+});
+
 test("percentile: the value at p of the sorted list", () => {
     assert.equal(percentile([5, 1, 4, 2, 3], 0.5), 3);
     assert.equal(percentile([5, 1, 4, 2, 3], 0.99), 4);

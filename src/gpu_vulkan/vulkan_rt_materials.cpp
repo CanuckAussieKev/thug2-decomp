@@ -112,14 +112,13 @@ layout(set = THUG2_MATERIAL_SET, binding = 1) uniform sampler material_samplers[
 layout(set = THUG2_MATERIAL_SET, binding = 2) uniform texture2D material_textures[];
 const uint MATERIAL_ALPHA_TESTED = 2u;
 const uint MATERIAL_TRANSPARENT = 64u;
+// (round PERF4) An id past the table reads its last row - always the default record (MaterialTable keeps one spare row:
+// texture 0, white, no environment pass). One record loaded by index: the compiler loads only the fields the caller
+// reads. Before, a whole 49-word record chosen between the table's and a constant - every field loaded and kept live
+// (the ray-traced shaders' registers).
 Material material(uint id)
 {
-    if (id >= uint(material_records.length())) {
-        return Material(0u, 0u, 0u, 0u, 0.0, 0u, vec4(1.0), 0.0, 0xFFFFFFFFu, 0u, 0u, 0u, 0.0, uint[3](0u, 0u, 0u),
-                        uint[3](0u, 0u, 0u), uint[3](0u, 0u, 0u), 0.0, 0.0, 0.0, uint[3](0u, 0u, 0u),
-                        uint[3](0u, 0u, 0u), uint[3](0u, 0u, 0u), vec4[3](vec4(0.0), vec4(0.0), vec4(0.0)));
-    }
-    return material_records[id];
+    return material_records[min(id, uint(material_records.length()) - 1u)];
 }
 vec4 material_texel_lod(uint id, vec2 uv, float lod)
 {
@@ -828,10 +827,13 @@ bool MaterialTable::make_visible(Backend& state)
         return true;
     });
     bool ok = true;
-    if (records_.size() > current_.rows) {
-        // a bigger buffer and a set naming it: every slot written again, every row copied up
+    if (records_.size() >= current_.rows) {
+        // a bigger buffer and a set naming it: every slot written again, every row copied up. (Round PERF4) The last
+        // row is never a material's: it stays the default record, which material() returns for an id past the table
+        // (kMaterialGlsl) - one load of the fields a shader reads, no whole record chosen between two.
         Generation grown;
-        const auto rows = static_cast<uint32_t>(std::max<std::size_t>(records_.size(), std::size_t{current_.rows} * 2));
+        const auto rows =
+            static_cast<uint32_t>(std::max<std::size_t>(records_.size() + 1, std::size_t{current_.rows} * 2));
         if (!make_generation(state, rows, &grown)) {
             destroy_generation(state, &grown);
             return false;

@@ -192,6 +192,76 @@ void check_settings()
            "present_mode parsed");
 }
 
+// (round PERF4) The main loop (engine/sys/mlp.cpp) with a renderer slower than the ticks - every frame 25 ms, the
+// logic 1 ms, max_fps 144: a tick more than half a tick late draws no frame of its own; a renderer slower than the
+// cap draws its render-only frames back to back (no frame count a tick, no wait for a share of it) while the next tick
+// isn't due. The time each frame shows (its start less the part of a tick it is behind) advances exactly as the frames
+// start - not 1 or 2 ticks a frame, nor moved by a wait (the judder of a 40 fps that isn't smooth).
+void check_slow_renderer()
+{
+    constexpr uint64_t kFrequency = 10000000;
+    constexpr uint64_t kTick = kFrequency / 60;
+    constexpr uint64_t kFrame = kFrequency / 40;
+    constexpr uint64_t kLogic = kFrequency / 1000;
+    const uint64_t interval = pacing::cap_interval(144, kFrequency);
+    double carry = 0.0;
+    uint64_t cost = 0;
+    uint64_t now = 0;
+    int skipped = 0;
+    std::vector<double> shown; // (each frame's shown time and start, ms)
+    std::vector<double> started;
+    for (uint64_t tick = 1; tick <= 240; ++tick) {
+        const uint64_t tick_time = tick * kTick;
+        now = std::max(now, tick_time);
+        const bool late = now - (tick_time - kTick) >= kTick + (kTick / 2);
+        const bool own = !late || skipped >= 4;
+        skipped = own ? 0 : skipped + 1;
+        now += kLogic;
+        const auto show = [&](uint64_t at) {
+            const float alpha = pacing::blend_alpha(at, tick_time, kTick);
+            shown.push_back((static_cast<double>(tick_time) * 1000.0 / kFrequency) -
+                            ((1.0 - static_cast<double>(alpha)) * 1000.0 / 60.0));
+            started.push_back(static_cast<double>(at) * 1000.0 / kFrequency);
+        };
+        if (own) {
+            show(now);
+            now += kFrame;
+        }
+        const int frames = pacing::frames_this_tick(144, &carry);
+        for (int i = 1;; ++i) { // (mlp.cpp draw_extra_frames)
+            const bool limited = cost >= interval;
+            if (i >= frames && !limited) {
+                break;
+            }
+            if (!limited) {
+                now = std::max(now, pacing::frame_due(tick_time, kTick, i, frames));
+            }
+            if (!pacing::frame_fits(now, cost, tick_time + kTick, interval)) {
+                if (now < tick_time + kTick) {
+                    cost = pacing::cost_after_refusal(cost);
+                }
+                break;
+            }
+            show(now);
+            now += kFrame;
+            cost = pacing::cost_after_frame(cost, kFrame, kTick);
+        }
+    }
+    double least = 1e9;
+    double most = 0.0;
+    double off = 0.0;
+    for (std::size_t k = 20; k + 1 < shown.size(); ++k) { // (after the cost estimate has learned)
+        const double step = shown.at(k + 1) - shown.at(k);
+        least = std::min(least, step);
+        most = std::max(most, step);
+        off = std::max(off, std::abs(step - (started.at(k + 1) - started.at(k))));
+    }
+    expect(shown.size() > 140 && least > 20.0 && most < 30.0 && off < 0.01,
+           "a renderer slower than the cap: " + std::to_string(shown.size()) +
+               " frames in 4 s, the time shown advancing " + std::to_string(least) + " - " + std::to_string(most) +
+               " ms a frame (25 ms drawn), off the frames' own spacing by " + std::to_string(off) + " ms at most");
+}
+
 void check_schedule()
 {
     double carry = 0.0;
@@ -216,11 +286,16 @@ void check_schedule()
     expect(pacing::frame_due(1000, 600, 1, 3) == 1200 && pacing::frame_due(1000, 600, 2, 3) == 1400 &&
                pacing::frame_due(1000, 600, 0, 3) == 1000,
            "frames spread evenly across the tick");
-    expect(pacing::frame_fits(100, 50, 200) && !pacing::frame_fits(160, 50, 200) && !pacing::frame_fits(200, 0, 200),
+    expect(pacing::frame_fits(100, 50, 200, 600) && !pacing::frame_fits(160, 50, 200, 600) &&
+               !pacing::frame_fits(200, 0, 200, 600),
            "a frame starts only when it ends by the next tick");
+    expect(pacing::frame_fits(160, 600, 200, 600) && !pacing::frame_fits(200, 600, 200, 600),
+           "a renderer slower than the cap starts a frame whenever the next tick isn't due yet");
+    expect(pacing::cap_interval(144, 14400) == 100 && pacing::cap_interval(pacing::kUncapped, 14400) == 0,
+           "the cap's frame interval (uncapped: none)");
     expect(pacing::cost_after_frame(0, 40, 600) == 40 && pacing::cost_after_frame(40, 80, 600) == 50 &&
-               pacing::cost_after_frame(40, 100000, 600) == 180,
-           "the cost smoothed, a hitch counted as one tick at most");
+               pacing::cost_after_frame(40, 100000, 600) == 600 && pacing::cost_after_frame(600, 40, 600) == 460,
+           "the cost smoothed; a frame of a tick or more makes it a tick (a hitch: one tick), the next frames ease it");
     {
         // a hitch pushes the cost past the tick: refused ticks bring it back under a third of the tick within a second
         uint64_t cost = pacing::cost_after_frame(600, 100000, 600); // (a whole tick)
@@ -256,7 +331,7 @@ void check_schedule()
         for (int i = 1; i < frames; ++i) {
             const uint64_t due = pacing::frame_due(tick_time, kTick, i, frames);
             now = std::max(now, due);
-            if (!pacing::frame_fits(now, kCost, tick_time + kTick)) {
+            if (!pacing::frame_fits(now, kCost, tick_time + kTick, pacing::cap_interval(144, kFrequency))) {
                 break;
             }
             const float alpha = pacing::blend_alpha(now, tick_time, kTick);
@@ -270,6 +345,7 @@ void check_schedule()
     expect(ticks == 60, "a second is 60 ticks whatever the frame rate");
     expect(in_order, "render-only frames come in order within their tick and end before the next");
     expect(drawn >= 140 && drawn <= 144, "about 144 frames in the second at max_fps 144 (" + std::to_string(drawn) + ")");
+    check_slow_renderer();
 }
 
 } // namespace

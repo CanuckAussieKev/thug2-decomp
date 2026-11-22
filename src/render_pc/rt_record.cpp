@@ -150,6 +150,10 @@ struct State {
     double first_frame_work_ms = 0.0;
     bool first_frame_timed = false;
     std::unordered_map<const MaterialRef*, MaterialEntry> materials;
+    // (round PERF4) each texture's texels' median luminance (lamp_texel_code_of; negative: unreadable), decoded once a
+    // level - every mesh with a lamp drawn in a texture decoded its texture again when the lamps first switched on (BO
+    // at dusk: a 1 - 2 s stall of the main loop)
+    std::unordered_map<const void*, float> lamp_medians;
     std::unordered_set<const VertexBufferData*> written; // since the last record
     // (round PT-B) each vertex buffer's least vertex alpha (least_vertex_alpha), read when first asked after the buffer
     // was last written (its colours too)
@@ -2598,12 +2602,20 @@ uint8_t lamp_texel_code_of(const MeshRef* mesh)
     State& st = state();
     const auto entry = st.materials.find(material);
     const bool solid_only = entry != st.materials.end() && lamp_texels_solid_only(mesh, material, entry->second.material);
-    std::unordered_map<const void*, TextureLook> one;
-    const TextureLook& look = texture_look(material, &one);
-    if (look.image.empty()) {
+    const TextureImage* texture = core::at(material->textures(), 0);
+    if (texture == nullptr || texture->texture == nullptr) {
         return rt::lamp_texel_code(rt::kLampTexelMostFloor, solid_only);
     }
-    return rt::lamp_texel_code(rt::kTexelOverTexture * look.median, solid_only);
+    const auto [found, made] = st.lamp_medians.try_emplace(texture->texture, -1.0F);
+    if (made) {
+        std::unordered_map<const void*, TextureLook> one;
+        const TextureLook& look = texture_look(material, &one);
+        found->second = look.image.empty() ? -1.0F : look.median;
+    }
+    if (found->second < 0.0F) {
+        return rt::lamp_texel_code(rt::kLampTexelMostFloor, solid_only);
+    }
+    return rt::lamp_texel_code(rt::kTexelOverTexture * found->second, solid_only);
 }
 
 std::string describe_screen_point(float across, float down)
@@ -2849,6 +2861,7 @@ void forget_meshes()
     }
     st.meshes.clear();
     st.written.clear();
+    st.lamp_medians.clear(); // (round PERF4: the level's textures go with it)
     st.poses.release_all(gpu(), rt); // (the device's buffers go: the poses made again at the next record)
     st.apart.release_all(gpu(), rt);  // (round PG: the draws apart's meshes, and the clutter's - made again)
     if (st.clutter.buffer != nullptr) {

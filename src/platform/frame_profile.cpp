@@ -83,6 +83,7 @@ struct State {
     std::atomic<double> last_work_ms{0.0};
     int64_t last_end = 0;
     int64_t last_drawn_end = 0;
+    std::string presents; // (round PERF4) this loop's presents: [when, the time shown] each (note_present)
     uint64_t loops = 0;
     Window window;
     std::string pending; // (the lines since the last window: handed to the line writer's thread each window)
@@ -235,7 +236,12 @@ void write_line(State& st, bool drawn, bool loading, double loop_ms, double work
         }
         line += text::format("%.3f", ms);
     }
-    line += "]}\n";
+    line += ']';
+    if (!st.presents.empty()) {
+        line += ",\"s\":[" + st.presents + ']';
+        st.presents.clear();
+    }
+    line += "}\n";
     st.pending += line;
 }
 
@@ -546,6 +552,18 @@ int slot(const char* name)
     core::at(st.names, static_cast<std::size_t>(now)) = name;
     st.count.store(now + 1);
     return now;
+}
+
+void note_present(uint64_t tick, float alpha)
+{
+    if (!on() || !on_main_thread()) {
+        return;
+    }
+    State& st = state();
+    constexpr double kTickMs = 1000.0 / 60.0;
+    const double shown = (static_cast<double>(tick) - 1.0 + static_cast<double>(alpha)) * kTickMs;
+    st.presents += text::format("%s[%.3f,%.3f]", st.presents.empty() ? "" : ",",
+                                static_cast<double>(ticks_now()) * tick_ms(), shown);
 }
 
 void add_ms(int slot, double milliseconds)

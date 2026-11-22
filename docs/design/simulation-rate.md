@@ -80,6 +80,15 @@ written into the instances and cameras; after it every one is put back (`frame_i
 frame runs no task, counts no vblank, reads no input and puts the game's random streams and the C runtime's `rand` back
 as it found them. Frame generation (DLSS-G, FSR 3) makes its frames from the drawn ones, after the fact.
 
+When the device can't reach the cap (a frame takes at least 1 / max_fps - `frame_pacing::frame_fits`), the render-only
+frames come back to back: each starts as soon as the last one's slot is free and the next step isn't due yet, after a
+step skipped as late too, and nothing waits for a frame's share of the step. A frame is then blended by a start that is
+a fixed time before the device shows it, so the motion it shows advances as evenly as the frames are shown. Before, a
+renderer slower than a step drew only on the steps (and after waits for them): at ~40 fps the frames were shown ~23 ms
+apart but showed motion 13 - 33 ms apart - the judder of an average that looks smooth on paper. `[debug] frame_profile`
+records every present and the time it shows; `tools/game/frame_bench.ts` reports their spacing and how far the motion
+is off it.
+
 The proof that none of it reaches the simulation is the check below: the same demos at max_fps 0, 120, 144 and 240 give
 the same state on every frame, to the bit.
 
