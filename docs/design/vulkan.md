@@ -6316,6 +6316,14 @@ what the camera sees emit), each mismatch traced to the side that was wrong:
   chance); the other reservoir's candidate that frame is none (M 1). One BRDF-sampled path a pixel is what RTXDI's
   ReSTIR GI and Cyberpunk 2077's path tracing trace; both lobes' paths every pixel before. BO at night, 1707 x 960
   drawn: GI samples + temporal 20.8 -> 6 ms.
+- **Round PERF5: the paths past a cache miss in a pass of their own** (PASS_CONTINUE - wavefront path tracing's
+  split). PASS_SAMPLE traces the first vertex alone; where its cell has no trusted cache entry it puts the vertex in the
+  pixel's own reservoir words and the path (pixel, lobe, random state, pdf, direction) on a queue after res_a's
+  reservoirs, counting the groups of an indirect dispatch in the counters buffer; PASS_CONTINUE runs the old loop
+  (CACHE_MISS_SURE vertices, then Russian roulette up to CACHE_MISS_VERTICES) over the queue alone, adds the miss's
+  cache sample and stores the pixel's samples. The same rays, numbers and random sequences as the one loop. The sample
+  pass's registers 241 -> 128 (the loop's live state was the peak, not the duplicated code); the continued pass 229
+  over a dense queue. BO at night, 1707 x 960: GI samples 3.61 -> 2.40 + 0.16 ms; a second spot 2.95 -> 1.89 + 0.24.
 - Not changed, measured equal: the light lists (175 lamps, 611 emitting triangles - one scan, one record per lamp),
   ReSTIR DI's estimator (an exact sum over every lamp at each pixel - a diagnostic - equal to ReSTIR's result within
   2 %; no grid, no boiling filter, no reuse: the same means), Ray Reconstruction (its output's mean its input's).
