@@ -1131,7 +1131,8 @@ void main()
                 record[0] = vec4(a, 0.0);
                 record[1] = vec4(b, 0.0);
                 record[2] = vec4(c, 0.0);
-                uint rng = path_sequence_start(e, 0u, pass.counts.z, pass.params.w ^ 0x51ED270Bu);
+                // (seeded by the triangle itself, not its place in the list: the scan lists them in any order)
+                uint rng = path_sequence_start(listed.x, listed.y, pass.counts.z, pass.params.w ^ 0x51ED270Bu);
                 uint material_id = instance_material(listed.x);
                 for (uint k = 0u; k < PRESAMPLED; ++k) {
                     vec2 uv = round(clamp(vec2(path_next(rng), path_next(rng)), 0.0, 1.0) * 65535.0) / 65535.0;
