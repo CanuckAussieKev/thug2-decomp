@@ -107,10 +107,14 @@ constexpr uint32_t kSpecularReservoirWords = 4; // (round WS) uvec4s a pixel: af
 // tests (ReSTIR DI's), the share of the initial samples drawn from the sky's distribution (the rest from the BSDF).
 constexpr uint32_t kSpatialNeighbours = 2;
 constexpr uint32_t kMostSpatial = 4;
-// (round BUDGET) The trace grid's side in the game (a cell a 2 x 2 block of pixels: PASS_UPSAMPLE) and the pixel of the
-// cell each frame takes, in turn (x, y) - every pixel of a block traced once in four frames. The check's grid is the
-// view's own pixels.
-constexpr uint32_t kTraceScale = 2;
+// (round BUDGET) The trace grid's side in the game and the pixel of a cell each frame takes, in turn (x, y). 2 (a cell
+// a 2 x 2 block of pixels, PASS_UPSAMPLE bringing its light to the pixels - every pixel traced once in four frames) took
+// ReSTIR GI from ~11 to ~3.3 ms at 1707 x 960 but is NOT used: Ray Reconstruction keeps a cell's outlier spread over
+// its block as detail - bright 2 x 2 specks over the whole picture (BO at night, the bank: the converged frame's error
+// against the converged one 3.9 -> 12 of 255, the specks plain in the picture; each pixel taking one like cell by its
+// weight instead of their average: smaller specks, still there). Ray Reconstruction wants each pixel's own sample. 1:
+// the view's pixels - the passes as before, no upsample.
+constexpr uint32_t kTraceScale = 1;
 constexpr std::array<std::array<uint32_t, 2>, 4> kTraceTurns{{{0, 0}, {1, 1}, {1, 0}, {0, 1}}};
 constexpr uint32_t kHistoryCap = 20;
 // (round DD) the local lights' candidates a next-event sample resamples (vulkan_light_list.h light_sample_glsl: RIS over
@@ -1544,10 +1548,26 @@ void put_result(ivec2 p, uint i, Surface s, vec3 diffuse, vec3 specular, float h
         sums[uint(pass.rect.z * pass.rect.w) + i] = vec4(full, 1.0);
     }
 #else
-    // (round BUDGET) the cell's light, demodulated - PASS_UPSAMPLE puts it into the view's pixels
-    GiResults results = GiResults(pass.results.xy);
-    results.rows[2u * i] = vec4(diffuse, s.valid ? 1.0 : 0.0);
-    results.rows[2u * i + 1u] = vec4(specular, hit);
+    if (trace_scale() > 1) {
+        // (round BUDGET) the cell's light, demodulated - PASS_UPSAMPLE puts it into the view's pixels
+        GiResults results = GiResults(pass.results.xy);
+        results.rows[2u * i] = vec4(diffuse, s.valid ? 1.0 : 0.0);
+        results.rows[2u * i + 1u] = vec4(specular, hit);
+        return;
+    }
+    if (s.valid) {
+        // (the store's environment gone where this lit the surface: its sky and bounce are these samples)
+        vec4 vis = imageLoad(io_visibility, p);
+        // (round FA - a debug view without the sky: nor the disc's direct light)
+        imageStore(io_visibility, p, vec4((pass.counts.w & FLAG_NO_SKY) != 0u ? 0.0 : vis.r, vis.g, 0.0, vis.a));
+        vec3 exposed = min(diffuse * pass.eye.w, vec3(65504.0));
+        imageStore(io_lamps, p, vec4(min(imageLoad(io_lamps, p).rgb + exposed, vec3(65504.0)), 0.0));
+        imageStore(io_lamps_on, p, vec4(min(imageLoad(io_lamps_on, p).rgb + exposed * s.albedo, vec3(65504.0)), 0.0));
+        // (round BR: added to the lights' own specular - ReSTIR DI's, written before)
+        vec3 specular_in = min(imageLoad(io_specular, p).rgb + specular * pass.eye.w, vec3(65504.0));
+        imageStore(io_specular, p, vec4(specular_in, 1.0));
+    }
+    imageStore(o_specular_hit, p, vec4(hit, 0.0, 0.0, 0.0));
 #endif
 }
 // (round WS) The specular reservoir's spatial reuse and its result: the pixel's reservoir and, for a lobe of
@@ -1800,12 +1820,12 @@ void main()
 #endif
 
 #ifdef PASS_UPSAMPLE
-// (round BUDGET) Each pixel's indirect light from the trace grid's cells round it (PASS_SPATIAL's results, demodulated:
-// the diffuse light before the albedo, the specular over E): the cells whose surface is this pixel's (alike - its
-// normal, its plane) and of a like roughness, weighed by a tent over their pixels' distance - a depth- and normal-aware
-// upsample, as half-resolution ray-traced GI is brought to the full resolution before the denoiser (Ray Reconstruction
-// here). A pixel no like cell is near takes the likest one's (an edge a cell's pixel missed this frame). Then the
-// inputs as PASS_SPATIAL wrote them before: the light added to ReSTIR DI's, the store's environment taken out.
+// (round BUDGET) Each pixel's indirect light from the trace grid's four cells nearest it (PASS_SPATIAL's results,
+// demodulated: the diffuse light before the albedo, the specular over E): the cells whose surface is this pixel's
+// (alike - its normal, its plane) and of a like roughness, weighed by a tent over their pixels' distance - a depth- and
+// normal-aware upsample, as half-resolution ray-traced GI is brought to the full resolution before the denoiser (Ray
+// Reconstruction here). A pixel no like cell is near takes the likest one's (an edge a cell's pixel missed this frame).
+// Then the inputs as PASS_SPATIAL wrote them before: the light added to ReSTIR DI's, the store's environment taken out.
 void main()
 {
     ivec2 local = ivec2(gl_GlobalInvocationID.xy);
@@ -1822,17 +1842,21 @@ void main()
     int scale = trace_scale();
     ivec2 home = local / scale;
     float reach = scale > 1 ? 1.5 : 0.5; // (cells: at the view's own resolution a pixel's cell alone)
+    // the pixel's own cell and the three beside it on its side of the cell's traced pixel (the nearest four)
+    ivec2 within = local - cell_pixel(home);
+    ivec2 toward = ivec2(within.x > 0 || (within.x == 0 && (local.x % scale) * 2 >= scale) ? 1 : -1,
+                         within.y > 0 || (within.y == 0 && (local.y % scale) * 2 >= scale) ? 1 : -1);
     float least = pass.tune.z * length(s.at - pass.eye.xyz);
     vec3 diffuse = vec3(0.0);
     vec3 specular = vec3(0.0);
     float sum = 0.0;
-    float heaviest = 0.0;
     float hit = GI_MISS_DISTANCE;
+    uint rng = path_sequence_start(uint(local.x), uint(local.y), pass.counts.z ^ 0x3C6EF372u, pass.params.w + 9u);
     float likest = 0.0;
     uint likest_cell = 0xFFFFFFFFu;
-    for (int dy = -1; dy <= 1; ++dy) {
-        for (int dx = -1; dx <= 1; ++dx) {
-            ivec2 c = home + ivec2(dx, dy);
+    for (int dy = 0; dy <= (scale > 1 ? 1 : 0); ++dy) {
+        for (int dx = 0; dx <= (scale > 1 ? 1 : 0); ++dx) {
+            ivec2 c = home + ivec2(dx, dy) * toward;
             if (any(lessThan(c, ivec2(0))) || any(greaterThanEqual(c, cells()))) {
                 continue;
             }
@@ -1850,21 +1874,18 @@ void main()
             if (!(w > 0.0) || !alike(s, o) || !rough_alike(s, o)) {
                 continue;
             }
-            vec4 d = results.rows[2u * j];
-            vec4 e = results.rows[2u * j + 1u];
-            diffuse += w * d.rgb;
-            specular += w * e.rgb;
+            // one like cell, picked by its weight (each pixel's own draw: the cells' noise stays a pixel's, as Ray
+            // Reconstruction takes noise - an average gave every cell's outlier to a 2 x 2 block it kept as detail)
             sum += w;
-            if (w > heaviest) {
-                heaviest = w;
+            if (path_next(rng) * sum < w) {
+                vec4 e = results.rows[2u * j + 1u];
+                diffuse = results.rows[2u * j].rgb;
+                specular = e.rgb;
                 hit = e.w;
             }
         }
     }
-    if (sum > 0.0) {
-        diffuse /= sum;
-        specular /= sum;
-    } else if (likest_cell != 0xFFFFFFFFu) {
+    if (!(sum > 0.0) && likest_cell != 0xFFFFFFFFu) {
         diffuse = results.rows[2u * likest_cell].rgb;
         vec4 e = results.rows[2u * likest_cell + 1u];
         specular = e.rgb;
@@ -2366,9 +2387,9 @@ bool ensure_pipelines(Backend& state, bool check, bool cloud_map, SkyGridSource 
             return false;
         }
     }
-    // (round BUDGET) the game's upsample (the check's light stays at its pixels)
+    // (round BUDGET) the game's upsample with a trace grid coarser than the pixels (the check's light stays at its pixels)
     VkPipeline& upsample = core::at(own.upsample, 0);
-    if (!check && upsample == VK_NULL_HANDLE) {
+    if (!check && kTraceScale > 1 && upsample == VK_NULL_HANDLE) {
         upsample = make_compute(device, own.layout, shader_source(Shader::kUpsample, false, false, sky), error);
         if (upsample == VK_NULL_HANDLE) {
             return false;
@@ -2965,7 +2986,7 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
                               BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.reservoirs_b, cells * 16 * kReservoirWords, storage, BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.specular_reservoirs, cells * 16 * kSpecularReservoirWords, storage, BufferPlace::kDevice) &&
-                ensure_buffer(state, &own.results, cells * 2 * 16, storage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                ensure_buffer(state, &own.results, scale > 1 ? cells * 2 * 16 : 16, storage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                               BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.counters, kCountersBytes, storage | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
                               BufferPlace::kDevice) &&
@@ -3240,11 +3261,9 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.spatial, check ? 1U : 0U));
         vkCmdDispatch(commands, groups_x, groups_y, 1);
         barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
-                check ? VK_PIPELINE_STAGE_ALL_COMMANDS_BIT : VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                check ? VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT
-                      : VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT);
     }
-    if (!check) {
+    if (!check && scale > 1) {
         // (round BUDGET) the cells' light into the view's pixels (the inputs)
         const FrameStep step(state.frames, commands, gpu_markers::section::kGiUpsample);
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, upsample_pipeline(state, core::at(block.shared, 2) != 0U));
