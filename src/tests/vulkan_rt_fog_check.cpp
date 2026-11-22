@@ -113,7 +113,8 @@ constexpr float kFogStart = 10.0F;
 constexpr float kFogEnd = 500.0F;
 constexpr std::array<float, 3> kFogColour{0.6F, 0.65F, 0.7F};
 constexpr unsigned kSteps = 32;
-constexpr int kStillFrames = 40;
+// (round BUDGET) the frames a still view is drawn: past the froxels' history (kFogMaxHistory, 32 frames - was 20 with 40)
+constexpr int kStillFrames = 64;
 constexpr double kPerByte = 1.0 / 255.0;
 // (changed by the street air) the march's block (2: the exact cases; the quarter-resolution case 4)
 uint32_t& march_scale()

@@ -48,7 +48,8 @@ inline constexpr uint16_t kGiSamples = 19;    // (round PERF2) ReSTIR GI: each p
 inline constexpr uint16_t kGiContinued = 20;  // (round PERF5) ReSTIR GI: the secondary paths continued past a cache miss
 inline constexpr uint16_t kDiPrimary = 21;   // (round PERF6) ReSTIR DI: the pixels' primary surfaces (the camera rays)
 inline constexpr uint16_t kDiCandidates = 22; // (round PERF6) ReSTIR DI: the initial candidates (kDiTemporal: the reuse)
-inline constexpr uint16_t kCount = 23;
+inline constexpr uint16_t kGiUpsample = 23;   // (round BUDGET) ReSTIR GI: the trace grid's light into the view's pixels
+inline constexpr uint16_t kCount = 24;
 } // namespace section
 
 struct Mark {

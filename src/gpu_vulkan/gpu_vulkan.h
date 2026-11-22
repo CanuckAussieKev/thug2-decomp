@@ -193,8 +193,12 @@ inline constexpr std::array<unsigned, 3> kRtFogQualitySteps{48, 64, 64};
 inline constexpr std::array<unsigned, 3> kRtFogQualityLamps{2, 4, 8}; // (round WF: the light list's candidates)
 inline constexpr std::array<unsigned, 3> kRtFogQualityScale{16, 16, 12};
 inline constexpr unsigned kRtFogScale = 16;    // (rt_fog_quality 1's scale)
-inline constexpr std::array<unsigned, 3> kRtFogQualitySamples{2, 4, 6};
-inline constexpr unsigned kRtFogSamples = 4; // (rt_fog_quality 1's)
+// (round BUDGET) 1 / 2 / 2 a frame (were 2 / 4 / 6; one at Medium left the check's shadow of a bar in a beam 1.8 texels
+// off its width, 2: 0.9), the froxels' history longer to match (vulkan_rt_fog.h
+// kFogMaxHistory): a froxel's light averages about as many samples, over more frames - UE's and Frostbite's budget (one
+// sample a froxel a frame, the temporal history doing the rest)
+inline constexpr std::array<unsigned, 3> kRtFogQualitySamples{1, 2, 2};
+inline constexpr unsigned kRtFogSamples = 2; // (rt_fog_quality 1's)
 // (added by the distinct shafts) the air's sun map's side (texels - rt_volume_light.h air_map_half) at rt_fog_quality
 // 0 / 1 / 2
 inline constexpr std::array<unsigned, 3> kRtFogQualityMap{512, 1024, 1536};
