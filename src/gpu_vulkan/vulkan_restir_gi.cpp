@@ -95,6 +95,11 @@ constexpr VkDeviceSize kUniformAlignment = 256;
 constexpr std::size_t kMatrixSide = 4;
 constexpr double kSingular = 1e-300;
 constexpr uint32_t kReservoirWords = 2; // uvec4s a pixel
+constexpr uint32_t kContinueWords = 2; // (round PERF5) uvec4s a continued path in the queue (after the reservoirs)
+constexpr VkDeviceSize kCountersBytes = 32; // the bad samples' count, 3 spare, the continued paths' dispatch + count
+constexpr VkDeviceSize kContinueArgs = 16;   // (where the dispatch's x, y, z are)
+constexpr uint32_t kContinueGroup = 64;      // (the pass's local size: kGroupSide x kGroupSide - CONTINUE_GROUP)
+static_assert(kContinueGroup == kGroupSide * kGroupSide);
 constexpr uint32_t kSpecularReservoirWords = 4; // (round WS) uvec4s a pixel: after the temporal pass, the history
 
 // The estimator's settings (fixed - no per-level values): the spatial neighbours, the reservoirs' sample count kept at
@@ -282,7 +287,14 @@ layout(set = 0, binding = 20, rgba16f) uniform image2D io_visibility;
 layout(set = 0, binding = 21, rgba16f) uniform image2D io_specular;
 layout(set = 0, binding = 22, r16f) uniform writeonly image2D o_specular_hit;
 #endif
-layout(std430, set = 0, binding = 24) buffer Counters { uint bad_samples; uint counter_spare[3]; };
+layout(std430, set = 0, binding = 24) buffer Counters {
+    uint bad_samples;
+    uint counter_spare[3];
+    uint continue_groups; // (round PERF5) the continued paths' dispatch (x, y, z) and their count (PASS_CONTINUE)
+    uint continue_y;
+    uint continue_z;
+    uint continued;
+};
 // (round MB) the radiance cache: 4 words an entry - its key (x the check word, 0: free; y the frame it was updated; z
 // (round PERF) the samples it has taken since it was claimed, at most CACHE_COUNT_MOST - cache_lookup's trust; w (round
 // PERF2) the frames it has been resolved since it was claimed, at most CACHE_COUNT_MOST - the same), this
@@ -604,29 +616,31 @@ struct Secondary {
     vec3 bounce;
     vec3 reflectance;
     float t;
-    vec3 beyond; // (round BIAS) with go_on: the bounce at it (E / pi) - the cache's, else the path continued (below)
-    bool missed; // (round PERF2) with go_on: its cell had no trusted entry - beyond is the continued path's: a new sample
+    vec3 beyond; // (round BIAS) the bounce at it (E / pi) - the cache's, else the path continued (continue_path)
+    uint skipped; // (round PERF5) the hidden surfaces passed before it (its path's steps so far: continue_path's)
 };
 // (round BIAS) The radiance cache's misses: SHaRC's query (cache_lookup) takes a cell it has no entry for as a miss and
 // the path goes on - read as 0, every newly seen region's bounce was dark for the ~64 frames the cache takes to fill
-// (round MV: GI's diffuse there 0.57 - 0.73 x converged). With `go_on` the vertex's bounce (`beyond`) is the cache's
-// where its cell has a trusted entry (cache_lookup: CACHE_TRUSTED_SAMPLES); on a miss one ray along the vertex's cosine
-// lobe - with the cosine's pdf the light it meets is a one-sample estimate of the bounce, E / pi, the cache's own unit -
-// and at the next vertex its direct light + its reflectance x its bounce again: CACHE_MISS_SURE further vertices, then
-// Russian roulette by the light the path still carries, up to CACHE_MISS_VERTICES (where the ray leaves the world,
-// nothing more: the sky's light is each vertex's direct light). One trace in the loop for the first vertex and the
-// continued ones (each extra inlined ray query and light sample made the shader lose the device).
+// (round MV: GI's diffuse there 0.57 - 0.73 x converged). The sample pass's first vertex's bounce (`beyond`) is the
+// cache's where its cell has a trusted entry (cache_lookup: CACHE_TRUSTED_SAMPLES); on a miss one ray along the vertex's
+// cosine lobe - with the cosine's pdf the light it meets is a one-sample estimate of the bounce, E / pi, the cache's own
+// unit - and at the next vertex its direct light + its reflectance x its bounce again: CACHE_MISS_SURE further vertices,
+// then Russian roulette by the light the path still carries, up to CACHE_MISS_VERTICES (where the ray leaves the world,
+// nothing more: the sky's light is each vertex's direct light) - continue_path, the continued paths' own pass.
 const uint CACHE_MISS_VERTICES = 12u; // (at most - Russian roulette ends most paths sooner)
 const uint CACHE_MISS_SURE = 2u;      // (the vertices before the roulette)
-Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, bool go_on, inout uint rng)
+const uint PATH_HIDDEN_MOST = 4u;     // (hidden surfaces passed on the whole path)
+const uint PATH_STEPS = PATH_HIDDEN_MOST + CACHE_MISS_VERTICES + 1u;
+// A path's first vertex: the surface a ray from `origin` meets (hidden ones passed), its direct light and reflectance.
+// (Round PERF5) One vertex: the continuation past a cache miss is its own pass (continue_path) - with its loop in the same
+// shader the sample pass held 241 registers, 128 without.
+Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, inout uint rng)
 {
     Secondary out_s = Secondary(false, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), vec3(0.0), GI_REACH,
-                                vec3(0.0), false);
+                                vec3(0.0), 0u);
     float travelled = 0.0;
     uint skipped = 0u;
-    uint vertices = 0u;
-    vec3 through = vec3(1.0);
-    for (uint step = 0u; step < 4u + CACHE_MISS_VERTICES + 1u; ++step) {
+    for (uint step = 0u; step <= PATH_HIDDEN_MOST; ++step) {
         uint instance;
         uint primitive;
         uint id;
@@ -639,11 +653,63 @@ Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, bool go_on, inout ui
             break;
         }
         if (h.hidden) {
-            if (skipped >= 4u) {
+            if (skipped >= PATH_HIDDEN_MOST) {
                 break;
             }
             origin = h.position + dir * ray_offset(h.position);
-            travelled += vertices == 0u ? t : 0.0;
+            travelled += t;
+            ++skipped;
+            continue;
+        }
+        vec3 ng = h.normal;
+        vec3 v = -dir;
+        vec3 n = dot(h.shading_normal, v) > 0.0 ? h.shading_normal : ng;
+        BrdfMaterial m = hit_material(h);
+        out_s.hit = true;
+        out_s.at = h.position;
+        out_s.n = ng;
+        out_s.shading = n;
+        out_s.t = travelled + t;
+        out_s.bounce = good3(next_event(h.position + ng * ray_offset(h.position), n, ng, v, m, rng));
+        out_s.reflectance = good3(brdf_ambient(m, dot(n, v), vec3(1.0), vec3(1.0)));
+        break;
+    }
+    out_s.skipped = skipped;
+    return out_s;
+}
+
+#ifdef PASS_CONTINUE
+// (round PERF5) The path past its first vertex `sec` - a cache miss there: the light beyond it (E / pi at the vertex),
+// each further vertex's direct light + its reflectance x its own bounce (the cache's where trusted, else on). The same
+// steps, numbers and random sequence as one loop from the first ray did.
+vec3 continue_path(Secondary sec, inout uint rng)
+{
+    vec3 beyond = vec3(0.0);
+    vec3 through = vec3(1.0);
+    uint vertices = 1u;
+    uint skipped = sec.skipped;
+    vec3 dir = path_to_world(sec.shading, path_cosine_direction(path_next(rng), path_next(rng)));
+    if (dot(dir, sec.n) <= 0.0) {
+        return vec3(0.0);
+    }
+    vec3 origin = sec.at + sec.n * ray_offset(sec.at);
+    for (uint step = sec.skipped + 1u; step < PATH_STEPS; ++step) {
+        uint instance;
+        uint primitive;
+        uint id;
+        vec2 bary;
+        float t;
+        mat4x3 to_world;
+        HitSurface h;
+        if (!trace_closest(LIGHT_RAYS, origin, dir, GI_REACH, instance, primitive, id, bary, t, to_world) ||
+            !hit_surface(instance, primitive, id, bary, to_world, dir, h)) {
+            break;
+        }
+        if (h.hidden) {
+            if (skipped >= PATH_HIDDEN_MOST) {
+                break;
+            }
+            origin = h.position + dir * ray_offset(h.position);
             ++skipped;
             continue;
         }
@@ -653,28 +719,14 @@ Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, bool go_on, inout ui
         BrdfMaterial m = hit_material(h);
         vec3 direct = good3(next_event(h.position + ng * ray_offset(h.position), n, ng, v, m, rng));
         vec3 reflectance = good3(brdf_ambient(m, dot(n, v), vec3(1.0), vec3(1.0)));
-        if (vertices == 0u) {
-            out_s.hit = true;
-            out_s.at = h.position;
-            out_s.n = ng;
-            out_s.shading = n;
-            out_s.t = travelled + t;
-            out_s.bounce = direct;
-            out_s.reflectance = reflectance;
-        } else {
-            out_s.beyond += through * direct;
-            through *= reflectance;
-        }
+        beyond += through * direct;
+        through *= reflectance;
         ++vertices;
-        if (!go_on) {
-            break;
-        }
         vec3 cached;
         if (cache_lookup(h.position, ng, cached)) {
-            out_s.beyond += through * cached;
+            beyond += through * cached;
             break;
         }
-        out_s.missed = out_s.missed || vertices == 1u;
         float most = max(through.r, max(through.g, through.b));
         if (vertices > CACHE_MISS_VERTICES || !(most > 0.0)) {
             break;
@@ -693,11 +745,10 @@ Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, bool go_on, inout ui
         }
         origin = h.position + ng * ray_offset(h.position);
         dir = next;
-        mask = LIGHT_RAYS;
     }
-    out_s.beyond = good3(out_s.beyond);
-    return out_s;
+    return good3(beyond);
 }
+#endif
 
 // The light a secondary vertex sends toward the ray's origin: its direct light + its reflectance x its bounce (traced
 // with go_on: the radiance cache's, or the path continued on its miss).
@@ -881,7 +932,7 @@ Reservoir load_specular(bool history, uint i)
     return reservoir_of(spec_res[at], spec_res[at + 1u]);
 }
 
-#if defined(PASS_CACHE) || defined(PASS_SAMPLE)
+#if defined(PASS_CACHE) || defined(PASS_SAMPLE) || defined(PASS_CONTINUE)
 // (round MB) The cache's entry for a point (claimed if it has none yet: the probes' first free slot); false when the
 // probes are all taken by other cells (the sample is dropped).
 bool cache_claim(vec3 at, vec3 ng, out uint entry)
@@ -975,7 +1026,7 @@ void main()
         if (dot(dir, facing[k]) <= 0.0) {
             break;
         }
-        Secondary sec = trace_secondary(mask, at[k] + facing[k] * ray_offset(at[k]), dir, false, rng);
+        Secondary sec = trace_secondary(mask, at[k] + facing[k] * ray_offset(at[k]), dir, rng);
         if (!sec.hit) {
             break;
         }
@@ -1037,6 +1088,84 @@ void main()
         CACHE_KEY(i) = uvec4(0u);
         CACHE_LIGHT(i) = uvec4(0u);
     }
+}
+#endif
+
+#if defined(PASS_SAMPLE) || defined(PASS_CONTINUE)
+// (round PERF5) The sample pass's paths continued past a cache miss at their first vertex - the continued paths' pass
+// (continue_path), wavefront style: the long loop out of the sample pass (its registers 241 -> 128) and run densely over
+// the queued paths alone. The queue: after the pixels' reservoirs in res_a, 2 words a path (the pixel and its lobe, its
+// random sequence's state, the candidate's pdf; its direction); the path's first vertex in the pixel's own reservoir
+// words (res_a's 2, the specular's first 2 - both written by the continued pass, the temporal pass reads them after).
+const uint CONTINUE_GROUP = 64u; // (local_size_x x local_size_y)
+uint continue_base() { return uint(pass.rect.z * pass.rect.w) * 2u; }
+Secondary no_secondary()
+{
+    return Secondary(false, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), vec3(0.0), GI_REACH, vec3(0.0),
+                     0u);
+}
+// The pixel's samples from its candidate (`traced`: the candidate's ray was traced - its pdf over 0 - meeting `sec`, else
+// the sky that way): the chosen lobe's reservoir the candidate where its target is over 0, the other none (M 1 - drawn
+// from the same mixture, the estimate stays unbiased).
+void store_samples(uint i, Surface s, bool traced, bool take_specular, vec3 dir, float pdf, Secondary sec)
+{
+    bool has_specular = max(s.f0.r, max(s.f0.g, s.f0.b)) > 0.0;
+    Reservoir r = no_reservoir(1.0);
+    Reservoir spec = has_specular ? no_reservoir(1.0) : no_reservoir(0.0);
+    if (traced) {
+        Reservoir c;
+        c.M = 1.0;
+        c.W = good(1.0 / pdf);
+        if (sec.hit) {
+            c.kind = KIND_SURFACE;
+            c.y = sec.at;
+            c.ny = sec.n;
+            c.bounce = with_bounces(sec);
+        } else {
+            c.kind = KIND_SKY;
+            c.y = dir;
+            c.ny = -dir;
+            c.bounce = good3(sky_radiance(dir));
+        }
+        float t = take_specular ? specular_target_of(s, view_of(s, pass.eye.xyz), dir, c.bounce) : target_of(s, dir, c.bounce);
+        if (t > 0.0 && c.W > 0.0) {
+            if (take_specular) {
+                spec = c;
+            } else {
+                r = c;
+            }
+        }
+    }
+    store_reservoir(false, i, r);
+    store_specular(false, i, spec);
+}
+#endif
+#ifdef PASS_SAMPLE
+void queue_continued(uint i, bool take_specular, uint rng, float pdf, vec3 dir, Secondary sec)
+{
+    res_a[i * 2u] = uvec4(floatBitsToUint(sec.at), floatBitsToUint(sec.n.x));
+    res_a[i * 2u + 1u] = uvec4(floatBitsToUint(sec.n.yz), floatBitsToUint(sec.shading.xy));
+    spec_res[i * 4u] = uvec4(floatBitsToUint(sec.shading.z), floatBitsToUint(sec.bounce));
+    spec_res[i * 4u + 1u] = uvec4(floatBitsToUint(sec.reflectance), sec.skipped);
+    uint slot = atomicAdd(continued, 1u);
+    if (slot % CONTINUE_GROUP == 0u) {
+        atomicAdd(continue_groups, 1u);
+    }
+    uint at = continue_base() + slot * 2u;
+    res_a[at] = uvec4(i | (take_specular ? 0x80000000u : 0u), rng, floatBitsToUint(pdf), 0u);
+    res_a[at + 1u] = uvec4(floatBitsToUint(dir), 0u);
+}
+#endif
+#ifdef PASS_CONTINUE
+Secondary continued_secondary(uint i)
+{
+    uvec4 a0 = res_a[i * 2u];
+    uvec4 a1 = res_a[i * 2u + 1u];
+    uvec4 b0 = spec_res[i * 4u];
+    uvec4 b1 = spec_res[i * 4u + 1u];
+    return Secondary(true, uintBitsToFloat(a0.xyz), vec3(uintBitsToFloat(a0.w), uintBitsToFloat(a1.xy)),
+                     vec3(uintBitsToFloat(a1.zw), uintBitsToFloat(b0.x)), uintBitsToFloat(b0.yzw), uintBitsToFloat(b1.xyz),
+                     0.0, vec3(0.0), b1.w);
 }
 #endif
 
@@ -1111,49 +1240,56 @@ void main()
                   (sky_share * sky_density(dir) + (1.0 - sky_share) * dot(s.n, dir) / PATH_PI);
         }
     }
-    Reservoir r = no_reservoir(1.0);
-    Reservoir spec = has_specular ? no_reservoir(1.0) : no_reservoir(0.0);
-    if (pdf > 0.0) {
-        // (round FA) the specular's hit takes its light from candidates of its own - the specular is each frame's own
-        // ray, no reuse averages a light grid cell's shared error (vulkan_light_list.h light_sample_glsl:
-        // ll_cell_candidates)
-        ll_cell_candidates = !take_specular;
-        Secondary sec = trace_secondary(mask, origin, dir, true, rng);
-        ll_cell_candidates = true;
-        // (round PERF2) a vertex whose cell had no trusted entry continued its path along its cosine lobe: that path's
-        // light is a sample of the cell's bounce (E / pi - what the update paths add), so it goes into the cache too. The
-        // update paths start at the pixels and follow the cosine lobe; cells only this pass's rays reach (the specular
-        // rays' hits, surfaces behind the camera) never had an entry - every ray that met them went on, frame after frame
-        // (BO at night, 1707 x 960: 4.6 ms of the pass's 7.1). The sample is the one an update path's vertex adds there
-        // (SHaRC's update: every vertex of a path its own cell's sample).
-        if (sec.hit && sec.missed) {
-            cache_add(sec.at, sec.n, sec.beyond, rng);
-        }
-        Reservoir c;
-        c.M = 1.0;
-        c.W = good(1.0 / pdf);
-        if (sec.hit) {
-            c.kind = KIND_SURFACE;
-            c.y = sec.at;
-            c.ny = sec.n;
-            c.bounce = with_bounces(sec);
-        } else {
-            c.kind = KIND_SKY;
-            c.y = dir;
-            c.ny = -dir;
-            c.bounce = good3(sky_radiance(dir));
-        }
-        float t = take_specular ? specular_target_of(s, v, dir, c.bounce) : target_of(s, dir, c.bounce);
-        if (t > 0.0 && c.W > 0.0) {
-            if (take_specular) {
-                spec = c;
-            } else {
-                r = c;
-            }
-        }
+    if (!(pdf > 0.0)) {
+        store_samples(i, s, false, take_specular, dir, pdf, no_secondary());
+        return;
     }
-    store_reservoir(false, i, r);
-    store_specular(false, i, spec);
+    // (round FA) the specular's hit takes its light from candidates of its own - the specular is each frame's own ray, no
+    // reuse averages a light grid cell's shared error (vulkan_light_list.h light_sample_glsl: ll_cell_candidates)
+    ll_cell_candidates = !take_specular;
+    Secondary sec = trace_secondary(mask, origin, dir, rng);
+    ll_cell_candidates = true;
+    if (sec.hit) {
+        vec3 cached;
+        if (!cache_lookup(sec.at, sec.n, cached)) {
+            // (round PERF5) a cache miss: the path goes on in the continued paths' pass, which stores the samples
+            queue_continued(i, take_specular, rng, pdf, dir, sec);
+            return;
+        }
+        sec.beyond = good3(cached);
+    }
+    store_samples(i, s, true, take_specular, dir, pdf, sec);
+}
+#endif
+
+#ifdef PASS_CONTINUE
+// (round PERF5) The paths the sample pass handed on (queue_continued): each continued past its first vertex's cache miss
+// (continue_path), the light it found added to the miss's cell, the pixel's samples stored. One thread a queued path,
+// the queue's length the dispatch's (vkCmdDispatchIndirect: CONTINUE_GROUP threads a group).
+void main()
+{
+    uint slot = gl_WorkGroupID.x * CONTINUE_GROUP + gl_LocalInvocationIndex;
+    if (slot >= continued) {
+        return;
+    }
+    uint at = continue_base() + slot * 2u;
+    uvec4 e0 = res_a[at];
+    uvec4 e1 = res_a[at + 1u];
+    uint i = e0.x & 0x7FFFFFFFu;
+    bool take_specular = (e0.x & 0x80000000u) != 0u;
+    uint rng = e0.y;
+    Secondary sec = continued_secondary(i);
+    ll_cell_candidates = !take_specular;
+    sec.beyond = continue_path(sec, rng);
+    ll_cell_candidates = true;
+    // (round PERF2) the continued path's light is a sample of the cell's bounce (E / pi - what the update paths add), so
+    // it goes into the cache too. The update paths start at the pixels and follow the cosine lobe; cells only the sample
+    // pass's rays reach (the specular rays' hits, surfaces behind the camera) never had an entry - every ray that met
+    // them went on, frame after frame (BO at night, 1707 x 960: 4.6 ms of the pass's 7.1). The sample is the one an
+    // update path's vertex adds there (SHaRC's update: every vertex of a path its own cell's sample).
+    cache_add(sec.at, sec.n, sec.beyond, rng);
+    store_samples(i, surface_of(now_at[i], now_more[i]), true, take_specular, uintBitsToFloat(e1.xyz),
+                  uintBitsToFloat(e0.z), sec);
 }
 #endif
 
@@ -1645,7 +1781,7 @@ void main()
 #endif
 )";
 
-enum class Shader : uint8_t { kSky, kSample, kTemporal, kSpatial, kCache, kResolve };
+enum class Shader : uint8_t { kSky, kSample, kTemporal, kSpatial, kCache, kResolve, kContinue };
 
 std::string float_text(float value) { return text::format("%.9g", static_cast<double>(value)); }
 
@@ -1667,6 +1803,7 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
     case Shader::kSpatial: source += "#define PASS_SPATIAL\n"; break;
     case Shader::kCache: source += "#define PASS_CACHE\n"; break;
     case Shader::kResolve: source += "#define PASS_RESOLVE\n"; break;
+    case Shader::kContinue: source += "#define PASS_CONTINUE\n"; break; // (round PERF5)
     case Shader::kSky: break;
     }
     source += "const uint CACHE_CAPACITY = " + std::to_string(kCacheCapacity) + "u;\n";
@@ -1694,7 +1831,7 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
         source += restir_denoiser_glsl();
     }
     source += rt_lamp_glsl();
-    if ((which == Shader::kSample || which == Shader::kCache) && cloud_map) {
+    if ((which == Shader::kSample || which == Shader::kCache || which == Shader::kContinue) && cloud_map) {
         source += "#define CLOUD_MAP\n" + cloud_map_glsl(kBindingCloudMap);
     }
     source += "const uint SKY_WIDTH = " + std::to_string(rt::lights::kSkyGridWidth) + "u;\n";
@@ -1869,6 +2006,7 @@ struct GiState {
     std::array<VkPipeline, kSkyGridSources> sky{};
     std::array<VkPipeline, 8> sample{}; // (round PERF2) each pixel's secondary path [shared x 4 + check x 2 + cloud]
     std::array<VkPipeline, 4> temporal{}; // [check x 2 + cloud map]
+    std::array<VkPipeline, 4> continued{}; // (round PERF5) the paths continued past a cache miss [check x 2 + cloud map]
     std::array<VkPipeline, 2> spatial{};  // [check]
     std::array<VkPipeline, 8> cache_update{}; // (round MB) the cache's update paths [shared x 4 + check x 2 + cloud]
     bool shared_variant_failed = false;          // (round PERF4: primary_pipeline)
@@ -2090,6 +2228,13 @@ bool ensure_pipelines(Backend& state, bool check, bool cloud_map, SkyGridSource 
     if (temporal == VK_NULL_HANDLE) {
         temporal = make_compute(device, own.layout, shader_source(Shader::kTemporal, check, cloud_map, sky), error);
         if (temporal == VK_NULL_HANDLE) {
+            return false;
+        }
+    }
+    VkPipeline& continued = core::at(own.continued, (check ? 2U : 0U) + (cloud_map ? 1U : 0U));
+    if (continued == VK_NULL_HANDLE) {
+        continued = make_compute(device, own.layout, shader_source(Shader::kContinue, check, cloud_map, sky), error);
+        if (continued == VK_NULL_HANDLE) {
             return false;
         }
     }
@@ -2667,10 +2812,13 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         own.height = height;
         own.restart = true;
     }
-    bool made = ensure_buffer(state, &own.reservoirs_a, pixels * 16 * kReservoirWords, storage, BufferPlace::kDevice) &&
+    // (round PERF5: res_a holds the continued paths' queue after the pixels' reservoirs - kContinueWords a path)
+    bool made = ensure_buffer(state, &own.reservoirs_a, pixels * 16 * (kReservoirWords + kContinueWords), storage,
+                              BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.reservoirs_b, pixels * 16 * kReservoirWords, storage, BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.specular_reservoirs, pixels * 16 * kSpecularReservoirWords, storage, BufferPlace::kDevice) &&
-                ensure_buffer(state, &own.counters, 16, storage, BufferPlace::kDevice) &&
+                ensure_buffer(state, &own.counters, kCountersBytes, storage | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+                              BufferPlace::kDevice) &&
                 (!check || ensure_buffer(state, &own.sums, pixels * 2 * 16, storage, BufferPlace::kDevice)) &&
                 (check || ensure_image(state, &own.specular_hit, VK_FORMAT_R16_SFLOAT, extent,
                                        VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
@@ -2782,6 +2930,14 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         vkCmdFillBuffer(commands, own.cache.buffer, 0, VK_WHOLE_SIZE, 0);
         own.cache_clear = false;
     }
+    // (round PERF5) the continued paths' queue emptied, its dispatch (0, 1, 1) - after the last frame's reads of it and the
+    // counters' fill
+    barrier(commands, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT |
+                VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+    constexpr std::array<uint32_t, 4> kNoPaths{0U, 1U, 1U, 0U};
+    vkCmdUpdateBuffer(commands, own.counters.buffer, kContinueArgs, sizeof(kNoPaths), kNoPaths.data());
     barrier(commands,
             VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
@@ -2897,6 +3053,17 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
                                            core::at(block.shared, 2) != 0U));
         vkCmdDispatch(commands, groups_x, groups_y, 1);
         barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    }
+    {
+        // (round PERF5) the paths continued past a cache miss at their first vertex - their own pass over the queue the
+        // sample pass made (one thread a path; its length the dispatch's), which stores those pixels' samples
+        const FrameStep step(state.frames, commands, gpu_markers::section::kGiContinued);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
+                          core::at(own.continued, (check ? 2U : 0U) + (map_now ? 1U : 0U)));
+        vkCmdDispatchIndirect(commands, own.counters.buffer, kContinueArgs);
+        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
     }
     {
@@ -2984,6 +3151,11 @@ void release_restir_gi(Backend& state)
         }
     }
     for (VkPipeline& pipeline : own.temporal) {
+        if (pipeline != VK_NULL_HANDLE) {
+            vkDestroyPipeline(device, pipeline, nullptr);
+        }
+    }
+    for (VkPipeline& pipeline : own.continued) {
         if (pipeline != VK_NULL_HANDLE) {
             vkDestroyPipeline(device, pipeline, nullptr);
         }

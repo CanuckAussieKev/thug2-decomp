@@ -45,7 +45,8 @@ inline constexpr uint16_t kFogRays = 16;      // the fog: the god rays' mask and
 inline constexpr uint16_t kFogComposite = 17; // the fog: the composite over the frame
 inline constexpr uint16_t kLightPool = 18;    // the light list's presampled pool (vulkan_light_list.h kLightPoolSize)
 inline constexpr uint16_t kGiSamples = 19;    // (round PERF2) ReSTIR GI: each pixel's secondary path (its new samples)
-inline constexpr uint16_t kCount = 20;
+inline constexpr uint16_t kGiContinued = 20;  // (round PERF5) ReSTIR GI: the secondary paths continued past a cache miss
+inline constexpr uint16_t kCount = 21;
 } // namespace section
 
 struct Mark {

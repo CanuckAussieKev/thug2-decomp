@@ -59,6 +59,7 @@ private:
         uint32_t calls = 0;
     };
     void report();
+    void frame_done(); // (round PERF5) the frame's own times against each pass's usual: a slow frame logged
 
     VkDevice device_ = nullptr;
     VkQueryPool pool_ = VK_NULL_HANDLE;
@@ -68,6 +69,12 @@ private:
     std::map<uint32_t, Sum> sums_; // by (phase << 16) | id
     uint64_t last_frame_ = 0;
     uint32_t frames_ = 0;
+    // (round PERF5) this frame's own time a pass and each pass's usual (an average over the last ~30 frames)
+    std::map<uint32_t, double> frame_own_;
+    std::map<uint32_t, double> usual_own_;
+    double usual_frame_ = 0.0;
+    uint32_t slow_logged_ = 0;
+    uint32_t followed_ = 0; // (frames the usual times have followed)
     uint32_t dropped_ = 0; // marks past kStampsPerSlot in a submission
 };
 

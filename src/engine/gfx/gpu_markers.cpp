@@ -72,6 +72,7 @@ constexpr std::array<const char*, section::kCount> kSections{
     "the fog's composite",
     "the light list's presampled pool",
     "ReSTIR GI's samples",
+    "ReSTIR GI's continued paths",
 };
 
 constexpr std::array<const char*, kPhaseCount> kPhases{

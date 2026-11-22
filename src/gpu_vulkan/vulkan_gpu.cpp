@@ -27,6 +27,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_clouds.h"
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -1680,6 +1681,7 @@ bool make_device_surfaces(Backend& state)
 
 long create_device_objects(Backend& state)
 {
+    render::rt::start_cloud_amounts(); // (round PERF5: measured while the game starts, not on the first sky's frame)
     VkPhysicalDevice physical = state.context.physical_device();
     const auto sampled = [&physical](VkFormat format) { return sampled_and_filtered(physical, format); };
     constexpr std::array<VkFormat, 2> kDepthStencil{VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT};

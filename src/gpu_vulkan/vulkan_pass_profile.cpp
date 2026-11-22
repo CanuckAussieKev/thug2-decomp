@@ -10,6 +10,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "base/core/format.h"
 #include "engine/gfx/gpu_markers.h"
 #include "gpu_vulkan/vulkan_context.h"
 #include "platform/frame_profile.h"
@@ -120,6 +121,9 @@ void PassProfile::read(const Finished& finished)
         return;
     }
     own.reset = false;
+    if (frame != last_frame_) {
+        frame_done();
+    }
     std::vector<uint64_t> ticks(own.stamps.size());
     if (vkGetQueryPoolResults(device_, pool_, slot * kStampsPerSlot, static_cast<uint32_t>(ticks.size()),
                               ticks.size() * sizeof(uint64_t), ticks.data(), sizeof(uint64_t),
@@ -155,6 +159,7 @@ void PassProfile::read(const Finished& finished)
         Sum& sum = sums_[key];
         sum.inclusive_ms += inclusive;
         sum.own_ms += std::max(0.0, inclusive - begun.inner_ms);
+        frame_own_[key] += std::max(0.0, inclusive - begun.inner_ms);
         ++sum.calls;
         if (!open.empty()) {
             open.back().inner_ms += inclusive;
@@ -189,6 +194,62 @@ void PassProfile::report()
     sums_.clear();
     frames_ = 0;
     dropped_ = 0;
+}
+
+// (round PERF5) A frame's passes against their usual times: a frame whose passes took much longer than usual is logged
+// with the passes that grew ("gpu slow frame: ...") - the averages every kReportFrames frames hide a burst of a few.
+void PassProfile::frame_done()
+{
+    if (frame_own_.empty()) {
+        return;
+    }
+    double total = 0.0;
+    for (const auto& [key, ms] : frame_own_) {
+        total += ms;
+    }
+    constexpr double kSlowShare = 1.3; // over the usual by this share and by kSlowMs
+    constexpr double kSlowMs = 5.0;
+    constexpr double kGrownMs = 0.25; // (a pass listed when it grew by this)
+    constexpr double kFollow = 1.0 / 32.0;
+    constexpr uint32_t kMostLogged = 200;
+    constexpr std::size_t kMostListed = 6;
+    constexpr uint32_t kSettleFrames = 60; // (the usual times followed this long first)
+    if (followed_ >= kSettleFrames && total > usual_frame_ * kSlowShare && total > usual_frame_ + kSlowMs &&
+        slow_logged_ < kMostLogged) {
+        ++slow_logged_;
+        std::vector<std::pair<double, uint32_t>> grown;
+        for (const auto& [key, ms] : frame_own_) {
+            const auto usual = usual_own_.find(key);
+            const double was = usual != usual_own_.end() ? usual->second : 0.0;
+            if (ms - was > kGrownMs) {
+                grown.emplace_back(ms - was, key);
+            }
+        }
+        std::ranges::sort(grown, [](const auto& a, const auto& b) { return a.first > b.first; });
+        std::string text;
+        for (std::size_t i = 0; i < grown.size() && i < kMostListed; ++i) {
+            const uint32_t key = core::at(grown, i).second;
+            text += text::format("%s%s %.2f (usual %.2f)", i == 0 ? "" : ", ",
+                                 gpu_markers::name(static_cast<gpu_markers::Phase>(key >> kPhaseShift),
+                                                   static_cast<uint16_t>(key & 0xFFFFU))
+                                     .c_str(),
+                                 frame_own_[key], usual_own_[key]);
+        }
+        get_log("gpu slow frame %llu: %.2f ms of passes (usual %.2f) - grown: %s",
+                static_cast<unsigned long long>(last_frame_), total, usual_frame_, text.empty() ? "-" : text.c_str());
+    }
+    ++followed_;
+    usual_frame_ = usual_frame_ > 0.0 ? usual_frame_ + ((total - usual_frame_) * kFollow) : total;
+    for (auto& [key, usual] : usual_own_) {
+        const auto now = frame_own_.find(key);
+        usual += ((now != frame_own_.end() ? now->second : 0.0) - usual) * kFollow;
+    }
+    for (const auto& [key, ms] : frame_own_) {
+        if (!usual_own_.contains(key)) {
+            usual_own_[key] = ms;
+        }
+    }
+    frame_own_.clear();
 }
 
 // (round PERF3) The compiled shaders' statistics (VK_KHR_pipeline_executable_properties - the driver's own: registers,

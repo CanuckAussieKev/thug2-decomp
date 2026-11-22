@@ -62,8 +62,11 @@ double tick_ms()
 struct Window {
     std::array<double, kMostSlots> drawn_ms{};
     std::array<double, kMostSlots> skipped_ms{};
+    std::array<double, kMostSlots> framed_ms{}; // (round PERF5) the skipped loops that presented a render-only frame
     uint32_t drawn = 0;
     uint32_t skipped = 0;
+    uint32_t framed = 0;
+    std::vector<double> present_gaps; // (round PERF5) every present's spacing: what the screen shows
     std::vector<double> intervals; // drawn frames' spacing
     std::vector<double> work;      // drawn loops' time less the pacing wait
     int64_t start = 0;
@@ -84,6 +87,8 @@ struct State {
     int64_t last_end = 0;
     int64_t last_drawn_end = 0;
     std::string presents; // (round PERF4) this loop's presents: [when, the time shown] each (note_present)
+    uint32_t loop_presents = 0; // (round PERF5) how many this loop
+    int64_t last_present = 0;
     uint64_t loops = 0;
     Window window;
     std::string pending; // (the lines since the last window: handed to the line writer's thread each window)
@@ -197,11 +202,23 @@ void log_window(State& st, int64_t now)
     const double seconds = static_cast<double>(now - win.start) * tick_ms() / kMilliseconds;
     get_log("frame-profile: %.1f s, %u loops (%u drawn: %.1f a second); drawn frames %.2f ms apart (99%%: %.2f), "
             "their work %.2f ms (99%%: %.2f)",
-            seconds, win.drawn + win.skipped, win.drawn, static_cast<double>(win.drawn) / std::max(seconds, kLeastSeconds),
+            seconds, win.drawn + win.framed + win.skipped, win.drawn, static_cast<double>(win.drawn) / std::max(seconds, kLeastSeconds),
             average(win.intervals), percentile(win.intervals), average(win.work), percentile(win.work));
+    // (round PERF5) what the screen shows: every present - the steps' frames and the render-only ones between
+    const std::size_t presents = win.present_gaps.size();
+    get_log("frame-profile:   presented %zu (%.1f a second) %.2f ms apart (99%%: %.2f); %u by a step's loop, %u "
+            "render-only",
+            presents, static_cast<double>(presents) / std::max(seconds, kLeastSeconds), average(win.present_gaps),
+            percentile(win.present_gaps), win.drawn, win.framed);
     get_log("frame-profile:   a drawn loop: %s", phases_text(win.drawn_ms, win.drawn).c_str());
+    // (round PERF5) a skipped loop - its step run, not drawn - either draws a render-only frame (its whole frame: the
+    // same passes as a drawn loop's, under extra_frame) or nothing; averaged together they read as a cheap half frame
+    if (win.framed != 0) {
+        get_log("frame-profile:   a skipped loop with a render-only frame: %s",
+                phases_text(win.framed_ms, win.framed).c_str());
+    }
     if (win.skipped != 0) {
-        get_log("frame-profile:   a skipped loop: %s", phases_text(win.skipped_ms, win.skipped).c_str());
+        get_log("frame-profile:   a skipped loop without one: %s", phases_text(win.skipped_ms, win.skipped).c_str());
     }
     win = Window{};
     win.start = now;
@@ -562,8 +579,14 @@ void note_present(uint64_t tick, float alpha)
     State& st = state();
     constexpr double kTickMs = 1000.0 / 60.0;
     const double shown = (static_cast<double>(tick) - 1.0 + static_cast<double>(alpha)) * kTickMs;
-    st.presents += text::format("%s[%.3f,%.3f]", st.presents.empty() ? "" : ",",
-                                static_cast<double>(ticks_now()) * tick_ms(), shown);
+    const int64_t now = ticks_now();
+    st.presents += text::format("%s[%.3f,%.3f]", st.presents.empty() ? "" : ",", static_cast<double>(now) * tick_ms(),
+                                shown);
+    if (st.last_present != 0) {
+        st.window.present_gaps.push_back(static_cast<double>(now - st.last_present) * tick_ms());
+    }
+    st.last_present = now;
+    ++st.loop_presents;
 }
 
 void add_ms(int slot, double milliseconds)
@@ -664,7 +687,9 @@ void loop_end(bool drawn, bool loading)
     st.loops_ended.fetch_add(1);
     write_line(st, drawn, loading, loop_ms, work_ms);
     Window& win = st.window;
-    std::array<double, kMostSlots>& sums = drawn ? win.drawn_ms : win.skipped_ms;
+    const bool framed = !drawn && st.loop_presents != 0;
+    st.loop_presents = 0;
+    std::array<double, kMostSlots>& sums = drawn ? win.drawn_ms : framed ? win.framed_ms : win.skipped_ms;
     for (std::size_t index = 0; index < kMostSlots; ++index) {
         core::at(sums, index) +=
             (static_cast<double>(core::at(st.loop_ticks, index)) * tick_ms()) + core::at(st.loop_extra_ms, index);
@@ -674,6 +699,8 @@ void loop_end(bool drawn, bool loading)
         win.intervals.push_back(static_cast<double>(now - st.last_drawn_end) * tick_ms());
         win.work.push_back(work_ms);
         st.last_drawn_end = now;
+    } else if (framed) {
+        ++win.framed;
     } else {
         ++win.skipped;
     }
