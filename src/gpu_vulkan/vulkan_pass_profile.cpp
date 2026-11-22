@@ -191,4 +191,61 @@ void PassProfile::report()
     dropped_ = 0;
 }
 
+// (round PERF3) The compiled shaders' statistics (VK_KHR_pipeline_executable_properties - the driver's own: registers,
+// spills, instruction counts... as it names them), with frame_profile on.
+namespace {
+bool g_pipeline_statistics = false;
+} // namespace
+
+void set_pipeline_statistics(bool on) { g_pipeline_statistics = on; }
+
+VkPipelineCreateFlags pipeline_statistics_flags()
+{
+    return g_pipeline_statistics ? VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR : 0;
+}
+
+void log_pipeline_statistics(VkDevice device, VkPipeline pipeline, const std::string& source)
+{
+    if (!g_pipeline_statistics || pipeline == VK_NULL_HANDLE || vkGetPipelineExecutablePropertiesKHR == nullptr ||
+        vkGetPipelineExecutableStatisticsKHR == nullptr) {
+        return;
+    }
+    // (the pass: the source's first `#define PASS_...`, else its first line after the version)
+    const std::size_t at = source.find("#define PASS_");
+    const std::size_t from = at != std::string::npos ? at + 8 : std::min(source.find('\n') + 1, source.size());
+    const std::string name = source.substr(from, std::min<std::size_t>(source.find('\n', from), source.size()) - from);
+    const VkPipelineInfoKHR info{.sType = VK_STRUCTURE_TYPE_PIPELINE_INFO_KHR, .pNext = nullptr, .pipeline = pipeline};
+    uint32_t executables = 0;
+    if (vkGetPipelineExecutablePropertiesKHR(device, &info, &executables, nullptr) != VK_SUCCESS) {
+        return;
+    }
+    for (uint32_t index = 0; index < executables; ++index) {
+        const VkPipelineExecutableInfoKHR executable{.sType = VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_INFO_KHR,
+                                                     .pNext = nullptr,
+                                                     .pipeline = pipeline,
+                                                     .executableIndex = index};
+        uint32_t count = 0;
+        if (vkGetPipelineExecutableStatisticsKHR(device, &executable, &count, nullptr) != VK_SUCCESS) {
+            continue;
+        }
+        std::vector<VkPipelineExecutableStatisticKHR> stats(count, VkPipelineExecutableStatisticKHR{
+                                                                       .sType = VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_STATISTIC_KHR});
+        if (vkGetPipelineExecutableStatisticsKHR(device, &executable, &count, stats.data()) != VK_SUCCESS) {
+            continue;
+        }
+        std::string line;
+        for (const VkPipelineExecutableStatisticKHR& stat : stats) {
+            std::string value;
+            switch (stat.format) {
+            case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_BOOL32_KHR: value = stat.value.b32 != 0 ? "yes" : "no"; break;
+            case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_INT64_KHR: value = std::to_string(stat.value.i64); break;
+            case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_UINT64_KHR: value = std::to_string(stat.value.u64); break;
+            case VK_PIPELINE_EXECUTABLE_STATISTIC_FORMAT_FLOAT64_KHR: value = std::to_string(stat.value.f64); break;
+            default: break;
+            }
+            line += std::string(line.empty() ? "" : ", ") + static_cast<const char*>(stat.name) + " " + value;
+        }
+        get_log("shader stats: %s: %s", name.c_str(), line.c_str());
+    }
+}
 } // namespace render::vulkan

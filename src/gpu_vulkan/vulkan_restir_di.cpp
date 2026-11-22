@@ -32,6 +32,7 @@
 #include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_memory.h"
+#include "gpu_vulkan/vulkan_pass_profile.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_lights.h"
@@ -114,6 +115,15 @@ constexpr float kGridSide = 128.0F;
 // the square root of the slots. Cost: the grid's build +0.6 ms at 1280 x 720 (ReSTIR DI 2.8 -> 3.4 ms).
 constexpr uint32_t kGridSlots = 512;
 constexpr uint32_t kGridCandidates = 8;
+// (round PERF3) The grid makes only the cells read lately (kGridBody PASS_CELLS): every reader marks the cell it reads
+// (its state word - vulkan_light_list.cpp light_grid_slot), and a cell is made while it was marked within kGridKeepFrames
+// grid frames. All 16384 cells' 512 slots were made every frame (BO at night: 2.5 ms) for the few hundred to few thousand
+// any pixel, secondary vertex or froxel reads. The picks' buffer: two header picks, the cells' picks, then a state word
+// (uvec4) a cell.
+constexpr uint32_t kGridCells = kGridAcross * kGridUp * kGridAcross;
+constexpr uint32_t kGridHeaderPicks = 2;
+constexpr uint32_t kGridStateWord = 2 * (kGridHeaderPicks + (kGridCells * kLightGridPicks));
+constexpr uint32_t kGridKeepFrames = 16;
 // Flags (the block's counts.w)
 constexpr uint32_t kFlagTemporal = 1U;
 constexpr uint32_t kFlagSpatial = 2U;
@@ -146,8 +156,9 @@ struct RestirBlock {
     std::array<float, 4> grid{};           // (round PT4c) the light grid: xyz its corner, w a cell's side
     std::array<uint32_t, 4> grid_cells{};  // its cells across x, y, z; w its slots a cell (0: no grid - the list alone)
     std::array<uint32_t, 4> shared{};      // (round OM) xy the shared primary surface's address, z 1: written here
+    std::array<uint32_t, 4> grid_shift{};  // (round PERF3) xyz the light grid's cells' shift on each axis (light_grid_slot)
 };
-static_assert(sizeof(RestirBlock) == (2 * 64) + (12 * 16));
+static_assert(sizeof(RestirBlock) == (2 * 64) + (13 * 16));
 
 // --- the shaders -------------------------------------------------------------------------------------------------------
 
@@ -168,6 +179,7 @@ layout(std140, set = 0, binding = 2) uniform RestirBlock {
     vec4 grid;
     uvec4 grid_cells;
     uvec4 surfaces;
+    uvec4 grid_shift;
 } pass;
 struct LightEntry {
     float threshold;
@@ -555,8 +567,15 @@ uint grid_cell_of(vec3 p)
     if (any(lessThan(at, vec3(0.0))) || any(greaterThanEqual(at, vec3(pass.grid_cells.xyz)))) {
         return NO_CELL;
     }
-    uvec3 c = uvec3(at);
-    return (c.y * pass.grid_cells.z + c.z) * pass.grid_cells.x + c.x;
+    // (round PERF3 - vulkan_light_list.cpp light_grid_slot) the cell by its place in the world; one made this frame (else
+    // the list by power, as outside the grid), marked as wanted
+    uvec3 c = (uvec3(at) + pass.grid_shift.xyz) % pass.grid_cells.xyz;
+    uint cell = (c.y * pass.grid_cells.z + c.z) * pass.grid_cells.x + c.x;
+    uvec4 state = grid_words[GRID_STATE_WORD + cell];
+    if (state.y != pass.counts.z) {
+        grid_words[GRID_STATE_WORD + cell].y = pass.counts.z;
+    }
+    return state.x == pass.counts.z ? cell : NO_CELL;
 }
 
 // A reservoir: its sample (the list's entry + 1 - 0: none -, the point on it), its weight W (the unbiased contribution
@@ -656,9 +675,20 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
                     if (total > 0.0) {
                         float z = 0.0;
                         float target = 0.0;
-                        if (path_next(rng) * total < w_h) {
+                        // (round PERF3) the one ray either choice traces, then what it decides - one inlined light ray
+                        // for the two (the shader's code and registers)
+                        bool take_h = path_next(rng) * total < w_h;
+                        Surface from = s;
+                        LightPoint toward = hp;
+                        bool traced = true;
+                        if (!take_h) {
+                            from = then;
+                            traced = light_point(r.entry - 1u, r.uv, then, toward);
+                        }
+                        bool visible = traced && seen_at_all(seen(from, toward));
+                        if (take_h) {
                             // its light, seen from here: then this pixel's candidates could have made it too
-                            if (seen_at_all(seen(s, hp))) {
+                            if (visible) {
                                 out_r.entry = h.entry;
                                 out_r.uv = h.uv;
                                 target = t_h;
@@ -670,8 +700,7 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
                             target = chosen;
                             z = r.M;
                             // could last frame's reservoir have made it: its surface's target and a ray from there
-                            LightPoint tp;
-                            if (light_point(r.entry - 1u, r.uv, then, tp) && seen_at_all(seen(then, tp))) {
+                            if (visible) {
                                 z += h.M;
                             }
                         }
@@ -788,21 +817,35 @@ void main()
     vec3 specular = vec3(0.0);
     vec3 full = vec3(0.0);
     if (chosen != 0xFFFFFFFFu) {
-        vec3 through = seen(s, chosen_point);
-        if (seen_at_all(through)) {
-            // Z: the samples of every reservoir that could have made this light - its own surface's target and a ray
-            float z = 0.0;
-            for (uint k = 0u; k < n; ++k) {
+        // The chosen light seen from here (step 0), then Z: the samples of every reservoir that could have made this light -
+        // its own surface's target and a ray. (Round PERF3: one loop, one inlined light ray for both.)
+        vec3 through = vec3(0.0);
+        float z = 0.0;
+        for (uint step = 0u; step <= n; ++step) {
+            uint k = step - 1u;
+            Surface from = s;
+            LightPoint toward = chosen_point;
+            if (step > 0u) {
                 if (k == chosen || k == 0u) {
                     z += taken[k].M; // (its own: it was seen there; this pixel's: seen just now)
                     continue;
                 }
-                LightPoint other;
-                if (light_point(taken[chosen].entry - 1u, taken[chosen].uv, where[k], other) &&
-                    seen_at_all(seen(where[k], other))) {
-                    z += taken[k].M;
+                if (!light_point(taken[chosen].entry - 1u, taken[chosen].uv, where[k], toward)) {
+                    continue;
                 }
+                from = where[k];
             }
+            vec3 light_through = seen(from, toward);
+            if (step == 0u) {
+                through = light_through;
+                if (!seen_at_all(through)) {
+                    break;
+                }
+            } else if (seen_at_all(light_through)) {
+                z += taken[k].M;
+            }
+        }
+        if (seen_at_all(through)) {
             r.entry = taken[chosen].entry;
             r.uv = taken[chosen].uv;
             r.W = z > 0.0 && target > 0.0 ? good(total / (z * target)) : 0.0;
@@ -935,8 +978,28 @@ void main()
         return;
     }
     uint cell = i / slots;
+    // (round PERF3) the header; then only a cell read within GRID_KEEP_FRAMES (its state word's y - light_grid_slot) is
+    // made (pass.list.z: every cell - the check's); x the frame it was made in, 0 for one not made
+    if (i == 0u) {
+        light_pool[0] = uvec4(floatBitsToUint(pass.grid));
+        light_pool[1] = uvec4(pass.grid_cells.xyz, LIGHT_GRID_PICKS);
+        light_pool[2] = uvec4(pass.counts.z, pass.grid_shift.xyz);
+        light_pool[3] = uvec4(0u);
+    }
+    uint wanted = light_pool[GRID_STATE_WORD + cell].y;
+    if (pass.list.z == 0u && !(wanted != 0u && pass.counts.z - wanted <= GRID_KEEP_FRAMES)) {
+        if (i % slots == 0u) {
+            light_pool[GRID_STATE_WORD + cell].x = 0u;
+        }
+        return;
+    }
+    if (i % slots == 0u) {
+        light_pool[GRID_STATE_WORD + cell].x = pass.counts.z;
+    }
+    // (the cell's place: its index on each axis less the shift, modulo the cells across)
     uvec3 c = uvec3(cell % pass.grid_cells.x, cell / (pass.grid_cells.x * pass.grid_cells.z),
                     (cell / pass.grid_cells.x) % pass.grid_cells.z);
+    c = (c + pass.grid_cells.xyz - pass.grid_shift.xyz) % pass.grid_cells.xyz;
     float side = pass.grid.w;
     vec3 low = pass.grid.xyz + (vec3(c) - 0.5) * side;
     vec3 high = low + 2.0 * side;
@@ -972,10 +1035,6 @@ void main()
     // light / pdf is the slot's contribution weight's estimate (a triangle's per unit of its area)
     uint k = i % slots;
     if (k < LIGHT_GRID_PICKS) {
-        if (i == 0u) {
-            light_pool[0] = uvec4(floatBitsToUint(pass.grid));
-            light_pool[1] = uvec4(pass.grid_cells.xyz, LIGHT_GRID_PICKS);
-        }
         vec2 uv = vec2(path_next(rng), path_next(rng));
         LightPick p = no_light_pick();
         if (kept && picked > 0u) {
@@ -983,7 +1042,7 @@ void main()
             float scale = W * light_entries[picked - 1u].pdf;
             p.pdf = scale > 0.0 && p.pdf > 0.0 ? p.pdf / scale : 0.0;
         }
-        light_pool_write(1u + cell * LIGHT_GRID_PICKS + k, p);
+        light_pool_write(2u + cell * LIGHT_GRID_PICKS + k, p);
     }
 }
 #endif
@@ -1056,13 +1115,17 @@ std::string shader_source(Shader which, bool check)
             // (round DO) the grid's picks for the list's other readers (vulkan_light_list.h kLightGridPicks) - the pool's
             // words
             source += "#define LIGHT_POOL_SIZE 1u\n#define LIGHT_POOL_WRITE\n#define LIGHT_GRID_PICKS " +
-                      std::to_string(kLightGridPicks) + "u\n";
+                      std::to_string(kLightGridPicks) + "u\n#define GRID_STATE_WORD " + std::to_string(kGridStateWord) +
+                      "u\n#define GRID_KEEP_FRAMES " + std::to_string(kGridKeepFrames) + "u\n";
             source += "layout(std430, set = 0, binding = " + std::to_string(kBindingGridPicks) +
-                      ") writeonly buffer LightPool { uvec4 light_pool[]; };\n";
+                      ") buffer LightPool { uvec4 light_pool[]; };\n";
             source += local_light_glsl();
         }
         source += kGridBody;
     } else {
+        // (round PERF3) the grid's cells' state words (grid_cell_of)
+        source += "#define GRID_STATE_WORD " + std::to_string(kGridStateWord) + "u\nlayout(std430, set = 0, binding = " +
+                  std::to_string(kBindingGridPicks) + ") buffer GridWords { uvec4 grid_words[]; };\n";
         source += kRestirBody;
     }
     return source;
@@ -1312,7 +1375,7 @@ VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::str
     }
     const VkComputePipelineCreateInfo info{.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
                                            .pNext = nullptr,
-                                           .flags = 0,
+                                           .flags = pipeline_statistics_flags(), // (round PERF3)
                                            .stage = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
                                                      .pNext = nullptr,
                                                      .flags = 0,
@@ -1326,6 +1389,7 @@ VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::str
     VkPipeline pipeline = VK_NULL_HANDLE;
     const VkResult made = vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
     vkDestroyShaderModule(device, module, nullptr);
+    log_pipeline_statistics(device, pipeline, source); // (round PERF3: with frame_profile)
     if (made != VK_SUCCESS) {
         *error = "vkCreateComputePipelines failed";
         return VK_NULL_HANDLE;
@@ -2119,9 +2183,9 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
                               static_cast<VkDeviceSize>(kGridAcross) * kGridUp * kGridAcross * kGridSlots * 2 * sizeof(uint32_t),
                               storage, BufferPlace::kDevice) &&
                 // (round DO: read by the list's other readers through its address - its header, then the picks)
+                // (round PERF3: two header picks, and a state word a cell after the picks - kGridStateWord)
                 ensure_buffer(state, &own.grid_picks,
-                              (1 + (static_cast<VkDeviceSize>(kGridAcross) * kGridUp * kGridAcross * kLightGridPicks)) *
-                                  kLightPoolWords * sizeof(uint32_t),
+                              ((static_cast<VkDeviceSize>(kGridStateWord) + kGridCells) * 4 * sizeof(uint32_t)),
                               storage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, BufferPlace::kDevice);
     for (std::size_t k = 0; k < 2 && made; ++k) {
         made = ensure_buffer(state, &core::at(own.at, k), pixels * 16, storage, BufferPlace::kDevice) &&
@@ -2177,9 +2241,14 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     const bool grid = (!check || own.overrides.grid) && own.entries > 0;
     for (std::size_t axis = 0; axis < 3; ++axis) {
         const uint32_t across = axis == 1 ? kGridUp : kGridAcross;
-        core::at(block.grid, axis) =
-            (std::floor(core::at(view.camera.position, axis) / kGridSide) - static_cast<float>(across / 2)) * kGridSide;
+        const float corner = std::floor(core::at(view.camera.position, axis) / kGridSide) - static_cast<float>(across / 2);
+        core::at(block.grid, axis) = corner * kGridSide;
+        // (round PERF3) the cells by their place in the world: an axis's index is the world cell's modulo the cells
+        // across - the corner's cell modulo them is the shift (light_grid_slot)
+        const auto wrapped = static_cast<int64_t>(corner) % static_cast<int64_t>(across);
+        core::at(block.grid_shift, axis) = static_cast<uint32_t>(wrapped < 0 ? wrapped + across : wrapped);
     }
+    core::at(block.list, 2) = check ? 1U : 0U; // (round PERF3: the check makes every cell)
     core::at(block.grid, 3) = kGridSide;
     block.grid_cells = {kGridAcross, kGridUp, kGridAcross, grid ? kGridSlots : 0U};
     VkDeviceAddress shared_address = 0;

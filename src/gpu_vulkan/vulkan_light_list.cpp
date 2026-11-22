@@ -396,12 +396,44 @@ std::string light_pool_reader_glsl(std::string_view pool)
            "#define LL_POOL_SHARE uintBitsToFloat(" + p + ".w)\n";
 }
 
+namespace {
+// (round PERF3) The light grid's slot for a point: its cell (the cells kept by their place in the world - each axis's index
+// the world cell's modulo the cells across, so a cell keeps its index while the grid follows the camera) and the slot `u`
+// picks there - false outside the grid or where the cell wasn't made this frame (the grid makes only the cells read
+// lately: its state word's x the frame it was made, y the frame it was last wanted - written here; the caller then takes
+// the pool - the same light, from fewer near candidates, for the frame it takes the grid to make the cell).
+constexpr std::string_view kLightGridSlotGlsl = R"(
+bool light_grid_slot(vec3 cell_at, float u, out uint slot)
+{
+    slot = 0u;
+    uvec4 cells = light_grid[1];
+    if (cells.w == 0u || any(lessThan(cell_at, vec3(0.0))) || any(greaterThanEqual(cell_at, vec3(cells.xyz)))) {
+        return false;
+    }
+    uvec4 head = light_grid[2]; // (the frame's stamp, the cells' shift on each axis)
+    uvec3 c = (uvec3(cell_at) + head.yzw) % cells.xyz;
+    uint cell = (c.y * cells.z + c.z) * cells.x + c.x;
+    uint state_at = 2u * (2u + cells.x * cells.y * cells.z * cells.w) + cell;
+    uvec4 state = light_grid[state_at];
+    if (state.y != head.x) {
+        light_grid_marks[state_at].y = head.x;
+    }
+    if (state.x != head.x) {
+        return false;
+    }
+    slot = 2u + cell * cells.w + min(uint(u * float(cells.w)), cells.w - 1u);
+    return true;
+}
+)";
+} // namespace
+
 std::string light_grid_reader_glsl(std::string_view grid)
 {
     const std::string g(grid);
     return "#define LL_GRID\nlayout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer LightGridWords { "
-           "uvec4 words[]; };\n#define light_grid (LightGridWords(" + g + ".xy).words)\n#define LL_GRID_ON (" + g +
-           ".z != 0u)\n";
+           "uvec4 words[]; };\nlayout(buffer_reference, buffer_reference_align = 16, std430) buffer LightGridMarks { "
+           "uvec4 words[]; };\n#define light_grid (LightGridWords(" + g + ".xy).words)\n#define light_grid_marks "
+           "(LightGridMarks(" + g + ".xy).words)\n#define LL_GRID_ON (" + g + ".z != 0u)\n" + std::string(kLightGridSlotGlsl);
 }
 
 std::string_view light_sample_glsl()
@@ -456,6 +488,11 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
     }
     bool surface = dot(ng, ng) > 0.0;
     uint kind = light_kind(e.payload);
+    // (round PERF3) each kind's light and reach, then the one light ray for the three - one copy of the ray's code in the
+    // shader: three inlined copies of ray_light's two walks made the path tracer's shaders far larger (ReSTIR GI's
+    // samples and cache passes 255 registers with spills, 390 - 420 KB of code; a pass's occupancy goes with its registers)
+    vec3 carried = vec3(0.0);
+    float reach = LL_REACH;
     if (kind == LIGHT_DISC) {
 #ifdef LL_NO_DISC
         return vec3(0.0); // (round FL: the caller estimates the disc's light itself - the rest of the list by this sample)
@@ -465,9 +502,8 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
             return vec3(0.0);
         }
         float pdf = e.pdf / LL_SUN_RADIANCE.w;
-        return LL_SUN_RADIANCE.rgb * sun_kept(p) * ray_light_leaving(mask, p, ng, dir, LL_REACH) / pdf;
-    }
-    if (kind == LIGHT_SKY) {
+        carried = LL_SUN_RADIANCE.rgb * sun_kept(p) / pdf;
+    } else if (kind == LIGHT_SKY) {
         uint cell;
         dir = sky_sample(u1, u2, u3, u4, cell);
         if (surface && (dot(dir, ng) <= 0.0 || dot(dir, n) <= 0.0)) {
@@ -478,8 +514,8 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
         if (!(pdf > 0.0)) {
             return vec3(0.0);
         }
-        return radiance * ray_light_leaving(mask, p, ng, dir, LL_REACH) / pdf;
-    }
+        carried = radiance / pdf;
+    } else {
     LocalLight l;
 #ifdef LL_POOL
     // (round OM - RTXDI's presampled light tiles, as the fog's candidates) the local group's light from the pool: a pick
@@ -510,14 +546,9 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
 #ifdef LL_GRID
             if (LL_GRID_ON && ll_cell_candidates) {
                 vec4 place = uintBitsToFloat(light_grid[0]);
-                uvec4 cells = light_grid[1];
                 vec3 jitter = (vec3(path_next(rng), path_next(rng), path_next(rng)) - 0.5) * place.w;
-                vec3 at = floor((p + jitter - place.xyz) / place.w);
-                if (place.w > 0.0 && cells.w > 0u && all(greaterThanEqual(at, vec3(0.0))) &&
-                    all(lessThan(at, vec3(cells.xyz)))) {
-                    uvec3 cell = uvec3(at);
-                    uint slot = 1u + ((cell.y * cells.z + cell.z) * cells.x + cell.x) * cells.w +
-                                min(uint(uk * float(cells.w)), cells.w - 1u);
+                uint slot;
+                if (place.w > 0.0 && light_grid_slot(floor((p + jitter - place.xyz) / place.w), uk, slot)) {
                     pick = light_pick_words(light_grid[2u * slot], light_grid[2u * slot + 1u]);
                     from_grid = true;
                 }
@@ -556,7 +587,10 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
     if (surface && (dot(dir, ng) <= 0.0 || !(dot(dir, n) > 1.0e-4))) {
         return vec3(0.0);
     }
-    return l.light * ray_light_leaving(mask, p, ng, dir, l.reach) / l.pdf;
+    carried = l.light / l.pdf;
+    reach = l.reach;
+    }
+    return carried * ray_light_leaving(mask, p, ng, dir, reach);
 }
 
 #ifdef LL_CACHE

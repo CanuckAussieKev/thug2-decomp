@@ -23,6 +23,8 @@
 #include "base/core/format.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_pipeline_count.h"
+#include "gpu_vulkan/vulkan_pass_profile.h"
+#include "platform/frame_profile.h"
 
 namespace render::vulkan {
 
@@ -647,6 +649,20 @@ bool Context::create_device()
         }
     }
     void* features = dynamic_rendering_ ? &features13 : nullptr;
+    // NOT ORIGINAL - (round PERF3) with [debug] frame_profile, the compiled shaders' statistics where the device reports
+    // them (vulkan_pass_profile.h pipeline_statistics_flags)
+    VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR executables{};
+    executables.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR;
+    pipeline_statistics_ = false;
+    if (frame_profile::on() &&
+        has_extension(device_extensions(physical_device_), VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME)) {
+        extensions.push_back(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME);
+        executables.pipelineExecutableInfo = VK_TRUE;
+        executables.pNext = features;
+        features = &executables;
+        pipeline_statistics_ = true;
+    }
+    set_pipeline_statistics(pipeline_statistics_);
     if (crash_.device_fault) { // (round GD: the fault features first in the chain)
         fault.pNext = features;
         features = &fault;

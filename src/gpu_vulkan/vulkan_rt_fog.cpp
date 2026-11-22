@@ -38,6 +38,7 @@
 #include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_memory.h"
+#include "gpu_vulkan/vulkan_pass_profile.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_rt_history.h"
@@ -513,15 +514,10 @@ vec3 list_lights(vec3 at, vec3 direction, ivec2 p, int i, float near, out vec3 r
 #ifdef LL_GRID
         if (LL_GRID_ON) {
             vec4 place = uintBitsToFloat(light_grid[0]);
-            uvec4 cells = light_grid[1];
             vec3 jitter = (vec3(hash01(p, fog.flags.w, i, salt + 0x101u), hash01(p, fog.flags.w, i, salt + 0x102u),
                                hash01(p, fog.flags.w, i, salt + 0x103u)) - 0.5) * (2.0 * place.w);
-            vec3 cell_at = floor((at + jitter - place.xyz) / place.w);
-            if (place.w > 0.0 && cells.w > 0u && all(greaterThanEqual(cell_at, vec3(0.0))) &&
-                all(lessThan(cell_at, vec3(cells.xyz)))) {
-                uvec3 cell = uvec3(cell_at);
-                uint slot = 1u + ((cell.y * cells.z + cell.z) * cells.x + cell.x) * cells.w +
-                            min(uint(u * float(cells.w)), cells.w - 1u);
+            uint slot;
+            if (place.w > 0.0 && light_grid_slot(floor((at + jitter - place.xyz) / place.w), u, slot)) {
                 pick = light_pick_words(light_grid[2u * slot], light_grid[2u * slot + 1u]);
                 from_grid = true;
             }
@@ -1528,7 +1524,7 @@ VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::str
     }
     const VkComputePipelineCreateInfo info{.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
                                            .pNext = nullptr,
-                                           .flags = 0,
+                                           .flags = pipeline_statistics_flags(), // (round PERF3)
                                            .stage = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
                                                      .pNext = nullptr,
                                                      .flags = 0,
@@ -1542,6 +1538,7 @@ VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::str
     VkPipeline pipeline = VK_NULL_HANDLE;
     const VkResult made = vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
     vkDestroyShaderModule(device, module, nullptr);
+    log_pipeline_statistics(device, pipeline, source); // (round PERF3: with frame_profile)
     if (made != VK_SUCCESS) {
         *error = "vkCreateComputePipelines failed";
         return VK_NULL_HANDLE;
