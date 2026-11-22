@@ -510,8 +510,14 @@ Surface shared_surface(ivec2 p)
 // The pixel's surface: the check's camera ray through its centre; the game's the prepass's depth there, its triangle the
 // one a camera ray meets at that point (round CW: the one the prepass kept - trace_drawn, a blended layer too) -
 // (round PT4d) where none does, the depth's own surface (depth_surface). (Round OM: ReSTIR DI's where it found it.)
+// (round PERF4) PRIMARY_SHARED: the variant for a view whose surfaces ReSTIR DI found - shared_surface alone, without
+// the camera ray, the prepass-kept test and a second inlined copy of hit_surface's shading (the sample and cache
+// passes' code and registers: every copy is in the shader whether it runs or not).
 Surface primary(ivec2 p)
 {
+#ifdef PRIMARY_SHARED
+    return shared_surface(p);
+#else
     if (pass.surfaces.z != 0u) {
         return shared_surface(p);
     }
@@ -564,6 +570,7 @@ Surface primary(ivec2 p)
     s.object = (geometry_record(instance).instance_flags & HIT_INSTANCE_OBJECT) != 0u;
     s.valid = true;
     return s;
+#endif
 }
 
 uint rays_of(Surface s) { return s.object ? LIGHT_RAYS_ON_OBJECT : LIGHT_RAYS; }
@@ -1642,11 +1649,14 @@ enum class Shader : uint8_t { kSky, kSample, kTemporal, kSpatial, kCache, kResol
 
 std::string float_text(float value) { return text::format("%.9g", static_cast<double>(value)); }
 
-std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSource sky)
+std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSource sky, bool shared = false)
 {
     std::string source = "#version 460\n#extension GL_EXT_ray_query : require\n";
     if (check) {
         source += "#define CHECK\n";
+    }
+    if (shared) {
+        source += "#define PRIMARY_SHARED\n"; // (round PERF4: primary() - ReSTIR DI's surfaces alone)
     }
     if (which == Shader::kSky) {
         source += sky_grid_prelude(sky, kBindingTransmittance, kBindingSkyView, kBindingCloudNoise);
@@ -1857,10 +1867,11 @@ struct GiState {
     VkPipelineLayout layout = VK_NULL_HANDLE;
     VkDescriptorSetLayout material_layout = VK_NULL_HANDLE;
     std::array<VkPipeline, kSkyGridSources> sky{};
-    std::array<VkPipeline, 4> sample{};   // (round PERF2) each pixel's secondary path [check x 2 + cloud map]
+    std::array<VkPipeline, 8> sample{}; // (round PERF2) each pixel's secondary path [shared x 4 + check x 2 + cloud]
     std::array<VkPipeline, 4> temporal{}; // [check x 2 + cloud map]
     std::array<VkPipeline, 2> spatial{};  // [check]
-    std::array<VkPipeline, 4> cache_update{};    // (round MB) the radiance cache's update paths [check x 2 + cloud map]
+    std::array<VkPipeline, 8> cache_update{}; // (round MB) the cache's update paths [shared x 4 + check x 2 + cloud]
+    bool shared_variant_failed = false;          // (round PERF4: primary_pipeline)
     VkPipeline resolve = VK_NULL_HANDLE;  // ... and its entries' frame
     bool failed = false;
     // (round MB) the radiance cache (cleared when the history starts again)
@@ -2100,6 +2111,32 @@ bool ensure_pipelines(Backend& state, bool check, bool cloud_map, SkyGridSource 
         spatial = make_compute(device, own.layout, shader_source(Shader::kSpatial, check, false, sky), error);
     }
     return spatial != VK_NULL_HANDLE;
+}
+
+// (round PERF4) The sample or cache pass's pipeline for a view: the PRIMARY_SHARED variant when it reads ReSTIR DI's
+// primary surfaces (made on its first use), else the one ensure_pipelines made (its own camera ray).
+VkPipeline primary_pipeline(Backend& state, Shader which, bool check, bool cloud_map, SkyGridSource sky, bool shared)
+{
+    GiState& own = gi_state();
+    std::array<VkPipeline, 8>& pipelines = which == Shader::kSample ? own.sample : own.cache_update;
+    const std::size_t base = (check ? 2U : 0U) + (cloud_map ? 1U : 0U);
+    if (shared && !own.shared_variant_failed) {
+        VkPipeline& variant = core::at(pipelines, 4U + base);
+        if (variant == VK_NULL_HANDLE) {
+            std::string error;
+            variant = make_compute(state.context.device(), own.layout,
+                                   shader_source(which, check, cloud_map, sky, true), &error);
+            if (variant == VK_NULL_HANDLE) {
+                own.shared_variant_failed = true;
+                get_log("restir gi: the shared-surface variant couldn't be made (%s) - the passes find their own",
+                        error.c_str());
+            }
+        }
+        if (variant != VK_NULL_HANDLE) {
+            return variant;
+        }
+    }
+    return core::at(pipelines, base);
 }
 
 bool ensure_buffer(Backend& state, DeviceBuffer* buffer, VkDeviceSize bytes, VkBufferUsageFlags usage, BufferPlace place)
@@ -2838,7 +2875,8 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         const uint32_t blocks_x = (width + kCacheBlock - 1) / kCacheBlock;
         const uint32_t blocks_y = (height + kCacheBlock - 1) / kCacheBlock;
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
-                          core::at(own.cache_update, (check ? 2U : 0U) + (map_now ? 1U : 0U)));
+                          primary_pipeline(state, Shader::kCache, check, map_now, sky_source,
+                                           core::at(block.shared, 2) != 0U));
         vkCmdDispatch(commands, (blocks_x + kGroupSide - 1) / kGroupSide, (blocks_y + kGroupSide - 1) / kGroupSide, 1);
         barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
@@ -2855,7 +2893,8 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         // samples, then the temporal resampling)
         const FrameStep step(state.frames, commands, gpu_markers::section::kGiSamples);
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE,
-                          core::at(own.sample, (check ? 2U : 0U) + (map_now ? 1U : 0U)));
+                          primary_pipeline(state, Shader::kSample, check, map_now, sky_source,
+                                           core::at(block.shared, 2) != 0U));
         vkCmdDispatch(commands, groups_x, groups_y, 1);
         barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);

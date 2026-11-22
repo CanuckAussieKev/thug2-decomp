@@ -610,106 +610,151 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
     // contribution weight; outside the grid from the whole list by power
     uint count = pass.counts.x;
     uint cell = grid_cell_of(s.at + (vec3(path_next(rng), path_next(rng), path_next(rng)) - 0.5) * pass.grid.w);
-    Reservoir r = Reservoir(0u, vec2(0.0), 0.0, float(pass.params.x));
+    uint candidates = pass.params.x;
+    Reservoir r = Reservoir(0u, vec2(0.0), 0.0, float(candidates));
     float wsum = 0.0;
     float chosen = 0.0;
-    LightPoint chosen_point;
-    for (uint k = 0u; k < pass.params.x; ++k) {
-        float u = path_next(rng);
-        vec2 uv = kept_uv(vec2(path_next(rng), path_next(rng)));
-        float pick = path_next(rng);
-        if (count == 0u) {
-            continue;
-        }
-        LightPoint lp;
-        uint e;
-        float slot_weight = 1.0; // (x the list's pdf of the entry: the slot's weight over the list's)
-        if (cell != NO_CELL) {
-            uvec2 slot = cells[cell * pass.grid_cells.w + min(uint(u * float(pass.grid_cells.w)), pass.grid_cells.w - 1u)];
-            if (slot.x == 0u) {
-                continue;
-            }
-            e = slot.x - 1u;
-            slot_weight = uintBitsToFloat(slot.y) * light_entries[e].pdf;
-        } else {
-            e = light_pick(u, count);
-        }
-        if (!light_point(e, uv, s, lp) || !(lp.pdf > 0.0)) {
-            continue;
-        }
-        float w = good(lp.target / lp.pdf * slot_weight);
-        wsum += w;
-        if (w > 0.0 && pick * wsum < w) {
-            r.entry = e + 1u;
-            r.uv = uv;
-            chosen = lp.target;
-            chosen_point = lp;
-        }
-    }
-    r.W = chosen > 0.0 ? good(wsum / (r.M * chosen)) : 0.0;
-    // (visibility reuse: a light the surface doesn't see is dropped - its W 0, its M kept)
-    if (r.W > 0.0 && !seen_at_all(seen(s, chosen_point))) {
-        r.W = 0.0;
-    }
-    float kept_target = chosen;
+    float kept_target = 0.0;
     // 2. the reservoir this point had last frame - (round PT4d) a neighbour's in its 4 x 4 block by the frame's permutation
-    if ((pass.counts.w & FLAG_TEMPORAL) != 0u) {
-        vec4 q = pass.prev_to_pixel * vec4(s.at, 1.0);
-        if (q.w > 0.0) {
-            ivec2 before = ivec2(floor(q.xy / q.w)) - pass.rect.xy;
-            if ((pass.counts.w & FLAG_PERMUTE) != 0u) {
-                before = restir_permuted(before, pass.counts.z);
-            }
-            if (all(greaterThanEqual(before, ivec2(0))) && all(lessThan(before, pass.rect.zw))) {
-                uint j = uint(before.y * pass.rect.z + before.x);
-                Surface then = surface_of(before_at[j], before_more[j]);
-                if (alike(s, then)) {
-                    Reservoir h = reservoir_of(res_b[j]);
-                    h.M = min(h.M, cap);
-                    LightPoint hp;
-                    float t_h = h.entry > 0u && h.W > 0.0 && light_point(h.entry - 1u, h.uv, s, hp) ? hp.target : 0.0;
-                    float w_r = chosen * r.W * r.M;
-                    float w_h = good(t_h * h.W * h.M);
-                    float total = w_r + w_h;
-                    Reservoir out_r = Reservoir(0u, vec2(0.0), 0.0, r.M + h.M);
-                    if (total > 0.0) {
-                        float z = 0.0;
-                        float target = 0.0;
-                        // (round PERF3) the one ray either choice traces, then what it decides - one inlined light ray
-                        // for the two (the shader's code and registers)
-                        bool take_h = path_next(rng) * total < w_h;
-                        Surface from = s;
-                        LightPoint toward = hp;
-                        bool traced = true;
-                        if (!take_h) {
-                            from = then;
-                            traced = light_point(r.entry - 1u, r.uv, then, toward);
-                        }
-                        bool visible = traced && seen_at_all(seen(from, toward));
-                        if (take_h) {
-                            // its light, seen from here: then this pixel's candidates could have made it too
-                            if (visible) {
-                                out_r.entry = h.entry;
-                                out_r.uv = h.uv;
-                                target = t_h;
-                                z = h.M + r.M;
-                            }
-                        } else {
-                            out_r.entry = r.entry;
-                            out_r.uv = r.uv;
-                            target = chosen;
-                            z = r.M;
-                            // could last frame's reservoir have made it: its surface's target and a ray from there
-                            if (visible) {
-                                z += h.M;
-                            }
-                        }
-                        out_r.W = z > 0.0 && target > 0.0 ? good(total / (z * target)) : 0.0;
-                        kept_target = target;
+    bool has_then = false;
+    Surface then = s;
+    Reservoir h = Reservoir(0u, vec2(0.0), 0.0, 0.0);
+    float total = 0.0;
+    float w_h = 0.0;
+    float t_h = 0.0;
+    bool take_h = false;
+    // the light ray's surface and sample (the initial sample's; then the reuse's - from here or from last frame's surface)
+    bool from_then = false;
+    bool traced = false;
+    LightPoint toward = LightPoint(vec3(0.0), 0.0, vec3(0.0, 1.0, 0.0), 0.0, 0.0);
+    // (round PERF4) One loop of steps, each with at most one light point and one light ray: the candidates (0 ..
+    // candidates - 1), the initial sample's ray (candidates), the history's target here (+ 1), last frame's surface's
+    // target and the reuse's ray (+ 2) - one inlined light_point (a triangle's corners, its emission texel and the
+    // material's layers) and one light ray in the shader instead of three and two. The same samples, numbers and rays.
+    for (uint k = 0u; k < candidates + 3u; ++k) {
+        // a. the light point this step evaluates
+        bool evaluate = false;
+        uint e = 0u;
+        vec2 uv = vec2(0.0);
+        float pick = 0.0;
+        float slot_weight = 1.0; // (x the list's pdf of the entry: the slot's weight over the list's)
+        if (k < candidates) {
+            float u = path_next(rng);
+            uv = kept_uv(vec2(path_next(rng), path_next(rng)));
+            pick = path_next(rng);
+            if (count != 0u) {
+                if (cell != NO_CELL) {
+                    uvec2 slot = cells[cell * pass.grid_cells.w + min(uint(u * float(pass.grid_cells.w)), pass.grid_cells.w - 1u)];
+                    if (slot.x != 0u) {
+                        e = slot.x - 1u;
+                        slot_weight = uintBitsToFloat(slot.y) * light_entries[e].pdf;
+                        evaluate = true;
                     }
-                    r = out_r;
+                } else {
+                    e = light_pick(u, count);
+                    evaluate = true;
                 }
             }
+        } else if (k == candidates + 1u && (pass.counts.w & FLAG_TEMPORAL) != 0u) {
+            vec4 q = pass.prev_to_pixel * vec4(s.at, 1.0);
+            if (q.w > 0.0) {
+                ivec2 before = ivec2(floor(q.xy / q.w)) - pass.rect.xy;
+                if ((pass.counts.w & FLAG_PERMUTE) != 0u) {
+                    before = restir_permuted(before, pass.counts.z);
+                }
+                if (all(greaterThanEqual(before, ivec2(0))) && all(lessThan(before, pass.rect.zw))) {
+                    uint j = uint(before.y * pass.rect.z + before.x);
+                    then = surface_of(before_at[j], before_more[j]);
+                    has_then = alike(s, then);
+                    if (has_then) {
+                        h = reservoir_of(res_b[j]);
+                        h.M = min(h.M, cap);
+                        evaluate = h.entry > 0u && h.W > 0.0;
+                        e = h.entry - 1u;
+                        uv = h.uv;
+                    }
+                }
+            }
+        } else if (k == candidates + 2u && has_then && total > 0.0 && !take_h) {
+            // could last frame's reservoir have made it: its surface's target and a ray from there
+            evaluate = true;
+            e = r.entry - 1u;
+            uv = r.uv;
+            from_then = true;
+        }
+        LightPoint lp;
+        bool got = evaluate && light_point(e, uv, from_then ? then : s, lp);
+
+        // b. what it decides
+        if (k < candidates) {
+            if (got && lp.pdf > 0.0) {
+                float w = good(lp.target / lp.pdf * slot_weight);
+                wsum += w;
+                if (w > 0.0 && pick * wsum < w) {
+                    r.entry = e + 1u;
+                    r.uv = uv;
+                    chosen = lp.target;
+                    toward = lp;
+                }
+            }
+        } else if (k == candidates) {
+            r.W = chosen > 0.0 ? good(wsum / (r.M * chosen)) : 0.0;
+            traced = r.W > 0.0; // (visibility reuse: a light the surface doesn't see is dropped - its W 0, its M kept)
+            kept_target = chosen;
+        } else if (k == candidates + 1u) {
+            traced = false;
+            if (has_then) {
+                t_h = got ? lp.target : 0.0;
+                float w_r = chosen * r.W * r.M;
+                w_h = good(t_h * h.W * h.M);
+                total = w_r + w_h;
+                if (total > 0.0) {
+                    // (round PERF3) the one ray either choice traces, then what it decides
+                    take_h = path_next(rng) * total < w_h;
+                    toward = lp;
+                    traced = take_h;
+                }
+            }
+        } else if (from_then) {
+            toward = lp;
+            traced = got;
+        } else if (!take_h) {
+            traced = false;
+        }
+
+        // c. the one light ray: the initial sample's (step `candidates`), the reuse's (the last step)
+        bool ray_step = k == candidates || k == candidates + 2u;
+        bool visible = ray_step && traced && seen_at_all(seen(from_then ? then : s, toward));
+        if (k == candidates) {
+            if (r.W > 0.0 && !visible) {
+                r.W = 0.0;
+            }
+        } else if (k == candidates + 2u && has_then) {
+            Reservoir out_r = Reservoir(0u, vec2(0.0), 0.0, r.M + h.M);
+            if (total > 0.0) {
+                float z = 0.0;
+                float target = 0.0;
+                if (take_h) {
+                    // its light, seen from here: then this pixel's candidates could have made it too
+                    if (visible) {
+                        out_r.entry = h.entry;
+                        out_r.uv = h.uv;
+                        target = t_h;
+                        z = h.M + r.M;
+                    }
+                } else {
+                    out_r.entry = r.entry;
+                    out_r.uv = r.uv;
+                    target = chosen;
+                    z = r.M;
+                    if (visible) {
+                        z += h.M;
+                    }
+                }
+                out_r.W = z > 0.0 && target > 0.0 ? good(total / (z * target)) : 0.0;
+                kept_target = target;
+            }
+            r = out_r;
         }
     }
     weight = r.entry > 0u && r.W > 0.0 ? good(kept_target * r.W) : 0.0;

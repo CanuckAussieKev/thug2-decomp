@@ -24,6 +24,10 @@ inline bool on() { return level() != 0; }
 
 // A phase's slot (made on its first use; at most 48 names - more are ignored).
 int slot(const char* name);
+// (round PERF4) A frame was presented showing simulation step `tick` blended by `alpha` (0: the step before, 1: this
+// one): its time and the time it shows go into this loop's line ("s": [[ms, shown ms]...]) - frame pacing measured as
+// the eye sees it (tools/game/frame_bench.ts report: the presents' spacing and the motion each shows).
+void note_present(uint64_t tick, float alpha);
 // Milliseconds measured elsewhere (the device's time for the frame) added to this loop's `slot`.
 void add_ms(int slot, double milliseconds);
 

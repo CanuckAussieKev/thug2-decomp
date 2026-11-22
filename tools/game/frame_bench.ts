@@ -16,7 +16,9 @@
 // for --seconds - then quit (--scenario <file>: the file's automation commands instead, a line each, `#` comments -
 // e.g. tools/game/scenarios/live_settings_soak.txt, settings changed while the game runs); the logic is a fixed step a loop, so a run is the same each time. Gathered into
 // <out>/<level>/run<k>/: frames.jsonl (a line a loop), game.log, samples.txt (+ samples-named.txt).
-// report: per level and run, the loops from --skip after the last loading screen to the end of the scenario.
+// report: per level and run, the loops from --skip after the last loading screen to the end of the scenario - and
+// (round PERF4) the frames presented: each one's time and the time it shows (the loop's "s" - render-only frames too),
+// their spacing and how far the motion each shows is off that spacing (the judder an even frame rate can still have).
 // Workspaces only; muted (workspace_ini.ts).
 
 import { spawn } from "node:child_process";
@@ -73,6 +75,7 @@ export interface Loop {
     ms: number; // since the loop before ended
     work: number; // less the pacing wait
     phases: number[];
+    presents: [number, number][]; // (round PERF4) each frame presented: when (ms) and the time it shows (ms)
 }
 
 export interface Frames {
@@ -99,6 +102,7 @@ export function parseFrames(text: string): Frames {
             t?: number;
             w?: number;
             p?: number[];
+            s?: [number, number][];
         };
         if (r.phases) {
             phases = r.phases;
@@ -112,6 +116,7 @@ export function parseFrames(text: string): Frames {
             ms: r.t ?? 0,
             work: r.w ?? 0,
             phases: r.p ?? [],
+            presents: r.s ?? [],
         });
     }
     return { phases, loops };
@@ -139,6 +144,15 @@ export interface Summary {
     work99: number;
     drawnPhases: Record<string, number>; // ms, a drawn loop's average
     skippedPhases: Record<string, number>;
+    // (round PERF4) the frames presented (none recorded: 0): how many a second, their spacing (ms: the median, 99th
+    // percentile) and |the motion a frame shows - the spacing| (ms: median, 90th, 99th percentile)
+    presented: number;
+    presentFps: number;
+    spacing50: number;
+    spacing99: number;
+    motionOff50: number;
+    motionOff90: number;
+    motionOff99: number;
 }
 
 // The loops measured: from `skip` after the last loading screen (the level's) to the end (the scenario's quit).
@@ -176,6 +190,15 @@ export function summarise(frames: Frames, skip: number): Summary {
         since = 0;
     }
     const skipped = loops.length - drawn;
+    const presents = loops.flatMap((loop) => loop.presents);
+    const spacing: number[] = [];
+    const motionOff: number[] = [];
+    for (let i = 1; i < presents.length; i++) {
+        const [at, shows] = presents[i]!;
+        const [before, showed] = presents[i - 1]!;
+        spacing.push(at - before);
+        motionOff.push(Math.abs(shows - showed - (at - before)));
+    }
     const phasesOf = (sums: number[], count: number): Record<string, number> => {
         const out: Record<string, number> = {};
         frames.phases.forEach((name, i) => {
@@ -196,6 +219,13 @@ export function summarise(frames: Frames, skip: number): Summary {
         work99: percentile(work, 0.99),
         drawnPhases: phasesOf(drawnSums, drawn),
         skippedPhases: phasesOf(skippedSums, skipped),
+        presented: presents.length,
+        presentFps: seconds > 0 ? presents.length / seconds : 0,
+        spacing50: percentile(spacing, 0.5),
+        spacing99: percentile(spacing, 0.99),
+        motionOff50: percentile(motionOff, 0.5),
+        motionOff90: percentile(motionOff, 0.9),
+        motionOff99: percentile(motionOff, 0.99),
     };
 }
 
@@ -211,6 +241,13 @@ export function summaryText(name: string, s: Summary): string {
         `${name}: ${s.loops} loops (${s.drawn} drawn) in ${f1(s.seconds)} s - ${f1(s.fps)} fps; frames ${f2(s.interval)} ms apart ` +
             `(99%: ${f2(s.interval99)}, worst ${f1(s.worst)}, ${s.hitches} over ${HITCH_MS} ms); work ${f2(s.work)} ms (99%: ${f2(s.work99)})`,
         `    a drawn loop: ${phases || "-"}`,
+        ...(s.presented
+            ? [
+                  `    presented: ${s.presented} (${f1(s.presentFps)} a second) ${f2(s.spacing50)} ms apart (99%: ` +
+                      `${f2(s.spacing99)}); the motion shown off that by ${f2(s.motionOff50)} ms (90%: ` +
+                      `${f2(s.motionOff90)}, 99%: ${f2(s.motionOff99)})`,
+              ]
+            : []),
     ].join("\n");
 }
 

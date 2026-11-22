@@ -99,12 +99,22 @@ uint64_t frame_due(uint64_t tick_time, uint64_t tick_length, int index, int fram
     return tick_time + (tick_length * static_cast<uint64_t>(index) / static_cast<uint64_t>(frames));
 }
 
-bool frame_fits(uint64_t now, uint64_t cost, uint64_t next_tick) { return now < next_tick && next_tick - now >= cost; }
+bool frame_fits(uint64_t now, uint64_t cost, uint64_t next_tick, uint64_t cap_interval)
+{
+    return now < next_tick && (cost >= cap_interval || next_tick - now >= cost);
+}
+
+uint64_t cap_interval(int max_fps, uint64_t frequency)
+{
+    return max_fps > 0 ? frequency / static_cast<uint64_t>(max_fps) : 0;
+}
 
 uint64_t cost_after_frame(uint64_t cost, uint64_t took, uint64_t tick_length)
 {
-    const uint64_t counted = std::min(took, tick_length);
-    return cost == 0 ? counted : ((cost * 3) + counted) / 4;
+    if (took >= tick_length) {
+        return tick_length;
+    }
+    return cost == 0 ? took : ((cost * 3) + took) / 4;
 }
 
 uint64_t cost_after_refusal(uint64_t cost) { return cost - (cost / 8); }

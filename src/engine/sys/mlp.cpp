@@ -195,6 +195,7 @@ void draw_render_only(frame_blend::Frame& blend, float alpha)
     latency_marker(render::GpuContext::LatencyMarker::kRenderSubmitEnd);
     end_scene();
     latency_probe::note_present(blend.tick, blend.alpha, true); // ([debug] latency_probe)
+    frame_profile::note_present(blend.tick, blend.alpha);       // ([debug] frame_profile - round PERF4)
     blend.extra = false;
     crt::game_srand(crt_random);
     maths::set_random_streams(streams);
@@ -224,8 +225,18 @@ void draw_extra_frames(uint64_t tick_time, uint64_t tick_length, int64_t frequen
     const int frames = frame_pacing::frames_this_tick(frame_blend::max_fps(), &own.carry);
     const uint64_t next_tick = tick_time + tick_length;
     frame_blend::Frame& blend = frame_blend::frame();
-    for (int i = 1; i < frames; ++i) {
-        const uint64_t due = frame_pacing::frame_due(tick_time, tick_length, i, frames);
+    // (round PERF4) the cap's frame interval: a renderer whose frames take at least that long can't reach the cap
+    const uint64_t cap_interval = frame_pacing::cap_interval(frame_blend::max_fps(), static_cast<uint64_t>(frequency));
+    for (int i = 1;; ++i) {
+        // (round PERF4) a renderer slower than the cap (frame_pacing.h frame_fits) draws back to back: no frame count
+        // a tick and no wait for a frame's share of the tick - each frame starts as soon as the last one's slot is
+        // free, so it is drawn a fixed time before the device shows it. A wait here (or for the next tick) moved what a
+        // frame shows against when it is shown: the motion advancing 16 then 31 ms between frames shown 23 ms apart.
+        const bool limited = own.cost >= cap_interval;
+        if (i >= frames && !limited) {
+            break;
+        }
+        const uint64_t due = limited ? tick_time : frame_pacing::frame_due(tick_time, tick_length, i, frames);
         uint64_t now = counter_now();
         if (due >= next_tick) {
             break;
@@ -239,8 +250,11 @@ void draw_extra_frames(uint64_t tick_time, uint64_t tick_length, int64_t frequen
         if (!can_draw_extra()) {
             break;
         }
-        if (!frame_pacing::frame_fits(now, own.cost, next_tick)) {
-            own.cost = frame_pacing::cost_after_refusal(own.cost); // (tried again: the estimate can't learn otherwise)
+        if (!frame_pacing::frame_fits(now, own.cost, next_tick, cap_interval)) {
+            if (now < next_tick) {
+                // (tried again: the estimate can't learn otherwise)
+                own.cost = frame_pacing::cost_after_refusal(own.cost);
+            }
             break;
         }
         const frame_profile::Scope phase("extra_frame"); // ([debug] frame_profile)
@@ -485,11 +499,13 @@ void Hub::get_main_loop()
         // make one late even though the last frame's capture time isn't counted.
         // Original behaviour: a late frame isn't drawn.
         const bool active = sys::app_active();
+        bool late_skip = false; // (not original: max_fps's render-only frames still follow a tick skipped as late)
         if ((skipped_in_a_row() >= 4 || elapsed < frame_ticks + (frame_ticks >> 1) || ext::keeps_every_frame() ||
              pace.flat_out) &&
             active) {
             skipped_in_a_row() = 0;
         } else {
+            late_skip = active && !render::engine_parts().suppress_draw();
             ++skipped_total();
             render::engine_parts().set_suppress_draw(true);
             ++skipped_in_a_row();
@@ -572,6 +588,7 @@ void Hub::get_main_loop()
             latency_marker(render::GpuContext::LatencyMarker::kRenderSubmitEnd); // (not original - latency_marker)
             end_scene();
             latency_probe::note_present(blend.tick, blend.alpha, blend.on); // (not original: [debug] latency_probe)
+            frame_profile::note_present(blend.tick, blend.on ? blend.alpha : 1.0F); // (not original: round PERF4)
         }
         // Not original - an extension that keeps every frame (engine/ext/extension.h; the screenshot key's frame
         // series): the capture's time isn't counted, so no frame is skipped to catch up - every logic frame is drawn
@@ -584,8 +601,10 @@ void Hub::get_main_loop()
         if (!hold) {
             frame_clock::update_frame_length();
         }
-        // Not original - [Graphics] max_fps: the render-only frames until the next tick is due (draw_extra_frames).
-        if (blend.on && drawn && is_finished_ == 0U) {
+        // Not original - [Graphics] max_fps: the render-only frames until the next tick is due (draw_extra_frames) -
+        // (round PERF4) after a tick skipped as late too: with a device slower than the ticks most ticks are late, and
+        // their frames are these (frame_pacing.h frame_fits).
+        if (blend.on && (drawn || late_skip) && is_finished_ == 0U) {
             draw_extra_frames(tick_time, frame_ticks, frequency.QuadPart);
         }
         profiling_ = 0;
