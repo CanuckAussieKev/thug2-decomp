@@ -77,8 +77,7 @@ constexpr uint32_t kBindingCells = 20;
 constexpr uint32_t kBindingSpecularOut = 21; // (round BR)
 constexpr uint32_t kBindingLightPool = 22;   // (round PF) the presampled pool (vulkan_light_list.h kLightPoolSize)
 constexpr uint32_t kBindingGridPicks = 23;   // (round DO) the light grid's picks (vulkan_light_list.h kLightGridPicks)
-constexpr uint32_t kBindingPicks = 24;       // (round PERF6) the initial candidates' picks (PASS_CANDIDATES)
-constexpr uint32_t kBindingCount = 25;
+constexpr uint32_t kBindingCount = 24;
 constexpr uint32_t kMaterialSet = 1;
 
 constexpr uint32_t kGroupSide = 8;
@@ -96,8 +95,13 @@ constexpr double kSingular = 1e-300;
 // light evaluations for no measurable gain under the reuse (BO at night, the bank, 60 frames held, 1280 x 720 drawn:
 // each pixel's temporal deviation 0.49 -> 0.46 of 255, the specks the same, the mean 48.9 -> 49.1) - the candidates
 // and temporal pass 4.1 - 4.9 -> 2.9 ms. The history's cap is in candidates (kHistoryCap x them): the same 20 frames.
-constexpr uint32_t kInitialCandidates = 8;
-constexpr uint32_t kSpatialNeighbours = 2;
+// (round BUDGET) 16: with the prepared records and presampled points (light_point_at) a candidate is a few loads and the
+// geometry term, and with one spatial neighbour (below) the 8 left the check's lamp drawn in 1 texel in 64 over its
+// per-frame error bound (1.69 of the mean; 16: 1.31 - 2 neighbours and their rays had it at 1.15).
+constexpr uint32_t kInitialCandidates = 16;
+// (round BUDGET) One spatial neighbour - RTXDI's default (numSpatialSamples 1): with the shading's one ray and Z by the
+// targets (no ray a neighbour) the pass is one light ray a pixel.
+constexpr uint32_t kSpatialNeighbours = 1;
 constexpr uint32_t kMostSpatial = 4;
 constexpr uint32_t kHistoryCap = 20;
 constexpr float kSpatialRadius = 24.0F;
@@ -117,6 +121,11 @@ constexpr float kGridSide = 128.0F;
 // the square root of the slots. Cost: the grid's build +0.6 ms at 1280 x 720 (ReSTIR DI 2.8 -> 3.4 ms).
 constexpr uint32_t kGridSlots = 512;
 constexpr uint32_t kGridCandidates = 8;
+// (round BUDGET) vec4s an entry in the bounds buffer: its bounds (2), its prepared record (3 - light_point_at) and its
+// presampled points (RTXDI's presampled light samples: each drawn uniformly on the triangle and its emission found there
+// once a frame - a candidate takes one, no texel read per pixel)
+constexpr VkDeviceSize kPresampled = 16;
+constexpr VkDeviceSize kRecordStride = 5 + kPresampled;
 // (round PERF3) The grid makes only the cells read lately (kGridBody PASS_CELLS): every reader marks the cell it reads
 // (its state word - vulkan_light_list.cpp light_grid_slot), and a cell is made while it was marked within kGridKeepFrames
 // grid frames. All 16384 cells' 512 slots were made every frame (BO at night: 2.5 ms) for the few hundred to few thousand
@@ -142,11 +151,10 @@ struct CountName {
     const char* define; // DI_COUNT_<define> in the shaders
     const char* text;   // in the log
 };
-constexpr std::array<CountName, 15> kCountNames{{{"PIXELS", "pixels"},
+constexpr std::array<CountName, 14> kCountNames{{{"PIXELS", "pixels"},
                                                  {"OUTSIDE", "outside the grid"},
                                                  {"UNMADE", "in unmade cells"},
                                                  {"CANDIDATES", "candidates"},
-                                                 {"TEMPORAL_RAYS", "temporal rays"},
                                                  {"SPATIAL_RAYS", "spatial rays"},
                                                  {"LONG_RAYS", "long rays"},
                                                  {"HISTORY", "with history"},
@@ -229,6 +237,11 @@ layout(std430, set = 0, binding = 17) buffer Slots { uint slots[]; };
 // (round PT4c) the light grid: each entry's bounds (light_bounds below), each cell's slots (the entry + 1 - 0: none -,
 // the slot's unbiased contribution weight)
 layout(std430, set = 0, binding = 19) buffer Bounds { vec4 bounds[]; };
+// (round BUDGET) an entry's vec4s: its centre and radius, its kind's numbers (PASS_CELLS), then (a triangle) its world
+// corners (light_point_at) and PRESAMPLED points on it drawn this frame, each its kept uv (x's bits) and its emission
+// there (yzw) - RTXDI's presampled light samples
+const uint PRESAMPLED = PRESAMPLED_POINTS; // (kPresampled)
+const uint RECORD_STRIDE = 5u + PRESAMPLED;
 layout(std430, set = 0, binding = 20) buffer Cells { uvec2 cells[]; };
 const uvec2 sky_alias[1] = uvec2[1](uvec2(0u)); // (the light list's sky isn't sampled here)
 #define LIST_INSTANCE_ADDRESS pass.instances.xy
@@ -277,6 +290,7 @@ uint g_candidates = 0u;
 uint g_rays = 0u;
 uint g_long_rays = 0u;    // (rays longer than the grid's half width - far lights)
 uint g_history = 0u;
+uint g_pixel = 0u; // (round BUDGET: a pixel whose candidates were drawn)
 void count_one(uint which, uint n)
 {
     uint sum = subgroupAdd(n);
@@ -552,6 +566,7 @@ struct LightPoint {
     vec3 dir;
     float reach;
     float pdf;
+    vec3 emitted; // (round BUDGET) a triangle's emission at the point (what a reservoir keeps of it)
 };
 // (round WS) The target: the luminance of what the sample brings through the surface's whole BRDF - a white diffuser's
 // lobe (`light` itself) and the material's specular lobe toward the eye (RTXDI's target for a light sample: the
@@ -573,7 +588,7 @@ float light_target(Surface s, vec3 dir, vec3 light)
 }
 bool light_point(uint e, vec2 uv, Surface s, out LightPoint lp)
 {
-    lp = LightPoint(vec3(0.0), 0.0, vec3(0.0, 1.0, 0.0), 0.0, 0.0);
+    lp = LightPoint(vec3(0.0), 0.0, vec3(0.0, 1.0, 0.0), 0.0, 0.0, vec3(0.0));
     if (e >= pass.counts.x) {
         return false;
     }
@@ -615,7 +630,8 @@ bool light_point(uint e, vec2 uv, Surface s, out LightPoint lp)
         if (!hit_emission_of(listed.x, listed.y, instance_material(listed.x), bc.yz, tri, emitted)) { // (round PERF2: its corners read once)
             return false;
         }
-        lp.light = max(emitted, vec3(0.0)) * g;
+        lp.emitted = max(emitted, vec3(0.0));
+        lp.light = lp.emitted * g;
         lp.target = light_target(s, dir, lp.light);
         lp.dir = dir;
         lp.reach = max(d * 0.999 - ray_offset(y), 0.0);
@@ -643,6 +659,52 @@ bool light_point(uint e, vec2 uv, Surface s, out LightPoint lp)
         return lp.target > 0.0;
     }
     return false;
+}
+// (round BUDGET) The same light point from the entry's prepared record (PASS_BOUNDS, once a frame - RTXDI's "prepare
+// lights": its corners in the world) and the emission at the point as it was found (`emitted`: a presampled point's, or
+// what a reservoir kept of its sample): no corners, transform, store or texel read. The point, direction, reach,
+// geometry term and pdf are light_point's exactly. Every resampling target (the candidates, the temporal and spatial
+// reuse) is evaluated with it; the chosen sample's light is light_point's own where it is shaded (PASS_SPATIAL), once a
+// pixel. A lamp's is light_point's (no texel).
+bool light_point_at(uint e, vec2 uv, vec3 emitted, Surface s, out LightPoint lp)
+{
+    lp = LightPoint(vec3(0.0), 0.0, vec3(0.0, 1.0, 0.0), 0.0, 0.0, vec3(0.0));
+    if (e >= pass.counts.x) {
+        return false;
+    }
+    LightEntry entry = light_entries[e];
+    if (light_kind(entry.payload) != LIGHT_TRIANGLE) {
+        return light_point(e, uv, s, lp);
+    }
+    vec3 a = bounds[RECORD_STRIDE * e + 2u].xyz;
+    vec3 b = bounds[RECORD_STRIDE * e + 3u].xyz;
+    vec3 c = bounds[RECORD_STRIDE * e + 4u].xyz;
+    vec3 across = cross(b - a, c - a);
+    float twice = length(across);
+    if (!(twice > 0.0)) {
+        return false;
+    }
+    vec3 bc = path_triangle_point(uv.x, uv.y);
+    vec3 y = a * bc.x + b * bc.y + c * bc.z;
+    vec3 to = y - s.at;
+    float d2 = dot(to, to);
+    float d = sqrt(d2);
+    if (!(d > 0.0)) {
+        return false;
+    }
+    vec3 dir = to / d;
+    float cos_here = dot(s.n, dir);
+    float cos_there = abs(dot(across / twice, dir));
+    if (!(cos_here > 0.0) || dot(s.ng, dir) <= 0.0 || !(cos_there > 0.0)) {
+        return false;
+    }
+    lp.emitted = max(emitted, vec3(0.0));
+    lp.light = lp.emitted * (cos_here * cos_there / (PATH_PI * d2));
+    lp.target = light_target(s, dir, lp.light);
+    lp.dir = dir;
+    lp.reach = max(d * 0.999 - ray_offset(y), 0.0);
+    lp.pdf = entry.pdf / (0.5 * twice);
+    return lp.target > 0.0;
 }
 
 // What of the light gets from it to the surface (the one light ray - vulkan_rt_scene.h ray_light).
@@ -683,35 +745,26 @@ struct Reservoir {
     vec2 uv;
     float W;
     float M;
+    vec3 light; // (round BUDGET) the emission at its point as it was found (light_point_at)
 };
-Reservoir reservoir_of(uvec4 v) { return Reservoir(v.x, unpackUnorm2x16(v.y), uintBitsToFloat(v.z), uintBitsToFloat(v.w)); }
+// (round BUDGET: two words a pixel - the second the emission)
+Reservoir reservoir_of(uvec4 v, uvec4 more)
+{
+    return Reservoir(v.x, unpackUnorm2x16(v.y), uintBitsToFloat(v.z), uintBitsToFloat(v.w), uintBitsToFloat(more.xyz));
+}
 uvec4 words_of(Reservoir r) { return uvec4(r.entry, packUnorm2x16(r.uv), floatBitsToUint(r.W), floatBitsToUint(r.M)); }
+uvec4 more_words_of(Reservoir r) { return uvec4(floatBitsToUint(r.light), 0u); }
+Reservoir no_reservoir(float m) { return Reservoir(0u, vec2(0.0), 0.0, m, vec3(0.0)); }
 // (a point's numbers as the reservoir keeps them: what it is drawn with is what it is found again with)
 vec2 kept_uv(vec2 uv) { return round(clamp(uv, 0.0, 1.0) * 65535.0) / 65535.0; }
 float good(float x) { return isnan(x) || isinf(x) ? 0.0 : x; }
 
-// (round PERF6) The initial candidates and the temporal reuse in two passes, wavefront style (as ReSTIR GI's samples,
-// round PERF5): PASS_CANDIDATES resamples the candidates (light points alone, no ray) and keeps the pick - its entry and
-// point, the weights' sum, its target, the pixel's random state after them (`picks`, 2 words a pixel); PASS_TEMPORAL
-// traces the pick's ray, takes last frame's reservoir and traces the reuse's ray. The same samples, numbers and random
-// sequence as the one pass's: the pick's light point is evaluated again where its ray is traced (the same function of the
-// same entry, point and surface).
-layout(std430, set = 0, binding = 24) buffer Picks { uvec4 picks[]; };
-
-#ifdef PASS_CANDIDATES
-void main()
+#ifdef PASS_TEMPORAL
+// (round BUDGET) The pixel's initial candidates (round PERF6's PASS_CANDIDATES, now in the temporal pass again - neither
+// traces a ray: the picks no longer go through memory): `kept` the pick's entry + 1, point, the weights' sum and its
+// target, `rng` the pixel's random state after them, `kept_light` the pick's emission.
+void initial_candidates(ivec2 local, Surface s, out uvec4 kept, out uint rng_after, out vec3 kept_light)
 {
-    ivec2 local = ivec2(gl_GlobalInvocationID.xy);
-    if (any(greaterThanEqual(local, pass.rect.zw))) {
-        return;
-    }
-    uint i = uint(local.y * pass.rect.z + local.x);
-    Surface s = primary_found(local); // (PASS_PRIMARY's)
-    if (!s.valid) {
-        picks[2u * i] = uvec4(0u);
-        picks[2u * i + 1u] = uvec4(0u);
-        return;
-    }
     uint rng = path_sequence_start(uint(local.x), uint(local.y), pass.counts.z, pass.params.w);
     // 1. the initial candidates, resampled toward the target - (round PT4c) from the pixel's cell of the light grid (its
     // point moved by up to half a cell first: no cell edges in the picture), each slot a light with its unbiased
@@ -721,6 +774,7 @@ void main()
     uint candidates = pass.params.x;
     uint picked = 0u;
     vec2 picked_uv = vec2(0.0);
+    vec3 picked_light = vec3(0.0);
     float wsum = 0.0;
     float chosen = 0.0;
     for (uint k = 0u; k < candidates; ++k) {
@@ -743,8 +797,16 @@ void main()
                 evaluate = true;
             }
         }
+        // (round BUDGET) a triangle's point one of its presampled ones (PASS_BOUNDS: each drawn uniformly on it, as the
+        // point here was - the same pdf), its emission found there once for every pixel
+        vec3 emitted = vec3(0.0);
+        if (evaluate && e < count && light_kind(light_entries[e].payload) == LIGHT_TRIANGLE) {
+            vec4 point = bounds[RECORD_STRIDE * e + 5u + min(uint(uv.x * float(PRESAMPLED)), PRESAMPLED - 1u)];
+            uv = unpackUnorm2x16(floatBitsToUint(point.x));
+            emitted = point.yzw;
+        }
         LightPoint lp;
-        bool got = evaluate && light_point(e, uv, s, lp);
+        bool got = evaluate && light_point_at(e, uv, emitted, s, lp);
         g_candidates += got ? 1u : 0u;
         if (got && lp.pdf > 0.0) {
             float w = good(lp.target / lp.pdf * slot_weight);
@@ -752,23 +814,18 @@ void main()
             if (w > 0.0 && pick * wsum < w) {
                 picked = e + 1u;
                 picked_uv = uv;
+                picked_light = lp.emitted;
                 chosen = lp.target;
             }
         }
     }
-    picks[2u * i] = uvec4(picked, packUnorm2x16(picked_uv), floatBitsToUint(wsum), floatBitsToUint(chosen));
-    picks[2u * i + 1u] = uvec4(rng, 0u, 0u, 0u);
-    if ((pass.counts.w & FLAG_COUNT) != 0u) {
-        count_one(DI_COUNT_PIXELS, 1u);
-        count_one(DI_COUNT_OUTSIDE, g_miss_outside);
-        count_one(DI_COUNT_UNMADE, g_miss_unmade);
-        count_one(DI_COUNT_CANDIDATES, g_candidates);
-    }
+    kept = uvec4(picked, packUnorm2x16(picked_uv), floatBitsToUint(wsum), floatBitsToUint(chosen));
+    rng_after = rng;
+    kept_light = picked_light;
+    g_pixel = 1u;
 }
-#endif
 
-#ifdef PASS_TEMPORAL
-// The pixel's reservoir after the initial candidates (PASS_CANDIDATES' pick) and the temporal reuse; `weight` its sample's
+// The pixel's reservoir after the initial candidates (initial_candidates' pick) and the temporal reuse; `weight` its sample's
 // contribution (target x W - what the boiling filter compares).
 Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
 {
@@ -776,134 +833,71 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
     Surface s = primary_found(local); // (round PERF6: PASS_PRIMARY's)
     float cap = float(pass.params.z);
     if (!s.valid) {
-        return Reservoir(0u, vec2(0.0), 0.0, 0.0);
+        return no_reservoir(0.0);
     }
-    uvec4 kept = picks[2u * i];
-    uint rng = picks[2u * i + 1u].x;
+    uvec4 kept;
+    uint rng;
+    vec3 kept_light;
+    initial_candidates(local, s, kept, rng, kept_light);
     uint candidates = pass.params.x;
-    Reservoir r = Reservoir(kept.x, unpackUnorm2x16(kept.y), 0.0, float(candidates));
+    Reservoir r = Reservoir(kept.x, unpackUnorm2x16(kept.y), 0.0, float(candidates), kept_light);
     float wsum = uintBitsToFloat(kept.z);
     float chosen = uintBitsToFloat(kept.w);
-    float kept_target = 0.0;
+    r.W = r.entry > 0u && chosen > 0.0 ? good(wsum / (r.M * chosen)) : 0.0;
+    float kept_target = chosen;
+    // (round BUDGET) No light ray in this pass: RTXDI's temporal resampling with its basic bias correction - the
+    // initial candidates unshadowed (their pick's visibility is the shading's one ray, PASS_SPATIAL, which also drops a
+    // sample its surface doesn't see from the reservoir it keeps - the history read here), the history's sample weighed
+    // by its target here, Z by the targets alone. Every target from the prepared records (light_point_at).
     // 2. the reservoir this point had last frame - (round PT4d) a neighbour's in its 4 x 4 block by the frame's permutation
     bool has_then = false;
-    Surface then = s;
-    Reservoir h = Reservoir(0u, vec2(0.0), 0.0, 0.0);
-    float total = 0.0;
-    float w_h = 0.0;
-    float t_h = 0.0;
-    bool take_h = false;
-    // the light ray's surface and sample (the initial sample's; then the reuse's - from here or from last frame's surface)
-    bool from_then = false;
-    bool traced = false;
-    LightPoint toward = LightPoint(vec3(0.0), 0.0, vec3(0.0, 1.0, 0.0), 0.0, 0.0);
-    // (round PERF4) One loop of steps, each with at most one light point and one light ray: the pick's ray (0: its light
-    // point again, then its ray), the history's target here (1), last frame's surface's target and the reuse's ray (2) -
-    // one inlined light_point and one light ray in the shader.
-    for (uint k = 0u; k < 3u; ++k) {
-        // a. the light point this step evaluates
-        bool evaluate = false;
-        uint e = 0u;
-        vec2 uv = vec2(0.0);
-        if (k == 0u) {
-            evaluate = r.entry > 0u && chosen > 0.0;
-            e = r.entry - 1u;
-            uv = r.uv;
-        } else if (k == 1u && (pass.counts.w & FLAG_TEMPORAL) != 0u) {
-            vec4 q = pass.prev_to_pixel * vec4(s.at, 1.0);
-            if (q.w > 0.0) {
-                ivec2 before = ivec2(floor(q.xy / q.w)) - pass.rect.xy;
-                if ((pass.counts.w & FLAG_PERMUTE) != 0u) {
-                    before = restir_permuted(before, pass.counts.z);
-                }
-                if (all(greaterThanEqual(before, ivec2(0))) && all(lessThan(before, pass.rect.zw))) {
-                    uint j = uint(before.y * pass.rect.z + before.x);
-                    then = surface_of(before_at[j], before_more[j]);
-                    has_then = alike(s, then);
-                    if (has_then) {
-                        h = reservoir_of(res_b[j]);
-                        h.M = min(h.M, cap);
-                        evaluate = h.entry > 0u && h.W > 0.0;
-                        e = h.entry - 1u;
-                        uv = h.uv;
+    if ((pass.counts.w & FLAG_TEMPORAL) != 0u) {
+        vec4 q = pass.prev_to_pixel * vec4(s.at, 1.0);
+        if (q.w > 0.0) {
+            ivec2 before = ivec2(floor(q.xy / q.w)) - pass.rect.xy;
+            if ((pass.counts.w & FLAG_PERMUTE) != 0u) {
+                before = restir_permuted(before, pass.counts.z);
+            }
+            if (all(greaterThanEqual(before, ivec2(0))) && all(lessThan(before, pass.rect.zw))) {
+                uint j = uint(before.y * pass.rect.z + before.x);
+                Surface then = surface_of(before_at[j], before_more[j]);
+                has_then = alike(s, then);
+                if (has_then) {
+                    Reservoir h = reservoir_of(res_b[2u * j], res_b[2u * j + 1u]);
+                    h.M = min(h.M, cap);
+                    LightPoint lp;
+                    float t_h = h.entry > 0u && h.W > 0.0 && light_point_at(h.entry - 1u, h.uv, h.light, s, lp) ? lp.target : 0.0;
+                    float w_r = chosen * r.W * r.M;
+                    float w_h = good(t_h * h.W * h.M);
+                    float total = w_r + w_h;
+                    Reservoir out_r = no_reservoir(r.M + h.M);
+                    if (total > 0.0) {
+                        float z = 0.0;
+                        float target = 0.0;
+                        if (path_next(rng) * total < w_h) {
+                            // last frame's sample: this pixel's candidates could have made it (its target here is over 0)
+                            out_r.entry = h.entry;
+                            out_r.uv = h.uv;
+                            out_r.light = h.light;
+                            target = t_h;
+                            z = h.M + r.M;
+                        } else {
+                            // this frame's: last frame's surface could have made it where its target there is over 0
+                            out_r.entry = r.entry;
+                            out_r.uv = r.uv;
+                            out_r.light = r.light;
+                            target = chosen;
+                            z = r.M;
+                            if (light_point_at(r.entry - 1u, r.uv, r.light, then, lp)) {
+                                z += h.M;
+                            }
+                        }
+                        out_r.W = z > 0.0 && target > 0.0 ? good(total / (z * target)) : 0.0;
+                        kept_target = target;
                     }
+                    r = out_r;
                 }
             }
-        } else if (k == 2u && has_then && total > 0.0 && !take_h) {
-            // could last frame's reservoir have made it: its surface's target and a ray from there
-            evaluate = true;
-            e = r.entry - 1u;
-            uv = r.uv;
-            from_then = true;
-        }
-        LightPoint lp;
-        bool got = evaluate && light_point(e, uv, from_then ? then : s, lp);
-
-        // b. what it decides
-        if (k == 0u) {
-            r.W = chosen > 0.0 ? good(wsum / (r.M * chosen)) : 0.0;
-            traced = r.W > 0.0; // (visibility reuse: a light the surface doesn't see is dropped - its W 0, its M kept)
-            if (got) {
-                toward = lp;
-            }
-            kept_target = chosen;
-        } else if (k == 1u) {
-            traced = false;
-            if (has_then) {
-                t_h = got ? lp.target : 0.0;
-                float w_r = chosen * r.W * r.M;
-                w_h = good(t_h * h.W * h.M);
-                total = w_r + w_h;
-                if (total > 0.0) {
-                    // (round PERF3) the one ray either choice traces, then what it decides
-                    take_h = path_next(rng) * total < w_h;
-                    toward = lp;
-                    traced = take_h;
-                }
-            }
-        } else if (from_then) {
-            toward = lp;
-            traced = got;
-        } else if (!take_h) {
-            traced = false;
-        }
-
-        // c. the one light ray: the initial sample's (step 0), the reuse's (the last step)
-        bool ray_step = k == 0u || k == 2u;
-        bool visible = ray_step && traced && seen_at_all(seen(from_then ? then : s, toward));
-        if (ray_step && traced) {
-            count_ray(toward.reach);
-        }
-        if (k == 0u) {
-            if (r.W > 0.0 && !visible) {
-                r.W = 0.0;
-            }
-        } else if (k == 2u && has_then) {
-            Reservoir out_r = Reservoir(0u, vec2(0.0), 0.0, r.M + h.M);
-            if (total > 0.0) {
-                float z = 0.0;
-                float target = 0.0;
-                if (take_h) {
-                    // its light, seen from here: then this pixel's candidates could have made it too
-                    if (visible) {
-                        out_r.entry = h.entry;
-                        out_r.uv = h.uv;
-                        target = t_h;
-                        z = h.M + r.M;
-                    }
-                } else {
-                    out_r.entry = r.entry;
-                    out_r.uv = r.uv;
-                    target = chosen;
-                    z = r.M;
-                    if (visible) {
-                        z += h.M;
-                    }
-                }
-                out_r.W = z > 0.0 && target > 0.0 ? good(total / (z * target)) : 0.0;
-                kept_target = target;
-            }
-            r = out_r;
         }
     }
     g_history = has_then ? 1u : 0u;
@@ -916,23 +910,26 @@ void main()
     bool inside = all(lessThan(local, pass.rect.zw));
     uint i = uint(local.y * pass.rect.z + local.x);
     float weight = 0.0;
-    Reservoir r = Reservoir(0u, vec2(0.0), 0.0, 0.0);
+    Reservoir r = no_reservoir(0.0);
     if (inside) {
         r = temporal_reservoir(local, i, weight);
     }
     if ((pass.counts.w & FLAG_COUNT) != 0u) { // (round PERF6)
-        count_one(DI_COUNT_TEMPORAL_RAYS, g_rays);
-        count_one(DI_COUNT_LONG_RAYS, g_long_rays);
+        count_one(DI_COUNT_PIXELS, g_pixel); // (round BUDGET: the candidates' counts - their pass is this one)
+        count_one(DI_COUNT_OUTSIDE, g_miss_outside);
+        count_one(DI_COUNT_UNMADE, g_miss_unmade);
+        count_one(DI_COUNT_CANDIDATES, g_candidates);
         count_one(DI_COUNT_HISTORY, g_history);
         count_one(DI_COUNT_THROUGH_CANDIDATES, g_ray_candidates[1]);
         count_one(DI_COUNT_BLOCKED_CANDIDATES, g_ray_candidates[2]);
     }
     // (round PT4d) the boiling filter - every invocation of the group takes part (no early return above)
     if ((pass.counts.w & FLAG_BOILING) != 0u && restir_boiling(weight)) {
-        r = Reservoir(0u, vec2(0.0), 0.0, 0.0);
+        r = no_reservoir(0.0);
     }
     if (inside) {
-        res_a[i] = words_of(r);
+        res_a[2u * i] = words_of(r);
+        res_a[2u * i + 1u] = more_words_of(r);
     }
 }
 #endif
@@ -964,7 +961,8 @@ void main()
     Surface s = surface_of(now_at[i], now_more[i]);
     float cap = float(pass.params.z);
     if (!s.valid) {
-        res_b[i] = uvec4(0u, 0u, 0u, floatBitsToUint(0.0));
+        res_b[2u * i] = uvec4(0u, 0u, 0u, floatBitsToUint(0.0));
+        res_b[2u * i + 1u] = uvec4(0u);
         put_result(p, i, vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0));
         return;
     }
@@ -973,7 +971,7 @@ void main()
     Reservoir taken[MOST_SPATIAL + 1u];
     Surface where[MOST_SPATIAL + 1u];
     uint n = 1u;
-    taken[0] = reservoir_of(res_a[i]);
+    taken[0] = reservoir_of(res_a[2u * i], res_a[2u * i + 1u]);
     where[0] = s;
     if ((pass.counts.w & FLAG_SPATIAL) != 0u) {
         for (uint k = 0u; k < min(pass.params.y, MOST_SPATIAL); ++k) {
@@ -988,7 +986,7 @@ void main()
             if (!alike(s, other)) {
                 continue;
             }
-            taken[n] = reservoir_of(res_a[j]);
+            taken[n] = reservoir_of(res_a[2u * j], res_a[2u * j + 1u]);
             taken[n].M = min(taken[n].M, cap);
             where[n] = other;
             ++n;
@@ -1003,7 +1001,7 @@ void main()
     for (uint k = 0u; k < n; ++k) {
         m_sum += taken[k].M;
         LightPoint lp;
-        if (taken[k].entry == 0u || !(taken[k].W > 0.0) || !light_point(taken[k].entry - 1u, taken[k].uv, s, lp)) {
+        if (taken[k].entry == 0u || !(taken[k].W > 0.0) || !light_point_at(taken[k].entry - 1u, taken[k].uv, taken[k].light, s, lp)) {
             continue;
         }
         float w = good(lp.target * taken[k].W * taken[k].M);
@@ -1014,46 +1012,32 @@ void main()
             chosen_point = lp;
         }
     }
-    Reservoir r = Reservoir(0u, vec2(0.0), 0.0, min(m_sum, cap));
+    Reservoir r = no_reservoir(min(m_sum, cap));
     vec3 lamps = vec3(0.0);
     vec3 specular = vec3(0.0);
     vec3 full = vec3(0.0);
     if (chosen != 0xFFFFFFFFu) {
-        // The chosen light seen from here (step 0), then Z: the samples of every reservoir that could have made this light -
-        // its own surface's target and a ray. (Round PERF3: one loop, one inlined light ray for both.)
-        vec3 through = vec3(0.0);
+        // (round BUDGET) Z by the targets alone (RTXDI's basic bias correction): the samples of every reservoir whose
+        // surface has the chosen light's target over 0 there (its prepared record) - no ray a neighbour. Then the one
+        // light ray of the pixel: the chosen sample seen from here; a sample this surface doesn't see is dropped from the
+        // reservoir it keeps (its W 0, its M kept - RTXDI's visibility reuse: the next frame's history holds what is seen).
         float z = 0.0;
-        for (uint step = 0u; step <= n; ++step) {
-            uint k = step - 1u;
-            Surface from = s;
-            LightPoint toward = chosen_point;
-            if (step > 0u) {
-                if (k == chosen || k == 0u) {
-                    z += taken[k].M; // (its own: it was seen there; this pixel's: seen just now)
-                    continue;
-                }
-                if (!light_point(taken[chosen].entry - 1u, taken[chosen].uv, where[k], toward)) {
-                    continue;
-                }
-                from = where[k];
-            }
-            vec3 light_through = seen(from, toward);
-            count_ray(toward.reach);
-            if (step == 0u) {
-                through = light_through;
-                if (!seen_at_all(through)) {
-                    break;
-                }
-            } else if (seen_at_all(light_through)) {
+        for (uint k = 0u; k < n; ++k) {
+            LightPoint toward;
+            if (k == chosen || k == 0u || light_point_at(taken[chosen].entry - 1u, taken[chosen].uv, taken[chosen].light, where[k], toward)) {
                 z += taken[k].M;
             }
         }
+        LightPoint exact;
+        bool shown = light_point(taken[chosen].entry - 1u, taken[chosen].uv, s, exact); // (its own light: the texel's)
+        vec3 through = shown ? seen(s, chosen_point) : vec3(0.0);
+        count_ray(chosen_point.reach);
         if (seen_at_all(through)) {
             r.entry = taken[chosen].entry;
             r.uv = taken[chosen].uv;
+            r.light = exact.emitted; // (its emission now: a lamp switched off is dropped by its target)
             r.W = z > 0.0 && target > 0.0 ? good(total / (z * target)) : 0.0;
             if (r.W > 0.0) {
-                LightPoint exact = chosen_point;
                 lamps = exact.light * through * r.W;
                 // (round BR) the light's specular reflection: the same sample through the material's specular lobe, over
                 // its specular albedo E (the shading puts its own E back - ReSTIR GI's convention). The lights' specular
@@ -1082,7 +1066,8 @@ void main()
         full = vec3(0.0);
         r.W = 0.0;
     }
-    res_b[i] = words_of(r);
+    res_b[2u * i] = words_of(r);
+    res_b[2u * i + 1u] = more_words_of(r);
     if ((pass.counts.w & FLAG_COUNT) != 0u) { // (round PERF6)
         count_one(DI_COUNT_SPATIAL_RAYS, g_rays);
         count_one(DI_COUNT_LONG_RAYS, g_long_rays);
@@ -1125,6 +1110,7 @@ void main()
     uint index = light_index(entry.payload);
     vec4 place = vec4(0.0);
     vec4 numbers = vec4(0.0);
+    vec4 record[3] = vec4[3](vec4(0.0), vec4(0.0), vec4(0.0));
     if (kind == LIGHT_TRIANGLE) {
         uvec4 listed = emitter_entries[index];
         HitVertices tri;
@@ -1139,6 +1125,24 @@ void main()
             if (area > 0.0 && flux > 0.0) {
                 place = vec4(centre, sqrt(max(dot(a - centre, a - centre), max(dot(b - centre, b - centre), dot(c - centre, c - centre)))));
                 numbers = vec4(flux / (2.0 * PATH_PI), flux / (2.0 * area), 0.0, 1.0);
+                // (round BUDGET) the record light_point_at reads: the corners in the world - and the frame's presampled
+                // points on it, each drawn uniformly (as a candidate's point was) and its emission found there (hit_surface's
+                // `emitted`, light_point's): every pixel's candidates on the triangle take one of them
+                record[0] = vec4(a, 0.0);
+                record[1] = vec4(b, 0.0);
+                record[2] = vec4(c, 0.0);
+                // (seeded by the triangle itself, not its place in the list: the scan lists them in any order)
+                uint rng = path_sequence_start(listed.x, listed.y, pass.counts.z, pass.params.w ^ 0x51ED270Bu);
+                uint material_id = instance_material(listed.x);
+                for (uint k = 0u; k < PRESAMPLED; ++k) {
+                    vec2 uv = round(clamp(vec2(path_next(rng), path_next(rng)), 0.0, 1.0) * 65535.0) / 65535.0;
+                    vec3 bc = path_triangle_point(uv.x, uv.y);
+                    vec3 emitted;
+                    if (!hit_emission_of(listed.x, listed.y, material_id, bc.yz, tri, emitted)) {
+                        emitted = vec3(0.0);
+                    }
+                    bounds[RECORD_STRIDE * e + 5u + k] = vec4(uintBitsToFloat(packUnorm2x16(uv)), max(emitted, vec3(0.0)));
+                }
             }
         }
     } else if (kind == LIGHT_LAMP) {
@@ -1148,8 +1152,11 @@ void main()
         place = vec4(light.at.xyz, line ? light.shape.w : 0.0);
         numbers = vec4(path_luma(max(light.colour.rgb, vec3(0.0))), light.more.y, light.colour.w, line ? 3.0 : 2.0);
     }
-    bounds[2u * e] = place;
-    bounds[2u * e + 1u] = numbers;
+    bounds[RECORD_STRIDE * e] = place;
+    bounds[RECORD_STRIDE * e + 1u] = numbers;
+    bounds[RECORD_STRIDE * e + 2u] = record[0];
+    bounds[RECORD_STRIDE * e + 3u] = record[1];
+    bounds[RECORD_STRIDE * e + 4u] = record[2];
 }
 #endif
 
@@ -1160,8 +1167,8 @@ const uint FLAG_COUNT = 128u;
 // the most light entry `e` can bring to a point of the box [low, high]
 float cell_bound(uint e, vec3 low, vec3 high)
 {
-    vec4 place = bounds[2u * e];
-    vec4 numbers = bounds[2u * e + 1u];
+    vec4 place = bounds[RECORD_STRIDE * e];
+    vec4 numbers = bounds[RECORD_STRIDE * e + 1u];
     uint kind = uint(numbers.w + 0.5);
     if (kind == 0u) {
         return 0.0;
@@ -1282,7 +1289,7 @@ void main()
 }
 )";
 
-enum class Shader : uint8_t { kScan, kPrimary, kCandidates, kTemporal, kSpatial, kBounds, kCells, kPool };
+enum class Shader : uint8_t { kScan, kPrimary, kTemporal, kSpatial, kBounds, kCells, kPool };
 
 std::string shader_source(Shader which, bool check)
 {
@@ -1290,6 +1297,7 @@ std::string shader_source(Shader which, bool check)
     // (round PERF6) the frame's counts (kCountNames)
     source += "#extension GL_KHR_shader_subgroup_basic : require\n#extension GL_KHR_shader_subgroup_arithmetic : require\n";
     source += "#define DI_COUNTS " + std::to_string(kDiCounts) + "u\n";
+    source += "#define PRESAMPLED_POINTS " + std::to_string(kPresampled) + "u\n"; // (round BUDGET)
     for (std::size_t k = 0; k < kCountNames.size(); ++k) {
         source += "#define DI_COUNT_" + std::string(core::at(kCountNames, k).define) + " " + std::to_string(k) + "u\n";
     }
@@ -1300,7 +1308,6 @@ std::string shader_source(Shader which, bool check)
     }
     switch (which) {
     case Shader::kPrimary: source += "#define PASS_PRIMARY\n"; break; // (round PERF6)
-    case Shader::kCandidates: source += "#define PASS_CANDIDATES\n"; break;
     case Shader::kTemporal: source += "#define PASS_TEMPORAL\n"; break;
     case Shader::kSpatial: source += "#define PASS_SPATIAL\n"; break;
     case Shader::kBounds: source += "#define PASS_BOUNDS\n"; break;
@@ -1493,7 +1500,6 @@ struct RestirState {
     VkDescriptorSetLayout material_layout = VK_NULL_HANDLE;
     VkPipeline scan = VK_NULL_HANDLE;
     std::array<VkPipeline, 2> primary{};  // (round PERF6) the game's, the check's
-    std::array<VkPipeline, 2> candidates_pass{};
     std::array<VkPipeline, 2> temporal{}; // the game's, the check's
     std::array<VkPipeline, 2> spatial{};
     VkPipeline bounds_pass = VK_NULL_HANDLE; // (round PT4c) the light grid's
@@ -1546,7 +1552,6 @@ struct RestirState {
     std::array<DeviceBuffer, 2> more{};
     DeviceBuffer sums;
     DeviceBuffer counters;
-    DeviceBuffer picks; // (round PERF6) PASS_CANDIDATES' picks, 2 x 16 bytes a pixel
     DeviceBuffer shared; // (round OM) the view's primary surface for ReSTIR GI (kSharedSurfaceBytes a pixel)
     SharedPrimary shared_view;
     uint64_t frames = 0;
@@ -1718,13 +1723,6 @@ bool ensure_pipelines(Backend& state, bool check, std::string* error)
     if (core::at(own.primary, variant) == VK_NULL_HANDLE) {
         core::at(own.primary, variant) = make_compute(device, own.layout, shader_source(Shader::kPrimary, check), error);
         if (core::at(own.primary, variant) == VK_NULL_HANDLE) {
-            return false;
-        }
-    }
-    if (core::at(own.candidates_pass, variant) == VK_NULL_HANDLE) {
-        core::at(own.candidates_pass, variant) =
-            make_compute(device, own.layout, shader_source(Shader::kCandidates, check), error);
-        if (core::at(own.candidates_pass, variant) == VK_NULL_HANDLE) {
             return false;
         }
     }
@@ -2485,12 +2483,12 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         own.height = height;
         own.restart = true;
     }
-    bool made = ensure_buffer(state, &own.reservoirs_a, pixels * 16, storage, BufferPlace::kDevice) &&
-                ensure_buffer(state, &own.reservoirs_b, pixels * 16, storage, BufferPlace::kDevice) &&
+    // (round BUDGET: a reservoir two words - the second its sample's emission)
+    bool made = ensure_buffer(state, &own.reservoirs_a, pixels * 32, storage, BufferPlace::kDevice) &&
+                ensure_buffer(state, &own.reservoirs_b, pixels * 32, storage, BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.counters, kCountersBytes, storage, BufferPlace::kDevice) &&
-                ensure_buffer(state, &own.picks, pixels * 32, storage, BufferPlace::kDevice) &&
                 (!check || ensure_buffer(state, &own.sums, pixels * 2 * 16, storage, BufferPlace::kDevice)) &&
-                ensure_buffer(state, &own.bounds, std::max<VkDeviceSize>(own.entries, 1) * 2 * 16, storage,
+                ensure_buffer(state, &own.bounds, std::max<VkDeviceSize>(own.entries, 1) * kRecordStride * 16, storage,
                               BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.cells,
                               static_cast<VkDeviceSize>(kGridAcross) * kGridUp * kGridAcross * kGridSlots * 2 * sizeof(uint32_t),
@@ -2634,7 +2632,7 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         return VkDescriptorBufferInfo{.buffer = buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     };
     const DeviceBuffer& list = core::at(own.emitters, static_cast<std::size_t>(std::max(own.list_now, 0)));
-    const std::array<VkDescriptorBufferInfo, 17> buffers{
+    const std::array<VkDescriptorBufferInfo, 16> buffers{
         VkDescriptorBufferInfo{.buffer = scene.geometry, .offset = 0, .range = scene.geometry_bytes},
         VkDescriptorBufferInfo{.buffer = block_span->buffer, .offset = block_span->offset, .range = sizeof(RestirBlock)},
         whole(own.lights),
@@ -2650,14 +2648,13 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         whole(own.counters),
         whole(own.bounds),
         whole(own.cells),
-        whole(own.grid_picks),
-        whole(own.picks)};
-    constexpr std::array<uint32_t, 17> kBufferBindings{kBindingGeometry,    kBindingBlock,      kBindingLights,
+        whole(own.grid_picks)};
+    constexpr std::array<uint32_t, 16> kBufferBindings{kBindingGeometry,    kBindingBlock,      kBindingLights,
                                                        kBindingEmitters,    kBindingLamps,      kBindingReservoirsA,
                                                        kBindingReservoirsB, kBindingNowAt,      kBindingNowMore,
                                                        kBindingBeforeAt,    kBindingBeforeMore, kBindingSums,
                                                        kBindingCounters,    kBindingBounds,     kBindingCells,
-                                                       kBindingGridPicks,   kBindingPicks};
+                                                       kBindingGridPicks};
     std::array<VkDescriptorImageInfo, 4> images{};
     if (inputs != nullptr) {
         images = {VkDescriptorImageInfo{.sampler = VK_NULL_HANDLE, .imageView = inputs->depth->view,
@@ -2703,13 +2700,17 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     const std::size_t variant = check ? 1U : 0U;
     const uint32_t groups_x = (width + kGroupSide - 1) / kGroupSide;
     const uint32_t groups_y = (height + kGroupSide - 1) / kGroupSide;
-    if (grid) {
+    if (own.entries > 0) {
         const FrameStep step(state.frames, commands, gpu_markers::section::kDiGrid); // (round PF)
-        // (round PT4c) the light grid: the entries' bounds, then every cell's slots
+        // (round PT4c) the light grid: the entries' bounds - (round BUDGET) and their prepared records, which every pass
+        // reads, grid or not -, then every cell's slots
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.bounds_pass);
         vkCmdDispatch(commands, (own.entries + kScanGroup - 1) / kScanGroup, 1, 1);
         barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    }
+    if (grid) {
+        const FrameStep step(state.frames, commands, gpu_markers::section::kDiGrid);
         constexpr uint32_t kSlots = kGridAcross * kGridUp * kGridAcross * kGridSlots;
         constexpr uint32_t kSlotGroups = (kSlots + kScanGroup - 1) / kScanGroup;
         const uint32_t slot_groups_x = std::min(kSlotGroups, kMostGroupsX);
@@ -2724,13 +2725,6 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         // (round PERF6) the primary surfaces in their own pass (the camera rays), then the candidates and the reuse
         const FrameStep step(state.frames, commands, gpu_markers::section::kDiPrimary);
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.primary, variant));
-        vkCmdDispatch(commands, groups_x, groups_y, 1);
-        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
-    }
-    {
-        const FrameStep step(state.frames, commands, gpu_markers::section::kDiCandidates);
-        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.candidates_pass, variant));
         vkCmdDispatch(commands, groups_x, groups_y, 1);
         barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
@@ -2808,7 +2802,7 @@ void release_restir_di(Backend& state)
 {
     RestirState& own = restir_state();
     const VkDevice device = state.context.device();
-    for (std::array<VkPipeline, 2>* set : {&own.primary, &own.candidates_pass, &own.temporal, &own.spatial}) {
+    for (std::array<VkPipeline, 2>* set : {&own.primary, &own.temporal, &own.spatial}) {
         for (VkPipeline& pipeline : *set) {
             if (pipeline != VK_NULL_HANDLE) {
                 vkDestroyPipeline(device, pipeline, nullptr);
@@ -2834,7 +2828,7 @@ void release_restir_di(Backend& state)
                                  &core::at(own.slots, 1),
                                  &own.read_back, &own.lights, &own.lamps, &own.reservoirs_a, &own.reservoirs_b,
                                  &core::at(own.at, 0), &core::at(own.at, 1), &core::at(own.more, 0), &core::at(own.more, 1),
-                                 &own.sums, &own.counters, &own.picks, &own.bounds, &own.cells, &own.grid_picks, &own.light_pool, &own.shared, &own.timing.counts}) {
+                                 &own.sums, &own.counters, &own.bounds, &own.cells, &own.grid_picks, &own.light_pool, &own.shared, &own.timing.counts}) {
         state.memory.destroy_buffer(buffer);
     }
     const RestirOverrides overrides = own.overrides;

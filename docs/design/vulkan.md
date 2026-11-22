@@ -6332,6 +6332,30 @@ what the camera sees emit), each mismatch traced to the side that was wrong:
   check's means equal to the last digit). Registers 168 -> 80 / 80 / 128. With frame_profile, the passes count what
   they did each frame (pixels, grid fallbacks, candidates, rays, the candidates the rays meet, history, cells made) and a
   pass far above its usual time is logged with the counts ("restir slow pass").
+- **Round BUDGET: the lighting passes to a fixed budget** (120 fps at 2560 x 1440 DLSS Quality + Ray Reconstruction on
+  an RTX 5070 Ti). Approved compromises, each the practice of shipping real-time path tracers:
+  - ReSTIR DI, RTXDI's shape: PASS_BOUNDS prepares each listed triangle once a frame - its corners in the world and 16
+    points drawn uniformly on it with their emission found there (RTXDI's "prepare lights" and presampled light
+    samples); a candidate takes one of its triangle's points (the same pdf as a point drawn per pixel) and evaluates the
+    geometry term alone (light_point_at) - no corners, transform, store or texel read per candidate. A reservoir keeps
+    its sample's emission (a second word a pixel) so the reuse's targets need no texel either; the chosen sample is
+    shaded with light_point's own light once a pixel. One light ray a pixel: the shading's (its sample dropped from the
+    kept reservoir where it isn't seen - visibility reuse); the temporal and spatial Z by the targets alone (RTXDI's
+    basic bias correction), one spatial neighbour (RTXDI's default), 16 initial candidates (cheap now; 8 left the
+    check's lamp-in-a-few-texels case over its noise bound with one neighbour). The candidates are in the temporal pass
+    again (neither traces a ray).
+  - ReSTIR GI on a trace grid (kTraceScale): at 2 a cell is a 2 x 2 block, its traced pixel turning over the block
+    (0,0), (1,1), (1,0), (0,1) - half resolution as Metro Exodus Enhanced Edition's ray-traced GI and Embark's kajiya
+    trace it; the samples, continued paths, temporal and spatial reuse and the radiance cache's update paths (a 4 x 4
+    block of cells) per cell, and PASS_UPSAMPLE gives each pixel one of its four nearest cells whose surface is its own
+    (alike, like roughness), drawn by a tent weight, demodulated. **Not used (kTraceScale 1, the passes as before)**:
+    Ray Reconstruction keeps a cell's outlier spread over its block as detail - bright specks over the whole picture
+    (the bank at night: the frame's motion error 3.9 -> 12 of 255; averaging the cells gave 2 x 2 blocks, a weighted pick
+    smaller specks). RR wants each pixel's own sample; the half-resolution route needs its own answer to that first.
+  - The fog: 1 / 2 / 2 samples a froxel a frame at rt_fog_quality 0 / 1 / 2 (were 2 / 4 / 6), the froxels' history 32
+    frames (was 20) - UE's and Frostbite's budget.
+  - Not done this round: the reflections folded into ReSTIR GI's specular path (water, glass and lacquer replace E of
+    the game's environment map - a design of its own).
 - Not changed, measured equal: the light lists (175 lamps, 611 emitting triangles - one scan, one record per lamp),
   ReSTIR DI's estimator (an exact sum over every lamp at each pixel - a diagnostic - equal to ReSTIR's result within
   2 %; no grid, no boiling filter, no reuse: the same means), Ray Reconstruction (its output's mean its input's).

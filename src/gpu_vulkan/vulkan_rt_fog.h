@@ -70,8 +70,9 @@ namespace render::vulkan {
 struct Backend;
 
 // (round FOG) the froxels' history: blended by 1 / its frames up to this (an exponential history of weight 1 - 1 /
-// kFogMaxHistory: 0.95 - Frostbite's and UE's)
-inline constexpr uint32_t kFogMaxHistory = 20; // frames
+// kFogMaxHistory) - (round BUDGET) 32 frames (0.97; was 20 - 0.95): the froxels take a third of the samples they did a
+// frame (gpu_vulkan.h kRtFogQualitySamples), the history holds them longer
+inline constexpr uint32_t kFogMaxHistory = 32; // frames
 // a history that starts again is seeded with this many frames of the froxels' light (vulkan_rt_history.h seed_frames)
 inline constexpr uint32_t kFogSeedFrames = 8;
 inline constexpr uint32_t kFogViewSlots = 4;
