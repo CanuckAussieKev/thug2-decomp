@@ -2665,6 +2665,11 @@ bool cutout_kept(uint instance, uint primitive, uint id, vec2 barycentrics)
                                                      barycentrics, texel));
 }
 
+// (round PERF6) A pass's own count of the candidates its rays meet (0 a camera ray's - trace_drawn -, 1 a seen-through
+// test's, 2 a blocking test's); nothing unless the pass defines it (vulkan_restir_di.cpp's frame counts)
+#ifndef RAY_CANDIDATE_SEEN
+#define RAY_CANDIDATE_SEEN(kind)
+#endif
 bool ray_blocked(uint mask, vec3 origin, vec3 direction, float reach)
 {
     if (mask == 0u || reach <= 0.0) {
@@ -2673,6 +2678,7 @@ bool ray_blocked(uint mask, vec3 origin, vec3 direction, float reach)
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0, direction, reach);
     while (rayQueryProceedEXT(query)) {
+        RAY_CANDIDATE_SEEN(2u);
         if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
             cutout_kept(rayQueryGetIntersectionInstanceIdEXT(query, false),
                         rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
@@ -2829,6 +2835,7 @@ bool trace_drawn(vec3 origin, vec3 dir, float reach, float expected, out uint in
     vec2 blended_bary = vec2(0.0);
     mat4x3 blended_world = mat4x3(1.0);
     while (rayQueryProceedEXT(query)) {
+        RAY_CANDIDATE_SEEN(0u);
         if (rayQueryGetIntersectionTypeEXT(query, false) != gl_RayQueryCandidateIntersectionTriangleEXT) {
             continue;
         }
@@ -2949,6 +2956,7 @@ vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach)
         rayQueryEXT query;
         rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, RAY_SEEN_THROUGH, origin, from, dir, reach);
         while (rayQueryProceedEXT(query)) {
+            RAY_CANDIDATE_SEEN(1u);
             if (rayQueryGetIntersectionTypeEXT(query, false) != gl_RayQueryCandidateIntersectionTriangleEXT) {
                 continue;
             }

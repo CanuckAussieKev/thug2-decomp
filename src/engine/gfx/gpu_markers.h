@@ -33,7 +33,7 @@ inline constexpr uint16_t kUi = 6;            // the UI's draws (Dear ImGui)
 // (round PF) the steps inside the path tracer's passes - the profile's (vulkan_pass_profile.h) and a lost device's
 // report's finer places
 inline constexpr uint16_t kDiGrid = 7;        // ReSTIR DI: the emitters' scan, the light grid's bounds and cells
-inline constexpr uint16_t kDiTemporal = 8;    // ReSTIR DI: the candidates and the temporal reuse
+inline constexpr uint16_t kDiTemporal = 8;    // ReSTIR DI: the temporal reuse (round PERF6: the candidates apart)
 inline constexpr uint16_t kDiSpatial = 9;     // ReSTIR DI: the spatial reuse and the light inputs
 inline constexpr uint16_t kGiCache = 10;      // ReSTIR GI: the radiance cache's update and resolve
 inline constexpr uint16_t kGiTemporal = 11;   // ReSTIR GI: the temporal reuse (round PERF2: the samples are kGiSamples)
@@ -46,7 +46,9 @@ inline constexpr uint16_t kFogComposite = 17; // the fog: the composite over the
 inline constexpr uint16_t kLightPool = 18;    // the light list's presampled pool (vulkan_light_list.h kLightPoolSize)
 inline constexpr uint16_t kGiSamples = 19;    // (round PERF2) ReSTIR GI: each pixel's secondary path (its new samples)
 inline constexpr uint16_t kGiContinued = 20;  // (round PERF5) ReSTIR GI: the secondary paths continued past a cache miss
-inline constexpr uint16_t kCount = 21;
+inline constexpr uint16_t kDiPrimary = 21;   // (round PERF6) ReSTIR DI: the pixels' primary surfaces (the camera rays)
+inline constexpr uint16_t kDiCandidates = 22; // (round PERF6) ReSTIR DI: the initial candidates (kDiTemporal: the reuse)
+inline constexpr uint16_t kCount = 23;
 } // namespace section
 
 struct Mark {

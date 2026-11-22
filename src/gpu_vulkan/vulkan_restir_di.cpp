@@ -40,6 +40,7 @@
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_upscale.h"
+#include "platform/frame_profile.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -76,7 +77,8 @@ constexpr uint32_t kBindingCells = 20;
 constexpr uint32_t kBindingSpecularOut = 21; // (round BR)
 constexpr uint32_t kBindingLightPool = 22;   // (round PF) the presampled pool (vulkan_light_list.h kLightPoolSize)
 constexpr uint32_t kBindingGridPicks = 23;   // (round DO) the light grid's picks (vulkan_light_list.h kLightGridPicks)
-constexpr uint32_t kBindingCount = 24;
+constexpr uint32_t kBindingPicks = 24;       // (round PERF6) the initial candidates' picks (PASS_CANDIDATES)
+constexpr uint32_t kBindingCount = 25;
 constexpr uint32_t kMaterialSet = 1;
 
 constexpr uint32_t kGroupSide = 8;
@@ -133,6 +135,32 @@ constexpr uint32_t kFlagBoiling = 16U;
 // (round FA - vulkan_debug_view.h) a debug view without the lamps' diffuse / specular: none written into the inputs
 constexpr uint32_t kFlagNoDiffuse = 32U;
 constexpr uint32_t kFlagNoSpecular = 64U;
+// (round PERF6) With frame_profile on: what the passes did each frame (the shaders' di_counts, after the not-finite count
+// and its spare words), read back with the pass's time - a burst of slow passes is logged with them (collect_timing).
+constexpr uint32_t kFlagCount = 128U;
+struct CountName {
+    const char* define; // DI_COUNT_<define> in the shaders
+    const char* text;   // in the log
+};
+constexpr std::array<CountName, 15> kCountNames{{{"PIXELS", "pixels"},
+                                                 {"OUTSIDE", "outside the grid"},
+                                                 {"UNMADE", "in unmade cells"},
+                                                 {"CANDIDATES", "candidates"},
+                                                 {"TEMPORAL_RAYS", "temporal rays"},
+                                                 {"SPATIAL_RAYS", "spatial rays"},
+                                                 {"LONG_RAYS", "long rays"},
+                                                 {"HISTORY", "with history"},
+                                                 {"NEIGHBOURS", "neighbours taken"},
+                                                 {"CELLS", "cells made"},
+                                                 {"CAMERA_CANDIDATES", "camera-ray candidates"},
+                                                 {"THROUGH_CANDIDATES", "seen-through candidates"},
+                                                 {"BLOCKED_CANDIDATES", "blocking candidates"},
+                                                 {"SPATIAL_THROUGH", "spatial seen-through candidates"},
+                                                 {"SPATIAL_BLOCKED", "spatial blocking candidates"}}};
+constexpr uint32_t kDiCounts = 16; // (kCountNames, then a spare word)
+static_assert(kCountNames.size() <= kDiCounts);
+constexpr VkDeviceSize kCountersBytes = (4 + kDiCounts) * sizeof(uint32_t);
+
 
 constexpr uint32_t kTimingSlots = 16;
 constexpr uint32_t kTimingReport = 600;
@@ -229,7 +257,7 @@ layout(set = 0, binding = 14, rgba16f) uniform writeonly image2D o_lamps_on;
 // SurfaceInputs::specular, 0 where nothing wrote; ReSTIR GI adds its environment's to it after)
 layout(set = 0, binding = 21, rgba16f) uniform writeonly image2D o_specular;
 #endif
-layout(std430, set = 0, binding = 18) buffer Counters { uint bad_samples; uint counter_spare[3]; };
+layout(std430, set = 0, binding = 18) buffer Counters { uint bad_samples; uint counter_spare[3]; uint di_counts[DI_COUNTS]; };
 
 const uint FLAG_TEMPORAL = 1u;
 const uint FLAG_SPATIAL = 2u;
@@ -238,7 +266,31 @@ const uint FLAG_PERMUTE = 8u;
 const uint FLAG_BOILING = 16u;
 const uint FLAG_NO_DIFFUSE = 32u;
 const uint FLAG_NO_SPECULAR = 64u;
+const uint FLAG_COUNT = 128u; // (round PERF6) the frame's counts kept (frame_profile - di_counts below)
 const uint MOST_SPATIAL = 4u;
+// (round PERF6) What the passes did this frame, with frame_profile on (read with the pass's time - collect_timing): each
+// invocation's own counts summed over its subgroup, one atomic a subgroup. The counts take no random numbers and change
+// no sample.
+uint g_miss_outside = 0u; // (the pixel's candidates from the whole list: its point outside the grid ...)
+uint g_miss_unmade = 0u;  // (... or its cell not made this frame)
+uint g_candidates = 0u;
+uint g_rays = 0u;
+uint g_long_rays = 0u;    // (rays longer than the grid's half width - far lights)
+uint g_history = 0u;
+void count_one(uint which, uint n)
+{
+    uint sum = subgroupAdd(n);
+    if (subgroupElect() && sum != 0u) {
+        atomicAdd(di_counts[which], sum);
+    }
+}
+void count_ray(float reach)
+{
+    ++g_rays;
+    if (reach > 0.5 * float(pass.grid_cells.x) * pass.grid.w) {
+        ++g_long_rays;
+    }
+}
 const uint LIGHT_RAYS = 15u;     // world, objects, alpha-tested, drawn apart (round PG) - the reference's light rays
 const uint LIGHT_RAYS_ON_OBJECT = 13u; // (an object's pixel: the world's and what is drawn apart - its low-poly body
                                        // doesn't shadow itself)
@@ -439,6 +491,50 @@ Surface primary(ivec2 p)
     return s;
 }
 
+// (round PERF6) The pixel's surface as PASS_PRIMARY found it, from the shared rows it wrote (full precision: the same
+// numbers primary() returned - the check's material put back on it as primary() does).
+layout(buffer_reference, buffer_reference_align = 16, scalar) readonly buffer SharedRows { vec4 rows[]; };
+Surface primary_found(ivec2 local)
+{
+    uint at = (uint(local.y) * uint(pass.rect.z) + uint(local.x)) * 5u;
+    SharedRows rows = SharedRows(pass.surfaces.xy);
+    vec4 a = rows.rows[at];
+    vec4 n = rows.rows[at + 1u];
+    vec4 ng = rows.rows[at + 2u];
+    Surface s;
+    s.at = a.xyz;
+    s.valid = a.w > 0.5;
+    s.n = n.xyz;
+    s.rough = n.w;
+    s.ng = ng.xyz;
+    s.object = (floatBitsToUint(ng.w) & 1u) != 0u;
+    s.albedo = rows.rows[at + 3u].rgb;
+    s.f0 = rows.rows[at + 4u].rgb;
+#ifdef CHECK
+    if (s.valid) {
+        s.f0 = vec3(pass.force.y);
+        s.rough = pass.force.x;
+    }
+#endif
+    return s;
+}
+
+#ifdef PASS_PRIMARY
+// (round PERF6) The pixels' primary surfaces - the camera rays and their hit surfaces - in a pass of their own (wavefront
+// style, as ReSTIR GI's samples, round PERF5): the temporal pass then holds the light points and light rays alone.
+void main()
+{
+    ivec2 local = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(local, pass.rect.zw))) {
+        return;
+    }
+    put_surface(uint(local.y * pass.rect.z + local.x), primary(pass.rect.xy + local));
+    if ((pass.counts.w & FLAG_COUNT) != 0u) {
+        count_one(DI_COUNT_CAMERA_CANDIDATES, g_ray_candidates[0]);
+    }
+}
+#endif
+
 // A light sample - the list's entry `e` and a point on it (`uv`: uniform on an emitting triangle; an analytic lamp's own
 // point) - seen from a surface: the light a white diffuser there would get from it unshadowed (`light`: the emission at
 // that point - a triangle's lamp texels, its store's emission there), the target (its luminance: what the sample brings,
@@ -565,6 +661,7 @@ uint grid_cell_of(vec3 p)
     }
     vec3 at = floor((p - pass.grid.xyz) / pass.grid.w);
     if (any(lessThan(at, vec3(0.0))) || any(greaterThanEqual(at, vec3(pass.grid_cells.xyz)))) {
+        g_miss_outside = 1u;
         return NO_CELL;
     }
     // (round PERF3 - vulkan_light_list.cpp light_grid_slot) the cell by its place in the world; one made this frame (else
@@ -575,6 +672,7 @@ uint grid_cell_of(vec3 p)
     if (state.y != pass.counts.z) {
         grid_words[GRID_STATE_WORD + cell].y = pass.counts.z;
     }
+    g_miss_unmade = state.x == pass.counts.z ? 0u : 1u;
     return state.x == pass.counts.z ? cell : NO_CELL;
 }
 
@@ -592,17 +690,27 @@ uvec4 words_of(Reservoir r) { return uvec4(r.entry, packUnorm2x16(r.uv), floatBi
 vec2 kept_uv(vec2 uv) { return round(clamp(uv, 0.0, 1.0) * 65535.0) / 65535.0; }
 float good(float x) { return isnan(x) || isinf(x) ? 0.0 : x; }
 
-#ifdef PASS_TEMPORAL
-// The pixel's reservoir after the initial candidates and the temporal reuse; `weight` its sample's contribution (target x
-// W - what the boiling filter compares).
-Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
+// (round PERF6) The initial candidates and the temporal reuse in two passes, wavefront style (as ReSTIR GI's samples,
+// round PERF5): PASS_CANDIDATES resamples the candidates (light points alone, no ray) and keeps the pick - its entry and
+// point, the weights' sum, its target, the pixel's random state after them (`picks`, 2 words a pixel); PASS_TEMPORAL
+// traces the pick's ray, takes last frame's reservoir and traces the reuse's ray. The same samples, numbers and random
+// sequence as the one pass's: the pick's light point is evaluated again where its ray is traced (the same function of the
+// same entry, point and surface).
+layout(std430, set = 0, binding = 24) buffer Picks { uvec4 picks[]; };
+
+#ifdef PASS_CANDIDATES
+void main()
 {
-    weight = 0.0;
-    Surface s = primary(pass.rect.xy + local);
-    put_surface(i, s);
-    float cap = float(pass.params.z);
+    ivec2 local = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(local, pass.rect.zw))) {
+        return;
+    }
+    uint i = uint(local.y * pass.rect.z + local.x);
+    Surface s = primary_found(local); // (PASS_PRIMARY's)
     if (!s.valid) {
-        return Reservoir(0u, vec2(0.0), 0.0, 0.0);
+        picks[2u * i] = uvec4(0u);
+        picks[2u * i + 1u] = uvec4(0u);
+        return;
     }
     uint rng = path_sequence_start(uint(local.x), uint(local.y), pass.counts.z, pass.params.w);
     // 1. the initial candidates, resampled toward the target - (round PT4c) from the pixel's cell of the light grid (its
@@ -611,9 +719,71 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
     uint count = pass.counts.x;
     uint cell = grid_cell_of(s.at + (vec3(path_next(rng), path_next(rng), path_next(rng)) - 0.5) * pass.grid.w);
     uint candidates = pass.params.x;
-    Reservoir r = Reservoir(0u, vec2(0.0), 0.0, float(candidates));
+    uint picked = 0u;
+    vec2 picked_uv = vec2(0.0);
     float wsum = 0.0;
     float chosen = 0.0;
+    for (uint k = 0u; k < candidates; ++k) {
+        float u = path_next(rng);
+        vec2 uv = kept_uv(vec2(path_next(rng), path_next(rng)));
+        float pick = path_next(rng);
+        bool evaluate = false;
+        uint e = 0u;
+        float slot_weight = 1.0; // (x the list's pdf of the entry: the slot's weight over the list's)
+        if (count != 0u) {
+            if (cell != NO_CELL) {
+                uvec2 slot = cells[cell * pass.grid_cells.w + min(uint(u * float(pass.grid_cells.w)), pass.grid_cells.w - 1u)];
+                if (slot.x != 0u) {
+                    e = slot.x - 1u;
+                    slot_weight = uintBitsToFloat(slot.y) * light_entries[e].pdf;
+                    evaluate = true;
+                }
+            } else {
+                e = light_pick(u, count);
+                evaluate = true;
+            }
+        }
+        LightPoint lp;
+        bool got = evaluate && light_point(e, uv, s, lp);
+        g_candidates += got ? 1u : 0u;
+        if (got && lp.pdf > 0.0) {
+            float w = good(lp.target / lp.pdf * slot_weight);
+            wsum += w;
+            if (w > 0.0 && pick * wsum < w) {
+                picked = e + 1u;
+                picked_uv = uv;
+                chosen = lp.target;
+            }
+        }
+    }
+    picks[2u * i] = uvec4(picked, packUnorm2x16(picked_uv), floatBitsToUint(wsum), floatBitsToUint(chosen));
+    picks[2u * i + 1u] = uvec4(rng, 0u, 0u, 0u);
+    if ((pass.counts.w & FLAG_COUNT) != 0u) {
+        count_one(DI_COUNT_PIXELS, 1u);
+        count_one(DI_COUNT_OUTSIDE, g_miss_outside);
+        count_one(DI_COUNT_UNMADE, g_miss_unmade);
+        count_one(DI_COUNT_CANDIDATES, g_candidates);
+    }
+}
+#endif
+
+#ifdef PASS_TEMPORAL
+// The pixel's reservoir after the initial candidates (PASS_CANDIDATES' pick) and the temporal reuse; `weight` its sample's
+// contribution (target x W - what the boiling filter compares).
+Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
+{
+    weight = 0.0;
+    Surface s = primary_found(local); // (round PERF6: PASS_PRIMARY's)
+    float cap = float(pass.params.z);
+    if (!s.valid) {
+        return Reservoir(0u, vec2(0.0), 0.0, 0.0);
+    }
+    uvec4 kept = picks[2u * i];
+    uint rng = picks[2u * i + 1u].x;
+    uint candidates = pass.params.x;
+    Reservoir r = Reservoir(kept.x, unpackUnorm2x16(kept.y), 0.0, float(candidates));
+    float wsum = uintBitsToFloat(kept.z);
+    float chosen = uintBitsToFloat(kept.w);
     float kept_target = 0.0;
     // 2. the reservoir this point had last frame - (round PT4d) a neighbour's in its 4 x 4 block by the frame's permutation
     bool has_then = false;
@@ -627,35 +797,19 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
     bool from_then = false;
     bool traced = false;
     LightPoint toward = LightPoint(vec3(0.0), 0.0, vec3(0.0, 1.0, 0.0), 0.0, 0.0);
-    // (round PERF4) One loop of steps, each with at most one light point and one light ray: the candidates (0 ..
-    // candidates - 1), the initial sample's ray (candidates), the history's target here (+ 1), last frame's surface's
-    // target and the reuse's ray (+ 2) - one inlined light_point (a triangle's corners, its emission texel and the
-    // material's layers) and one light ray in the shader instead of three and two. The same samples, numbers and rays.
-    for (uint k = 0u; k < candidates + 3u; ++k) {
+    // (round PERF4) One loop of steps, each with at most one light point and one light ray: the pick's ray (0: its light
+    // point again, then its ray), the history's target here (1), last frame's surface's target and the reuse's ray (2) -
+    // one inlined light_point and one light ray in the shader.
+    for (uint k = 0u; k < 3u; ++k) {
         // a. the light point this step evaluates
         bool evaluate = false;
         uint e = 0u;
         vec2 uv = vec2(0.0);
-        float pick = 0.0;
-        float slot_weight = 1.0; // (x the list's pdf of the entry: the slot's weight over the list's)
-        if (k < candidates) {
-            float u = path_next(rng);
-            uv = kept_uv(vec2(path_next(rng), path_next(rng)));
-            pick = path_next(rng);
-            if (count != 0u) {
-                if (cell != NO_CELL) {
-                    uvec2 slot = cells[cell * pass.grid_cells.w + min(uint(u * float(pass.grid_cells.w)), pass.grid_cells.w - 1u)];
-                    if (slot.x != 0u) {
-                        e = slot.x - 1u;
-                        slot_weight = uintBitsToFloat(slot.y) * light_entries[e].pdf;
-                        evaluate = true;
-                    }
-                } else {
-                    e = light_pick(u, count);
-                    evaluate = true;
-                }
-            }
-        } else if (k == candidates + 1u && (pass.counts.w & FLAG_TEMPORAL) != 0u) {
+        if (k == 0u) {
+            evaluate = r.entry > 0u && chosen > 0.0;
+            e = r.entry - 1u;
+            uv = r.uv;
+        } else if (k == 1u && (pass.counts.w & FLAG_TEMPORAL) != 0u) {
             vec4 q = pass.prev_to_pixel * vec4(s.at, 1.0);
             if (q.w > 0.0) {
                 ivec2 before = ivec2(floor(q.xy / q.w)) - pass.rect.xy;
@@ -675,7 +829,7 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
                     }
                 }
             }
-        } else if (k == candidates + 2u && has_then && total > 0.0 && !take_h) {
+        } else if (k == 2u && has_then && total > 0.0 && !take_h) {
             // could last frame's reservoir have made it: its surface's target and a ray from there
             evaluate = true;
             e = r.entry - 1u;
@@ -686,22 +840,14 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
         bool got = evaluate && light_point(e, uv, from_then ? then : s, lp);
 
         // b. what it decides
-        if (k < candidates) {
-            if (got && lp.pdf > 0.0) {
-                float w = good(lp.target / lp.pdf * slot_weight);
-                wsum += w;
-                if (w > 0.0 && pick * wsum < w) {
-                    r.entry = e + 1u;
-                    r.uv = uv;
-                    chosen = lp.target;
-                    toward = lp;
-                }
-            }
-        } else if (k == candidates) {
+        if (k == 0u) {
             r.W = chosen > 0.0 ? good(wsum / (r.M * chosen)) : 0.0;
             traced = r.W > 0.0; // (visibility reuse: a light the surface doesn't see is dropped - its W 0, its M kept)
+            if (got) {
+                toward = lp;
+            }
             kept_target = chosen;
-        } else if (k == candidates + 1u) {
+        } else if (k == 1u) {
             traced = false;
             if (has_then) {
                 t_h = got ? lp.target : 0.0;
@@ -722,14 +868,17 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
             traced = false;
         }
 
-        // c. the one light ray: the initial sample's (step `candidates`), the reuse's (the last step)
-        bool ray_step = k == candidates || k == candidates + 2u;
+        // c. the one light ray: the initial sample's (step 0), the reuse's (the last step)
+        bool ray_step = k == 0u || k == 2u;
         bool visible = ray_step && traced && seen_at_all(seen(from_then ? then : s, toward));
-        if (k == candidates) {
+        if (ray_step && traced) {
+            count_ray(toward.reach);
+        }
+        if (k == 0u) {
             if (r.W > 0.0 && !visible) {
                 r.W = 0.0;
             }
-        } else if (k == candidates + 2u && has_then) {
+        } else if (k == 2u && has_then) {
             Reservoir out_r = Reservoir(0u, vec2(0.0), 0.0, r.M + h.M);
             if (total > 0.0) {
                 float z = 0.0;
@@ -757,6 +906,7 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight)
             r = out_r;
         }
     }
+    g_history = has_then ? 1u : 0u;
     weight = r.entry > 0u && r.W > 0.0 ? good(kept_target * r.W) : 0.0;
     return r;
 }
@@ -769,6 +919,13 @@ void main()
     Reservoir r = Reservoir(0u, vec2(0.0), 0.0, 0.0);
     if (inside) {
         r = temporal_reservoir(local, i, weight);
+    }
+    if ((pass.counts.w & FLAG_COUNT) != 0u) { // (round PERF6)
+        count_one(DI_COUNT_TEMPORAL_RAYS, g_rays);
+        count_one(DI_COUNT_LONG_RAYS, g_long_rays);
+        count_one(DI_COUNT_HISTORY, g_history);
+        count_one(DI_COUNT_THROUGH_CANDIDATES, g_ray_candidates[1]);
+        count_one(DI_COUNT_BLOCKED_CANDIDATES, g_ray_candidates[2]);
     }
     // (round PT4d) the boiling filter - every invocation of the group takes part (no early return above)
     if ((pass.counts.w & FLAG_BOILING) != 0u && restir_boiling(weight)) {
@@ -881,6 +1038,7 @@ void main()
                 from = where[k];
             }
             vec3 light_through = seen(from, toward);
+            count_ray(toward.reach);
             if (step == 0u) {
                 through = light_through;
                 if (!seen_at_all(through)) {
@@ -925,6 +1083,13 @@ void main()
         r.W = 0.0;
     }
     res_b[i] = words_of(r);
+    if ((pass.counts.w & FLAG_COUNT) != 0u) { // (round PERF6)
+        count_one(DI_COUNT_SPATIAL_RAYS, g_rays);
+        count_one(DI_COUNT_LONG_RAYS, g_long_rays);
+        count_one(DI_COUNT_NEIGHBOURS, n - 1u);
+        count_one(DI_COUNT_SPATIAL_THROUGH, g_ray_candidates[1]);
+        count_one(DI_COUNT_SPATIAL_BLOCKED, g_ray_candidates[2]);
+    }
     vec3 exposed = min(lamps * pass.eye.w, vec3(65504.0));
     put_result(p, i, exposed, min(exposed * s.albedo, vec3(65504.0)), min(specular * pass.eye.w, vec3(65504.0)), full);
 }
@@ -990,6 +1155,8 @@ void main()
 
 #ifdef PASS_CELLS
 layout(local_size_x = 64) in;
+layout(std430, set = 0, binding = 18) buffer Counters { uint bad_samples; uint counter_spare[3]; uint di_counts[DI_COUNTS]; };
+const uint FLAG_COUNT = 128u;
 // the most light entry `e` can bring to a point of the box [low, high]
 float cell_bound(uint e, vec3 low, vec3 high)
 {
@@ -1040,6 +1207,9 @@ void main()
     }
     if (i % slots == 0u) {
         light_pool[GRID_STATE_WORD + cell].x = pass.counts.z;
+        if ((pass.counts.w & FLAG_COUNT) != 0u) {
+            atomicAdd(di_counts[DI_COUNT_CELLS], 1u); // (round PERF6)
+        }
     }
     // (the cell's place: its index on each axis less the shift, modulo the cells across)
     uvec3 c = uvec3(cell % pass.grid_cells.x, cell / (pass.grid_cells.x * pass.grid_cells.z),
@@ -1112,15 +1282,25 @@ void main()
 }
 )";
 
-enum class Shader : uint8_t { kScan, kTemporal, kSpatial, kBounds, kCells, kPool };
+enum class Shader : uint8_t { kScan, kPrimary, kCandidates, kTemporal, kSpatial, kBounds, kCells, kPool };
 
 std::string shader_source(Shader which, bool check)
 {
     std::string source = "#version 460\n#extension GL_EXT_ray_query : require\n";
+    // (round PERF6) the frame's counts (kCountNames)
+    source += "#extension GL_KHR_shader_subgroup_basic : require\n#extension GL_KHR_shader_subgroup_arithmetic : require\n";
+    source += "#define DI_COUNTS " + std::to_string(kDiCounts) + "u\n";
+    for (std::size_t k = 0; k < kCountNames.size(); ++k) {
+        source += "#define DI_COUNT_" + std::string(core::at(kCountNames, k).define) + " " + std::to_string(k) + "u\n";
+    }
+    // (the candidates the rays meet - vulkan_rt_scene.cpp RAY_CANDIDATE_SEEN: camera rays, seen-through tests, blocking tests)
+    source += "uint g_ray_candidates[3] = uint[3](0u, 0u, 0u);\n#define RAY_CANDIDATE_SEEN(kind) ++g_ray_candidates[kind]\n";
     if (check) {
         source += "#define CHECK\n";
     }
     switch (which) {
+    case Shader::kPrimary: source += "#define PASS_PRIMARY\n"; break; // (round PERF6)
+    case Shader::kCandidates: source += "#define PASS_CANDIDATES\n"; break;
     case Shader::kTemporal: source += "#define PASS_TEMPORAL\n"; break;
     case Shader::kSpatial: source += "#define PASS_SPATIAL\n"; break;
     case Shader::kBounds: source += "#define PASS_BOUNDS\n"; break;
@@ -1288,6 +1468,23 @@ struct Timing {
     std::array<uint64_t, kTimingSlots> pending{};
     double sum_ms = 0.0;
     uint32_t measured = 0;
+    // (round PERF6) with frame_profile on: each slot's counts (read_back's), what the processor did that frame, and the
+    // usual time and counts (an average over the last ~32 passes) a slow pass is logged against
+    DeviceBuffer counts;
+    std::array<bool, kTimingSlots> counted{};
+    struct HostFacts {
+        uint64_t lists = 0;   // lists adopted so far
+        uint64_t tables = 0;  // alias tables made so far
+        bool scanning = false; // a scan in flight
+        bool history = false;  // the temporal reuse on
+        uint32_t entries = 0;
+    };
+    std::array<HostFacts, kTimingSlots> facts{};
+    double usual_ms = 0.0;
+    std::array<double, kDiCounts> usual_counts{};
+    uint32_t followed = 0;
+    uint32_t slow_logged = 0;
+    uint64_t tables = 0;
 };
 
 struct RestirState {
@@ -1295,6 +1492,8 @@ struct RestirState {
     VkPipelineLayout layout = VK_NULL_HANDLE;
     VkDescriptorSetLayout material_layout = VK_NULL_HANDLE;
     VkPipeline scan = VK_NULL_HANDLE;
+    std::array<VkPipeline, 2> primary{};  // (round PERF6) the game's, the check's
+    std::array<VkPipeline, 2> candidates_pass{};
     std::array<VkPipeline, 2> temporal{}; // the game's, the check's
     std::array<VkPipeline, 2> spatial{};
     VkPipeline bounds_pass = VK_NULL_HANDLE; // (round PT4c) the light grid's
@@ -1347,6 +1546,7 @@ struct RestirState {
     std::array<DeviceBuffer, 2> more{};
     DeviceBuffer sums;
     DeviceBuffer counters;
+    DeviceBuffer picks; // (round PERF6) PASS_CANDIDATES' picks, 2 x 16 bytes a pixel
     DeviceBuffer shared; // (round OM) the view's primary surface for ReSTIR GI (kSharedSurfaceBytes a pixel)
     SharedPrimary shared_view;
     uint64_t frames = 0;
@@ -1515,6 +1715,19 @@ bool ensure_pipelines(Backend& state, bool check, std::string* error)
         }
     }
     const std::size_t variant = check ? 1U : 0U;
+    if (core::at(own.primary, variant) == VK_NULL_HANDLE) {
+        core::at(own.primary, variant) = make_compute(device, own.layout, shader_source(Shader::kPrimary, check), error);
+        if (core::at(own.primary, variant) == VK_NULL_HANDLE) {
+            return false;
+        }
+    }
+    if (core::at(own.candidates_pass, variant) == VK_NULL_HANDLE) {
+        core::at(own.candidates_pass, variant) =
+            make_compute(device, own.layout, shader_source(Shader::kCandidates, check), error);
+        if (core::at(own.candidates_pass, variant) == VK_NULL_HANDLE) {
+            return false;
+        }
+    }
     if (core::at(own.temporal, variant) == VK_NULL_HANDLE) {
         core::at(own.temporal, variant) = make_compute(device, own.layout, shader_source(Shader::kTemporal, check), error);
         if (core::at(own.temporal, variant) == VK_NULL_HANDLE) {
@@ -1741,6 +1954,7 @@ bool update_table(Backend& state, RestirState& own, const std::vector<rt::Emitte
     own.lamp_count = static_cast<uint32_t>(lamps.size());
     own.table_key = key;
     own.layout_key = mix(mix(mix(kFnvBasis, own.lists), set.triangle_powers.size()), lamps.size());
+    ++own.timing.tables;
     return true;
 }
 
@@ -1769,6 +1983,54 @@ bool ensure_timing(Backend& state, RestirState& own)
     return true;
 }
 
+// (round PERF6) A counted pass's numbers against the usual: a pass much slower than usual is logged with its counts and
+// what the processor did that frame ("restir slow pass: ..."); every kTimingReport passes the usual counts.
+void note_counts(Backend& state, RestirState& own, uint32_t slot, uint64_t serial, double ms)
+{
+    Timing& timing = own.timing;
+    if (timing.counts.mapped == nullptr) {
+        return;
+    }
+    vmaInvalidateAllocation(state.memory.allocator(), timing.counts.allocation, 0, VK_WHOLE_SIZE);
+    std::array<uint32_t, kDiCounts> counts{};
+    const std::span<const uint8_t> all(static_cast<const uint8_t*>(timing.counts.mapped),
+                                       static_cast<std::size_t>(kTimingSlots * kCountersBytes));
+    std::memcpy(counts.data(), all.subspan((slot * kCountersBytes) + (4 * sizeof(uint32_t)), sizeof(counts)).data(),
+                sizeof(counts));
+    const Timing::HostFacts& facts = core::at(timing.facts, slot);
+    constexpr double kSlowShare = 1.4;
+    constexpr double kSlowMs = 1.0;
+    constexpr double kFollow = 1.0 / 32.0;
+    constexpr uint32_t kSettle = 60;
+    constexpr uint32_t kMostLogged = 200;
+    if (timing.followed >= kSettle && ms > timing.usual_ms * kSlowShare && ms > timing.usual_ms + kSlowMs &&
+        timing.slow_logged < kMostLogged) {
+        ++timing.slow_logged;
+        std::string text;
+        for (std::size_t k = 0; k < kCountNames.size(); ++k) {
+            text += text::format("%s%s %u (%.0f)", k == 0 ? "" : ", ", core::at(kCountNames, k).text, core::at(counts, k),
+                                 core::at(timing.usual_counts, k));
+        }
+        get_log("restir slow pass (submission %llu): %.2f ms (usual %.2f) - %s; lists %llu, tables %llu, entries %u%s%s",
+                static_cast<unsigned long long>(serial), ms, timing.usual_ms, text.c_str(),
+                static_cast<unsigned long long>(facts.lists), static_cast<unsigned long long>(facts.tables), facts.entries,
+                facts.scanning ? ", a scan in flight" : "", facts.history ? "" : ", no history");
+    }
+    ++timing.followed;
+    timing.usual_ms = timing.usual_ms > 0.0 ? timing.usual_ms + ((ms - timing.usual_ms) * kFollow) : ms;
+    for (std::size_t k = 0; k < kDiCounts; ++k) {
+        double& usual = core::at(timing.usual_counts, k);
+        usual = timing.followed == 1 ? core::at(counts, k) : usual + ((core::at(counts, k) - usual) * kFollow);
+    }
+    if (timing.followed % kTimingReport == 0) {
+        std::string text;
+        for (std::size_t k = 0; k < kCountNames.size(); ++k) {
+            text += text::format("%s%s %.0f", k == 0 ? "" : ", ", core::at(kCountNames, k).text, core::at(timing.usual_counts, k));
+        }
+        get_log("restir counts a pass (usual, %.2f ms): %s", timing.usual_ms, text.c_str());
+    }
+}
+
 // A slot's last pair read back when its frame has run; every kTimingReport passes the mean logged.
 void collect_timing(Backend& state, RestirState& own, uint32_t slot, bool check)
 {
@@ -1785,7 +2047,12 @@ void collect_timing(Backend& state, RestirState& own, uint32_t slot, bool check)
         return;
     }
     constexpr double kNsPerMs = 1e6;
-    timing.sum_ms += static_cast<double>(ticks.back() - ticks.front()) * timing.period_ns / kNsPerMs;
+    const double ms = static_cast<double>(ticks.back() - ticks.front()) * timing.period_ns / kNsPerMs;
+    timing.sum_ms += ms;
+    if (core::at(timing.counted, slot)) {
+        core::at(timing.counted, slot) = false;
+        note_counts(state, own, slot, written, ms);
+    }
     if (++timing.measured >= (check ? kCheckTimingReport : kTimingReport)) {
         own.last_ms = timing.sum_ms / timing.measured;
         if (!check) {
@@ -2220,7 +2487,8 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     }
     bool made = ensure_buffer(state, &own.reservoirs_a, pixels * 16, storage, BufferPlace::kDevice) &&
                 ensure_buffer(state, &own.reservoirs_b, pixels * 16, storage, BufferPlace::kDevice) &&
-                ensure_buffer(state, &own.counters, 16, storage, BufferPlace::kDevice) &&
+                ensure_buffer(state, &own.counters, kCountersBytes, storage, BufferPlace::kDevice) &&
+                ensure_buffer(state, &own.picks, pixels * 32, storage, BufferPlace::kDevice) &&
                 (!check || ensure_buffer(state, &own.sums, pixels * 2 * 16, storage, BufferPlace::kDevice)) &&
                 ensure_buffer(state, &own.bounds, std::max<VkDeviceSize>(own.entries, 1) * 2 * 16, storage,
                               BufferPlace::kDevice) &&
@@ -2236,10 +2504,11 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         made = ensure_buffer(state, &core::at(own.at, k), pixels * 16, storage, BufferPlace::kDevice) &&
                ensure_buffer(state, &core::at(own.more, k), pixels * 16, storage, BufferPlace::kDevice);
     }
-    // (round OM) the shared primary surface, read by ReSTIR GI through its address
-    const bool sharing = shared_primary_on() && made &&
-                         ensure_buffer(state, &own.shared, pixels * kSharedSurfaceBytes,
-                                       storage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, BufferPlace::kDevice);
+    // (round OM) the shared primary surface, read by ReSTIR GI through its address - (round PERF6) and by this view's
+    // temporal pass (PASS_PRIMARY writes it): made whether or not GI may read it
+    made = made && ensure_buffer(state, &own.shared, pixels * kSharedSurfaceBytes,
+                                 storage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, BufferPlace::kDevice);
+    const bool sharing = shared_primary_on() && made;
     if (!made) {
         if (first_report(state, kReportBuffers)) {
             get_log("restir: the reservoirs (%ux%u) couldn't be made - the lamps pass lights the lamps", width, height);
@@ -2251,6 +2520,11 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
                             inputs->specular == nullptr)) {
         return false;
     }
+
+    // (round PERF6) the frame's counts with frame_profile on, read back with the pass's time
+    const bool counting = !check && frame_profile::on() && ensure_timing(state, own) &&
+                          ensure_buffer(state, &own.timing.counts, kTimingSlots * kCountersBytes,
+                                        VK_BUFFER_USAGE_TRANSFER_DST_BIT, BufferPlace::kReadBack);
 
     // the block
     ++own.frames;
@@ -2272,7 +2546,8 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     const uint32_t flags = (history ? kFlagTemporal : 0U) | (spatial > 0 ? kFlagSpatial : 0U) |
                            (check && own.accumulate ? kFlagAccumulate : 0U) |
                            (!check || own.overrides.permutation ? kFlagPermute : 0U) |
-                           (!check || own.overrides.boiling_filter ? kFlagBoiling : 0U) | debug_flags(check);
+                           (!check || own.overrides.boiling_filter ? kFlagBoiling : 0U) | debug_flags(check) |
+                           (counting ? kFlagCount : 0U);
     block.counts = {own.entries, own.lamp_count, static_cast<uint32_t>(own.frames), flags};
     block.params = {candidates, std::min(spatial, kMostSpatial), kHistoryCap * candidates,
                     check ? own.overrides.seed : 0x2545F491U};
@@ -2297,7 +2572,7 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     core::at(block.grid, 3) = kGridSide;
     block.grid_cells = {kGridAcross, kGridUp, kGridAcross, grid ? kGridSlots : 0U};
     VkDeviceAddress shared_address = 0;
-    if (sharing) {
+    {
         const VkBufferDeviceAddressInfo address_info{
             .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = own.shared.buffer};
         shared_address = vkGetBufferDeviceAddress(state.context.device(), &address_info);
@@ -2334,6 +2609,9 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         vkCmdFillBuffer(commands, own.counters.buffer, 0, VK_WHOLE_SIZE, 0);
         own.restart = false;
     }
+    if (counting) {
+        vkCmdFillBuffer(commands, own.counters.buffer, 4 * sizeof(uint32_t), kDiCounts * sizeof(uint32_t), 0);
+    }
     barrier(commands,
             VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_HOST_BIT,
@@ -2356,7 +2634,7 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         return VkDescriptorBufferInfo{.buffer = buffer.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
     };
     const DeviceBuffer& list = core::at(own.emitters, static_cast<std::size_t>(std::max(own.list_now, 0)));
-    const std::array<VkDescriptorBufferInfo, 16> buffers{
+    const std::array<VkDescriptorBufferInfo, 17> buffers{
         VkDescriptorBufferInfo{.buffer = scene.geometry, .offset = 0, .range = scene.geometry_bytes},
         VkDescriptorBufferInfo{.buffer = block_span->buffer, .offset = block_span->offset, .range = sizeof(RestirBlock)},
         whole(own.lights),
@@ -2372,13 +2650,14 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         whole(own.counters),
         whole(own.bounds),
         whole(own.cells),
-        whole(own.grid_picks)};
-    constexpr std::array<uint32_t, 16> kBufferBindings{kBindingGeometry,    kBindingBlock,      kBindingLights,
+        whole(own.grid_picks),
+        whole(own.picks)};
+    constexpr std::array<uint32_t, 17> kBufferBindings{kBindingGeometry,    kBindingBlock,      kBindingLights,
                                                        kBindingEmitters,    kBindingLamps,      kBindingReservoirsA,
                                                        kBindingReservoirsB, kBindingNowAt,      kBindingNowMore,
                                                        kBindingBeforeAt,    kBindingBeforeMore, kBindingSums,
                                                        kBindingCounters,    kBindingBounds,     kBindingCells,
-                                                       kBindingGridPicks};
+                                                       kBindingGridPicks,   kBindingPicks};
     std::array<VkDescriptorImageInfo, 4> images{};
     if (inputs != nullptr) {
         images = {VkDescriptorImageInfo{.sampler = VK_NULL_HANDLE, .imageView = inputs->depth->view,
@@ -2442,6 +2721,21 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         own.grid_table = own.table_key;
     }
     {
+        // (round PERF6) the primary surfaces in their own pass (the camera rays), then the candidates and the reuse
+        const FrameStep step(state.frames, commands, gpu_markers::section::kDiPrimary);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.primary, variant));
+        vkCmdDispatch(commands, groups_x, groups_y, 1);
+        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    }
+    {
+        const FrameStep step(state.frames, commands, gpu_markers::section::kDiCandidates);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.candidates_pass, variant));
+        vkCmdDispatch(commands, groups_x, groups_y, 1);
+        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    }
+    {
         const FrameStep step(state.frames, commands, gpu_markers::section::kDiTemporal); // (round PF)
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.temporal, variant));
         vkCmdDispatch(commands, groups_x, groups_y, 1);
@@ -2460,6 +2754,18 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         core::at(own.timing.pending, slot) = state.frames.serial();
         own.timed_width = width;
         own.timed_height = height;
+    }
+    if (timed && counting) { // (round PERF6: after the spatial pass's barrier)
+        const VkBufferCopy region{.srcOffset = 0, .dstOffset = slot * kCountersBytes, .size = kCountersBytes};
+        vkCmdCopyBuffer(commands, own.counters.buffer, own.timing.counts.buffer, 1, &region);
+        barrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_HOST_BIT,
+                VK_ACCESS_HOST_READ_BIT);
+        core::at(own.timing.counted, slot) = true;
+        core::at(own.timing.facts, slot) = {.lists = own.lists,
+                                            .tables = own.timing.tables,
+                                            .scanning = own.scan_serial != 0,
+                                            .history = history,
+                                            .entries = own.entries};
     }
     state.bound = BoundState{};
     const uint64_t serial = state.frames.serial();
@@ -2502,7 +2808,7 @@ void release_restir_di(Backend& state)
 {
     RestirState& own = restir_state();
     const VkDevice device = state.context.device();
-    for (std::array<VkPipeline, 2>* set : {&own.temporal, &own.spatial}) {
+    for (std::array<VkPipeline, 2>* set : {&own.primary, &own.candidates_pass, &own.temporal, &own.spatial}) {
         for (VkPipeline& pipeline : *set) {
             if (pipeline != VK_NULL_HANDLE) {
                 vkDestroyPipeline(device, pipeline, nullptr);
@@ -2528,7 +2834,7 @@ void release_restir_di(Backend& state)
                                  &core::at(own.slots, 1),
                                  &own.read_back, &own.lights, &own.lamps, &own.reservoirs_a, &own.reservoirs_b,
                                  &core::at(own.at, 0), &core::at(own.at, 1), &core::at(own.more, 0), &core::at(own.more, 1),
-                                 &own.sums, &own.counters, &own.bounds, &own.cells, &own.grid_picks, &own.light_pool, &own.shared}) {
+                                 &own.sums, &own.counters, &own.picks, &own.bounds, &own.cells, &own.grid_picks, &own.light_pool, &own.shared, &own.timing.counts}) {
         state.memory.destroy_buffer(buffer);
     }
     const RestirOverrides overrides = own.overrides;
