@@ -87,7 +87,8 @@ constexpr uint32_t kBindingCloudNoise = 28; // .. 30 (the sky's grid's march)
 constexpr uint32_t kCloudNoiseTextures = 3;
 constexpr uint32_t kBindingCache = 31; // (round MB) the radiance cache (one buffer: a pushed set has 32 descriptors at most)
 constexpr uint32_t kBindingCount = 32;
-constexpr VkDeviceSize kCacheEntryBytes = 64; // its key, its sums' low and high words, its light
+// its key, its sums' low and high words, its light; (round BUDGET2) the direct light's sums and light; a spare
+constexpr VkDeviceSize kCacheEntryBytes = 128;
 constexpr uint32_t kMaterialSet = 1;
 
 constexpr uint32_t kGroupSide = 8;
@@ -105,7 +106,7 @@ constexpr uint32_t kSpecularReservoirWords = 4; // (round WS) uvec4s a pixel: af
 // The estimator's settings (fixed - no per-level values): the spatial neighbours, the reservoirs' sample count kept at
 // most (one candidate a frame: 20 frames' worth - Ouyang et al. keep 30), the neighbours' radius (pixels), the surface
 // tests (ReSTIR DI's), the share of the initial samples drawn from the sky's distribution (the rest from the BSDF).
-constexpr uint32_t kSpatialNeighbours = 2;
+constexpr uint32_t kSpatialNeighbours = 1;
 constexpr uint32_t kMostSpatial = 4;
 // (round BUDGET) The trace grid's side in the game and the pixel of a cell each frame takes, in turn (x, y). 2 (a cell
 // a 2 x 2 block of pixels, PASS_UPSAMPLE bringing its light to the pixels - every pixel traced once in four frames) took
@@ -314,12 +315,16 @@ layout(std430, set = 0, binding = 24) buffer Counters {
 // (round PERF) the samples it has taken since it was claimed, at most CACHE_COUNT_MOST - cache_lookup's trust; w (round
 // PERF2) the frames it has been resolved since it was claimed, at most CACHE_COUNT_MOST - the same), this
 // frame's sums (low words rgb + the samples; high words rgb), its light (float bits: rgb the bounce in the global unit,
-// w its samples)
+// w its samples); (round BUDGET2) then the same three for the lights' direct light a white diffuser there gets (E / pi:
+// the sums and the light), and a spare - 8 words (vulkan_light_list.cpp CACHE_STRIDE)
 layout(std430, set = 0, binding = 31) buffer Cache { uvec4 cache[]; };
-#define CACHE_KEY(e) cache[(e) * 4u]
-#define CACHE_LOW(e) cache[(e) * 4u + 1u]
-#define CACHE_HIGH(e) cache[(e) * 4u + 2u]
-#define CACHE_LIGHT(e) cache[(e) * 4u + 3u]
+#define CACHE_KEY(e) cache[(e) * 8u]
+#define CACHE_LOW(e) cache[(e) * 8u + 1u]
+#define CACHE_HIGH(e) cache[(e) * 8u + 2u]
+#define CACHE_LIGHT(e) cache[(e) * 8u + 3u]
+#define CACHE_DIRECT_LOW(e) cache[(e) * 8u + 4u]
+#define CACHE_DIRECT_HIGH(e) cache[(e) * 8u + 5u]
+#define CACHE_DIRECT(e) cache[(e) * 8u + 6u]
 
 const uint FLAG_TEMPORAL = 1u;
 const uint FLAG_SPATIAL = 2u;
@@ -622,13 +627,16 @@ uint rays_of(Surface s) { return s.object ? LIGHT_RAYS_ON_OBJECT : LIGHT_RAYS; }
 // The secondary vertex's reflected light toward `v` by next-event estimation: one light of the full list (the disc, the
 // sky, an emitting triangle, a lamp - picked by power), one ray to it - the reference's light sampling without its MIS
 // (no BSDF ray continues from here). (Round WF: the list's sampling shared - vulkan_light_list.h light_sample_glsl.)
-vec3 next_event(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rng)
+// (round BUDGET2) `white`: the same sample's light on a white diffuser there (E / pi - the radiance cache's direct part)
+vec3 next_event(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rng, out vec3 white)
 {
     vec3 dir;
     vec3 incident = light_sample(p, n, ng, LIGHT_RAYS, rng, dir);
+    white = vec3(0.0);
     if (!(max(incident.r, max(incident.g, incident.b)) > 0.0)) {
         return vec3(0.0);
     }
+    white = good3(max(dot(n, dir), 0.0) / PATH_PI * incident);
     return path_bsdf_cosine(m, n, v, dir) * incident;
 }
 
@@ -649,7 +657,21 @@ struct Secondary {
     float t;
     vec3 beyond; // (round BIAS) the bounce at it (E / pi) - the cache's, else the path continued (continue_path)
     uint skipped; // (round PERF5) the hidden surfaces passed before it (its path's steps so far: continue_path's)
+    vec3 white;   // (round BUDGET2) its direct light on a white diffuser (E / pi - next_event's `white`)
+    bool ended;   // (round BUDGET2) the path ended at the radiance cache there (bounce and beyond the cache's)
 };
+Secondary no_secondary()
+{
+    return Secondary(false, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), vec3(0.0), GI_REACH, vec3(0.0),
+                     0u, vec3(0.0), false);
+}
+// (round BUDGET2) Where a path ends at the radiance cache (SHaRC's intended use: its paths end at the first vertex whose
+// cell they reach with a footprint as wide as the cell - the cache's light is then no blurrier than what the path would
+// have gathered there; a narrower ray - a glossy lobe's, a hit close to its origin - goes on with its own light sample).
+// The footprint: the ray's length x the spread of the solid angle its sample stands for (1 / sqrt(pi x its pdf) - a
+// cosine lobe's at the normal: 1; a GGX lobe's narrows with its roughness). FOOTPRINT_NONE: never ends there.
+const float FOOTPRINT_NONE = -1.0;
+float ray_spread(float pdf) { return pdf > 0.0 ? inversesqrt(PATH_PI * pdf) : FOOTPRINT_NONE; }
 // (round BIAS) The radiance cache's misses: SHaRC's query (cache_lookup) takes a cell it has no entry for as a miss and
 // the path goes on - read as 0, every newly seen region's bounce was dark for the ~64 frames the cache takes to fill
 // (round MV: GI's diffuse there 0.57 - 0.73 x converged). The sample pass's first vertex's bounce (`beyond`) is the
@@ -665,10 +687,12 @@ const uint PATH_STEPS = PATH_HIDDEN_MOST + CACHE_MISS_VERTICES + 1u;
 // A path's first vertex: the surface a ray from `origin` meets (hidden ones passed), its direct light and reflectance.
 // (Round PERF5) One vertex: the continuation past a cache miss is its own pass (continue_path) - with its loop in the same
 // shader the sample pass held 241 registers, 128 without.
-Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, inout uint rng)
+// (Round BUDGET2) `spread` (ray_spread - FOOTPRINT_NONE: never): the path ends at the radiance cache where the vertex's
+// cell is trusted (cache_lookup_whole) and the ray's footprint there covers it - the vertex's light its reflectance x the
+// cell's whole light, no light sample.
+Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, float spread, inout uint rng)
 {
-    Secondary out_s = Secondary(false, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), vec3(0.0), GI_REACH,
-                                vec3(0.0), 0u);
+    Secondary out_s = no_secondary();
     float travelled = 0.0;
     uint skipped = 0u;
     for (uint step = 0u; step <= PATH_HIDDEN_MOST; ++step) {
@@ -701,8 +725,18 @@ Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, inout uint rng)
         out_s.n = ng;
         out_s.shading = n;
         out_s.t = travelled + t;
-        out_s.bounce = good3(next_event(h.position + ng * ray_offset(h.position), n, ng, v, m, rng));
         out_s.reflectance = good3(brdf_ambient(m, dot(n, v), vec3(1.0), vec3(1.0)));
+#ifdef PASS_SAMPLE
+        // (the sample pass: a path that doesn't end here is handed on whole - its light sample is the continued pass's)
+        vec3 cached;
+        vec3 cached_direct;
+        out_s.ended = spread > 0.0 && out_s.t * spread >= cache_cell_side(h.position) &&
+                      cache_lookup_whole(h.position, ng, cached, cached_direct);
+        out_s.bounce = out_s.reflectance * cached_direct;
+        out_s.beyond = cached;
+#else
+        out_s.bounce = good3(next_event(h.position + ng * ray_offset(h.position), n, ng, v, m, rng, out_s.white));
+#endif
         break;
     }
     out_s.skipped = skipped;
@@ -748,12 +782,19 @@ vec3 continue_path(Secondary sec, inout uint rng)
         vec3 v = -dir;
         vec3 n = dot(h.shading_normal, v) > 0.0 ? h.shading_normal : ng;
         BrdfMaterial m = hit_material(h);
-        vec3 direct = good3(next_event(h.position + ng * ray_offset(h.position), n, ng, v, m, rng));
         vec3 reflectance = good3(brdf_ambient(m, dot(n, v), vec3(1.0), vec3(1.0)));
+        vec3 cached;
+        vec3 cached_direct;
+        // (round BUDGET2) a cosine lobe's ray (spread 1) ends at a trusted cell its footprint covers - no light sample
+        if (t >= cache_cell_side(h.position) && cache_lookup_whole(h.position, ng, cached, cached_direct)) {
+            beyond += through * reflectance * (cached_direct + cached);
+            break;
+        }
+        vec3 white;
+        vec3 direct = good3(next_event(h.position + ng * ray_offset(h.position), n, ng, v, m, rng, white));
         beyond += through * direct;
         through *= reflectance;
         ++vertices;
-        vec3 cached;
         if (cache_lookup(h.position, ng, cached)) {
             beyond += through * cached;
             break;
@@ -984,37 +1025,51 @@ bool cache_claim(vec3 at, vec3 ng, out uint entry)
     return false;
 }
 // One word of a 64-bit sum: the low word added, its carry into the high word (32-bit atomics alone).
-void cache_add_word(uint entry, uint channel, uint value)
+// (`low` the sums' low words' place in the entry: 1 the bounce's, 4 - round BUDGET2 - the direct light's; the high words
+// next to them)
+void cache_add_word(uint entry, uint low, uint channel, uint value)
 {
     if (value == 0u) {
         return;
     }
-    uint before = channel == 0u ? atomicAdd(CACHE_LOW(entry).x, value)
-                                : (channel == 1u ? atomicAdd(CACHE_LOW(entry).y, value) : atomicAdd(CACHE_LOW(entry).z, value));
+    uint at = entry * 8u + low;
+    uint before = channel == 0u ? atomicAdd(cache[at].x, value)
+                                : (channel == 1u ? atomicAdd(cache[at].y, value) : atomicAdd(cache[at].z, value));
     if (before + value < before) {
         if (channel == 0u) {
-            atomicAdd(CACHE_HIGH(entry).x, 1u);
+            atomicAdd(cache[at + 1u].x, 1u);
         } else if (channel == 1u) {
-            atomicAdd(CACHE_HIGH(entry).y, 1u);
+            atomicAdd(cache[at + 1u].y, 1u);
         } else {
-            atomicAdd(CACHE_HIGH(entry).z, 1u);
+            atomicAdd(cache[at + 1u].z, 1u);
         }
     }
+}
+void cache_add_sums(uint entry, uint low, vec3 light, inout uint rng)
+{
+    vec3 fixed_point = clamp(good3(light) * pass.eye.w * CACHE_SCALE, vec3(0.0), vec3(4.0e9));
+    uvec3 words = uvec3(fixed_point + vec3(path_next(rng), path_next(rng), path_next(rng)));
+    cache_add_word(entry, low, 0u, words.r);
+    cache_add_word(entry, low, 1u, words.g);
+    cache_add_word(entry, low, 2u, words.b);
+    atomicAdd(cache[entry * 8u + low].w, 1u);
 }
 // A sample of a point's bounce added to its entry's sums: the frame's exposed light in fixed point, rounded at random
 // (unbiased however small the light).
 void cache_add(vec3 at, vec3 ng, vec3 light, inout uint rng)
 {
     uint entry;
-    if (!cache_claim(at, ng, entry)) {
-        return;
+    if (cache_claim(at, ng, entry)) {
+        cache_add_sums(entry, 1u, light, rng);
     }
-    vec3 fixed_point = clamp(good3(light) * pass.eye.w * CACHE_SCALE, vec3(0.0), vec3(4.0e9));
-    uvec3 words = uvec3(fixed_point + vec3(path_next(rng), path_next(rng), path_next(rng)));
-    cache_add_word(entry, 0u, words.r);
-    cache_add_word(entry, 1u, words.g);
-    cache_add_word(entry, 2u, words.b);
-    atomicAdd(CACHE_LOW(entry).w, 1u);
+}
+// (round BUDGET2) A sample of the direct light a white diffuser at a point gets (E / pi) added to its entry's other sums.
+void cache_add_direct(vec3 at, vec3 ng, vec3 light, inout uint rng)
+{
+    uint entry;
+    if (cache_claim(at, ng, entry)) {
+        cache_add_sums(entry, 4u, light, rng);
+    }
 }
 #endif
 
@@ -1042,6 +1097,7 @@ void main()
     vec3 facing[CACHE_PATH + 1u];
     vec3 direct[CACHE_PATH];
     vec3 reflectance[CACHE_PATH];
+    vec3 white[CACHE_PATH]; // (round BUDGET2) each vertex's direct light on a white diffuser - its cell's direct part
     bool met[CACHE_PATH];
     at[0] = s.at;
     facing[0] = s.ng;
@@ -1052,15 +1108,17 @@ void main()
         met[k] = false;
         direct[k] = vec3(0.0);
         reflectance[k] = vec3(0.0);
+        white[k] = vec3(0.0);
         traced = k + 1u;
         vec3 dir = path_to_world(n, path_cosine_direction(path_next(rng), path_next(rng)));
         if (dot(dir, facing[k]) <= 0.0) {
             break;
         }
-        Secondary sec = trace_secondary(mask, at[k] + facing[k] * ray_offset(at[k]), dir, rng);
+        Secondary sec = trace_secondary(mask, at[k] + facing[k] * ray_offset(at[k]), dir, FOOTPRINT_NONE, rng);
         if (!sec.hit) {
             break;
         }
+        white[k] = sec.white;
         met[k] = true;
         direct[k] = sec.bounce;
         reflectance[k] = sec.reflectance;
@@ -1075,6 +1133,8 @@ void main()
         if (met[j]) {
             vec3 beyond = j + 1u < traced ? incoming : cache_bounce(at[j + 1u], facing[j + 1u]);
             incoming = good3(direct[j] + reflectance[j] * beyond);
+            // (round BUDGET2 - added here, after the path's directions are drawn: the random sequence's dimensions as before)
+            cache_add_direct(at[j + 1u], facing[j + 1u], white[j], rng);
         } else {
             incoming = vec3(0.0);
         }
@@ -1102,6 +1162,20 @@ void main()
     uvec4 low = CACHE_LOW(i);
     vec4 l = uintBitsToFloat(CACHE_LIGHT(i));
     float kept = min(l.w, CACHE_SAMPLES) * (1.0 - 1.0 / CACHE_FRAMES);
+    // (round BUDGET2) the direct light's sums folded the same way, its own samples and history (freed with the entry)
+    uvec4 d_low = CACHE_DIRECT_LOW(i);
+    vec4 d = uintBitsToFloat(CACHE_DIRECT(i));
+    float d_kept = min(d.w, CACHE_SAMPLES) * (1.0 - 1.0 / CACHE_FRAMES);
+    if (d_low.w > 0u) {
+        uvec4 d_high = CACHE_DIRECT_HIGH(i);
+        vec3 sum = (vec3(d_high.xyz) * 4294967296.0 + vec3(d_low.xyz)) / (CACHE_SCALE * max(pass.eye.w, 1.0e-30));
+        float k = float(d_low.w);
+        CACHE_DIRECT(i) = floatBitsToUint(vec4(good3((d.rgb * d_kept + sum) / (d_kept + k)), d_kept + k));
+        CACHE_DIRECT_LOW(i) = uvec4(0u);
+        CACHE_DIRECT_HIGH(i) = uvec4(0u);
+    } else {
+        CACHE_DIRECT(i) = floatBitsToUint(vec4(d.rgb, d_kept));
+    }
     if (low.w > 0u) {
         uvec4 high = CACHE_HIGH(i);
         vec3 sum = (vec3(high.xyz) * 4294967296.0 + vec3(low.xyz)) / (CACHE_SCALE * max(pass.eye.w, 1.0e-30));
@@ -1118,6 +1192,7 @@ void main()
     } else {
         CACHE_KEY(i) = uvec4(0u);
         CACHE_LIGHT(i) = uvec4(0u);
+        CACHE_DIRECT(i) = uvec4(0u);
     }
 }
 #endif
@@ -1126,15 +1201,12 @@ void main()
 // (round PERF5) The sample pass's paths continued past a cache miss at their first vertex - the continued paths' pass
 // (continue_path), wavefront style: the long loop out of the sample pass (its registers 241 -> 128) and run densely over
 // the queued paths alone. The queue: after the pixels' reservoirs in res_a, 2 words a path (the pixel and its lobe, its
-// random sequence's state, the candidate's pdf; its direction); the path's first vertex in the pixel's own reservoir
-// words (res_a's 2, the specular's first 2 - both written by the continued pass, the temporal pass reads them after).
+// random sequence's state, the candidate's pdf; its direction). (Round BUDGET2) Every path that doesn't END at its first
+// vertex (the radiance cache's whole light there - trace_secondary) is queued, and the continued pass traces its first
+// ray again for the vertex's light sample: the sample pass holds no light sampling (its registers 166 -> 96; ReSTIR GI's
+// samples 1.95 -> 1.03 ms, the continued pass 0.21 -> 0.68 - BO at night, 1707 x 960).
 const uint CONTINUE_GROUP = 64u; // (local_size_x x local_size_y)
 uint continue_base() { return pass.trace.x * pass.trace.y * 2u; }
-Secondary no_secondary()
-{
-    return Secondary(false, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), vec3(0.0), GI_REACH, vec3(0.0),
-                     0u);
-}
 // The pixel's samples from its candidate (`traced`: the candidate's ray was traced - its pdf over 0 - meeting `sec`, else
 // the sky that way): the chosen lobe's reservoir the candidate where its target is over 0, the other none (M 1 - drawn
 // from the same mixture, the estimate stays unbiased).
@@ -1172,12 +1244,11 @@ void store_samples(uint i, Surface s, bool traced, bool take_specular, vec3 dir,
 }
 #endif
 #ifdef PASS_SAMPLE
-void queue_continued(uint i, bool take_specular, uint rng, float pdf, vec3 dir, Secondary sec)
+// (round BUDGET2) the queue's entry: the pixel and its lobe, its random sequence's state before the first vertex's light
+// sample, the candidate's pdf; its direction (the continued pass traces the first ray again - the vertex it finds the
+// same)
+void queue_continued(uint i, bool take_specular, uint rng, float pdf, vec3 dir)
 {
-    res_a[i * 2u] = uvec4(floatBitsToUint(sec.at), floatBitsToUint(sec.n.x));
-    res_a[i * 2u + 1u] = uvec4(floatBitsToUint(sec.n.yz), floatBitsToUint(sec.shading.xy));
-    spec_res[i * 4u] = uvec4(floatBitsToUint(sec.shading.z), floatBitsToUint(sec.bounce));
-    spec_res[i * 4u + 1u] = uvec4(floatBitsToUint(sec.reflectance), sec.skipped);
     uint slot = atomicAdd(continued, 1u);
     if (slot % CONTINUE_GROUP == 0u) {
         atomicAdd(continue_groups, 1u);
@@ -1185,18 +1256,6 @@ void queue_continued(uint i, bool take_specular, uint rng, float pdf, vec3 dir, 
     uint at = continue_base() + slot * 2u;
     res_a[at] = uvec4(i | (take_specular ? 0x80000000u : 0u), rng, floatBitsToUint(pdf), 0u);
     res_a[at + 1u] = uvec4(floatBitsToUint(dir), 0u);
-}
-#endif
-#ifdef PASS_CONTINUE
-Secondary continued_secondary(uint i)
-{
-    uvec4 a0 = res_a[i * 2u];
-    uvec4 a1 = res_a[i * 2u + 1u];
-    uvec4 b0 = spec_res[i * 4u];
-    uvec4 b1 = spec_res[i * 4u + 1u];
-    return Secondary(true, uintBitsToFloat(a0.xyz), vec3(uintBitsToFloat(a0.w), uintBitsToFloat(a1.xy)),
-                     vec3(uintBitsToFloat(a1.zw), uintBitsToFloat(b0.x)), uintBitsToFloat(b0.yzw), uintBitsToFloat(b1.xyz),
-                     0.0, vec3(0.0), b1.w);
 }
 #endif
 
@@ -1278,16 +1337,17 @@ void main()
     // (round FA) the specular's hit takes its light from candidates of its own - the specular is each frame's own ray, no
     // reuse averages a light grid cell's shared error (vulkan_light_list.h light_sample_glsl: ll_cell_candidates)
     ll_cell_candidates = !take_specular;
-    Secondary sec = trace_secondary(mask, origin, dir, rng);
+    // (round BUDGET2) the footprint of the lobe's own sample (its pdf without the lobe's chance): where it covers a
+    // trusted cell the path ends there (trace_secondary)
+    float lobe_pdf = pdf / max(take_specular ? specular_chance : 1.0 - specular_chance, 1.0e-6);
+    Secondary sec = trace_secondary(mask, origin, dir, ray_spread(lobe_pdf), rng);
     ll_cell_candidates = true;
-    if (sec.hit) {
-        vec3 cached;
-        if (!cache_lookup(sec.at, sec.n, cached)) {
-            // (round PERF5) a cache miss: the path goes on in the continued paths' pass, which stores the samples
-            queue_continued(i, take_specular, rng, pdf, dir, sec);
-            return;
-        }
-        sec.beyond = good3(cached);
+    if (sec.hit && !sec.ended) {
+        // (round BUDGET2) a vertex the path doesn't end at: its light sample - and past a cache miss the path - in the
+        // continued paths' pass, which traces the ray again and stores the samples (the light sample's code out of this
+        // pass: its registers)
+        queue_continued(i, take_specular, rng, pdf, dir);
+        return;
     }
     store_samples(i, s, true, take_specular, dir, pdf, sec);
 }
@@ -1309,18 +1369,32 @@ void main()
     uint i = e0.x & 0x7FFFFFFFu;
     bool take_specular = (e0.x & 0x80000000u) != 0u;
     uint rng = e0.y;
-    Secondary sec = continued_secondary(i);
+    vec3 dir = uintBitsToFloat(e1.xyz);
+    Surface s = surface_of(now_at[i], now_more[i]);
+    // (round BUDGET2) the first ray again (the same vertex the sample pass met), its light sample, then past a cache miss
+    // the path
     ll_cell_candidates = !take_specular;
-    sec.beyond = continue_path(sec, rng);
+    Secondary sec = trace_secondary(rays_of(s), s.at + s.ng * ray_offset(s.at), dir, FOOTPRINT_NONE, rng);
+    if (sec.hit) {
+        vec3 cached;
+        if (cache_lookup(sec.at, sec.n, cached)) {
+            sec.beyond = good3(cached);
+        } else {
+            sec.beyond = continue_path(sec, rng);
+            // (round PERF2) the continued path's light is a sample of the cell's bounce (E / pi - what the update paths
+            // add), so it goes into the cache too. The update paths start at the pixels and follow the cosine lobe; cells
+            // only the sample pass's rays reach (the specular rays' hits, surfaces behind the camera) never had an entry -
+            // every ray that met them went on, frame after frame (BO at night, 1707 x 960: 4.6 ms of the pass's 7.1). The
+            // sample is the one an update path's vertex adds there (SHaRC's update: every vertex of a path its own cell's
+            // sample).
+            cache_add(sec.at, sec.n, sec.beyond, rng);
+        }
+        // (round BUDGET2) its light sample on a white diffuser: a sample of the cell's direct part (the cells the paths
+        // don't end at - a footprint smaller than its cell - are the ones nearest the pixels)
+        cache_add_direct(sec.at, sec.n, sec.white, rng);
+    }
     ll_cell_candidates = true;
-    // (round PERF2) the continued path's light is a sample of the cell's bounce (E / pi - what the update paths add), so
-    // it goes into the cache too. The update paths start at the pixels and follow the cosine lobe; cells only the sample
-    // pass's rays reach (the specular rays' hits, surfaces behind the camera) never had an entry - every ray that met
-    // them went on, frame after frame (BO at night, 1707 x 960: 4.6 ms of the pass's 7.1). The sample is the one an
-    // update path's vertex adds there (SHaRC's update: every vertex of a path its own cell's sample).
-    cache_add(sec.at, sec.n, sec.beyond, rng);
-    store_samples(i, surface_of(now_at[i], now_more[i]), true, take_specular, uintBitsToFloat(e1.xyz),
-                  uintBitsToFloat(e0.z), sec);
+    store_samples(i, s, true, take_specular, dir, uintBitsToFloat(e0.z), sec);
 }
 #endif
 
@@ -1454,7 +1528,8 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
     if (has_specular) {
         spec = spec_candidate;
         float s_kept = s_chosen;
-        if (has_then_spec && (pass.counts.w & FLAG_SPECULAR_REUSE) != 0u && s.rough >= SPECULAR_REUSE_ROUGHNESS &&
+#ifdef SPECULAR_REUSE
+        if (has_then_spec &&(pass.counts.w & FLAG_SPECULAR_REUSE) != 0u && s.rough >= SPECULAR_REUSE_ROUGHNESS &&
             rough_alike(s, then_spec)) {
             // the generalised balance heuristic (Lin et al. 2022): each sample's weight its share of both reservoirs'
             // M x target at it in the area measure (specular_area_target) - the history's lobe looks elsewhere than this
@@ -1505,6 +1580,7 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
             }
             spec = out_r;
         }
+#endif
         spec_weight = spec.kind != KIND_NONE && spec.W > 0.0 ? good(s_kept * spec.W) : 0.0;
     }
     return r;
@@ -1583,6 +1659,17 @@ vec3 specular_spatial(ivec2 local, uint i, Surface s, vec3 e, inout uint rng, ou
         return vec3(0.0);
     }
     vec3 eye = pass.eye.xyz;
+#ifndef SPECULAR_REUSE
+    // (round BUDGET2) no reuse (the game's): the pixel's own reservoir - its candidate, W its pdf's inverse
+    Reservoir c = load_specular(false, i);
+    vec3 chosen_dir;
+    float chosen_reach;
+    float g_unused;
+    if (c.kind == KIND_NONE || !(c.W > 0.0) || !(specular_target_at(s, eye, c, chosen_dir, chosen_reach, g_unused) > 0.0)) {
+        return vec3(0.0);
+    }
+    float w_chosen = c.W;
+#else
     float cap = float(pass.params.z);
     Reservoir taken[MOST_SPATIAL + 1u];
     Surface where[MOST_SPATIAL + 1u];
@@ -1666,10 +1753,11 @@ vec3 specular_spatial(ivec2 local, uint i, Surface s, vec3 e, inout uint rng, ou
     if (!sample_from(s, taken[chosen], chosen_dir, chosen_reach, g_unused)) {
         return vec3(0.0);
     }
-    // what the seen-through surfaces let through (nothing solid stands in the way: its weight's ray, or its own)
-    vec3 through = seen_through(rays_of(s), s.at + s.ng * ray_offset(s.at), chosen_dir, chosen_reach);
     float w_chosen = good(total / target);
     Reservoir c = taken[chosen];
+#endif
+    // what the seen-through surfaces let through (nothing solid stands in the way: its weight's ray, or its own)
+    vec3 through = seen_through(rays_of(s), s.at + s.ng * ray_offset(s.at), chosen_dir, chosen_reach);
     hit = c.kind == KIND_SURFACE ? length(c.y - s.at) : GI_MISS_DISTANCE;
     full = good3(specular_lobe(s, view_of(s, eye), chosen_dir) * c.bounce * through * w_chosen);
     return good3(full / max(e, vec3(1.0e-4)));
@@ -1765,7 +1853,9 @@ void main()
     if (chosen != 0xFFFFFFFFu) {
         vec3 through = seen(s, chosen_dir, chosen_reach);
         if (seen_at_all(through)) {
-            // Z: the samples of every reservoir that could have made this one - its own surface's target and a ray
+            // Z: the samples of every reservoir that could have made this one - its own surface's target and a ray.
+            // (Round BUDGET2: RTXDI's basic bias correction - the targets alone, no ray here nor in the temporal pass - was
+            // measured: the check's room -5.8 % (spatial alone) / -12 % (both), the glossy floor -2.2 / -4.8 % - not kept.)
             float z = 0.0;
             for (uint k = 0u; k < n; ++k) {
                 if (k == chosen || k == 0u) {
@@ -1915,6 +2005,11 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
     std::string source = "#version 460\n#extension GL_EXT_ray_query : require\n";
     if (check) {
         source += "#define CHECK\n";
+    }
+    if (check || kSpecularReuseInGame) {
+        // (round BUDGET2) the specular reservoir's reuse only in the shaders that can run it: off in the game, its code
+        // (the weights' rays, the generalised balance heuristic's tables) is out of the game's temporal and spatial passes
+        source += "#define SPECULAR_REUSE\n";
     }
     if (shared) {
         source += "#define PRIMARY_SHARED\n"; // (round PERF4: primary() - ReSTIR DI's surfaces alone)

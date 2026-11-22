@@ -191,7 +191,7 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
 // restir_gi_frame_lights): what the passes after it that light surfaces the prepass doesn't hold sample - one light list
 // (its alias table over the disc, the sky's grid and the local group by power), one cache. The buffers live while the
 // frame's work does.
-inline constexpr uint32_t kRadianceCacheCapacity = 1U << 19U; // (entries: 4 uvec4 each - the key, the sums, the light)
+inline constexpr uint32_t kRadianceCacheCapacity = 1U << 19U; // (entries: 8 uvec4 each - light_sample_glsl's CACHE_STRIDE)
 inline constexpr uint32_t kRadianceCacheProbes = 8;
 inline constexpr float kRadianceCacheCellLeast = 4.0F; // (world units: the cells' least side)
 struct FrameLightList {
@@ -229,9 +229,10 @@ struct FrameLightList {
 //       visibility / its density: x a BSDF x the cosine, or x a phase, the estimate (n = ng = vec3(0): a medium's point)
 // With LL_NO_DISC (round FL) a pick of the disc brings nothing: the estimate is of the rest of the list (the caller owns
 // the disc's light - its own visibility ray).
-// With LL_CACHE (the caller's `cache[]` - ReSTIR GI's radiance cache, 4 uvec4 an entry -, CACHE_CAPACITY, CACHE_PROBES,
-// CACHE_CELL_LEAST, LL_EYE, LL_CACHE_CELLS, LL_CACHE_ON):
-//   void cache_key(vec3 at, vec3 ng, out uint slot, out uint check); vec3 cache_bounce(vec3 at, vec3 ng)
+// With LL_CACHE (the caller's `cache[]` - ReSTIR GI's radiance cache, CACHE_STRIDE uvec4s an entry -, CACHE_CAPACITY,
+// CACHE_PROBES, CACHE_CELL_LEAST, LL_EYE, LL_CACHE_CELLS, LL_CACHE_ON):
+//   void cache_key(vec3 at, vec3 ng, out uint slot, out uint check); vec3 cache_bounce(vec3 at, vec3 ng);
+//   bool cache_lookup_whole(vec3 at, vec3 ng, out vec3 bounce, out vec3 direct); float cache_cell_side(vec3 at)
 [[nodiscard]] std::string_view light_sample_glsl();
 
 // (round PT4d) GLSL for ReSTIR DI's and GI's temporal passes (local_size 8 x 8; after rt_path.h's kPathGlsl): what makes
