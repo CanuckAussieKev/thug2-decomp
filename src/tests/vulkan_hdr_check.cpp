@@ -59,6 +59,7 @@
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
+#include "engine/sys/frame_blend.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_hdr.h"
@@ -702,6 +703,19 @@ void check_meter(render::Gpu& gpu, const std::vector<uint16_t>& values, Tally* t
                                       "(%.3f stops, the target %.3f); with no cut still adapting (%.3f)",
                                       static_cast<double>(cut.reading.stops), static_cast<double>(bright_target),
                                       static_cast<double>(no_cut.reading.stops)));
+            // (round NOBIAS) a camera cut (a teleport, a respawn - frame_blend's, the cut Ray Reconstruction resets on):
+            // the eye starts again at the new view's target too, the lighting unchanged
+            std::this_thread::sleep_for(std::chrono::milliseconds(600));
+            const bool dark_once_more = fill_grey(gpu, target, kDark);
+            const Metered dark_before_teleport = meter_pass(gpu, target, whole);
+            frame_blend::note_cut();
+            const bool bright_after_teleport = fill_grey(gpu, target, kHalfSixteen);
+            const Metered teleported = meter_pass(gpu, target, whole);
+            tally->check(dark_once_more && bright_after_teleport && dark_before_teleport.ran && teleported.ran &&
+                             std::abs(teleported.reading.stops - bright_target) < kTolerance,
+                         text::format("a camera cut (a teleport) from a dark view to a bright one: the eye at its target "
+                                      "at once (%.3f stops, the target %.3f)",
+                                      static_cast<double>(teleported.reading.stops), static_cast<double>(bright_target)));
         }
         // (round L - a camera) the key law: night's exposure stays under day's (the view shown darker - round NK: as the
         // curve shows it, linear display light); the exposure

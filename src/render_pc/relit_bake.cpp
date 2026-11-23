@@ -241,16 +241,37 @@ std::vector<float> own_lamps_on(std::span<const rt::RelitLamp> lamps, const rt::
 // content, `mesh_of`): before, every vertex of the level at a corner's position was taken - a neighbouring face's, a
 // tree's cards laid over a candidate's -, and those surfaces glowed with the lamp's radiance at night (College's stand
 // and the tree cards round it, at full brightness on a night level).
+// A triangle of a mesh by its corners whatever their order (exact below 2^21 vertices, a hash beyond).
+uint64_t triangle_key(uint32_t x, uint32_t y, uint32_t z)
+{
+    std::array<uint32_t, 3> sorted{x, y, z};
+    std::ranges::sort(sorted);
+    constexpr uint32_t kExact = 1U << 21U;
+    if (sorted[2] < kExact) {
+        return (static_cast<uint64_t>(sorted[0]) << 42U) | (static_cast<uint64_t>(sorted[1]) << 21U) |
+               static_cast<uint64_t>(sorted[2]);
+    }
+    return (static_cast<uint64_t>(sorted[0]) * 0x9E3779B97F4A7C15ULL) ^ (static_cast<uint64_t>(sorted[1]) << 21U) ^
+           static_cast<uint64_t>(sorted[2]) ^ (1ULL << 63U);
+}
+
+// `drawn` (round NOBIAS): per lamp the luminous area its marked vertices draw (m^2) - each triangle's area x its lit
+// share (a lamp's own triangle's; 1 for a head's) x the mean of its corners that show the lamp (the store's emission is
+// blended across the triangle from its corners).
 std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt::RelitMesh> meshes,
                                                               std::span<const rt::RelitLamp> lamps,
-                                                              const std::unordered_map<rt::MeshId, std::size_t>& mesh_of)
+                                                              const std::unordered_map<rt::MeshId, std::size_t>& mesh_of,
+                                                              std::vector<double>* drawn)
 {
     std::vector<std::vector<rt::RelitEmitting>> out(meshes.size());
+    drawn->assign(lamps.size(), 0.0);
     const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters();
     if (found == nullptr) {
         return out;
     }
     std::vector<std::unordered_map<uint32_t, uint32_t>> marked(meshes.size()); // a mesh's vertex -> its lamp
+    // (round NOBIAS) A lamp's own triangles per mesh, by their corners (sorted) - the lamp and the triangle's lit share.
+    std::vector<std::unordered_map<uint64_t, std::pair<uint32_t, float>>> own(meshes.size());
     for (std::size_t ti = 0; ti < found->triangles.size() && ti < found->triangle_emitter.size(); ++ti) {
         const uint32_t lamp = core::at(found->triangle_emitter, ti);
         const rt::EmitterTriangle& triangle = core::at(found->triangles, ti);
@@ -263,9 +284,47 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
             continue;
         }
         const std::size_t vertex_count = core::at(meshes, owner->second).positions.size();
-        for (const uint32_t vertex : triangle.vertices) {
-            if (vertex < vertex_count) {
-                core::at(marked, owner->second).emplace(vertex, lamp);
+        const auto [x, y, z] = triangle.vertices;
+        if (x < vertex_count && y < vertex_count && z < vertex_count) {
+            core::at(own, owner->second)
+                .emplace(triangle_key(x, y, z), std::pair{lamp, std::clamp(triangle.lit_share, 0.0F, 1.0F)});
+        }
+    }
+    // (round NOBIAS - one owner, one energy) A vertex shows its lamp on every triangle it is a corner of (the store's
+    // emission is per vertex, blended across each triangle): only a vertex whose every triangle is one of that lamp's own
+    // shows it - as the heads below. Before, every corner of a lamp's own triangles was marked, and a lamp drawn in a
+    // facade's texture lit the facade's other triangles through their shared corners - New Orleans' lamp 1010 (a wall
+    // light at 265 units) showed its luminance on the white trim of the wall's big triangles 11 m away at street level,
+    // 80 % of `pt ref`'s whole picture at the street spot (the light list's emitting triangles 27 x their lamps' flux).
+    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+        const auto& triangles = core::at(own, mi);
+        if (triangles.empty()) {
+            continue;
+        }
+        std::unordered_map<uint32_t, uint32_t> claimed; // (a vertex -> the first lamp whose own triangle it is a corner of)
+        const rt::RelitMesh& mesh = core::at(meshes, mi);
+        for (const auto& [x, y, z] : mesh.triangles) {
+            const auto found_own = triangles.find(triangle_key(x, y, z));
+            if (found_own == triangles.end()) {
+                continue;
+            }
+            for (const uint32_t vertex : {x, y, z}) {
+                claimed.emplace(vertex, found_own->second.first);
+            }
+        }
+        std::unordered_set<uint32_t> spreads; // (a claimed vertex that is a corner of a triangle not its lamp's own)
+        for (const auto& [x, y, z] : mesh.triangles) {
+            const auto found_own = triangles.find(triangle_key(x, y, z));
+            for (const uint32_t vertex : {x, y, z}) {
+                const auto claim = claimed.find(vertex);
+                if (claim != claimed.end() && (found_own == triangles.end() || found_own->second.first != claim->second)) {
+                    spreads.insert(vertex);
+                }
+            }
+        }
+        for (const auto& [vertex, lamp] : claimed) {
+            if (!spreads.contains(vertex)) {
+                core::at(marked, mi).emplace(vertex, lamp);
             }
         }
     }
@@ -376,18 +435,12 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
             }
             std::unordered_set<uint32_t> spreads; // (a head vertex that is a corner of a triangle outside the head)
             std::unordered_set<uint64_t> head_keys;
-            const auto key_of = [](uint32_t x, uint32_t y, uint32_t z) {
-                std::array<uint32_t, 3> sorted{x, y, z};
-                std::ranges::sort(sorted);
-                return (static_cast<uint64_t>(sorted[0]) * 0x9E3779B97F4A7C15ULL) ^
-                       (static_cast<uint64_t>(sorted[1]) << 21U) ^ static_cast<uint64_t>(sorted[2]);
-            };
             for (const auto& [x, y, z] : head) {
-                head_keys.insert(key_of(x, y, z));
+                head_keys.insert(triangle_key(x, y, z));
             }
             for (const auto& [x, y, z] : mesh.triangles) {
                 if ((in_head.contains(x) || in_head.contains(y) || in_head.contains(z)) &&
-                    !head_keys.contains(key_of(x, y, z))) {
+                    !head_keys.contains(triangle_key(x, y, z))) {
                     spreads.insert(x);
                     spreads.insert(y);
                     spreads.insert(z);
@@ -402,26 +455,60 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
     }
     {
         // (reported) the lamps whose head is drawn, by where it is: their own surface, or fixture geometry at them
-        std::vector<uint8_t> drawn(lamps.size(), 0);
+        std::vector<uint8_t> shown(lamps.size(), 0);
         for (const auto& mesh_marks : marked) {
             for (const auto& [vertex, lamp] : mesh_marks) {
-                core::at(drawn, lamp) = 1;
+                core::at(shown, lamp) = 1;
             }
         }
-        std::size_t own = 0;
+        std::size_t own_surface = 0;
         std::size_t attached = 0;
         std::size_t none = 0;
         for (std::size_t li = 0; li < lamps.size(); ++li) {
             if (!(luma(core::at(lamps, li).light) > 0.0F)) {
                 continue;
             }
-            own += core::at(has_head, li);
-            attached += core::at(drawn, li) != 0 && core::at(has_head, li) == 0 ? 1 : 0;
-            none += core::at(drawn, li) == 0 ? 1 : 0;
+            own_surface += core::at(has_head, li);
+            attached += core::at(shown, li) != 0 && core::at(has_head, li) == 0 ? 1 : 0;
+            none += core::at(shown, li) == 0 ? 1 : 0;
         }
         get_log("relit bake: lamp heads - %zu on their own surface, %zu on the fixture geometry at them, %zu shining lamps "
-                "with no surface to show (no fixture geometry within their luminous radius)",
-                own, attached, none);
+                "with no surface to show (no fixture geometry within their luminous radius, or their own surface's "
+                "corners all shared with other surfaces - their analytic light alone)",
+                own_surface, attached, none);
+    }
+    // (round NOBIAS) the area each lamp's marks draw: a triangle with a corner showing lamp L shows it over its area x its
+    // lit share x the share of its corners that show L (the blend of the corners' emission)
+    constexpr double kSquareMetresPerUnit = (1.0 / 39.37) * (1.0 / 39.37);
+    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+        const auto& mesh_marks = core::at(marked, mi);
+        if (mesh_marks.empty()) {
+            continue;
+        }
+        const rt::RelitMesh& mesh = core::at(meshes, mi);
+        const auto& own_triangles = core::at(own, mi);
+        for (const auto& [x, y, z] : mesh.triangles) {
+            if (x >= mesh.positions.size() || y >= mesh.positions.size() || z >= mesh.positions.size()) {
+                continue;
+            }
+            std::array<uint32_t, 3> lamp_at{rt::kNoEmitter, rt::kNoEmitter, rt::kNoEmitter};
+            std::size_t k = 0;
+            for (const uint32_t vertex : {x, y, z}) {
+                const auto mark = mesh_marks.find(vertex);
+                core::at(lamp_at, k++) = mark != mesh_marks.end() ? mark->second : rt::kNoEmitter;
+            }
+            const rt::Vec3 n = rt::cross(rt::minus(core::at(mesh.positions, y), core::at(mesh.positions, x)),
+                                         rt::minus(core::at(mesh.positions, z), core::at(mesh.positions, x)));
+            const double area = 0.5 * std::sqrt(static_cast<double>(rt::dot(n, n))) * kSquareMetresPerUnit;
+            const auto in_own = own_triangles.find(triangle_key(x, y, z));
+            const double share = in_own != own_triangles.end() ? static_cast<double>(in_own->second.second) : 1.0;
+            for (std::size_t c = 0; c < 3; ++c) {
+                const uint32_t lamp = core::at(lamp_at, c);
+                if (lamp < drawn->size()) {
+                    core::at(*drawn, lamp) += area * share / 3.0;
+                }
+            }
+        }
     }
     for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
         std::vector<rt::RelitEmitting>& emitting = core::at(out, mi);
@@ -432,6 +519,34 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
                           [](const rt::RelitEmitting& a, const rt::RelitEmitting& b) { return a.vertex < b.vertex; });
     }
     return out;
+}
+
+// (round NOBIAS - one owner, one energy) A lamp whose surface shows it sends its flux from that surface: its luminance
+// is its flux over pi x the area its marked vertices draw (emitting_vertices' `drawn`), whatever its kind's or the
+// bake's own area said. Before, the luminance was the flux over the area of its own triangles (or its kind's luminance)
+// while the store blended it across every triangle its corners touch: the surfaces sent other than their lamps' flux
+// (New Orleans' 2122 emitting triangles 27 x their 381 lamps'). Reported: the flux the surfaces would have sent at the
+// luminance before against the lamps' own.
+void drawn_luminances(std::span<rt::RelitLamp> lamps, std::span<const double> drawn)
+{
+    constexpr double kPiD = 3.14159265358979323846;
+    double before = 0.0;
+    double after = 0.0;
+    std::size_t lamps_drawn = 0;
+    for (std::size_t li = 0; li < lamps.size() && li < drawn.size(); ++li) {
+        rt::RelitLamp& lamp = core::at(lamps, li);
+        const double area = core::at(drawn, li);
+        if (!(area > 0.0) || !(lamp.lumens > 0.0F) || !(luma(lamp.light) > 0.0F)) {
+            continue;
+        }
+        before += kPiD * static_cast<double>(lamp.luminance) * area;
+        lamp.luminance = static_cast<float>(static_cast<double>(lamp.lumens) / (kPiD * area));
+        after += static_cast<double>(lamp.lumens);
+        ++lamps_drawn;
+    }
+    get_log("relit bake: lamps' surfaces at their flux - %zu lamps shown by their surfaces, %.0f lm from them (at the "
+            "luminance their area or kind gave: %.0f lm, x %.2f)",
+            lamps_drawn, after, before, after > 0.0 ? before / after : 0.0);
 }
 // (round P10, the bake's report) An emitter kind's name.
 const char* kind_name(rt::EmitterKind kind)
@@ -1462,6 +1577,22 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         }
         log_lamp_models(lamps, told, modelled);
         log_cones(meshes, blended_meshes, lamps);
+        std::unordered_map<rt::MeshId, std::size_t> mesh_of; // (a world mesh's id -> the bake's mesh of its content)
+        {
+            std::unordered_map<uint64_t, std::size_t> by_content;
+            for (std::size_t mi = 0; mi < contents.size(); ++mi) {
+                by_content.emplace(core::at(contents, mi), mi);
+            }
+            for (const auto& [id, content] : content_of) {
+                if (const auto at = by_content.find(content); at != by_content.end()) {
+                    mesh_of.emplace(id, at->second);
+                }
+            }
+        }
+        std::vector<double> drawn_areas;
+        const std::vector<std::vector<rt::RelitEmitting>> emitting =
+            emitting_vertices(meshes, lamps, mesh_of, &drawn_areas);
+        drawn_luminances(lamps, drawn_areas);
         data.lamp_list = lamps;
         if (const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters(); found != nullptr) {
             constexpr float kLambertian = 1.0F / 3.14159265F; // (a Lambertian emitter's radiance: its intensity over pi)
@@ -1513,20 +1644,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             bounce_ms = ms_since(bounced);
         }
         data.model = model;
-        std::unordered_map<rt::MeshId, std::size_t> mesh_of; // (a world mesh's id -> the bake's mesh of its content)
-        {
-            std::unordered_map<uint64_t, std::size_t> by_content;
-            for (std::size_t mi = 0; mi < contents.size(); ++mi) {
-                by_content.emplace(core::at(contents, mi), mi);
-            }
-            for (const auto& [id, content] : content_of) {
-                if (const auto at = by_content.find(content); at != by_content.end()) {
-                    mesh_of.emplace(id, at->second);
-                }
-            }
-        }
         log_card_surfaces(meshes, light, card_given, before_cards);
-        const std::vector<std::vector<rt::RelitEmitting>> emitting = emitting_vertices(meshes, lamps, mesh_of);
         for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
             // (round LV) and by the mesh as the level's file gives it: found by a game with other geometry settings
             const rt::RelitMesh& read_mesh = core::at(meshes, mi);
