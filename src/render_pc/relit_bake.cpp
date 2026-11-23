@@ -302,14 +302,23 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
         const float radius = static_cast<float>(std::sqrt(area / kPiD) * kUnitsPerMetre) + lamp.size;
         const double most_area = static_cast<double>(std::max(values.most_area, static_cast<float>(area))) *
                                  kUnitsPerMetre * kUnitsPerMetre;
+        // (round UNITS - a head is the lamp's luminous surface: its flux pi L A at its luminance L, no more) the
+        // candidates of every mesh nearest the lamp first, taken until their area is the lamp's luminous area A. Before,
+        // every small enough triangle within the luminous radius + the lamp's size was taken: a line glow's size is its
+        // whole spread - Barcelona's facade glow (a 400 lm line, 0.15 m^2 at 870 cd/m^2) took 1096 vertices of the
+        // facade and its benches and showed them at 870 cd/m^2 (x the texel), 1 000 times the lit street round them.
+        struct Candidate {
+            std::size_t mesh = 0;
+            std::array<uint32_t, 3> triangle{};
+            double distance = 0.0; // (its middle's from the lamp, squared)
+            double area = 0.0;     // (world units^2)
+        };
+        std::vector<Candidate> candidates;
         for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
             const rt::RelitMesh& mesh = core::at(meshes, mi);
             if (cards.contains(mesh.id)) {
                 continue;
             }
-            // (an emitting vertex shows its lamp on every triangle it is a corner of: only vertices whose every triangle
-            // is one of the head's - its light never spreads onto the floor or wall a small face touches)
-            std::vector<std::array<uint32_t, 3>> head;
             for (const auto& [one, two, three] : mesh.triangles) {
                 if (one >= mesh.positions.size() || two >= mesh.positions.size() || three >= mesh.positions.size()) {
                     continue;
@@ -333,10 +342,33 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
                 if (lamp.shape == rt::EmitterShape::kPanel && std::abs(rt::dot(n, lamp.axis)) < rt::kPanelFacing * twice) {
                     continue;
                 }
-                head.push_back({one, two, three});
+                const rt::Vec3 middle = rt::scaled(rt::plus(rt::plus(a, b), c), 1.0F / 3.0F);
+                const rt::Vec3 apart = rt::minus(middle, lamp.position);
+                candidates.push_back({.mesh = mi,
+                                      .triangle = {one, two, three},
+                                      .distance = static_cast<double>(rt::dot(apart, apart)),
+                                      .area = 0.5 * static_cast<double>(twice)});
             }
-            if (head.empty()) {
-                continue;
+        }
+        std::ranges::sort(candidates, {}, &Candidate::distance);
+        const double luminous = area * kUnitsPerMetre * kUnitsPerMetre;
+        double taken = 0.0;
+        std::size_t kept = 0;
+        while (kept < candidates.size() && (kept == 0 || taken < luminous)) {
+            taken += core::at(candidates, kept).area;
+            ++kept;
+        }
+        candidates.resize(kept);
+        std::ranges::sort(candidates, {}, &Candidate::mesh);
+        for (std::size_t first = 0; first < candidates.size();) {
+            const std::size_t mi = core::at(candidates, first).mesh;
+            const rt::RelitMesh& mesh = core::at(meshes, mi);
+            // (an emitting vertex shows its lamp on every triangle it is a corner of: only vertices whose every triangle
+            // is one of the head's - its light never spreads onto the floor or wall a small face touches)
+            std::vector<std::array<uint32_t, 3>> head;
+            while (first < candidates.size() && core::at(candidates, first).mesh == mi) {
+                head.push_back(core::at(candidates, first).triangle);
+                ++first;
             }
             std::unordered_set<uint32_t> in_head;
             for (const auto& corner : head) {

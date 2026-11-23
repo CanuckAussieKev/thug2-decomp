@@ -1135,6 +1135,15 @@ void draw_scene(render::Gpu& gpu, std::span<const SceneMesh> meshes)
     }
 }
 
+// (round UNITS) The lamp-in-the-air case's level fog: the level's own fog (replaced by the pass - an even medium of
+// Koschmieder's extinction for its distances), black - no light of its own -, from the eye to kFogHazeEnd. (Before, the
+// case drew the haze - a 100-metre "fog" in shafts mode; a level without fog now has the weather's air alone.)
+bool& lamp_fog()
+{
+    static bool on = false;
+    return on;
+}
+
 rt::ViewDrawn view_drawn()
 {
     const Matrices matrices = matrices_for(scene_eye());
@@ -1150,6 +1159,9 @@ rt::ViewDrawn view_drawn()
     view.camera.position = floats(scene_eye());
     view.rect = {0, 0, kTargetWidth, kTargetHeight};
     view.depth_range = {0.0F, 1.0F};
+    if (lamp_fog()) {
+        view.fog = {.on = true, .start = 0.0F, .end = render::vulkan::kFogHazeEnd, .colour = {0.0F, 0.0F, 0.0F}};
+    }
     return view;
 }
 
@@ -1765,17 +1777,24 @@ AirLight air_light(const View& view, double px, double py, const rt::Emitter& la
     const Rgb colour{core::at(lamp.colour, 0) * lamp.intensity * scale, core::at(lamp.colour, 1) * lamp.intensity * scale,
                      core::at(lamp.colour, 2) * lamp.intensity * scale};
     // (the sky's pixels: the shafts' sky share - vulkan_rt_fog.h kFogSkyShare)
-    const double medium = core::at(render::vulkan::kFogHazeColour, 0) * (1.0 - render::vulkan::kFogAmbientShare) *
-                          (seen.solid == kNoSurface ? render::vulkan::kFogSkyShare : render::vulkan::kFogShaftShare);
-    const double air_medium =
-        render::vulkan::kFogStreetAirLight * (seen.solid == kNoSurface ? render::vulkan::kFogSkyShare : 1.0);
+    // (round UNITS - vulkan_rt_fog.cpp: the medium the weather's aerosol - its albedo -, the lamp's estimate x 1 / 4,
+    // in shafts mode its share)
+    const std::array<float, 3> albedo = rt::aerosol_albedo(rt::aerosol());
+    const double albedo_luma = (0.2126 * core::at(albedo, 0)) + (0.7152 * core::at(albedo, 1)) + (0.0722 * core::at(albedo, 2));
+    // (the level's fog replaced - all of its light on a surface; the haze's shafts mode its share; the sky's pixels theirs)
+    const double share = seen.solid == kNoSurface ? render::vulkan::kFogSkyShare
+                                                  : (lamp_fog() ? 1.0 : render::vulkan::kFogShaftShare);
+    const double medium = 0.25 * albedo_luma * share;
+    const double air_medium = medium;
+    // (a level without fog: the weather's street air alone - kFogHazeEnd the grid's reach)
+    const double sigma = lamp_fog() ? rt::level_fog_extinction(0.0F, static_cast<float>(end)) : 0.0;
     AirLight out;
     double kept = 1.0;
     for (uint32_t i = 0; i < kFineSteps; ++i) {
         const double s0 = last * i / kFineSteps;
         const double s1 = last * (i + 1) / kFineSteps;
         const double s = 0.5 * (s0 + s1);
-        const double haze = std::log(std::max(end - s0, 1e-4 * end) / std::max(end - s1, 1e-4 * end));
+        const double haze = sigma * (s1 - s0);
         const Vec3 at = step(view.eye, direction, s);
         // (the street air: its extinction at the point's height over the floor, y 0 - fine steps)
         const double street =
@@ -1800,7 +1819,7 @@ AirLight air_light(const View& view, double px, double py, const rt::Emitter& la
 void run_fog_lamp(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
 {
     namespace vk = render::vulkan;
-    text::print("the lamp in the air (rt_fog's haze lit by the light list's lamp, the box's shadow in it):\n");
+    text::print("the lamp in the air (the level's fog lit by the light list's lamp, the box's shadow in it):\n");
     vk::set_rt_light_settings(settings_for(true, 4));
     // (round WF: the air is lit by the light list - the frame's point light there as the lighting state switches it: the
     // level's own lamps on, no clock)
@@ -1811,8 +1830,11 @@ void run_fog_lamp(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* ta
     vk::RtFogSettings fog;
     fog.on = true;
     fog.haze = true;
-    fog.scale = 2; // (the texels' 2 x 2 blocks below; no street air - no sun or moon here)
+    fog.scale = 2; // (the texels' 2 x 2 blocks below)
     vk::set_rt_fog_settings(fog);
+    lamp_fog() = true; // (round UNITS: the level's fog, lit by the lamp; the clear day's street air with it, over the floor)
+    rt::set_baked_sun({.scene = 1, .found = false, .ground = 0.0F, .ground_known = true});
+    const rt::StreetAir mist = rt::street_air(rt::aerosol_for(rt::Weather::kClear), {});
     const std::array<rt::Light, 1> points{{{.kind = rt::Light::Kind::kPoint,
                                             .colour = {1.0F, 0.9F, 0.7F},
                                             .position = floats(kFogLampAt),
@@ -1849,7 +1871,8 @@ void run_fog_lamp(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* ta
         for (uint32_t y = 0; y < history.height; ++y) {
             for (uint32_t x = 0; x < history.width; ++x) {
                 // (the texel's 2 x 2 block, marched a pixel at a time: its middle)
-                const AirLight want = air_light(view, (2.0 * x) + 0.5, (2.0 * y) + 0.5, lamps.lamps.front(), lamps.scale);
+                const AirLight want =
+                    air_light(view, (2.0 * x) + 0.5, (2.0 * y) + 0.5, lamps.lamps.front(), lamps.scale, mist);
                 const std::array<float, 4>& got = core::at(history.texels, (static_cast<std::size_t>(y) * history.width) + x);
                 const double device = luma_of({core::at(got, 0), core::at(got, 1), core::at(got, 2)});
                 if (!(want.open > kLeastLight)) {
@@ -1881,6 +1904,8 @@ void run_fog_lamp(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* ta
     release_targets(gpu, targets);
     vk::set_rt_fog_settings({});
     rt::set_level_emitters({});
+    rt::set_baked_sun({});
+    lamp_fog() = false;
 }
 
 // (added by the street air) The lamp at night in the street air: the clock's night (the moon given no light, the

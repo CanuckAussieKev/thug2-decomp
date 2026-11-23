@@ -3262,6 +3262,29 @@ the same light); a ray's hit on the wall (a bounce, a reflection) sees the bare 
 cache captures decals; ours would need the card in the hit's material); the ambient occlusion's rays still count a card
 over their surface; a draw recorded again (its preparation lost mid-view) discards where it lies without being laid.
 
+### Round UNITS: one physical unit for every level's fog and lamps
+
+Lighting is global: every level's light, emission and fog goes through one conversion, derived from what the original
+renderer did with each value (Unreal's and Frostbite's physical units: candela / lumens for lights, cd/m^2 for
+emission, extinction per metre with a scattering albedo for media, EV100 for the camera). The census of every level
+through it: `node tools/game/light_units.ts census --game <folder>`.
+
+| input | the original's use | before | after (unit) |
+|---|---|---|---|
+| fog distances | SetFogDistance(start): a linear blend to the fog colour from start to end = 4 start (start + 7200 with distance clipping) - at the end a thing is gone | a medium of extinction 1 / (end - d) per unit (the game's f exactly, but a medium that moves with the camera) | an even medium of Koschmieder's extinction 3.912 / (end - start) per world unit (the end is its visibility at 2 % contrast - rt_sky.h's rule) from `start` on - Unreal's height fog's Start Distance (rt_volume_light.h `level_fog_extinction`) |
+| fog colour | the light a fully fogged pixel shows | the medium's light: colour x (0.5 + 0.5 (sun + lamps)), taken as display-referred and decoded with the 2.2 power at the composite | not an input: the medium is the weather's aerosol (mist and haze droplets - its albedo `aerosol_albedo`, its phase), lit in the global unit x pre-exposure by the light's irradiance x phase / 4 pi, the lamps' estimate / 4, the open sky (half its light on a level surface); linear radiance. The game's colour stays the look of a level without physical light (no relit data, no clock) |
+| a level without fog | - | a 100-metre linear "haze" (kFogHazeEnd) lit as above | the weather's street air alone (`rt_fog_air`), with or without a sun (kFogHazeEnd is only the grid's reach) |
+| a lamp's reach | (light nodes) the outer radius; (found emitters) 12 cores, 200 - 1500 units | the window (1 - (d/r)^4)^2 to that reach: the light still 5 lux there (median; up to 126 lux - BO's 223 lamps all over 0.1 lux) | where its illuminance falls to kLampReachLux = 10^-3 lux (rt_lights.h `lamp_reach`: sqrt(I / E), I from the light at the lamp x its core's area, or core x half length for a line) - Frostbite's influence radius from a threshold; median 540 m |
+| a lamp head's surface | (the bake) every small triangle within the luminous radius + the lamp's size | Barcelona's facade glow (a 400 lm line) took 1096 vertices of the facade and benches at 870 cd/m^2 | the candidates nearest the lamp until their area is its luminous area flux / (pi L): the head emits the lamp's flux, no more (relit_bake.cpp `emitting_vertices`; needs a rebake) |
+
+The glowing balls round street lamps were the 2.2 power: a lamp's pre-exposed light in the air (tens to thousands at
+night, the pre-exposure ~6 000) raised to its 2.2th power. In linear radiance the same lamps in Australia's clear night
+air show no halo (its fog starts 200 m out); in a mist (THUG2's night fog: visibility 610 m, 66 x a clear night's
+extinction) a street lamp's halo is about as bright as the ground it lights - what Koschmieder's mist does physically.
+Compromises (as shipping engines make them): single scattering with the sky as an ambient term (Unreal's / Frostbite's
+volumetric fog), the fog-free range before `start` (Unreal's Start Distance), a lamp's light ended at a threshold
+(Frostbite's influence radius).
+
 ### Time of day (`tod`, `tod_cycle`)
 
 Every level can be played at any hour: the sun (and at night a full moon) moves along a real path over the level, the
