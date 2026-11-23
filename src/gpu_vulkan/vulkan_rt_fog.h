@@ -39,8 +39,11 @@
 //      fog, the atmosphere's air (below). The level's fog is the weather's aerosol made denser: its albedo and phase
 //      (Cornette-Shanks, rt_sky.h), lit in the global unit x the frame's pre-exposure by the light's irradiance, the
 //      lamps and the open sky - linear radiance, single scattering (as Unreal's and Frostbite's volumetric fog: the
-//      sky's light as an ambient term, no multiple scattering). A level without physical light keeps the game's fog
-//      colour as its own light. (Before: fog colour x (0.5 + 0.5 x (sun + lamps)) taken as display-referred and decoded
+//      sky's light as an ambient term, no multiple scattering). A level without physical light (round FW: no current
+//      relit data - the clock alone isn't) keeps the game's fog colour as its own light, and its lamps (the found
+//      emitters at display brightness) light no air. Under the time of day's clock with physical light the level's fog
+//      is the original's time of day states' (a stand-in for the night's dark and the day's haze) - no medium: the air
+//      is the weather's alone, as in a level without fog (below), and the game's fog stays out of the draws. (Before: fog colour x (0.5 + 0.5 x (sun + lamps)) taken as display-referred and decoded
 //      with the display's 2.2 power - a lamp's pre-exposed light in the air raised to its 2.2th power.) Each slice keeps what lies before its far face
 //      (the light, the transmittance), its own source and the god rays' potentials; the level fog's sky pixels their
 //      own line (a share of the sunlit light, nothing dimmed).

@@ -1827,6 +1827,8 @@ void run_fog_lamp(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* ta
     lamps_on.serial = 1;
     lamps_on.own_lamps = 1.0F;
     rt::set_level_emitters(std::move(lamps_on));
+    // (round FW: lamps light the air only where the light is physical - a relit world with current data; its sun none)
+    rt::set_cel_world({.relit = true, .sun = {0.0F, 0.0F, 0.0F}, .toward = {0.0F, 1.0F, 0.0F}});
     vk::RtFogSettings fog;
     fog.on = true;
     fog.haze = true;
@@ -1905,6 +1907,7 @@ void run_fog_lamp(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* ta
     vk::set_rt_fog_settings({});
     rt::set_level_emitters({});
     rt::set_baked_sun({});
+    rt::set_cel_world({});
     lamp_fog() = false;
 }
 
@@ -1982,6 +1985,8 @@ void run_fog_lamp_night(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tal
     day.sun = {0.0F, -0.5F, 0.866F}; // (30 degrees under the horizon: the night's air)
     day.light_colour = {0.0F, 0.0F, 0.0F}; // (no moonlight: the lamp's light alone)
     rt::set_day_light(day);
+    // (round FW: lamps light the air only where the light is physical - a relit world with current data; its sun none)
+    rt::set_cel_world({.relit = true, .sun = {0.0F, 0.0F, 0.0F}, .toward = {0.0F, 1.0F, 0.0F}});
     const std::array<rt::Light, 1> points{{{.kind = rt::Light::Kind::kPoint,
                                             .colour = {1.0F, 0.9F, 0.7F},
                                             .position = floats(kFogLampAt),
@@ -2008,6 +2013,7 @@ void run_fog_lamp_night(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tal
     rt::set_day_light({});
     rt::set_sun_relight({});
     rt::set_baked_sun({});
+    rt::set_cel_world({});
     vk::set_rt_fog_settings({});
 }
 
@@ -2077,6 +2083,8 @@ void run_fog_noise(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* t
     day.sun = {0.0F, -0.5F, 0.866F};
     day.light_colour = {0.0F, 0.0F, 0.0F};
     rt::set_day_light(day);
+    // (round FW: lamps light the air only where the light is physical - a relit world with current data; its sun none)
+    rt::set_cel_world({.relit = true, .sun = {0.0F, 0.0F, 0.0F}, .toward = {0.0F, 1.0F, 0.0F}});
     vk::RtFogSettings fog;
     fog.on = true;
     fog.haze = true;
@@ -2138,6 +2146,7 @@ void run_fog_noise(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* t
     rt::set_day_light({});
     rt::set_sun_relight({});
     rt::set_baked_sun({});
+    rt::set_cel_world({});
     vk::set_rt_fog_settings({});
 }
 

@@ -3285,6 +3285,21 @@ Compromises (as shipping engines make them): single scattering with the sky as a
 volumetric fog), the fog-free range before `start` (Unreal's Start Distance), a lamp's light ended at a threshold
 (Frostbite's influence radius).
 
+Round FW narrowed what counts as physical and what counts as a medium:
+- **Physical light is the relit world's** (current relit data). The clock alone isn't: over a level whose relit data is
+  out of date the surfaces are drawn with the original's light and the lamps are the found emitters at their display
+  brightness. Before, the clock made such a level "physical", and those lamps x the night's pre-exposure (5 000 - 30 000)
+  lit the street air of New Orleans into orange, green and magenta fog. Now its air keeps the game's fog colour as its
+  own light (the unit its surfaces are drawn in) and no lamp lights it: a light with no physical value has no place in
+  a physical medium. The full rebake makes such a level physical.
+- **Under the clock the time of day's fog is no medium.** The fog the clock hands the draws is the original's time of
+  day states' (each level's TODManager_SetParams or tod_manager.qb's defaults - night 8 000 - 32 000 units): a linear
+  blend into a dark colour that stood for the night's darkness and the day's haze. The clock has the physical sky,
+  exposure and air for those, so the air there is the weather's alone (`rt_fog_air`, the atmosphere's with the sky
+  model) - as in a level without fog - and the game's fog stays out of the draws. Made a medium, every night was a 610 m
+  mist (66 x a clear night's extinction). A level the clock doesn't light (`tod=level`) keeps its own fog as the medium
+  above.
+
 ### Time of day (`tod`, `tod_cycle`)
 
 Every level can be played at any hour: the sun (and at night a full moon) moves along a real path over the level, the
