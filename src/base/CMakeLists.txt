@@ -7,6 +7,7 @@ add_library(thug2_base STATIC
     core/checksums.cpp
     core/dbg.cpp
     core/format.cpp
+    core/parallel_for.cpp
     core/log_sink.cpp
     core/single_instance.cpp
     core/str.cpp

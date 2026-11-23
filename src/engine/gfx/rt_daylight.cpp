@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <cmath>
@@ -223,6 +224,10 @@ struct Published {
     uint64_t cut_shown = 0;                        // (round S2) note_cut_shown's
     float frame_pre = 1.0F;                        // (round PX) the frame's pre-exposure (set_day_light's latch)
     std::chrono::steady_clock::time_point cut_came; // when the light's cut changed
+    // (round CPU) frame_pre_exposure's answer, kept whenever the light or the latch changes (under the mutex) and read
+    // without it - every draw reads it
+    std::atomic<float> frame_answer{1.0F};
+    void keep_answer() { frame_answer.store(light.on && frame_pre > 0.0F ? frame_pre : 1.0F); }
 };
 Published& published()
 {
@@ -859,6 +864,7 @@ void set_day_light(const DayLight& light)
     const std::scoped_lock lock(slot.mutex);
     slot.frame_pre = light.on && std::isfinite(light.pre_exposure) && light.pre_exposure > 0.0F ? light.pre_exposure : 1.0F;
     if (same_light(light, slot.light)) {
+        slot.keep_answer();
         return;
     }
     const uint64_t serial = slot.light.serial + 1;
@@ -867,6 +873,7 @@ void set_day_light(const DayLight& light)
     }
     slot.light = light;
     slot.light.serial = serial;
+    slot.keep_answer();
 }
 
 void latch_pre_exposure()
@@ -878,6 +885,7 @@ void latch_pre_exposure()
     }
     const float pre = pre_exposure_for(slot.light);
     slot.frame_pre = std::isfinite(pre) && pre > 0.0F ? pre : 1.0F;
+    slot.keep_answer();
 }
 
 void note_cut_shown(uint64_t cut)
@@ -911,9 +919,7 @@ DayLight day_light()
 
 float frame_pre_exposure()
 {
-    Published& slot = published();
-    const std::scoped_lock lock(slot.mutex);
-    return slot.light.on && slot.frame_pre > 0.0F ? slot.frame_pre : 1.0F;
+    return published().frame_answer.load(); // (round CPU: Published::keep_answer)
 }
 
 } // namespace render::rt

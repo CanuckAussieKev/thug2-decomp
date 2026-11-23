@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/core/no_destroy.h"
+#include "base/core/parallel_for.h"
 
 #include "base/maths/view_transforms.h"
 #include "engine/gfx/gpu.h"
@@ -216,6 +217,7 @@ void get_skin(const MeshRef* mesh, uint8_t* out, int bones, std::span<const math
 // function on the same inputs, so the same bytes, made once instead of twice.
 struct SkinnedOnce {
     int frame = 0;
+    bool valid = false; // skinned (every vertex's bones within the palette)
     std::vector<maths::Mat4> palette;
     std::vector<uint8_t> vertices;
 };
@@ -245,6 +247,32 @@ SkinnedStore& skinned_store()
     return made.get();
 }
 
+// The store for frame `frame`: the entries of frames before the last dropped (once a frame).
+SkinnedStore& skinned_store_for(int frame)
+{
+    SkinnedStore& store = skinned_store();
+    if (store.purged_frame != frame) {
+        store.purged_frame = frame;
+        std::erase_if(store.kept, [frame](const auto& kept) { return kept.second.frame + 1 < frame; });
+    }
+    return store;
+}
+
+// Whether every vertex's bones (as many as `bones`) are within the palette.
+bool bones_within(const MeshRef* mesh, int bones, std::size_t palette)
+{
+    const gpu::VertexView vertices(mesh->per_vertex_data(), sizeof(SkinVertex), mesh->vertex_count());
+    for (uint32_t i = 0; i < mesh->vertex_count(); ++i) {
+        const auto vertex = vertices.value<SkinVertex>(i, 0);
+        for (std::size_t k = 0; k < static_cast<std::size_t>(bones); ++k) {
+            if (core::at(vertex.bones, k) >= palette) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 bool same_palette(std::span<const maths::Mat4> a, std::span<const maths::Mat4> b)
 {
     return a.size() == b.size() && (a.empty() || std::memcmp(a.data(), b.data(), a.size_bytes()) == 0);
@@ -261,7 +289,8 @@ bool copy_skinned(const MeshRef* mesh, const void* owner, std::span<const maths:
     }
     const SkinnedOnce& once = found->second;
     const std::size_t bytes = static_cast<std::size_t>(mesh->vertex_count()) * mesh->stride();
-    if (once.frame != renderer().frames_rendered() || once.vertices.size() != bytes || !same_palette(once.palette, palette)) {
+    if (once.frame != renderer().frames_rendered() || !once.valid || once.vertices.size() != bytes ||
+        !same_palette(once.palette, palette)) {
         return false;
     }
     std::memcpy(out, once.vertices.data(), bytes);
@@ -296,30 +325,63 @@ bool MeshRef::skin_for_rays(const void* owner, std::span<const maths::Mat4> pale
     if (per_vertex_data_ == nullptr || bones < 1 || bones > 3 || out.size() < bytes) {
         return false;
     }
-    const gpu::VertexView vertices(per_vertex_data_, sizeof(SkinVertex), vertex_count_);
-    for (uint32_t i = 0; i < vertex_count_; ++i) {
-        const auto vertex = vertices.value<SkinVertex>(i, 0);
-        for (std::size_t k = 0; k < static_cast<std::size_t>(bones); ++k) {
-            if (core::at(vertex.bones, k) >= palette.size()) {
-                return false;
-            }
-        }
-    }
     // (round CPU) skinned into memory of our own - kept for the draw's skinning this frame (copy_skinned) - and copied
-    // into `out` (the pose's buffer, written once, never read back)
-    SkinnedStore& store = skinned_store();
+    // into `out` (the pose's buffer, written once, never read back); skinned ahead already (skin_ahead) - copied
     const int frame = renderer().frames_rendered();
-    if (store.purged_frame != frame) {
-        store.purged_frame = frame;
-        std::erase_if(store.kept, [frame](const auto& kept) { return kept.second.frame + 1 < frame; });
-    }
+    SkinnedStore& store = skinned_store_for(frame);
     SkinnedOnce& once = store.kept[{.mesh = this, .owner = owner}];
-    once.frame = frame;
-    once.palette.assign(palette.begin(), palette.end());
-    once.vertices.resize(bytes);
-    get_skin(this, once.vertices.data(), bones, palette);
+    if (once.frame != frame || !once.valid || once.vertices.size() != bytes || !same_palette(once.palette, palette)) {
+        if (!bones_within(this, bones, palette.size())) {
+            once.valid = false;
+            return false;
+        }
+        once.frame = frame;
+        once.palette.assign(palette.begin(), palette.end());
+        once.vertices.resize(bytes);
+        get_skin(this, once.vertices.data(), bones, palette);
+        once.valid = true;
+    }
     std::memcpy(out.data(), once.vertices.data(), bytes);
     return true;
+}
+
+void MeshRef::skin_ahead(std::span<const SkinAhead> meshes)
+{
+    const int frame = renderer().frames_rendered();
+    SkinnedStore& store = skinned_store_for(frame);
+    // the entries made here (each mesh and instance once - a second one would be skinned twice at once)
+    struct Job {
+        const MeshRef* mesh = nullptr;
+        int bones = 0;
+        std::span<const maths::Mat4> palette;
+        SkinnedOnce* once = nullptr;
+    };
+    std::vector<Job> jobs;
+    jobs.reserve(meshes.size());
+    for (const SkinAhead& wanted : meshes) {
+        const MeshRef* mesh = wanted.mesh;
+        const auto bones = static_cast<int>(mesh->unknowna8_);
+        if (mesh->per_vertex_data_ == nullptr || bones < 1 || bones > 3 || wanted.palette.empty()) {
+            continue;
+        }
+        SkinnedOnce& once = store.kept[{.mesh = mesh, .owner = wanted.owner}];
+        if (once.frame == frame) {
+            continue;
+        }
+        once.frame = frame;
+        once.valid = false;
+        once.palette.assign(wanted.palette.begin(), wanted.palette.end());
+        once.vertices.resize(static_cast<std::size_t>(mesh->vertex_count_) * mesh->stride_);
+        jobs.push_back({.mesh = mesh, .bones = bones, .palette = once.palette, .once = &once});
+    }
+    // each its own mesh's vertices into its own entry: nothing shared but what is read
+    core::parallel_for(jobs.size(), [&jobs](std::size_t i) {
+        const Job& job = core::at(jobs, i);
+        if (bones_within(job.mesh, job.bones, job.palette.size())) {
+            get_skin(job.mesh, job.once->vertices.data(), job.bones, job.palette);
+            job.once->valid = true;
+        }
+    });
 }
 
 // The level of detail drawn: the first whose distance the mesh is nearer than (by its sphere's distance from the

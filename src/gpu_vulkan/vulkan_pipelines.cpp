@@ -172,6 +172,21 @@ std::size_t PipelineKeyHash::operator()(const PipelineKey& key) const
     return static_cast<std::size_t>(fnv1a(raw));
 }
 
+std::size_t PipelineKeyTableHash::operator()(const PipelineKey& key) const
+{
+    constexpr std::size_t kWords = (sizeof(PipelineKey) + sizeof(uint64_t) - 1) / sizeof(uint64_t);
+    std::array<uint64_t, kWords> words{};
+    std::memcpy(words.data(), &key, sizeof(PipelineKey));
+    constexpr uint64_t kMix = 0x9E3779B97F4A7C15ULL;
+    constexpr unsigned kFold = 29;
+    uint64_t hash = sizeof(PipelineKey);
+    for (const uint64_t word : words) {
+        hash = (hash ^ word) * kMix;
+        hash ^= hash >> kFold;
+    }
+    return static_cast<std::size_t>(hash);
+}
+
 bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::string& folder, bool ray_queries)
 {
     device_ = device;

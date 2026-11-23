@@ -68,6 +68,11 @@ static_assert(std::has_unique_object_representations_v<PipelineKey>, "PipelineKe
 struct PipelineKeyHash {
     std::size_t operator()(const PipelineKey& key) const;
 };
+// (round CPU) The pipelines' table's hash: the key's bytes eight at a time - every draw looks its pipeline up.
+// (PipelineKeyHash, a byte at a time, stays the pipeline's identity in the pipeline cache's files.)
+struct PipelineKeyTableHash {
+    std::size_t operator()(const PipelineKey& key) const;
+};
 
 // Counts and times, for the log.
 struct PipelineStats {
@@ -154,7 +159,7 @@ private:
     VkDescriptorSetLayout light_set_layout_ = VK_NULL_HANDLE; // (round FL)
     VkPipelineLayout layout_ = VK_NULL_HANDLE;
     std::string folder_;
-    std::unordered_map<PipelineKey, VkPipeline, PipelineKeyHash> pipelines_;
+    std::unordered_map<PipelineKey, VkPipeline, PipelineKeyTableHash> pipelines_;
     std::unordered_map<VertexKey, VkShaderModule, VertexKeyHash> vertex_modules_;
     std::unordered_map<FragmentKey, VkShaderModule, FragmentKeyHash> fragment_modules_;
     std::unordered_map<uint64_t, VkShaderModule> screen_modules_; // by the GLSL's hash

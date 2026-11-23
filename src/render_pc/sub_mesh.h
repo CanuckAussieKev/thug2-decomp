@@ -61,6 +61,14 @@ struct MeshRef : MeshData {
     // skinned on the processor, `out` too small, a vertex's bone past the palette). (round CPU) Kept for `owner` (the
     // drawing instance): render() for it this frame with the same bones copies them instead of skinning again.
     [[nodiscard]] bool skin_for_rays(const void* owner, std::span<const maths::Mat4> palette, std::span<uint8_t> out) const;
+    // NOT ORIGINAL - (round CPU) the frame's skinned meshes (each for its instance, with its bones) skinned before the
+    // record, spread over the worker threads (base/core/parallel_for.h): skin_for_rays and render() then copy them.
+    struct SkinAhead {
+        const MeshRef* mesh = nullptr;
+        const void* owner = nullptr;
+        std::span<const maths::Mat4> palette;
+    };
+    static void skin_ahead(std::span<const SkinAhead> meshes);
     // 0x004D5290: drawn - unless drawing is off (0x007D1EC0) or it is past the clip distance: distance fog, its bone's
     // matrix (+0x98), its colours, vertex format and material (shaders, or pass by pass), skinned once a frame per
     // instance, its next vertex buffer, its level of detail by distance (+0x48), counted (0x00786EBC / C0).
