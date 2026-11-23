@@ -1243,6 +1243,9 @@ public:
     }
     // NOT ORIGINAL - (round LS) the pipelines the device has made (vulkan_pipeline_count.h).
     [[nodiscard]] uint64_t pipelines_made() const override { return vulkan::pipelines_made(); }
+    // NOT ORIGINAL - (round ALBEDO) the pass colours' tint apart (ff_shaders.cpp ps_common / surface_finish: on a surface
+    // lit per pixel it is light, never albedo; on the other draws on the colours, as the original).
+    [[nodiscard]] bool takes_pass_tint() const override { return true; }
     // NOT ORIGINAL - (round LS2) the camera's exposure settled (vulkan_hdr.h exposure_settled).
     [[nodiscard]] bool exposure_settled() override
     {

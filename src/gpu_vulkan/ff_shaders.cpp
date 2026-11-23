@@ -327,8 +327,9 @@ void vertex_lighting(std::string& out, const VertexKey& key)
     if ((key.surface & ~kVertexRelitColour) != 0) { // (the relit colour alone hands nothing on)
         // (NOT ORIGINAL - rt_pbr) the formula's parts that don't depend on the normal, for the fragment shader to finish
         // (round O: with the one light, linear light and w -1 - one_light_v0)
-        add(out, {"    v_surface_base = one_light ? vec4(linear_from_display(ce.rgb) + linear_from_display(cd.rgb) * "
-                  "lit_ambient, -1.0) : vec4(ce.rgb + ca.rgb * (u.ambient.rgb + lit_ambient), 0.0);\n    v_surface_cd = cd;"});
+        // (round ALBEDO: with the one light the ambient is light on the albedo alone - Cd is no albedo, surface_finish)
+        add(out, {"    v_surface_base = one_light ? vec4(linear_from_display(ce.rgb) + lit_ambient, -1.0) : vec4(ce.rgb + ca.rgb * "
+                  "(u.ambient.rgb + lit_ambient), 0.0);\n    v_surface_cd = cd;"});
     }
     if (key.specular) {
         add(out, {"    v_specular = clamp(vec4(cs.rgb * lit_specular, cs.a), 0.0, 1.0);"});
@@ -1208,6 +1209,11 @@ std::string decal_layer_onto(std::string_view material, std::string_view indent)
 // light, display-referred) lit - linear light in a linear frame, else encoded for the display.
 void surface_finish(std::string& out, const FragmentKey& key)
 {
+    // (round ALBEDO) the game's colour on the geometry (pass_tint_of: the time of day's sector colour, an object's light
+    // where it stands) - the original's light on it, never the albedo: it scales the light the original gave the surface
+    // itself (the vertex's, the draw's own lights); the light this renderer makes (the store's, the lamps', the rays')
+    // doesn't take it. Linear: the display's power law makes the colour's factor the light's.
+    add(out, {"    vec3 surface_tint_light = linear_from_display(pass_tint_of(0));"});
     add(out, {"    vec3 surface_albedo = linear_from_display(clamp(colour.rgb, 0.0, 1.0));\n"
               "    float surface_nv = max(dot(surface_n, surface_v), 1.0e-4);\n"
               "    float surface_hemi = 0.5 + 0.5 * dot(surface_n, surface_geo);\n"
@@ -1276,16 +1282,20 @@ void surface_finish(std::string& out, const FragmentKey& key)
         }
         // (round O's one light: v_surface_base.w -1 - the lights and the base are linear light already)
         add(out, {"    bool surface_one = v_surface_base.w < -0.5;\n"
-                  "    vec3 surface_ambient = surface_one ? v_surface_base.rgb : linear_from_display(v_surface_base.rgb);\n"
-                  "    BrdfMaterial surface_lit = surface_m;\n"
-                  "    surface_lit.albedo *= linear_from_display(v_surface_cd.rgb);\n",
+                  "    vec3 surface_ambient = (surface_one ? v_surface_base.rgb : linear_from_display(v_surface_base.rgb)) * "
+                  "surface_tint_light;\n"
+                  // (round ALBEDO: one albedo definition - the draw's diffuse colour, Cd - the vertex colour or the
+                  // game's material colour, 0.5 the game's neutral under its doubled light - is never the albedo: the
+                  // texel x the material's own colour is, as the rays' hit_surface has it)
+                  "    BrdfMaterial surface_lit = surface_m;\n",
                   layer_m, layer_lit,
                   "    surface_out = brdf_ambient(surface_m, surface_nv, surface_ambient * surface_hemi, surface_ambient * "
                   "surface_env) * surface_li.b;\n"
                   "    surface_out += brdf_ambient(surface_lit, surface_nv, surface_lamps, vec3(0.0));\n"
                   "    for (int i = 0; i < 8; ++i) {\n"
                   "        vec3 l = s.light_toward[i].xyz;\n        if (dot(l, l) == 0.0) continue;\n"
-                  "        vec3 light = surface_one ? max(s.light_colour[i].rgb, vec3(0.0)) : linear_from_display(s.light_colour[i].rgb);\n"
+                  "        vec3 light = (surface_one ? max(s.light_colour[i].rgb, vec3(0.0)) : linear_from_display(s.light_colour[i].rgb)) "
+                  "* surface_tint_light;\n"
                   // (round V: the one light's key - light 0 - is the sun or the moon: its visibility at the pixel)
                   "        if (i == 0 && surface_one) light *= light_seen(surface_li, 1.0);"});
         if (hair) {
@@ -1320,7 +1330,7 @@ void surface_finish(std::string& out, const FragmentKey& key)
                   "        surface_out += brdf_ambient(surface_m, surface_nv, surface_lamps, vec3(0.0));\n"
                   "    } else {\n",
                   layer_m_inner,
-                  "        vec3 light = linear_from_display(v_diffuse.rgb * surface_word);\n"
+                  "        vec3 light = linear_from_display(v_diffuse.rgb * surface_word) * surface_tint_light;\n"
                   "        surface_out = brdf_ambient(surface_m, surface_nv, light * surface_hemi, light * surface_env) * "
                   "light_share(surface_li) + brdf_ambient(surface_m, surface_nv, surface_lamps, vec3(0.0));\n",
                   // (round FL: on the front layer the vertex's light has no share - the disc's light by the light model, as
@@ -1333,7 +1343,7 @@ void surface_finish(std::string& out, const FragmentKey& key)
     } else {
         // the bake: its light (the vertex colour doubled, display-referred) as the environment's (round V: its light not
         // separated - taken by shares, light_share)
-        add(out, {layer_m, "    vec3 surface_bake = linear_from_display(v_diffuse.rgb * 2.0);\n"
+        add(out, {layer_m, "    vec3 surface_bake = linear_from_display(v_diffuse.rgb * 2.0) * surface_tint_light;\n"
                   "    surface_out = brdf_ambient(surface_m, surface_nv, surface_bake * surface_hemi, surface_bake * surface_env) "
                   "* light_share(surface_li) + brdf_ambient(surface_m, surface_nv, surface_lamps, vec3(0.0));"});
     }
@@ -1373,7 +1383,7 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
 {
     add(out, {"layout(set = 0, binding = ", num(kFragmentUniformsBinding), ", std140) uniform FragmentUniforms {"});
     add(out, {"    vec4 constant[8];\n    vec4 texture_factor;\n    vec4 fog_colour;\n    vec4 fog;\n"
-              "    vec4 alpha_reference;\n} u;"});
+              "    vec4 alpha_reference;\n    vec4 pass_tint;\n} u;"});
     // (round F - a linear, scene-referred frame: fragment_linear_output) the frame's transfer; whether this draw writes
     // linear light (u.alpha_reference.y); a stage's texel as the game's colour arithmetic takes it - a texture that
     // holds linear light (a copy of the world drawn this view - u.alpha_reference.z's bit) encoded back to the display's
@@ -1382,6 +1392,9 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
     if ((key.surface & kSurfaceRelit) != 0U) {
         out += rt::lamp_texel_glsl(); // (NOT ORIGINAL - round FG: the bake's lamp-texel test, a relit surface's emission)
     }
+    // (NOT ORIGINAL - round ALBEDO) the factor the game put on pass `p`'s colour (Gpu::takes_pass_tint: a geometry's
+    // or an instance's colour - the original's light on it), 1 where it put none
+    add(out, {"vec3 pass_tint_of(int p) { return (int(u.pass_tint.w) & (1 << p)) != 0 ? u.pass_tint.rgb : vec3(1.0); }"});
     add(out, {"bool frame_linear() { return u.alpha_reference.y > 0.5; }\n"
               "vec4 stage_texel(int stage, vec4 t)\n{\n"
               "    return (int(u.alpha_reference.z) & (1 << stage)) != 0 ? vec4(display_from_linear(t.rgb), t.a) : t;\n}"});
@@ -1688,6 +1701,13 @@ void fragment_stages(std::string& out, const FragmentKey& key, uint32_t sampled)
 // range (D3DCAPS9.PixelShader1xMaxValue: 1 on the first ps.1.1 cards, at least 8 or unbounded since); the ports keep
 // intermediates unclamped, as current Direct3D 9 drivers compute them in floats.
 
+// (NOT ORIGINAL - round ALBEDO) Whether the draw's colour is an albedo lit per pixel (surface_finish runs on it): its pass
+// colours are then the material's own (the albedo: texel x the material's colour, the game's 0.5 the texture as it is).
+bool albedo_lit_per_pixel(const FragmentKey& key)
+{
+    return (key.surface & kSurfaceLighting) != 0U && (key.surface & (kSurfaceCel | kSurfaceCelHull)) == 0U;
+}
+
 void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
 {
     add(out, {"    vec4 v0 = ", key.surface != 0 ? "surface_v0" : "v_diffuse",
@@ -1697,8 +1717,17 @@ void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
         // whole only into colour (rgb) results and its alpha as v0.a, which the twin leaves.
         add(out, {"    v0.rgb = vec3(0.5);"});
     }
+    // (NOT ORIGINAL - round ALBEDO: one albedo definition) the pass colours: on a surface lit per pixel the material's
+    // own - its albedo is never the game's colour on the geometry, which is the original's light (surface_finish takes
+    // it as light where the light is the original's own) -; elsewhere x that colour, as the original scaled them
+    const bool own_colours = albedo_lit_per_pixel(key);
     for (uint32_t index = 0; index < kStageCount; ++index) {
-        add(out, {"    vec4 c", num(index), " = clamp(u.constant[", num(index), "], -1.0, 1.0);"});
+        if (own_colours) {
+            add(out, {"    vec4 c", num(index), " = clamp(u.constant[", num(index), "], -1.0, 1.0);"});
+        } else {
+            add(out, {"    vec4 c", num(index), " = clamp(vec4(u.constant[", num(index), "].rgb * pass_tint_of(", num(index),
+                      "), u.constant[", num(index), "].a), -1.0, 1.0);"});
+        }
     }
     add(out, {"    vec4 c4 = clamp(u.constant[4], -1.0, 1.0);"});
     const bool relief = (key.detail & kDetailRelief) != 0U && (key.surface & kSurfaceMap) != 0U; // (added by surface relief)

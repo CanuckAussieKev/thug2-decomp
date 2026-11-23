@@ -166,6 +166,7 @@ void GpuStateBlock::reset()
     for (auto& constant : pixel_constants) {
         constant.fill(0.0F);
     }
+    pass_tint = {1.0F, 1.0F, 1.0F, 0.0F};
     vertex_shader = nullptr;
     for (auto& constant : vertex_constants) {
         constant.fill(0.0F);
@@ -231,6 +232,7 @@ void record_constants(std::array<std::array<float, kConstantFloats>, N>& constan
 void GpuStateBlock::record_pixel_constants(uint32_t first, const float* values, uint32_t count)
 {
     record_constants(pixel_constants, first, values, count);
+    pass_tint = {1.0F, 1.0F, 1.0F, 0.0F}; // (NOT ORIGINAL - round ALBEDO: the constants given again, untinted)
 }
 
 void GpuStateBlock::record_vertex_constants(uint32_t first, const float* values, uint32_t count)

@@ -427,7 +427,19 @@ vec3 hit_shown(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x3
         }
     }
     float width = pass.ambient.w * (travelled + t);
-    vec3 texel = (material_texel_lod(id, hit_uv(v, barycentrics), level_for(id, v, a, b, c, width)) * material(id).colour).rgb;
+    // (round ALBEDO: one albedo definition) the surface's colour as every ray's hit_surface composes it (its passes - the
+    // layers too - at their own coordinate sets, vulkan_rt_materials.h material_colour), the first pass at the ray's
+    // footprint
+    Material surface = material(id);
+    vec2 uv = hit_uv_set(instance, primitive, barycentrics, surface.uv_set);
+    vec2 layer_uv[3];
+    for (uint k = 0u; k < 3u; ++k) {
+        layer_uv[k] = (surface.layer_mode[k] & 255u) != 0u
+                          ? hit_uv_set(instance, primitive, barycentrics, (surface.layer_mode[k] >> 8) & 15u)
+                          : uv;
+    }
+    vec3 texel = material_colour_from(id, material_texel_lod(id, uv, level_for(id, v, a, b, c, width)), layer_uv,
+                                      hit_colour(v, barycentrics).a).rgb;
 #ifdef LIST_LIT
     // (round WF) a view ReSTIR GI lit: the hit lit by the same light list and radiance cache (list_hit_light) - (round FL)
     // the painted glass's own colour too, as the front layer lights the see-through surfaces, not the light store's

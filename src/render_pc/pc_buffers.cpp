@@ -76,14 +76,25 @@ void MeshRef::set_pixel_shader_colored()
         green = static_cast<double>(core::at(color_, 1)) + core::at(color_, 1);
         blue = static_cast<double>(core::at(color_, 2)) + core::at(color_, 2);
     }
+    // NOT ORIGINAL - (round ALBEDO) a device that takes the tint apart (Gpu::takes_pass_tint) gets the material's own
+    // colours and the tint beside them - the passes it is on; Direct3D 9 the scaled colours, as the original
+    const bool apart = gpu().takes_pass_tint();
+    uint32_t tinted = 0;
     for (uint32_t pass = 0; pass < material_->pass_count(); ++pass) {
         if ((core::at(material_->pass_flags(), pass) & kPassFlagKeepColour) != 0U) { // (the colour isn't to be changed)
+            continue;
+        }
+        if (apart) {
+            tinted |= 1U << pass;
             continue;
         }
         renderer().scale_pass_colour(pass, {.r = red, .g = green, .b = blue});
     }
     renderer().set_pixel_shader_changed(1); // (the constants changed)
     set_pixel_shader_with_constants(pixel_shader_, material_->pass_count());
+    if (apart && renderer().pixel_shader_locked() == nullptr) {
+        gpu().set_pass_tint({static_cast<float>(red), static_cast<float>(green), static_cast<float>(blue)}, tinted);
+    }
     renderer().load_ps_constants(std::span<const float>(saved).first(bytes / 4));
     renderer().set_pixel_shader_changed(1);
 }

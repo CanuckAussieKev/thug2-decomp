@@ -3350,17 +3350,14 @@ bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4
     uint texels;
     bool hidden;
     // (round P10 - objects relit) one surface whoever drew it: a store (the world's meshes and the objects drawn with their
-    // own colours, taken apart by the bake) gives the tint and the emission; an object the game lights (its object light)
-    // has its vertex colour as its material's diffuse - its paint, as the frame draws it (ff_shaders.cpp: the albedo x
-    // linear Cd); anything else its texel alone
+    // own colours, taken apart by the bake) gives the tint and the emission; anything else its texel alone (round ALBEDO:
+    // one albedo definition - an object the game lights has its texel too, never x its vertex colour: 0.5, the game's
+    // neutral under its doubled light, made it 0.22 of its texture; ff_shaders.cpp surface_finish likewise)
     if (hit_store(instance, primitive, barycentrics, tint, emit, texels, hidden)) {
         s.origin = HIT_RELIT_WORLD;
         s.hidden = hidden;
         s.base_colour = linear * tint;
         s.emitted = store_emission(emit, linear, s.alpha, texels);
-    } else if (object && (record.flags & GEOMETRY_OBJECT_LIGHT) != 0u && (record.flags & GEOMETRY_COLOUR) != 0u) {
-        s.origin = HIT_OBJECT;
-        s.base_colour = linear * linear_from_display(clamp(hit_colour(v, barycentrics).rgb, 0.0, 1.0));
     } else {
         s.origin = object ? HIT_OBJECT : HIT_BAKED_WORLD;
         s.base_colour = linear;

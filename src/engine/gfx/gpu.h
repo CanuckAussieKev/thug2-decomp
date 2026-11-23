@@ -353,6 +353,11 @@ struct GpuStateBlock {
     uint32_t vertex_format{}; // D3DFVF bits
     GpuPixelShader* pixel_shader{};
     std::array<std::array<float, 4>, kGpuPixelConstantCount> pixel_constants{};
+    // NOT ORIGINAL - (round ALBEDO) the factor the game put on the pass colours of this draw's constants (a geometry's
+    // or an instance's colour - MeshRef::set_pixel_shader_colored: the time of day's sector colour, an object's light
+    // where it stands), kept apart from them by a device that takes it apart (Gpu::takes_pass_tint): rgb the factor, w
+    // the passes it is on (bit n: pass n; 0 - none). Constants given again put it back to none.
+    std::array<float, 4> pass_tint{1.0F, 1.0F, 1.0F, 0.0F};
     GpuVertexShader* vertex_shader{};
     std::array<std::array<float, 4>, kGpuVertexConstantCount> vertex_constants{};
     GpuMaterial material{};
@@ -670,6 +675,15 @@ public:
     // the auto exposure's eye at its target and the frame exposed there - another of the level's readiness terms
     // (render_pc/load_cover.h). Direct3D 9 meters nothing: always settled.
     [[nodiscard]] virtual bool exposure_settled() { return true; }
+    // NOT ORIGINAL - (round ALBEDO: one albedo definition) whether the device takes the pass colours' tint apart from the
+    // constants (set_pass_tint) - the game's colour on a geometry is the original's light on it, not the surface's
+    // colour: a surface lit per pixel takes its albedo from the material's own colours and the tint, where its light is
+    // the original's own, as light. Direct3D 9 doesn't: the game scales the constants itself, as the original.
+    [[nodiscard]] virtual bool takes_pass_tint() const { return false; }
+    void set_pass_tint(const std::array<float, 3>& factor, uint32_t passes)
+    {
+        block_.pass_tint = {std::get<0>(factor), std::get<1>(factor), std::get<2>(factor), static_cast<float>(passes)};
+    }
 
 private:
     GpuStateBlock block_;

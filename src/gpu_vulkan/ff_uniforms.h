@@ -160,6 +160,7 @@ struct FragmentUniforms {
     Float4 fog_colour{};              // D3DRS_FOGCOLOR as 0-1 rgba
     Float4 fog{};                     // table fog: start, end, density
     Float4 alpha_reference{};         // x: D3DRS_ALPHAREF, 0-255
+    Float4 pass_tint{};               // (NOT ORIGINAL - round ALBEDO) GpuStateBlock::pass_tint: rgb, w the passes' bits
 };
 
 // (NOT ORIGINAL - rt_pbr) Binding 6, the per-pixel lighting's (fragment shader). Directions are in camera space (the
@@ -264,7 +265,7 @@ constexpr std::size_t kVectorBytes = 16;
 static_assert(offsetof(VertexUniforms, texture_matrix) == 3 * kMatrixBytes, "std140: matrices are 64 bytes");
 static_assert(offsetof(VertexUniforms, pixel) == (3 + kStageCount) * kMatrixBytes, "std140");
 constexpr std::size_t kVectorsBeforeLights = 10; // pixel ... point_scale
-constexpr std::size_t kFragmentVectors = kPixelShaderConstants + 4;
+constexpr std::size_t kFragmentVectors = kPixelShaderConstants + 5;
 static_assert(offsetof(VertexUniforms, light_direction) == offsetof(VertexUniforms, pixel) + (kVectorsBeforeLights * kVectorBytes),
               "std140: vectors are 16 bytes");
 static_assert(offsetof(VertexUniforms, previous_clip) == offsetof(VertexUniforms, light_direction) + (4 * kMaxLights * kVectorBytes),
