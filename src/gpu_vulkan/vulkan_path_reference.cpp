@@ -39,6 +39,7 @@
 #include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_restir_di.h"
 #include "gpu_vulkan/vulkan_ring.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_lights.h"
@@ -47,6 +48,7 @@
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
+#include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "platform/run_log.h"
 #include "platform/screenshot_files.h"
@@ -1589,6 +1591,31 @@ void save_upscaler_inputs(Backend& state, const LinearFrames& own, const rt::Vie
     std::vector<std::array<float, 3>> rough;
     if (read_input_image(state, guides.normals, width, height, &rough, true)) {
         write_file(text::format("%sinputs_%04u_roughness.exr", own.folder.c_str(), number), exr_bytes(width, height, rough));
+    }
+    // (round NOBIAS3) the view's light inputs as the shading read them (pre-exposed: the lamps' light a white diffuser
+    // gets, on the traced albedo, the lights' specular over E) and ReSTIR DI's primary surface per pixel - its traced albedo
+    // and which surface it is (di_kind: red the camera ray's traced surface, green the depth's own, black none)
+    const SurfaceInputs light = surface_input_images(state);
+    const std::array<std::pair<const char*, Image*>, 3> lights{
+        {{"lamps", light.lamps}, {"lamps_on", light.lamps_on}, {"lamps_specular", light.specular}}};
+    for (const auto& [name, image] : lights) {
+        std::vector<std::array<float, 3>> rgb;
+        if (image != nullptr && read_input_image(state, image, width, height, &rgb)) {
+            write_file(text::format("%sinputs_%04u_%s.exr", own.folder.c_str(), number, name), exr_bytes(width, height, rgb));
+        }
+    }
+    RestirPrimaryReadback primary;
+    if (read_restir_primary(state, &primary) && primary.width == width && primary.height == height) {
+        std::vector<std::array<float, 3>> albedo(primary.albedo_kind.size());
+        std::vector<std::array<float, 3>> kind(primary.albedo_kind.size());
+        for (std::size_t i = 0; i < albedo.size(); ++i) {
+            const std::array<float, 4>& row = core::at(primary.albedo_kind, i);
+            core::at(albedo, i) = {core::at(row, 0), core::at(row, 1), core::at(row, 2)};
+            const float k = core::at(row, 3);
+            core::at(kind, i) = {k == kSharedPrimaryTraced ? 1.0F : 0.0F, k == kSharedPrimaryDepth ? 1.0F : 0.0F, 0.0F};
+        }
+        write_file(text::format("%sinputs_%04u_di_albedo.exr", own.folder.c_str(), number), exr_bytes(width, height, albedo));
+        write_file(text::format("%sinputs_%04u_di_kind.exr", own.folder.c_str(), number), exr_bytes(width, height, kind));
     }
 }
 

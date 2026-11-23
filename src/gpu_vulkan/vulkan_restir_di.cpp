@@ -439,9 +439,12 @@ Surface depth_surface(ivec2 p, vec3 here, vec3 dir)
 
 // (round OM - vulkan_restir_di.h SharedPrimary) The view's primary surface for ReSTIR GI: 5 x vec4 a pixel - at + valid,
 // shading normal + roughness, triangle normal + flags (1 object, 2 metal), albedo, F0 - the material as the hit surface
-// has it (not the check's).
+// has it (not the check's). (Round NOBIAS3) The albedo row's w: which surface it is (kSharedPrimary*).
+const float PRIMARY_NONE = 0.0;
+const float PRIMARY_TRACED = 1.0;
+const float PRIMARY_DEPTH = 2.0;
 layout(buffer_reference, buffer_reference_align = 16, scalar) writeonly buffer SharedSurfaces { vec4 rows[]; };
-Surface shared_primary(ivec2 p, Surface s, bool metal, vec3 f0, float rough)
+Surface shared_primary(ivec2 p, Surface s, bool metal, vec3 f0, float rough, float kind)
 {
     if (pass.surfaces.z != 0u) {
         ivec2 local = p - pass.rect.xy;
@@ -451,7 +454,7 @@ Surface shared_primary(ivec2 p, Surface s, bool metal, vec3 f0, float rough)
         rows.rows[at] = vec4(s.at, s.valid ? 1.0 : 0.0);
         rows.rows[at + 1u] = vec4(s.n, rough);
         rows.rows[at + 2u] = vec4(s.ng, uintBitsToFloat(flags));
-        rows.rows[at + 3u] = vec4(s.albedo, 0.0);
+        rows.rows[at + 3u] = vec4(s.albedo, kind);
         rows.rows[at + 4u] = vec4(f0, 0.0);
     }
     return s;
@@ -473,12 +476,12 @@ Surface primary(ivec2 p)
 #else
     float d = imageLoad(u_depth, p).r;
     if (!(d < 1.0)) {
-        return shared_primary(p, no_surface(), false, vec3(0.0), 1.0);
+        return shared_primary(p, no_surface(), false, vec3(0.0), 1.0, PRIMARY_NONE);
     }
     vec3 here = world_at(centre, d);
     expected = length(here - eye);
     if (!(expected > 0.0)) {
-        return shared_primary(p, no_surface(), false, vec3(0.0), 1.0);
+        return shared_primary(p, no_surface(), false, vec3(0.0), 1.0, PRIMARY_NONE);
     }
     dir = (here - eye) / expected;
     reach = expected * 1.05 + 1.0;
@@ -494,9 +497,9 @@ Surface primary(ivec2 p)
         (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected) ||
         !hit_surface(instance, primitive, id, bary, to_world, dir, h) || h.hidden) {
 #ifdef CHECK
-        return shared_primary(p, no_surface(), false, vec3(0.0), 1.0);
+        return shared_primary(p, no_surface(), false, vec3(0.0), 1.0, PRIMARY_NONE);
 #else
-        return shared_primary(p, depth_surface(p, here, dir), false, vec3(0.0), 1.0);
+        return shared_primary(p, depth_surface(p, here, dir), false, vec3(0.0), 1.0, PRIMARY_DEPTH);
 #endif
     }
     Surface s;
@@ -516,7 +519,7 @@ Surface primary(ivec2 p)
     // (GI's: the albedo, the material's F0 and roughness as the surface has them - it puts its check's on them itself)
     Surface written = s;
     written.albedo = h.base_colour;
-    shared_primary(p, written, h.kind == HIT_KIND_METAL, h.material.f0, h.material.roughness);
+    shared_primary(p, written, h.kind == HIT_KIND_METAL, h.material.f0, h.material.roughness, PRIMARY_TRACED);
     return s;
 }
 
@@ -2268,8 +2271,11 @@ bool keep_local_lights(Backend& state, RestirState& own, VkCommandBuffer command
         return false;
     }
     const rt::FrameRecord& record = rt::frame_record();
-    const uint64_t structure = world_structure_of(record);
-    const uint64_t world_key = world_key_of(structure, lighting);
+    // (round NOBIAS3) the scan's places are the built instances' triangles (scene_instance_triangles) and its emission is
+    // read through the instances' light streams: both are what the TLAS and its geometry table hold now, not only what
+    // the record asks for - a mesh built or a stream given after the scan is scanned again
+    const uint64_t structure = mix(world_structure_of(record), scene.live_key);
+    const uint64_t world_key = mix(world_key_of(structure, lighting), scene.light_key);
     // the emitters' list: a finished scan taken into use; a new one when the world or its lamps' surfaces changed. A scan
     // of the same triangles under an older emission is taken in (its powers a little old until the next scan's): the list
     // never empties while only the emission under its triangles changes - the relit store's first light is written over
@@ -2550,6 +2556,31 @@ bool read_restir_accumulation(Backend& state, RestirAccumulation* out)
     std::vector<uint8_t> counters;
     if (state.memory.read_buffer(own.counters, 0, sizeof(uint32_t), &counters) && counters.size() >= sizeof(uint32_t)) {
         std::memcpy(&out->not_finite, counters.data(), sizeof(uint32_t));
+    }
+    return true;
+}
+
+bool read_restir_primary(Backend& state, RestirPrimaryReadback* out)
+{
+    *out = RestirPrimaryReadback{};
+    RestirState& own = restir_state();
+    if (own.shared.buffer == VK_NULL_HANDLE || own.width == 0 || own.height == 0 || !finish_work(state)) {
+        return false;
+    }
+    const std::size_t pixels = static_cast<std::size_t>(own.width) * own.height;
+    constexpr std::size_t kRowFloats = kSharedSurfaceBytes / sizeof(float);
+    constexpr std::size_t kAlbedoRow = 3; // (at, normal, triangle normal, albedo + kind, F0)
+    std::vector<uint8_t> bytes;
+    if (!state.memory.read_buffer(own.shared, 0, pixels * kSharedSurfaceBytes, &bytes) ||
+        bytes.size() < pixels * kSharedSurfaceBytes) {
+        return false;
+    }
+    out->width = own.width;
+    out->height = own.height;
+    out->albedo_kind.resize(pixels);
+    for (std::size_t i = 0; i < pixels; ++i) {
+        std::memcpy(core::at(out->albedo_kind, i).data(),
+                    &core::at(bytes, ((i * kRowFloats) + (kAlbedoRow * 4)) * sizeof(float)), 4 * sizeof(float));
     }
     return true;
 }

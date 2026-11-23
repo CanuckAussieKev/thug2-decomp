@@ -405,6 +405,9 @@ struct FrameScene {
     // many instances have a reflective material
     DeviceBuffer geometry;
     uint32_t reflective = 0;
+    // (round NOBIAS3 - SceneView::live_key / light_key) which instances are live, and which of those read a light stream
+    uint64_t live_key = 0;
+    uint64_t light_key = 0;
     // (the objects' shadows) the record's objects' lights (rt::ObjectLight, kObjectLightFloats floats each - at most an
     // instance's worth), read by address from their instances' rows
     DeviceBuffer object_lights;
@@ -1745,6 +1748,12 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
     bool last_reflective = false;
     bool last_tested = false;
     uint32_t last_flags = 0;
+    // (round NOBIAS3) the keys of what a scan of the instances' triangles reads (SceneView::live_key / light_key)
+    constexpr uint64_t kKeyBasis = 1469598103934665603ULL;
+    constexpr uint64_t kKeyPrime = 1099511628211ULL;
+    uint64_t live_key = kKeyBasis;
+    uint64_t light_key = kKeyBasis;
+    uint64_t place = 0;
     for (const rt::Instance& given : record.instances) {
         if (last_row == nullptr || given.mesh != last_mesh) {
             Scene::MeshRow& kept = made.mesh_rows[given.mesh];
@@ -1778,7 +1787,20 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
         if ((rows.back().flags & kGeometryLive) != 0 && last_reflective) {
             ++frame.reflective;
         }
+        const GeometryRecord& row = rows.back();
+        if ((row.flags & kGeometryLive) != 0 && (given.flags & rt::kWorld) != 0U) {
+            live_key = (live_key ^ (place * 2U + 1U)) * kKeyPrime;
+            live_key = (live_key ^ row.triangles) * kKeyPrime;
+        }
+        if ((row.flags & kGeometryLive) != 0 && (row.flags & kGeometryLight) != 0) {
+            light_key = (light_key ^ (place * 2U + 1U)) * kKeyPrime;
+            light_key = (light_key ^ given.mesh) * kKeyPrime;
+            light_key = (light_key ^ row.light_vertices) * kKeyPrime;
+        }
+        ++place;
     }
+    frame.live_key = live_key;
+    frame.light_key = light_key;
     if (instances.empty()) {
         return;
     }
@@ -2578,7 +2600,9 @@ SceneView current_scene(const Backend& state)
             .geometry_bytes = std::max<VkDeviceSize>(static_cast<VkDeviceSize>(frame.count) * sizeof(GeometryRecord),
                                                      sizeof(GeometryRecord)),
             .reflective_instances = frame.reflective,
-            .instances_address = frame.instances_address};
+            .instances_address = frame.instances_address,
+            .live_key = frame.live_key,
+            .light_key = frame.light_key};
 }
 
 void scene_instance_triangles(const Backend& state, std::vector<uint32_t>* out)
@@ -2693,24 +2717,54 @@ bool cutout_kept(uint instance, uint primitive, uint id, vec2 barycentrics)
 #ifndef RAY_CANDIDATE_SEEN
 #define RAY_CANDIDATE_SEEN(kind)
 #endif
+// (round NOBIAS3 - defined below) whether a candidate is a blended layer lying on the surface the ray leaves
+// (ray_light_leaving's face): the world's seen-through instances only
+bool layer_of_origin(uint instance, uint primitive, mat4x3 to_world, vec3 dir, float t);
 bool ray_blocked(uint mask, vec3 origin, vec3 direction, float reach)
 {
     if (mask == 0u || reach <= 0.0) {
         return false;
     }
-    rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, 0.0, direction, reach);
-    while (rayQueryProceedEXT(query)) {
-        RAY_CANDIDATE_SEEN(2u);
-        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
-            cutout_kept(rayQueryGetIntersectionInstanceIdEXT(query, false),
-                        rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
-                        rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
-                        rayQueryGetIntersectionBarycentricsEXT(query, false))) {
-            rayQueryConfirmIntersectionEXT(query);
+    // (round NOBIAS3) A cut-out blended layer (a blended material that also alpha-tests: render_pc's cut-out blended
+    // materials cast - shape_of) lying on the ray's own surface is that surface's material layer, as the camera's rays
+    // take it (trace_drawn) and seen_through lets it pass: not a cover between the surface and its light. Before, only
+    // seen_through let such a layer pass; here it blocked - New Orleans' painted road lines (a mesh 0.25 units over the
+    // asphalt, blended and alpha-tested) cut every lamp's light off the asphalt under them: the lines never lit in ReSTIR
+    // DI while the reference (its rays start on the paint) lit them brightly. At most twice more past such a layer an
+    // opacity micromap committed (what lies behind it still counts).
+    float from = 0.0;
+    for (uint part = 0u; part < 3u; ++part) {
+        rayQueryEXT query;
+        rayQueryInitializeEXT(query, u_scene, gl_RayFlagsTerminateOnFirstHitEXT, mask, origin, from, direction, reach);
+        while (rayQueryProceedEXT(query)) {
+            RAY_CANDIDATE_SEEN(2u);
+            if (rayQueryGetIntersectionTypeEXT(query, false) != gl_RayQueryCandidateIntersectionTriangleEXT) {
+                continue;
+            }
+            uint i = rayQueryGetIntersectionInstanceIdEXT(query, false);
+            uint p = rayQueryGetIntersectionPrimitiveIndexEXT(query, false);
+            if (cutout_kept(i, p, rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
+                            rayQueryGetIntersectionBarycentricsEXT(query, false)) &&
+                !layer_of_origin(i, p, rayQueryGetIntersectionObjectToWorldEXT(query, false), direction,
+                                 rayQueryGetIntersectionTEXT(query, false))) {
+                rayQueryConfirmIntersectionEXT(query);
+            }
+        }
+        if (rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
+            return false;
+        }
+        float committed = rayQueryGetIntersectionTEXT(query, true);
+        if (!layer_of_origin(rayQueryGetIntersectionInstanceIdEXT(query, true),
+                             rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                             rayQueryGetIntersectionObjectToWorldEXT(query, true), direction, committed)) {
+            return true;
+        }
+        from = committed * 1.0001 + 1.0e-3;
+        if (from >= reach) {
+            return false;
         }
     }
-    return rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+    return false;
 }
 // (path tracing, stage 3 - P2: the blended surfaces traced) How a ray meets a surface, from its material's first pass
 // as the game draws it (its blend mode, alpha and class) - never from what the object is:
@@ -2974,6 +3028,15 @@ bool layer_at_origin(uint instance, uint primitive, mat4x3 to_world, vec3 dir, f
     float l = length(n);
     return l > 0.0 && abs(dot(n / l, ray_leaving_face / face_length)) >= RAY_LAYER_FACING &&
            t * abs(dot(n / l, dir)) <= RAY_LAYER_LIFT;
+}
+bool layer_of_origin(uint instance, uint primitive, mat4x3 to_world, vec3 dir, float t)
+{
+    if (!(dot(ray_leaving_face, ray_leaving_face) > 0.0)) {
+        return false; // (a ray leaving no known face: every cut-out blocks, as before)
+    }
+    uint flags = geometry_record(instance).instance_flags;
+    return (flags & HIT_INSTANCE_TRANSPARENT) != 0u && (flags & RAY_INSTANCE_OBJECT) == 0u &&
+           layer_at_origin(instance, primitive, to_world, dir, t);
 }
 vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach)
 {
