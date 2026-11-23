@@ -23,9 +23,10 @@
 //   - No fog in the level: with rt_fog_haze=0 no pass, nothing changed; with the haze nothing darker, the shaft
 //     lighter. No scene, rt_fog off: no pass, nothing changed.
 //   - (added by the volumetric light) The clock's light (rt_daylight.h DayLight through rt_volume_light.h
-//     medium_light): with the clock lighting the level its light's direction lights the air - after still frames the
-//     history against the exact integral for that direction, and against the other direction's worse (the shaft moved
-//     with it); the fog noted that sun. At night the moon lights the haze's shafts: their light the moon's colour's
+//     medium_light): with the clock lighting the level its light's direction lights the air - the fog noted that sun;
+//     (round FW) the time of day's fog no medium under it (out of the draws, the march's transmittance 1). The level's
+//     own fog (a relit level without the clock) lit by a light that moves: after still frames the history against the
+//     exact integral for that direction, and against the other direction's worse (the shaft moved with it). At night the moon lights the haze's shafts: their light the moon's colour's
 //     share of the sun's, bluer. (A lamp's cone in the air: thug2_vulkan_rt_lights_check; the clouds' shadow map:
 //     thug2_vulkan_rt_sky_check.)
 //   - (added by the street air) The street air (rt_volume_light.h street_air): its model's numbers - a dusk street's
@@ -596,7 +597,8 @@ FogLight fog_light()
 {
     FogLight out;
     const render::vulkan::SceneLighting lighting = render::vulkan::scene_lighting(false, true);
-    const bool physical = render::rt::cel_world().relit || render::rt::day_light().on;
+    // (round FW: physical light is the relit world's - the clock alone isn't)
+    const bool physical = render::rt::cel_world().relit;
     const double pre = render::rt::frame_pre_exposure();
     const std::array<float, 3> albedo = render::rt::aerosol_albedo(render::rt::aerosol());
     for (std::size_t i = 0; i < 3; ++i) {
@@ -683,10 +685,13 @@ Fogged march(const ViewRay& ray, const Marching& how)
     Fogged out;
     const Media& now = media();
     const bool sky = ray.distance < 0.0;
-    const bool replace = !how.shafts && !sky;
+    // (round FW - the pass's skip: the clock lighting a relit level leaves the time of day's fog out - the weather's air
+    // alone, as the haze of a level without fog: its shafts mode, the grid to kFogHazeEnd)
+    const bool clock_air = render::rt::day_light().on && render::rt::cel_world().relit;
+    const bool replace = !how.shafts && !sky && !clock_air;
     const bool air_on = now.air.extinction > 0.0 || now.air.snow > 0.0;
-    const double start = now.start;
-    const double end = now.end;
+    const double start = clock_air ? 0.0 : now.start;
+    const double end = clock_air ? static_cast<double>(render::vulkan::kFogHazeEnd) : now.end;
     const double first = air_on ? 0.0 : std::max(start, 0.0);
     const double last = sky ? end : std::min(ray.distance, end);
     if (!(last > first)) {
@@ -698,8 +703,9 @@ Fogged march(const ViewRay& ray, const Marching& how)
     // (round UNITS - the pass's: rt_volume_light.h level_fog_extinction; both media the aerosol, lit in the global
     // unit x the frame's pre-exposure)
     const FogLight light = fog_light();
-    const double sigma = render::rt::level_fog_extinction(static_cast<float>(start), static_cast<float>(end)) *
-                         now.density;
+    const double sigma = clock_air ? 0.0
+                                   : render::rt::level_fog_extinction(static_cast<float>(start), static_cast<float>(end)) *
+                                         now.density;
     // (the pass's march_at: first + span x t^2; a ray leaving the air's sun map's reach `steps` steps within it (t^2)
     // and half as many more past it in a geometric series)
     const double near_reach = map_used() && !how.dark ? render::rt::kAirMapReach * render::rt::kUnitsPerMetre : 0.0;
@@ -1915,6 +1921,22 @@ void run_clock(render::Gpu& gpu, const Scene& scene, Tally* tally)
             const Vec3 noted{core::at(used.toward, 0), core::at(used.toward, 1), core::at(used.toward, 2)};
             tally->check(rt::scene_sun().origin == rt::SunOrigin::kClock && used.have && dot(noted, toward) > 0.99999,
                          text::format("  light %zu: the scene's sun the clock's, the fog lit by it", which + 1));
+            // (round FW) the clock lighting a relit level: the time of day's fog no medium - out of the draws, the march's
+            // transmittance 1 (the weather's air alone, in the haze's shafts mode)
+            render::vulkan::RtFogTexels raw;
+            const bool raw_read = read_fog(render::vulkan::RtFogImage::kRaw, &raw);
+            tally->check(render::vulkan::rt_fog_replaces_level_fog() && raw_read &&
+                             std::ranges::all_of(raw.texels,
+                                                 [](const std::array<float, 4>& texel) { return texel.back() == 1.0F; }),
+                         text::format("  light %zu: the time of day's fog left out of the draws, no medium of its own "
+                                      "(T = 1)",
+                                      which + 1));
+            // the level's own fog (no clock - a relit level's) lit by a light that moved: its shaft moves with it
+            clock_off();
+            light_toward() = toward;
+            for (int frame = 0; frame < kStillFrames; ++frame) {
+                draw_frame(gpu, targets, kEye);
+            }
             core::at(own_error, which) = converged_error(view);
             light_toward() = which == 0 ? other : first;
             core::at(other_error, which) = converged_error(view);

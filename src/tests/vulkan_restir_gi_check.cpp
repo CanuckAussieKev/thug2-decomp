@@ -1101,6 +1101,8 @@ double fog_light(render::Gpu& gpu, const Targets& targets, std::span<const Scene
 void check_fog_emitters(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, Tally* tally)
 {
     text::print("the fog lit by emitting triangles (round OM - the presampled pool's triangle records):\n");
+    // (round FW: the emitters light the air only where the light is physical - a relit world with current data; no sun)
+    render::rt::set_cel_world({.relit = true, .sun = {0.0F, 0.0F, 0.0F}, .toward = {0.0F, 1.0F, 0.0F}});
     vk::RtFogSettings fog;
     fog.on = true;
     fog.haze = true;
@@ -1115,6 +1117,7 @@ void check_fog_emitters(render::Gpu& gpu, const Targets& targets, std::span<cons
         return vk::rt_fog_lights_locked(state);
     }();
     vk::set_rt_fog_settings({});
+    render::rt::set_cel_world({});
     constexpr double kFogAgreement = 0.03;
     tally->check(ok && lights.triangles > 0 && lights.lamps.empty() && picked > 0.0 &&
                      std::abs(pooled - picked) <= kFogAgreement * picked,

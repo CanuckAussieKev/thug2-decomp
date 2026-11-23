@@ -1348,6 +1348,7 @@ struct FogState {
     bool have_cloud = false;
     SceneView scene_view;
     bool haze = false; // this view's level has no fog: the haze drawn instead (rt_fog_haze)
+    bool clock_air = false; // (round FW) ... or its fog is the time of day's, under the clock's physical air
     bool aerial = false; // ... as the sky model's aerial perspective (rt_sky_model=1, a sun and its table)
     std::array<float, 3> sun_colour{1.0F, 1.0F, 1.0F}; // the sky model's (display-referred, brightest channel 1)
     bool standard_samples = false;
@@ -2522,8 +2523,14 @@ void read_lights(Backend& state, VkCommandBuffer commands)
     const SceneLighting lighting = scene_lighting(false, true);
     own.lit_sun = lighting.sun_light;
     own.lit_sky = lighting.sky;
-    own.physical = rt::cel_world().relit || rt::day_light().on;
-    if (!own.cutouts || own.settings.lamps == 0 || own.material_layout != state.materials.layout()) {
+    // (round FW) physical light is the relit world's: current relit data. The clock alone isn't - over a level with no
+    // current relit data (an older bake) its surfaces are drawn with the original's light and its lamps are the found
+    // emitters at their display brightness, not light in the global unit: x the frame's pre-exposure (5 000 - 30 000 at
+    // night) they lit the air into coloured glows. Such a level's air keeps the game's fog colour as its own light - the
+    // unit its surfaces are drawn in - and no lamp lights it: a light with no physical value has no place in a physical
+    // medium.
+    own.physical = rt::cel_world().relit;
+    if (!own.physical || !own.cutouts || own.settings.lamps == 0 || own.material_layout != state.materials.layout()) {
         own.lights_before = false;
         return;
     }
@@ -2727,8 +2734,9 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
     // (round UNITS - one physical unit for every level's fog: rt_volume_light.h level_fog_extinction) the level's fog
     // and the street air are the weather's aerosol: its albedo, lit by the lighting's light in the global unit x the
     // frame's pre-exposure - the light's irradiance (pi x its light per unit of N.L), the open sky's in-scattering (half
-    // its light on a level surface), every lamp. A level without physical light (no relit data, no clock) keeps the game's
-    // fog colour as its own light (decoded as the frame's inputs are - its look's unit).
+    // its light on a level surface), every lamp. A level without physical light (no current relit data - (round FW) the clock alone
+    // isn't physical light) keeps the game's fog colour as its own light (decoded as the frame's inputs are - its look's
+    // unit), and no lamp lights its air.
     const float pre = rt::frame_pre_exposure();
     const std::array<float, 3> albedo = rt::aerosol_albedo(air);
     const bool lit_sun = own.physical && own.have_sun;
@@ -2900,6 +2908,9 @@ const char* what_is_drawn()
     if (own.aerial) {
         return "no fog in the level: the atmosphere's air (aerial perspective)";
     }
+    if (own.clock_air) {
+        return "the time of day's fog left out: the weather's air (the clock's physical light)";
+    }
     if (own.haze) {
         return "no fog in the level: the haze's shafts";
     }
@@ -2921,17 +2932,30 @@ bool skip(Backend& state, const rt::ViewDrawn& view)
         return true;
     }
     FogState& state_of_fog = fog_state();
-    state_of_fog.haze = !view.fog.on || !(view.fog.end > view.fog.start) || !std::isfinite(view.fog.start) ||
+    // (round FW) the time of day lighting a level by physical light: the fog it hands the draws is the original's time
+    // of day states' (tod_manager.h - the level's own TODManager_SetParams, or tod_manager.qb's defaults: night 8 000 -
+    // 32 000 units), a linear blend into a dark colour that stood for the night's darkness and the day's haze. The clock
+    // has the physical sky and air for those now - the dark the camera's exposure and the light make, the haze the
+    // weather's aerosol (rt_fog_air) - so that fog is no medium: the air is the weather's alone, as in a level without
+    // fog, and the game's fog stays out of the draws. (As a medium, Koschmieder's from those distances, every night was
+    // a 610 m mist - 66 x a clear night's extinction - that the lamps lit into glowing balls.) A level the clock doesn't
+    // light, or lit by the original's light (no current relit data), keeps its own fog as a medium.
+    state_of_fog.clock_air = rt::day_light().on && rt::cel_world().relit;
+    state_of_fog.haze = state_of_fog.clock_air || !view.fog.on || !(view.fog.end > view.fog.start) ||
+                        !std::isfinite(view.fog.start) ||
                         !std::isfinite(view.fog.end);
     // (round WF) a haze without a sun has the light list's lamps to light it: those of the last view, or the lighting's
     // analytic lamps now (the emitting triangles are known once a pass has asked for the list)
     // (round OM: the light list's emitting triangles too - a level lit by its glowing surfaces alone, no analytic lamp,
     // had no haze at all: the pass was never run, so its list never read)
     const bool may_have_lights =
-        own.settings.lamps > 0 &&
+        own.settings.lamps > 0 && rt::cel_world().relit && // (round FW: lamps light the air only with physical light)
         (own.lights_before || (!own.have_sun && (!scene_lighting(false, true).lamps.empty() ||
                                                  restir_listed_triangles_locked(state) > 0)));
-    if (state_of_fog.haze && (!own.settings.haze || (!own.have_sun && !may_have_lights))) {
+    // (round FW: rt_fog_haze is the air of a level without fog; under the clock's physical air the weather's air is the
+    // level's air whatever it says - the time of day's fog is out of the draws then)
+    if (state_of_fog.haze &&
+        ((!own.settings.haze && !state_of_fog.clock_air) || (!own.have_sun && !may_have_lights))) {
         if (first_report(state, kReportNoFog)) {
             get_log("vulkan: rt_fog: the level has no fog (and %s) - the fog pass skipped",
                     own.settings.haze ? "no sun or lamps for the haze's light" : "rt_fog_haze=0");
@@ -3369,7 +3393,10 @@ bool rt_fog_replaces_level_fog() { return replacing().load(std::memory_order_rel
 bool record_rt_fog_pass(Backend& state, const rt::ViewDrawn& view)
 {
     const bool recorded = record_pass(state, view);
-    replacing() = recorded && fog_state().settings.mode == RtFogMode::kReplace && !fog_state().haze;
+    // (round FW: under the clock's physical air the game's time of day fog stays out of the draws - the pass's air is the
+    // air there)
+    replacing() = recorded && fog_state().settings.mode == RtFogMode::kReplace &&
+                  (!fog_state().haze || fog_state().clock_air);
     return recorded;
 }
 
