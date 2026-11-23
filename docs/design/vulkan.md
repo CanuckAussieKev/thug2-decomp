@@ -4090,6 +4090,16 @@ light face-on (the frame's unit).
   without a store is the environment's light; objects and characters their lights decoded. The result is linear light,
   not clamped. The environment's specular is the store's estimate where the reflections pass doesn't trace it (texels
   rougher than `kReflectionRoughest`), faded across the same range as the pass's own fade.
+- **One albedo definition** (round ALBEDO): every pass - the raster's surfaces and Ray Reconstruction's albedo guide,
+  every ray's `hit_surface` (ReSTIR DI / GI, `pt ref`, the light list, the front layer, the reflections) - takes a
+  surface's albedo as its texture's reflectance: the texel x the material's own pass colours (0.5 leaves the texture
+  as it is), the layers composed as the game composes them, x the relit store's tint. Never x the game's colour on the
+  geometry - a sector's time-of-day colour or an object's light where it stands (`Gpu::takes_pass_tint`: the Vulkan
+  device gets the material's own colours and that tint apart; a surface lit per pixel takes the tint as light where
+  its light is the original's own - the vertex's, the draw's lights -, the other draws scale the colours as the
+  original) - and never x the draw's diffuse colour Cd (0.5, the game's neutral under its doubled light, made an
+  object 0.22 of its texture). New Orleans' night colour (0.2 - 0.29 on every pass colour) had darkened its raster
+  albedo to 0.2 - 0.3 of the rays'.
 - **Retired**: rt_pbr_specular, rt_pbr_normal_strength, rt_relief_strength, rt_detail_strength, rt_characters_skin /
   _cloth / _hair ("Set by the material now"); the bake relit by luma thresholds (kRtPbrAmbientShare, kRtPbrShade*,
   kRtPbrDetail*, kRtPbrSkyDetail, kRtPbrGameSun); the hue-found skin texels; the relief's per-kind weight and shadow

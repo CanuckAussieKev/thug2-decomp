@@ -57,6 +57,7 @@
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_surface_class.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -99,7 +100,10 @@ constexpr double kWallZ = 260.0;
 constexpr double kWallHalf = 400.0;
 constexpr double kWallHeight = 160.0;
 constexpr uint32_t kWorldOpaque = rt::kWorld | rt::kOpaque | rt::kCastsShadow;
-constexpr double kAgreement = 0.02; // (the brief: the realtime mean within 2 % of the reference's)
+constexpr double kAgreement = 0.02;
+constexpr uint32_t kLayerBlend = 5;          // (round ALBEDO's layer case) an alpha blend
+constexpr float kLayerAlphaRef = 0.5F;       // ... alpha tested
+constexpr double kLayerShareLeast = 0.95;    // ... the light under it at least this share of the light without it // (the brief: the realtime mean within 2 % of the reference's)
 constexpr float kRoughness = 0.6F;
 constexpr float kF0 = 0.04F;
 constexpr float kAlbedo = 0.7F;
@@ -217,9 +221,26 @@ std::vector<Triangle> wall_triangles()
     return {{.corners = {{{-w, 0.0, z}, {w, 0.0, z}, {w, h, z}}}}, {.corners = {{{-w, 0.0, z}, {w, h, z}, {-w, h, z}}}}};
 }
 
+// (round ALBEDO - NOBIAS3's layer rule in ray_blocked) a square of paint kLayerLift units over the floor round the
+// disc's foot - New Orleans' road lines: a mesh a little over the asphalt, blended and alpha-tested (a cut-out that casts).
+// Its texture a fine checker of cut texels (kLayerUvPerUnit: a texel 1 / (2 x it) units): the camera's rays reach the
+// floor through its holes while the light rays from there, slanting up toward the disc, meet its solid texels - which
+// block them unless the layer rule lets the floor's own layer pass (without the rule: the floor in the holes about half
+// as lit).
+constexpr double kLayerHalf = 200.0;
+constexpr double kLayerLift = 2.0;       // (under ff_key.h kLayerLift, RAY_LAYER_LIFT: 4)
+constexpr double kLayerUvPerUnit = 2.0;  // (texels 0.25 units: a light ray's run across the lift is several)
+std::vector<Triangle> layer_triangles()
+{
+    const double h = kLayerHalf;
+    const double y = kLayerLift;
+    return {{.corners = {{{-h, y, -h}, {h, y, -h}, {h, y, h}}}}, {.corners = {{{-h, y, -h}, {h, y, h}, {-h, y, h}}}}};
+}
+
 struct SceneMesh {
     rt::MeshId id = 0;
     rt::MaterialId material = 0;
+    uint32_t flags = kWorldOpaque; // (round ALBEDO's layer case: the instance's flags)
     render::GpuVertexBuffer* vertices = nullptr;
     render::GpuVertexBuffer* stream = nullptr;
 };
@@ -237,7 +258,7 @@ void put_word(std::span<uint8_t> bytes, std::size_t at, uint32_t value)
 // `emitting`: with a light store whose every vertex emits kDiscRadiance and has no tint - with `lamp_texture`, a lamp
 // drawn in a texture (the store's flag: the emission shown on its lamp texels alone - rt_cel.h word 6's blue).
 bool make_mesh(render::Gpu& gpu, const std::vector<Triangle>& triangles, bool emitting, SceneMesh* mesh,
-               render::GpuTexture* lamp_texture = nullptr)
+               render::GpuTexture* lamp_texture = nullptr, double uv_per_unit = 0.0)
 {
     const std::size_t vertices = triangles.size() * 3;
     std::vector<uint8_t> bytes(vertices * kStride);
@@ -249,8 +270,11 @@ bool make_mesh(render::Gpu& gpu, const std::vector<Triangle>& triangles, bool em
                 put_float(bytes, base + (axis * sizeof(float)), static_cast<float>(core::at(corner, axis)));
             }
             put_word(bytes, base + kColourAt, kGrey);
-            put_float(bytes, base + kUvAt, static_cast<float>(0.5 + (x_of(corner) / (2.0 * kDiscRadius))));
-            put_float(bytes, base + kUvAt + sizeof(float), static_cast<float>(0.5 + (z_of(corner) / (2.0 * kDiscRadius))));
+            // (uv_per_unit: the round ALBEDO layer case's tiling - else the disc's square)
+            const double u = uv_per_unit > 0.0 ? x_of(corner) * uv_per_unit : 0.5 + (x_of(corner) / (2.0 * kDiscRadius));
+            const double v = uv_per_unit > 0.0 ? z_of(corner) * uv_per_unit : 0.5 + (z_of(corner) / (2.0 * kDiscRadius));
+            put_float(bytes, base + kUvAt, static_cast<float>(u));
+            put_float(bytes, base + kUvAt + sizeof(float), static_cast<float>(v));
         }
     }
     void* data = nullptr;
@@ -333,6 +357,31 @@ render::GpuTexture* make_lamp_texture(render::Gpu& gpu)
             const bool lit = row % kLampTexelEvery == kLampTexelEvery / 2 && column % kLampTexelEvery == kLampTexelEvery / 2;
             const uint32_t texel = lit ? 0xFFFFFFFFU : 0xFF000000U;
             put_word(into, (static_cast<std::size_t>(row) * static_cast<uint32_t>(locked.pitch)) + (column * 4U), texel);
+        }
+    }
+    gpu.unlock_texture(texture, 0);
+    return texture;
+}
+
+// (round ALBEDO's layer case) The paint's texture: 2 x 2 texels, white, two of them cut out (alpha 0) - a checker.
+render::GpuTexture* make_checker_texture(render::Gpu& gpu)
+{
+    render::GpuTexture* texture = nullptr;
+    if (gpu.create_texture({.width = 2, .height = 2, .levels = 1, .usage = 0, .format = value::kFormatA8R8G8B8,
+                            .pool = value::kPoolManaged},
+                           &texture) != value::kResultOk) {
+        return nullptr;
+    }
+    render::GpuLockedRect locked;
+    if (gpu.lock_texture(texture, 0, &locked, nullptr, 0) != value::kResultOk) {
+        gpu.release_texture(texture);
+        return nullptr;
+    }
+    const std::span<uint8_t> into(static_cast<uint8_t*>(locked.bits), static_cast<std::size_t>(locked.pitch) + 8U);
+    for (uint32_t row = 0; row < 2; ++row) {
+        for (uint32_t column = 0; column < 2; ++column) {
+            put_word(into, (static_cast<std::size_t>(row) * static_cast<uint32_t>(locked.pitch)) + (column * 4U),
+                     (row + column) % 2 == 0 ? 0xFFFFFFFFU : 0x00FFFFFFU);
         }
     }
     gpu.unlock_texture(texture, 0);
@@ -472,7 +521,7 @@ void draw_frame(render::Gpu& gpu, const Targets& targets, std::span<const SceneM
         {{1.0F, 0.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 1.0F, 0.0F}}};
     for (const SceneMesh& mesh : meshes) {
         record.instances.push_back(
-            {.mesh = mesh.id, .material = mesh.material, .flags = kWorldOpaque, .object_to_world = kIdentityRows});
+            {.mesh = mesh.id, .material = mesh.material, .flags = mesh.flags, .object_to_world = kIdentityRows});
     }
     gpu.begin_scene();
     rt::ray_tracing()->begin_frame(record);
@@ -493,6 +542,28 @@ std::vector<uint8_t> region_of(const Vec3& eye)
     for (uint32_t y = kFirstRow; y < kHeight; ++y) {
         for (uint32_t x = 0; x < kWidth; ++x) {
             core::at(in, (static_cast<std::size_t>(y) * kWidth) + x) = sees_disc(eye, x, y) ? 0 : 1;
+        }
+    }
+    return in;
+}
+
+// (round ALBEDO) The pixels from `eye` whose view ray meets the floor inside the layer's square (a margin in from its
+// edges) and doesn't see the disc.
+std::vector<uint8_t> layer_region(const Vec3& eye)
+{
+    constexpr double kMargin = 0.8;
+    std::vector<uint8_t> in(static_cast<std::size_t>(kWidth) * kHeight, 0);
+    for (uint32_t y = 0; y < kHeight; ++y) {
+        for (uint32_t x = 0; x < kWidth; ++x) {
+            const Vec3 d = pixel_ray(eye, x + 0.5, y + 0.5);
+            if (!(y_of(d) < 0.0) || sees_disc(eye, x, y)) {
+                continue;
+            }
+            const double t = -y_of(eye) / y_of(d);
+            const double fx = x_of(eye) + (t * x_of(d));
+            const double fz = z_of(eye) + (t * z_of(d));
+            core::at(in, (static_cast<std::size_t>(y) * kWidth) + x) =
+                std::abs(fx) < kLayerHalf * kMargin && std::abs(fz) < kLayerHalf * kMargin ? 1 : 0;
         }
     }
     return in;
@@ -1294,6 +1365,47 @@ void check_device(render::Gpu& gpu, Tally* tally)
                      text::format("... the mean %.6f (%+.2f %%; without %+.2f %%), exact %.6f", with_grid.mean,
                                   100.0 * (with_grid.mean - exact_mean) / std::max(exact_mean, 1e-12),
                                   100.0 * (correlated.mean - exact_mean) / std::max(exact_mean, 1e-12), exact_mean));
+    }
+
+    // (round ALBEDO - round NOBIAS3's layer rule) a cut-out blended layer lying on the floor (the floor's material layer to
+    // the camera's rays) lets the disc's light reach the floor under it: a light ray leaving the floor's face passes a
+    // layer within the lift (ray_blocked's layer_of_origin, as seen_through's). Before NOBIAS3 the paint cut every light
+    // off the asphalt under it. The light under the layer against the same pixels without it.
+    {
+        SceneMesh layer;
+        render::GpuTexture* checker = make_checker_texture(gpu);
+        if (checker != nullptr && make_mesh(gpu, layer_triangles(), false, &layer, nullptr, kLayerUvPerUnit)) {
+            rt::Material paint;
+            paint.colour = {1.0F, 1.0F, 1.0F, 1.0F};
+            paint.texture = checker;
+            paint.flags = rt::kTransparent | rt::kAlphaTested | rt::kTextureAlpha;
+            paint.blend = kLayerBlend;
+            paint.alpha_ref = kLayerAlphaRef;
+            paint.filter = value::kFilterPoint;
+            rt::ray_tracing()->set_material(layer.material, paint);
+            layer.flags = rt::kWorld | rt::surface_instance_flags(rt::SurfaceClass::kCutOut, paint);
+            const std::array<SceneMesh, 2> bare{core::at(meshes, 0), core::at(meshes, 1)};
+            const std::array<SceneMesh, 3> painted{core::at(meshes, 0), core::at(meshes, 1), layer};
+            const std::vector<uint8_t> under = layer_region(kEyeA);
+            RunPlan disc_only = plan;
+            disc_only.batches = 2;
+            disc_only.frames = 64;
+            disc_only.lamps_at = [](int /*frame*/) { return std::vector<rt::Emitter>{}; };
+            const Answer without = restir(gpu, targets, bare, disc_only, under, &read);
+            const Answer with = restir(gpu, targets, painted, disc_only, under, &read);
+            not_finite += without.not_finite + with.not_finite;
+            const double share = without.mean > 0.0 ? with.mean / without.mean : 0.0;
+            tally->check(read && without.mean > 0.0 && share >= kLayerShareLeast,
+                         text::format("a cut-out blended layer (a checker of holes) %.2f units over the floor: the disc's light under it %.6f, "
+                                      "without it %.6f (x %.3f, at least %.2f)",
+                                      kLayerLift, with.mean, without.mean, share, kLayerShareLeast));
+        } else {
+            tally->check(false, "the layer mesh made");
+        }
+        release_mesh(gpu, &layer);
+        if (checker != nullptr) {
+            gpu.release_texture(checker);
+        }
     }
 
     tally->check(read && not_finite == 0, text::format("estimates not finite: %u", not_finite));
