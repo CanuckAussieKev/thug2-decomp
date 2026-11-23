@@ -841,6 +841,15 @@ vec3 view_of(Surface s, vec3 eye) { return normalize(eye - s.at); }
 // A reservoir: its sample (a point on a surface and that surface's normal toward the pixel that found it, or a direction
 // to the sky), the sample's reflected light, its weight W (the unbiased contribution weight - 1 / the sample's effective
 // pdf in solid angle at its pixel) and its sample count M.
+// (Round LW) A sample whose path ended at the radiance cache (Secondary::ended - its light the reflectance x the cell's
+// whole light, read when it was taken) and its age (the frames since): such a sample is dropped from the history past
+// GI_ENDED_AGE_MOST frames (RTXDI's ReSTIR GI maxReservoirAge), reservoir and M with it. Its light is the cell's
+// estimate of that frame - the cell's error, the same for every pixel whose path ended there; kept in a reservoir it
+// stayed on the screen as long as the sample lived (each reservoir passing it on: 20 frames and more), the cache's own
+// history (CACHE_FRAMES) long since past it: Training's bounce light breathing by +-5 % over ~4 s with the world still
+// (round NOISE; round LW: each 1/15-s cell's light correlated 0.51 four frames apart, 0.23 eight). Read again at every
+// load instead (the cell's light now), the memory went but fireflies came: a sample taken while its cell was dim keeps
+// the W of that target. Paths traced to their end keep their samples (their errors are each pixel's own).
 struct Reservoir {
     uint kind;
     vec3 y;
@@ -848,8 +857,13 @@ struct Reservoir {
     vec3 bounce;
     float W;
     float M;
+    bool ended;
+    uint age;
 };
-Reservoir no_reservoir(float m) { return Reservoir(KIND_NONE, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), 0.0, m); }
+Reservoir no_reservoir(float m) { return Reservoir(KIND_NONE, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), 0.0, m, false, 0u); }
+const uint GI_ENDED_AGE_MOST = 16u;
+// The kind byte's words: the kind (bits 0 - 1), ended (bit 2), the age (bits 3 - 7, at most 31)
+uint kind_byte(Reservoir r) { return (r.kind & 3u) | (r.ended ? 4u : 0u) | (min(r.age, 31u) << 3); }
 uvec2 pack_light(vec3 c)
 {
     c = max(c, vec3(0.0));
@@ -861,7 +875,7 @@ void store_reservoir(bool into_b, uint i, Reservoir r)
 {
     uvec2 b = pack_light(r.bounce);
     uvec4 w0 = uvec4(floatBitsToUint(r.y), packSnorm2x16(oct_encode(r.ny)));
-    uvec4 w1 = uvec4(b.x, b.y | (r.kind << 24), floatBitsToUint(r.W), floatBitsToUint(r.M));
+    uvec4 w1 = uvec4(b.x, b.y | (kind_byte(r) << 24), floatBitsToUint(r.W), floatBitsToUint(r.M));
     if (into_b) {
         res_b[i * 2u] = w0;
         res_b[i * 2u + 1u] = w1;
@@ -873,7 +887,10 @@ void store_reservoir(bool into_b, uint i, Reservoir r)
 Reservoir reservoir_of(uvec4 w0, uvec4 w1)
 {
     Reservoir r;
-    r.kind = w1.y >> 24;
+    uint kind = w1.y >> 24;
+    r.kind = kind & 3u;
+    r.ended = (kind & 4u) != 0u;
+    r.age = kind >> 3;
     r.y = uintBitsToFloat(w0.xyz);
     r.ny = oct_decode(unpackSnorm2x16(w0.w));
     r.bounce = unpack_light(w1.x, w1.y & 0x00FFFFFFu);
@@ -998,7 +1015,7 @@ void store_specular(bool history, uint i, Reservoir r)
     uvec2 b = pack_light(r.bounce);
     uint at = i * 4u + (history ? 2u : 0u);
     spec_res[at] = uvec4(floatBitsToUint(r.y), packSnorm2x16(oct_encode(r.ny)));
-    spec_res[at + 1u] = uvec4(b.x, b.y | (r.kind << 24), floatBitsToUint(r.W), floatBitsToUint(r.M));
+    spec_res[at + 1u] = uvec4(b.x, b.y | (kind_byte(r) << 24), floatBitsToUint(r.W), floatBitsToUint(r.M));
 }
 Reservoir load_specular(bool history, uint i)
 {
@@ -1226,14 +1243,14 @@ void store_samples(uint i, Surface s, bool traced, bool take_specular, vec3 dir,
     Reservoir r = no_reservoir(1.0);
     Reservoir spec = has_specular ? no_reservoir(1.0) : no_reservoir(0.0);
     if (traced) {
-        Reservoir c;
-        c.M = 1.0;
+        Reservoir c = no_reservoir(1.0);
         c.W = good(1.0 / pdf);
         if (sec.hit) {
             c.kind = KIND_SURFACE;
             c.y = sec.at;
             c.ny = sec.n;
             c.bounce = with_bounces(sec);
+            c.ended = sec.ended; // (round LW: its light the cache's - dropped past GI_ENDED_AGE_MOST frames)
         } else {
             c.kind = KIND_SKY;
             c.y = dir;
@@ -1479,6 +1496,11 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
     if (has_then) {
         Reservoir h = load_b(j);
         h.M = min(h.M, cap);
+        // (round LW) a frame older; a cache-ended sample past its age dropped, reservoir and M (RTXDI's maxReservoirAge)
+        h.age += 1u;
+        if (h.ended && h.age > GI_ENDED_AGE_MOST) {
+            h = no_reservoir(0.0);
+        }
         vec3 h_dir;
         float h_reach;
         float g_here;
