@@ -198,77 +198,6 @@ vec3 front_normal(ivec2 p, vec3 here, vec3 dir)
     return dot(n, dir) > 0.0 ? -n : n;
 }
 
-// (round NOISE) The light every further bounce brings the layer (a white diffuser's radiance - E / pi): one cosine ray a
-// frame from the layer's point, the radiance coming back along it - at its hit the radiance cache's whole light there
-// (SHaRC's path ending: the hit's reflectance x its direct + bounce) where the cell is trusted, else the hit's own light
-// sample + the cache's bounce; a miss the sky. Before, the cache was read at the layer's own point: a see-through
-// surface no GI path ever stops on (GI's rays pass the blended surfaces) has no entries there, so a scaffold's net got
-// nothing but the odd cell a pole had filled - black with green squares that came and went (Lumen's front layer
-// translucency likewise traces its own rays into the radiance cache, not a probe at the surface).
-bool front_closest(vec3 origin, vec3 dir, float reach, out uint instance, out uint primitive, out uint id,
-                   out vec2 barycentrics, out mat4x3 to_world)
-{
-    rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, FRONT_RAYS, origin, 0.0, dir, reach);
-    while (rayQueryProceedEXT(query)) {
-        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
-            cutout_kept(rayQueryGetIntersectionInstanceIdEXT(query, false),
-                        rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
-                        rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
-                        rayQueryGetIntersectionBarycentricsEXT(query, false))) {
-            rayQueryConfirmIntersectionEXT(query);
-        }
-    }
-    instance = 0u;
-    primitive = 0u;
-    id = 0u;
-    barycentrics = vec2(0.0);
-    to_world = mat4x3(1.0);
-    if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
-        return false;
-    }
-    instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
-    primitive = rayQueryGetIntersectionPrimitiveIndexEXT(query, true);
-    id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, true);
-    barycentrics = rayQueryGetIntersectionBarycentricsEXT(query, true);
-    to_world = rayQueryGetIntersectionObjectToWorldEXT(query, true);
-    return true;
-}
-vec3 front_bounce(vec3 at, vec3 n, inout uint rng)
-{
-    float u1 = path_next(rng);
-    float u2 = path_next(rng);
-    vec3 dir = path_to_world(n, path_cosine_direction(u1, u2));
-    uint instance;
-    uint primitive;
-    uint id;
-    vec2 bc;
-    mat4x3 to_world;
-    if (!front_closest(at, dir, LL_REACH, instance, primitive, id, bc, to_world)) {
-        return sky_radiance(dir);
-    }
-    HitSurface h;
-    if (!hit_surface(instance, primitive, id, bc, to_world, dir, h) || h.hidden) {
-        return vec3(0.0);
-    }
-    vec3 v = -dir;
-    vec3 ng = h.normal;
-    vec3 hn = dot(h.shading_normal, v) > 0.0 ? h.shading_normal : ng;
-    vec3 reflectance = brdf_ambient(h.material, dot(hn, v), vec3(1.0), vec3(1.0));
-    vec3 emitted = max(h.emitted, vec3(0.0));
-    vec3 cached;
-    vec3 cached_direct;
-    if (cache_lookup_whole(h.position, ng, cached, cached_direct)) {
-        return emitted + reflectance * (cached_direct + cached);
-    }
-    vec3 hp = h.position + ng * local_light_offset(h.position);
-    vec3 toward;
-    vec3 incident = light_sample(hp, hn, ng, FRONT_RAYS, rng, toward);
-    vec3 direct = max(incident.r, max(incident.g, incident.b)) > 0.0 ? path_bsdf_cosine(h.material, hn, v, toward) * incident
-                                                                     : vec3(0.0);
-    return emitted + direct + reflectance * cache_bounce(h.position, ng);
-}
-
 void main()
 {
     ivec2 local = ivec2(gl_GlobalInvocationID.xy);
@@ -302,7 +231,7 @@ void main()
         vec3 incident = light_sample(at, n, n, FRONT_RAYS, rng, toward);
         rest += incident * max(dot(n, toward), 0.0);
     }
-    rest = rest / (PATH_PI * float(samples)) + front_bounce(at, n, rng);
+    rest = rest / (PATH_PI * float(samples)) + cache_bounce(here, n);
     // the disc: its visibility toward a point of its cone (the clouds' shadow with it), its light on a white diffuser
     vec3 sun = vec3(0.0);
     float seen = 0.0;

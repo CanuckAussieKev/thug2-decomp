@@ -1084,6 +1084,14 @@ void cache_add_direct(vec3 at, vec3 ng, vec3 light, inout uint rng)
 // (E / pi): added to the vertex's entry. A ray that meets nothing gives 0 (the sky's light is a vertex's direct light).
 void main()
 {
+    // (round NOISE) The update paths' light samples from candidates of their own (the frame's pool, each its own point),
+    // not the light grid cell's picks: an entry averages its samples over CACHE_FRAMES, and the cell's picks - the same
+    // few points for every vertex in 128 units all frame - gave every entry there the same error each frame, which that
+    // history turns into a slow wave of the region's bounce - and the paths that end at the cache carry it to every pixel.
+    // The cache's own average is the reuse these samples have, so they must be independent (the reflections' hits
+    // likewise). (Training held still, GI's term over 5 s: its cells' slow range median 13.8 -> 10.0 %; the whole
+    // term's slow wave of ~5 % over ~4 s stayed - round NOISE's record, open.)
+    ll_cell_candidates = false;
     ivec2 block = ivec2(gl_GlobalInvocationID.xy);
     uint rng = path_sequence_start(uint(block.x), uint(block.y), pass.counts.z ^ 0x2545F491u, pass.params.w + 7u);
     uint pick = min(uint(path_next(rng) * float(CACHE_BLOCK * CACHE_BLOCK)), CACHE_BLOCK * CACHE_BLOCK - 1u);
