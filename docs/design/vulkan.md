@@ -2383,6 +2383,15 @@ evidence") and from the frame's point lights that were on at the bake's time - s
   transparency layer or the preset (D, E); it depends on the input's level alone - the same frame scaled 16 x before
   it (and the preExposure with it): 0.85 x, 256 x: 0.98 x. Open: the level Ray Reconstruction is given (the night's
   lamp heads, ~10^5 x the lit ground, leave no fixed scale that lifts the ground and keeps the heads in 16-bit floats).
+  Round NOBIAS2 measured it again (thug2_vulkan_upscale_check --rr-probe; New Orleans at night with `pt frames ...
+  inputs`): Ray Reconstruction's output is bit for bit the same with preExposure 1 or the frame's, an exposure texture
+  at the pre-exposure or 1, exposureScale, or the bias-current-colour hint on the emitters - it takes no exposure. What
+  it loses is small bright lights seen directly: at New Orleans' street 5 pixels held 80 % of the emission view's light
+  (lamp surfaces smaller than a pixel, lit in 1 - 5 of 8 jittered frames) and it kept 0.16 of it (lamps view 0.72,
+  the whole picture 0.78; the lamps view less its emission 1.03). The probe: 40 emitters 100 x white kept 0.31 (1 px),
+  0.64 (2 px), 0.04 (2 px lit one frame in four - a sub-pixel light under the jitter); in the transparency layer
+  (alpha 0, added over the surface, not denoised) 0.68 (1 px), 0.99 (2 px), but a light lit one frame in four isn't
+  accumulated there (0.26 over four frames). Open: how directly seen sub-pixel emitters reach the picture.
 
 ### Lighting round A2: one light unit, the sun by the relit fit, lamps by their light (`rt_relit`, `rt_lights`)
 
