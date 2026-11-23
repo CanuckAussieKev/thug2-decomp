@@ -141,4 +141,18 @@ struct SharedPrimary {
 [[nodiscard]] SharedPrimary restir_shared_primary(const Backend& state);
 void set_restir_shared_primary(bool on);
 
+// (round NOBIAS3) Which surface a pixel's primary is - the albedo row's w: none (no depth there), the camera ray's
+// traced surface, or the depth's own (depth_surface: no traced triangle at the depth's point - its albedo 0).
+inline constexpr float kSharedPrimaryNone = 0.0F;
+inline constexpr float kSharedPrimaryTraced = 1.0F;
+inline constexpr float kSharedPrimaryDepth = 2.0F;
+// (`pt frames ... inputs`) The last view's primary surfaces read back (the frame's work finished first; the caller holds
+// the lock): per pixel of its rectangle, row-major, the traced albedo and the kind above. False: none made.
+struct RestirPrimaryReadback {
+    uint32_t width = 0;
+    uint32_t height = 0;
+    std::vector<std::array<float, 4>> albedo_kind;
+};
+bool read_restir_primary(Backend& state, RestirPrimaryReadback* out);
+
 } // namespace render::vulkan

@@ -1454,6 +1454,21 @@ const SurfaceInputs* surface_inputs(Backend& state)
     return own.phase == Phase::kInputs && own.inputs.visibility != nullptr ? &own.inputs : nullptr;
 }
 
+SurfaceInputs surface_input_images(Backend& state)
+{
+    (void)state;
+    LightState& own = light_state();
+    const auto made = [](Image& image) { return image.image != VK_NULL_HANDLE ? &image : nullptr; };
+    return {.visibility = made(own.visibility),
+            .lamps = made(own.lamps),
+            .lamps_on = made(own.lamps_on),
+            .depth = made(own.depth_copy),
+            .decals = made(own.decals),
+            .layer = made(own.layer_material),
+            .guides = made(own.guides),
+            .specular = made(own.specular)};
+}
+
 bool surface_light_view(const Backend& state)
 {
     (void)state;

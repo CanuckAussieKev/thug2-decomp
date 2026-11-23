@@ -106,6 +106,9 @@ void surface_light_force(const GpuStateBlock& block, bool relit, ShaderKey* shad
 void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey* shaders, SurfaceInputDescriptors* out);
 // The view's inputs while its passes make them; null: none - a pass draws over the colour as before.
 [[nodiscard]] const SurfaceInputs* surface_inputs(Backend& state);
+// (round NOBIAS3 - `pt frames ... inputs`) The inputs' images as the last view left them, whatever its phase now (a
+// measurement's read-back after the frame's work; null members where not made).
+[[nodiscard]] SurfaceInputs surface_input_images(Backend& state);
 // Whether this view is lit per surface (from its first kept draw to its shading) - Ray Reconstruction's albedo is then
 // taken after the shading (vulkan_upscale.h).
 [[nodiscard]] bool surface_light_view(const Backend& state);

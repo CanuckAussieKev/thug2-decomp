@@ -79,6 +79,13 @@ struct SceneView {
     // record's order - its first 48 bytes the object-to-world rows, x' = row . (x, y, z, 1)) as a device address, for a
     // shader that needs an instance's transform without a hit (a light's triangle sampled)
     VkDeviceAddress instances_address = 0;
+    // (round NOBIAS3) What a scan of the instances' triangles reads besides the record's instances, as keys over the
+    // world's instances (the objects come and go): live_key which are built (and their triangle counts - the scan's places), light_key which of them read the relit world's
+    // light store (its stream given - the store's emission is read through it). A list of the emitters made before a
+    // mesh was built or its stream given never saw its triangles: New Orleans' list kept 319 of the level's 584 emitting
+    // triangles all session (made in the level's first frames, while its streams were still being given).
+    uint64_t live_key = 0;
+    uint64_t light_key = 0;
 };
 // (path tracing, stage 1) The current frame's instances' triangle counts, in the frame record's order (0: not built) -
 // the primitives a shader may ask hit_vertices for. The caller holds the lock.
