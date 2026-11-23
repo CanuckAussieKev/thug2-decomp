@@ -120,7 +120,15 @@ constexpr float kGridSide = 128.0F;
 // in display luma against the converged picture, the light grid off 1.5 - 2.7, 512 slots 1.2 - 1.9); its size falls with
 // the square root of the slots. Cost: the grid's build +0.6 ms at 1280 x 720 (ReSTIR DI 2.8 -> 3.4 ms).
 constexpr uint32_t kGridSlots = 512;
-constexpr uint32_t kGridCandidates = 8;
+// (round NOISE2) A cell's slots are made by one workgroup of kCellGroup invocations (kGridBody PASS_CELLS: the cell's own
+// CDF over the list, drawn by systematic resampling), each kGridSlots / kCellGroup slots.
+constexpr uint32_t kCellGroup = 128; // (256: +5 %, 64: +10 % - TR and NO at night)
+// (a round of the cell's CDF in shared memory: 4 KB - 16 KB cost the pass a third more: fewer groups an SM holds at once)
+constexpr uint32_t kCellCache = 1024;
+// (the blocks a round of the cell's CDF is scanned in - one a subgroup: a subgroup 8 wide or more)
+constexpr uint32_t kCellBlocks = 32;
+static_assert(kCellGroup / 8 <= kCellBlocks);
+static_assert(kGridSlots % kCellGroup == 0 && kGridSlots % kLightGridPicks == 0);
 // (round BUDGET) vec4s an entry in the bounds buffer: its bounds (2), its prepared record (3 - light_point_at) and its
 // presampled points (RTXDI's presampled light samples: each drawn uniformly on the triangle and its emission found there
 // once a frame - a candidate takes one, no texel read per pixel). (Round NOISE) 64, stratified 8 x 8 (PASS_BOUNDS): the
@@ -239,12 +247,16 @@ layout(std430, set = 0, binding = 17) buffer Slots { uint slots[]; };
 // (round PT4c) the light grid: each entry's bounds (light_bounds below), each cell's slots (the entry + 1 - 0: none -,
 // the slot's unbiased contribution weight)
 layout(std430, set = 0, binding = 19) buffer Bounds { vec4 bounds[]; };
-// (round BUDGET) an entry's vec4s: its centre and radius, its kind's numbers (PASS_CELLS), then (a triangle) its world
-// corners (light_point_at) and PRESAMPLED points on it drawn this frame, each its kept uv (x's bits) and its emission
-// there (yzw) - RTXDI's presampled light samples
+// (round BUDGET) an entry's vec4s: its centre and radius, its kind's numbers (PASS_CELLS) - (round NOISE2) at 2e, 2e + 1 -,
+// and its record (record_at): (a triangle) its world corners (light_point_at) and PRESAMPLED points on it drawn this frame,
+// each its kept uv (x's bits) and its emission there (yzw) - RTXDI's presampled light samples
 const uint PRESAMPLED = PRESAMPLED_POINTS; // (kPresampled)
 const uint PRESAMPLED_SIDE = PRESAMPLED_POINTS_SIDE; // (round NOISE: the strata on each side)
-const uint RECORD_STRIDE = 5u + PRESAMPLED;
+const uint RECORD_STRIDE = 3u + PRESAMPLED;
+// (round NOISE2) the entries' centres and kinds' numbers first, two vec4s an entry, packed (every cell of the light grid
+// reads them all: each a cache line of its own with the records between them cost the grid's pass most of its time);
+// the records (corners, presampled points) after them
+uint record_at(uint e) { return 2u * pass.counts.x + RECORD_STRIDE * e; }
 layout(std430, set = 0, binding = 20) buffer Cells { uvec2 cells[]; };
 const uvec2 sky_alias[1] = uvec2[1](uvec2(0u)); // (the light list's sky isn't sampled here)
 #define LIST_INSTANCE_ADDRESS pass.instances.xy
@@ -679,9 +691,9 @@ bool light_point_at(uint e, vec2 uv, vec3 emitted, Surface s, out LightPoint lp)
     if (light_kind(entry.payload) != LIGHT_TRIANGLE) {
         return light_point(e, uv, s, lp);
     }
-    vec3 a = bounds[RECORD_STRIDE * e + 2u].xyz;
-    vec3 b = bounds[RECORD_STRIDE * e + 3u].xyz;
-    vec3 c = bounds[RECORD_STRIDE * e + 4u].xyz;
+    vec3 a = bounds[record_at(e)].xyz;
+    vec3 b = bounds[record_at(e) + 1u].xyz;
+    vec3 c = bounds[record_at(e) + 2u].xyz;
     vec3 across = cross(b - a, c - a);
     float twice = length(across);
     if (!(twice > 0.0)) {
@@ -804,7 +816,7 @@ void initial_candidates(ivec2 local, Surface s, out uvec4 kept, out uint rng_aft
         // point here was - the same pdf), its emission found there once for every pixel
         vec3 emitted = vec3(0.0);
         if (evaluate && e < count && light_kind(light_entries[e].payload) == LIGHT_TRIANGLE) {
-            vec4 point = bounds[RECORD_STRIDE * e + 5u + min(uint(uv.x * float(PRESAMPLED)), PRESAMPLED - 1u)];
+            vec4 point = bounds[record_at(e) + 3u + min(uint(uv.x * float(PRESAMPLED)), PRESAMPLED - 1u)];
             uv = unpackUnorm2x16(floatBitsToUint(point.x));
             emitted = point.yzw;
         }
@@ -1104,15 +1116,17 @@ void main()
 // triangles over the whole level, a courtyard's few found by 1 candidate in tens - the reservoirs then held a nearby
 // light for frames and lost it again: the slow boiling Ray Reconstruction keeps as picture).
 //   PASS_BOUNDS: each entry's bounds (one invocation an entry): bounds[2e] = its centre and radius, bounds[2e + 1] its
-//     kind's numbers - a triangle (1): its flux / 2 pi (the light at a distance d face-on: x / d^2) and flux / 2A (the
-//     most a Lambertian emitter can give: pi x its mean radiance); a lamp (2 a point or panel, 3 a line): its colour's
-//     luminance, its core, its reach (the lamp model's bound - lamp_geometry with every cosine 1).
-//   PASS_CELLS: each slot of each cell (one invocation a slot): the cell's light bound at its box widened by half a cell
-//     (a pixel's point is moved by up to half a cell before its cell is found) - by RIS over the list's candidates by
-//     power toward that bound; kept with its unbiased contribution weight W = sum w / (candidates x bound). The bound is
-//     above 0 wherever a pixel of the cell can get light from the entry (the lamp's reach, any triangle with flux), so a
-//     pixel's candidates from the slots (weight = its target x W) cover every light it can see: unbiased (RIS with
-//     candidates of their own contribution weights - generalised RIS, Lin et al. 2022).
+//     kind's numbers - a triangle (1): (round NOISE2) its power / 2 pi^2 (the light at a distance d face-on: x / d^2, in
+//     light_point's unit) and power / 2 pi A (its mean radiance); a lamp (2 a point or panel, 3 a line): its colour's
+//     luminance, its core, its reach (the lamp model - lamp_geometry with every cosine 1).
+//   PASS_CELLS: each cell's slots (one workgroup a cell): (round NOISE2) every entry's weight for the cell's box widened
+//     by half a cell (a pixel's point is moved by up to half a cell before its cell is found - cell_weight) summed into
+//     the cell's CDF, the slots drawn from it by systematic resampling, each kept with its unbiased contribution weight
+//     W = the weights' sum / its weight (round PT4c to NOISE: RIS over 8 picks by power a slot toward the most the entry
+//     could bring to the box, W = sum w / (candidates x bound) - each slot drawn on its own). The weight is above 0
+//     wherever a pixel of the cell can get light from the entry (the lamp's reach, any triangle with power), so a pixel's
+//     candidates from the slots (weight = its target x W) cover every light it can see: unbiased (RIS with candidates of
+//     their own contribution weights - generalised RIS, Lin et al. 2022).
 constexpr const char* kGridBody = R"(
 #ifdef PASS_BOUNDS
 layout(local_size_x = 64) in;
@@ -1141,7 +1155,12 @@ void main()
             float flux = uintBitsToFloat(listed.z);
             if (area > 0.0 && flux > 0.0) {
                 place = vec4(centre, sqrt(max(dot(a - centre, a - centre), max(dot(b - centre, b - centre), dot(c - centre, c - centre)))));
-                numbers = vec4(flux / (2.0 * PATH_PI), flux / (2.0 * area), 0.0, 1.0);
+                // (round NOISE2) in the light's own unit - a white diffuser's radiance, light_point's `light` (the
+                // triangle's L A cos cos / pi d^2; a lamp's colour x lamp_geometry): the listed power is 2 pi A L, so at
+                // most L A / (pi d^2) = power / (2 pi^2 d^2) face-on, and L (= power / (2 pi A)) next to it. Before, both
+                // were pi x that while a lamp's numbers were in its own unit: the cells weighed the lamps at a third of
+                // the triangles (cell_weight)
+                numbers = vec4(flux / (2.0 * PATH_PI * PATH_PI), flux / (2.0 * PATH_PI * area), 0.0, 1.0);
                 // (round BUDGET) the record light_point_at reads: the corners in the world - and the frame's presampled
                 // points on it, each drawn uniformly (as a candidate's point was) and its emission found there (hit_surface's
                 // `emitted`, light_point's): every pixel's candidates on the triangle take one of them
@@ -1166,7 +1185,7 @@ void main()
                     if (!hit_emission_of(listed.x, listed.y, material_id, bc.yz, tri, emitted)) {
                         emitted = vec3(0.0);
                     }
-                    bounds[RECORD_STRIDE * e + 5u + k] = vec4(uintBitsToFloat(packUnorm2x16(uv)), max(emitted, vec3(0.0)));
+                    bounds[record_at(e) + 3u + k] = vec4(uintBitsToFloat(packUnorm2x16(uv)), max(emitted, vec3(0.0)));
                 }
             }
         }
@@ -1177,71 +1196,102 @@ void main()
         place = vec4(light.at.xyz, line ? light.shape.w : 0.0);
         numbers = vec4(path_luma(max(light.colour.rgb, vec3(0.0))), light.more.y, light.colour.w, line ? 3.0 : 2.0);
     }
-    bounds[RECORD_STRIDE * e] = place;
-    bounds[RECORD_STRIDE * e + 1u] = numbers;
-    bounds[RECORD_STRIDE * e + 2u] = record[0];
-    bounds[RECORD_STRIDE * e + 3u] = record[1];
-    bounds[RECORD_STRIDE * e + 4u] = record[2];
+    bounds[2u * e] = place;
+    bounds[2u * e + 1u] = numbers;
+    bounds[record_at(e)] = record[0];
+    bounds[record_at(e) + 1u] = record[1];
+    bounds[record_at(e) + 2u] = record[2];
 }
 #endif
 
 #ifdef PASS_CELLS
-layout(local_size_x = 64) in;
+layout(local_size_x = CELL_GROUP) in;
 layout(std430, set = 0, binding = 18) buffer Counters { uint bad_samples; uint counter_spare[3]; uint di_counts[DI_COUNTS]; };
 const uint FLAG_COUNT = 128u;
-// the most light entry `e` can bring to a point of the box [low, high]
-float cell_bound(uint e, vec3 low, vec3 high)
+// (round NOISE2) How much of the cell's light entry `e` is expected to bring - the cell's sampling weight (ReGIR's target
+// for the cell; the slots' distribution is this over its sum). It needs to be above 0 wherever a point of the box can get
+// light from the entry (the estimate stays unbiased: the slots' weight is 1 / their probability), and close to the
+// light's share there for the estimate to be good. A light tree's cluster importance (Conty Estevez and Kulla 2018,
+// "Importance sampling of many lights with adaptive tree splitting"): the light's power over the squared distance from
+// the box's centre plus a cell's side squared (the box's points spread round it) - in the light's unit at the receiver
+// (light_point's `light`: a triangle's L A / (pi d^2) face-on, a lamp's colour x its falloff). Before, the most the entry
+// could bring to
+// the box's nearest point: a tiny bright triangle inside or next to the box (a sign's letter, a lit window's pane) then
+// weighed its full radiance, as much as a street lamp lighting the whole cell - with the cells drawn by that weight, the
+// cell's slots went to the letters and the lamp lighting the street got a few.
+float cell_weight(uint e, vec3 low, vec3 high)
 {
-    vec4 place = bounds[RECORD_STRIDE * e];
-    vec4 numbers = bounds[RECORD_STRIDE * e + 1u];
+    vec4 place = bounds[2u * e];
+    vec4 numbers = bounds[2u * e + 1u];
     uint kind = uint(numbers.w + 0.5);
     if (kind == 0u) {
         return 0.0;
     }
-    vec3 nearest = clamp(place.xyz, low, high);
-    float d = max(length(place.xyz - nearest) - place.w, 0.0);
+    vec3 centre = 0.5 * (low + high);
+    float side = 0.5 * (high.x - low.x); // (the box is two cells wide)
+    float d = max(length(place.xyz - centre) - place.w, 0.0);
+    float d2 = d * d + side * side;
     if (kind == 1u) {
-        return d > 0.0 ? min(numbers.x / (d * d), numbers.y) : numbers.y;
+        return numbers.x / d2;
     }
+    // a lamp: none where its reach ends before the box's nearest point (the lamp model's window: it brings nothing there)
     float core = numbers.y;
     float reach = numbers.z;
-    if (!(core > 0.0) || !(reach > 0.0) || !(d < reach)) {
+    float nearest = max(length(place.xyz - clamp(place.xyz, low, high)) - place.w, 0.0);
+    if (!(core > 0.0) || !(reach > 0.0) || !(nearest < reach)) {
         return 0.0;
     }
-    float x = d / reach;
+    float x = nearest / reach;
     float window = 1.0 - x * x * x * x;
-    float falloff = kind == 3u ? core / sqrt(d * d + core * core) : core * core / (core * core + d * d);
+    float falloff = kind == 3u ? core / sqrt(d2 + core * core) : core * core / (core * core + d2);
     return numbers.x * falloff * window * window;
 }
+
+// (round NOISE2) One workgroup a cell. The cell's slots are drawn from the cell's own distribution - every entry's weight
+// over their sum (cell_weight; the cell's exact CDF, as a many-lights light grid samples each cell's lights - UE5's
+// MegaLights) - by systematic resampling: one random offset for the cell, slot k the entry under (k + offset) / slots of
+// the CDF. A pixel takes a slot at random, so each candidate is still a pick by weight / sum (unbiased), but a light owns
+// floor or ceil of its share of the slots, not a random number of them. Before, every slot was RIS over 8 picks of the
+// whole list by power, drawn anew each frame: a light's slots in a cell swung from frame to frame by their binomial
+// spread (a lamp with 4 of 512: +-50 %), every pixel of the cell (128 units, and the neighbours its jitter reaches) took
+// its candidates from the same slots, and the temporal reuse held each frame's swing for ~20 frames: the lamps' slow
+// breathing in every level (Training's lamps view: cells wandering 7 - 8 % (median) / 13 - 15 % (most) over 2.5 s in Ray
+// Reconstruction's input).
+// The CDF is made CELL_CACHE entries at a time in shared memory: each subgroup the prefix sums of its own block of them
+// (subgroup scans, no barrier between), the blocks' offsets after - three barriers a round, not one a chunk (the pass is
+// latency-bound: thousands of short-lived groups). A list longer than CELL_CACHE takes its total first, then a round each
+// CELL_CACHE entries.
+shared float g_prefix[CELL_CACHE];
+shared float g_block[CELL_BLOCKS + 1u];
+shared uint g_wanted;
 void main()
 {
     uint slots = pass.grid_cells.w;
-    uint total = pass.grid_cells.x * pass.grid_cells.y * pass.grid_cells.z * slots;
-    uint i = gl_GlobalInvocationID.y * 65535u * 64u + gl_GlobalInvocationID.x;
-    if (i >= total) {
+    uint cells_total = pass.grid_cells.x * pass.grid_cells.y * pass.grid_cells.z;
+    uint cell = gl_WorkGroupID.x;
+    uint t = gl_LocalInvocationID.x;
+    if (cell >= cells_total || slots == 0u) {
         return;
     }
-    uint cell = i / slots;
     // (round PERF3) the header; then only a cell read within GRID_KEEP_FRAMES (its state word's y - light_grid_slot) is
     // made (pass.list.z: every cell - the check's); x the frame it was made in, 0 for one not made
-    if (i == 0u) {
+    if (cell == 0u && t == 0u) {
         light_pool[0] = uvec4(floatBitsToUint(pass.grid));
         light_pool[1] = uvec4(pass.grid_cells.xyz, LIGHT_GRID_PICKS);
         light_pool[2] = uvec4(pass.counts.z, pass.grid_shift.xyz);
         light_pool[3] = uvec4(0u);
     }
-    uint wanted = light_pool[GRID_STATE_WORD + cell].y;
-    if (pass.list.z == 0u && !(wanted != 0u && pass.counts.z - wanted <= GRID_KEEP_FRAMES)) {
-        if (i % slots == 0u) {
-            light_pool[GRID_STATE_WORD + cell].x = 0u;
-        }
-        return;
-    }
-    if (i % slots == 0u) {
-        light_pool[GRID_STATE_WORD + cell].x = pass.counts.z;
-        if ((pass.counts.w & FLAG_COUNT) != 0u) {
+    if (t == 0u) {
+        uint wanted = light_pool[GRID_STATE_WORD + cell].y;
+        g_wanted = pass.list.z != 0u || (wanted != 0u && pass.counts.z - wanted <= GRID_KEEP_FRAMES) ? 1u : 0u;
+        light_pool[GRID_STATE_WORD + cell].x = g_wanted != 0u ? pass.counts.z : 0u;
+        if (g_wanted != 0u && (pass.counts.w & FLAG_COUNT) != 0u) {
             atomicAdd(di_counts[DI_COUNT_CELLS], 1u); // (round PERF6)
         }
+    }
+    barrier();
+    if (g_wanted == 0u) {
+        return;
     }
     // (the cell's place: its index on each axis less the shift, modulo the cells across)
     uvec3 c = uvec3(cell % pass.grid_cells.x, cell / (pass.grid_cells.x * pass.grid_cells.z),
@@ -1250,46 +1300,130 @@ void main()
     float side = pass.grid.w;
     vec3 low = pass.grid.xyz + (vec3(c) - 0.5) * side;
     vec3 high = low + 2.0 * side;
-    uint rng = path_sequence_start(i % 4096u, i / 4096u, pass.counts.z, pass.params.w + 7u);
     uint count = pass.counts.x;
-    float wsum = 0.0;
-    float chosen = 0.0;
-    uint picked = 0u;
-    for (uint k = 0u; k < pass.list.y; ++k) {
-        float u = path_next(rng);
-        float pick = path_next(rng);
-        if (count == 0u) {
-            continue;
+    uint rounds = (count + CELL_CACHE - 1u) / CELL_CACHE;
+    uint blocks = min(gl_NumSubgroups, CELL_BLOCKS);
+    // (a long list: its total first - summed in another order than the rounds' prefix sums, so a point the rounding puts
+    // past their end leaves its slot empty: a weight 0, a bias of the order of the float's precision)
+    float total = 0.0;
+    if (rounds > 1u) {
+        float own = 0.0;
+        for (uint e = t; e < count; e += CELL_GROUP) {
+            own += cell_weight(e, low, high);
         }
-        uint e = light_pick(u, count);
-        float pdf = light_entries[e].pdf;
-        float t = cell_bound(e, low, high);
-        float w = pdf > 0.0 ? t / pdf : 0.0;
-        if (!(w > 0.0) || isinf(w)) {
-            continue;
+        float part = subgroupAdd(own);
+        if (subgroupElect() && gl_SubgroupID < CELL_BLOCKS) {
+            g_block[gl_SubgroupID] = part;
         }
-        wsum += w;
-        if (pick * wsum < w) {
-            picked = e + 1u;
-            chosen = t;
+        barrier();
+        for (uint b = 0u; b < blocks; ++b) {
+            total += g_block[b];
         }
+        barrier();
     }
-    float W = chosen > 0.0 ? wsum / (float(pass.list.y) * chosen) : 0.0;
-    bool kept = W > 0.0 && !isinf(W);
-    cells[i] = uvec2(kept ? picked : 0u, floatBitsToUint(W));
-    // (round DO) the first LIGHT_GRID_PICKS slots of the cell with a point each, for the list's readers at any surface
-    // (vulkan_light_list.h light_grid_reader_glsl): the pick's pdf the slot's - its list pdf over (W x the entry's), so
-    // light / pdf is the slot's contribution weight's estimate (a triangle's per unit of its area)
-    uint k = i % slots;
-    if (k < LIGHT_GRID_PICKS) {
-        vec2 uv = vec2(path_next(rng), path_next(rng));
-        LightPick p = no_light_pick();
-        if (kept && picked > 0u) {
-            p = light_pick_at(picked - 1u, count, uv);
-            float scale = W * light_entries[picked - 1u].pdf;
-            p.pdf = scale > 0.0 && p.pdf > 0.0 ? p.pdf / scale : 0.0;
+    uint rng = path_sequence_start(cell % 4096u, cell / 4096u, pass.counts.z, pass.params.w + 7u);
+    float offset = path_next(rng);
+    // (the readers' picks: every stride-th slot from a random first one - pick j's point on the CDF then uniform over
+    // [j, j + 1) / LIGHT_GRID_PICKS, the picks a systematic draw of the whole CDF; slots 0, stride, 2 stride... alone would
+    // be the CDF's first 1 / slots of each of those parts)
+    uint stride = slots / LIGHT_GRID_PICKS;
+    uint first_pick = min(uint(path_next(rng) * float(stride)), stride - 1u);
+    uvec2 found[SLOTS_EACH];
+    for (uint s = 0u; s < SLOTS_EACH; ++s) {
+        found[s] = uvec2(0u, floatBitsToUint(0.0));
+    }
+    float before = 0.0;
+    for (uint r = 0u; r < rounds; ++r) {
+        uint first = r * CELL_CACHE;
+        uint here = min(count - first, CELL_CACHE);
+        // the round's entries in `blocks` blocks of `size` (a multiple of the subgroup's width), each subgroup scanning its
+        // own: g_prefix[i] the inclusive prefix sum within the block, g_block[b] the block's sum
+        uint size = ((here + blocks - 1u) / blocks + gl_SubgroupSize - 1u) / gl_SubgroupSize * gl_SubgroupSize;
+        if (gl_SubgroupID < blocks) {
+            float run = 0.0;
+            uint start = gl_SubgroupID * size;
+            for (uint i = start + gl_SubgroupInvocationID; i < start + size; i += gl_SubgroupSize) {
+                float w = i < here ? cell_weight(first + i, low, high) : 0.0;
+                float inclusive = run + subgroupInclusiveAdd(w);
+                if (i < CELL_CACHE) {
+                    g_prefix[i] = inclusive;
+                }
+                run += subgroupAdd(w); // (the last lane's inclusive sum but for the rounding)
+            }
+            if (subgroupElect()) {
+                g_block[gl_SubgroupID] = run;
+            }
         }
-        light_pool_write(2u + cell * LIGHT_GRID_PICKS + k, p);
+        barrier();
+        // the blocks' offsets (one order of summing for the offsets and the round's total)
+        if (t == 0u) {
+            float sum = 0.0;
+            for (uint b = 0u; b < blocks; ++b) {
+                float part = g_block[b];
+                g_block[b] = sum;
+                sum += part;
+            }
+            g_block[CELL_BLOCKS] = sum;
+        }
+        barrier();
+        float round_sum = g_block[CELL_BLOCKS];
+        if (rounds == 1u) {
+            total = round_sum;
+        }
+        // each invocation's slots in this round: the block whose part holds the point, then the entry in it
+        for (uint s = 0u; s < SLOTS_EACH && total > 0.0; ++s) {
+            uint k = t + s * CELL_GROUP;
+            float at = (float(k) + offset) / float(slots) * total - before;
+            if (found[s].x != 0u || at < 0.0 || !(at < round_sum)) {
+                continue;
+            }
+            uint b = 0u;
+            while (b + 1u < blocks && g_block[b + 1u] <= at) {
+                ++b;
+            }
+            float inside = at - g_block[b];
+            uint lo = b * size;
+            uint hi = min((b + 1u) * size, here);
+            if (lo >= hi) {
+                continue;
+            }
+            hi -= 1u;
+            while (lo < hi) {
+                uint mid = (lo + hi) / 2u;
+                if (g_prefix[mid] > inside) {
+                    hi = mid;
+                } else {
+                    lo = mid + 1u;
+                }
+            }
+            float w = cell_weight(first + lo, low, high);
+            if (w > 0.0) {
+                found[s] = uvec2(first + lo + 1u, floatBitsToUint(total / w));
+            }
+        }
+        before += round_sum;
+        barrier();
+    }
+    for (uint s = 0u; s < SLOTS_EACH; ++s) {
+        uint k = t + s * CELL_GROUP;
+        cells[cell * slots + k] = found[s];
+        // (round DO) every stride-th slot with a point, for the list's readers at any surface (vulkan_light_list.h
+        // light_grid_reader_glsl) - from first_pick on: a systematic draw of the same CDF; the pick's pdf the slot's - its
+        // list pdf over (W x the entry's), so light / pdf is the slot's contribution weight's estimate (a triangle's per
+        // unit of its area)
+        if (k % stride == first_pick) {
+            uint point_rng = path_sequence_start(k, cell, pass.counts.z, pass.params.w + 11u);
+            vec2 uv = vec2(path_next(point_rng), path_next(point_rng));
+            LightPick p = no_light_pick();
+            if (found[s].x > 0u) {
+                uint picked = found[s].x - 1u;
+                float W = uintBitsToFloat(found[s].y);
+                p = light_pick_at(picked, count, uv);
+                float scale = W * light_entries[picked].pdf;
+                p.pdf = scale > 0.0 && p.pdf > 0.0 ? p.pdf / scale : 0.0;
+            }
+            light_pool_write(2u + cell * LIGHT_GRID_PICKS + k / stride, p);
+        }
     }
 }
 #endif
@@ -1374,7 +1508,8 @@ std::string shader_source(Shader which, bool check)
             // words
             source += "#define LIGHT_POOL_SIZE 1u\n#define LIGHT_POOL_WRITE\n#define LIGHT_GRID_PICKS " +
                       std::to_string(kLightGridPicks) + "u\n#define GRID_STATE_WORD " + std::to_string(kGridStateWord) +
-                      "u\n#define GRID_KEEP_FRAMES " + std::to_string(kGridKeepFrames) + "u\n";
+                      "u\n#define GRID_KEEP_FRAMES " + std::to_string(kGridKeepFrames) + "u\n#define CELL_GROUP " +
+                      std::to_string(kCellGroup) + "u\n#define SLOTS_EACH " + std::to_string(kGridSlots / kCellGroup) + "u\n#define CELL_CACHE " + std::to_string(kCellCache) + "u\n#define CELL_BLOCKS " + std::to_string(kCellBlocks) + "u\n";
             source += "layout(std430, set = 0, binding = " + std::to_string(kBindingGridPicks) +
                       ") buffer LightPool { uvec4 light_pool[]; };\n";
             source += local_light_glsl();
@@ -2580,7 +2715,7 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     block.force = {own.overrides.roughness, own.overrides.f0, own.overrides.albedo_scale, check ? 1.0F : 0.0F};
     block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),
                        static_cast<uint32_t>(scene.instances_address >> 32U), scene.instances, 0U};
-    block.list = {kListCapacity, kGridCandidates, 0U, 0U};
+    block.list = {kListCapacity, 0U, 0U, 0U};
     // (round PT4c) the light grid round the camera, its corner on a cell's boundary (cells keep their place in the world
     // while the camera moves within one)
     const bool grid = (!check || own.overrides.grid) && own.entries > 0;
@@ -2738,11 +2873,10 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     }
     if (grid) {
         const FrameStep step(state.frames, commands, gpu_markers::section::kDiGrid);
-        constexpr uint32_t kSlots = kGridAcross * kGridUp * kGridAcross * kGridSlots;
-        constexpr uint32_t kSlotGroups = (kSlots + kScanGroup - 1) / kScanGroup;
-        const uint32_t slot_groups_x = std::min(kSlotGroups, kMostGroupsX);
+        // (round NOISE2) one workgroup a cell
+        static_assert(kGridCells <= kMostGroupsX);
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.cells_pass);
-        vkCmdDispatch(commands, slot_groups_x, (kSlotGroups + slot_groups_x - 1) / slot_groups_x, 1);
+        vkCmdDispatch(commands, kGridCells, 1, 1);
         barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
         own.grid_serial = state.frames.serial(); // (round DO: the grid's picks this frame's, of this table)

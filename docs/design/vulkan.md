@@ -6500,3 +6500,27 @@ reflections pass 0.93 -> 0.99; p2 0.83 -> 0.88, direct 0.88 -> 0.95, GI 0.40 -> 
   - Open (measured, not fixed): a held, frozen view still has a slow wave of ReSTIR GI's term (Training: the whole term
     +-5 % over ~4 s, its regions 8 - 14 %), not from the light grid's picks (tried); the see-through scaffold net at
     Barcelona is dark with bright cell-sized squares in the front layer (its own bounce ray tried - no change).
+- **Round NOISE2: the light grid's cells drawn from their own CDF** (the user's lights flickering in every level).
+  - Measured held, world frozen, `pt frames` (`still_series.ts` - cells' smoothed light, 2.5 s): Training's lamps
+    (indoors, no fog or sky) wandered 7 - 8 % (cells' median) / 13 - 15 % (most) in Ray Reconstruction's input and
+    3 - 4 / 8 - 11 % in its output, the whole frame 3 - 4 % - the light grid off: 3.0 / 5.9 %; the presampled points,
+    the boiling filter and 64 RIS candidates a slot made no difference or worse. Bias first: Training's whole picture
+    against `pt ref 512` 0.998 (no bias - a variance with a long memory).
+  - Cause: each cell's 512 slots were RIS over 8 picks of the list by power, drawn anew each frame. A light's number of
+    slots in a cell has a binomial spread (a lamp with 4 slots: +-50 % from frame to frame); every pixel of the cell
+    takes its candidates from the same slots, so the error is the whole region's, and the temporal reuse keeps each
+    frame's for ~20 frames - lights fading in and out over seconds. The list's other readers (GI's vertices, the fog's
+    froxels, the reflections' hits) take 16 picks a cell from the same slots.
+  - Fix: a cell is a workgroup that sums every entry's weight for its box into the cell's CDF (subgroup prefix sums,
+    1024 entries a round in shared memory) and draws its slots by **systematic resampling** (one offset a cell; the
+    readers' 16 picks every 32nd slot from a random first) - a light owns floor or ceil of its share of the slots, each
+    slot still a pick by weight / sum (W = sum / weight: unbiased). The weight is a **light tree's cluster importance**
+    (Conty Estevez and Kulla 2018): power / (distance from the box's centre^2 + a cell's side^2), a lamp's falloff at that
+    distance and its window at the box's nearest point - not the most the light could bring to the box's nearest point,
+    which gave a tiny bright triangle next to the box (a sign's letter) as much weight as the street lamp lighting it. A
+    triangle's numbers are now in light_point's unit (they were pi x a lamp's). The bounds buffer keeps the entries'
+    centres and numbers packed at its start (every cell reads them all).
+  - After (same spots): Training lamps view 3.3 - 3.9 / 6.1 - 7.8 % in RR's input, 1.2 - 1.3 / 2.4 - 2.6 % in its output,
+    whole picture 0.8 / 1.6 % (whole frame 0.4 %), `pt ref` 1.002; New Orleans' street at night (the parade float that
+    drives through the view left out) the lamps view's cells 4 -> 2 % median, the fog view's 15 -> 7 %. Cost (the grid,
+    bounds + cells, 853 x 480): Training 0.55 -> 0.49 ms, New Orleans (2665 entries) 0.80 -> 0.78 ms.
