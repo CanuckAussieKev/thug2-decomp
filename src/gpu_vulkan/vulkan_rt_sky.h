@@ -46,6 +46,9 @@ struct SkyColours {
     std::array<float, 3> zenith{};
 };
 [[nodiscard]] SkyColours sky_colours(const std::array<float, 3>& toward);
+// (round CPU) sky_colours(toward).sun alone - without the sky's overhead (a march through the atmosphere): for a caller
+// that reads only the sun's colour, every frame (the fog's light).
+[[nodiscard]] std::array<float, 3> sky_sun_colour(const std::array<float, 3>& toward);
 
 // The table brought up to date for `toward` (recorded in `commands`, outside a render pass, when the direction changed
 // or there was no table; a barrier after it for the shaders that read it). The caller holds the lock. False: it can't

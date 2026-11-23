@@ -865,7 +865,12 @@ nothing but test one pointer while no `RayTracing` is installed.
   the editor), colour-only writes not counted. (Path tracing, stage 3: a mesh skinned on the CPU is no longer
   registered itself - its buffers held the frame before's last pose, shared by every instance -; each instance's pose of
   the frame is a mesh of its own, skinned at the record with that instance's bones: engine/gfx/rt_poses.h, "Everything
-  drawn in the acceleration structure" below.)
+  drawn in the acceleration structure" below. Round CPU: skinned once a frame - the frame's skinned meshes are skinned
+  ahead of the record over a few worker threads (`MeshRef::skin_ahead`, base/core/parallel_for.h; each worker takes the
+  game thread's floating-point state), into memory of their own with the bones they used; the pose copies them, and the
+  draw's `render()` copies them too when it skins the same mesh for the same instance with the same bones that frame -
+  the same function on the same inputs, so the same bytes. Billboard cards are turned in memory of their own and copied
+  into the locked buffer, the rays' copy taken from there: upload memory is never read back.)
 - **Materials:** `set_material` when first used and when their first pass changes (texture animations): its texture,
   UV set 0, blend mode, alpha reference (0-1), colour (the pass's doubled: 1 is the texture unchanged; the fourth value
   the pass's fixed alpha), flags, and R3's sampler states: the pass's address modes (wrap, clamp, border where the

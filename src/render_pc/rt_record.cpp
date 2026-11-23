@@ -780,7 +780,7 @@ rt::MeshId pose_id(const MeshRef* mesh, const Singleton* owner, std::span<const 
     const rt::MeshId id = st.poses.pose(
         owner, mesh, *layout, st.frame,
         [&](std::span<uint8_t> out) {
-            skinned = mesh->skin_for_rays(palette, out);
+            skinned = mesh->skin_for_rays(owner, palette, out);
             return skinned;
         },
         gpu(), rt);
@@ -1042,6 +1042,32 @@ void record_object(const Singleton* instance, rt::RayTracing& rt)
             place(mesh, transform);
         }
     }
+}
+
+// (round CPU) The meshes record_object will pose this frame - each instance's meshes skinned on the processor, with its
+// own bones (its palette as record_object takes it) - skinned ahead over the worker threads (MeshRef::skin_ahead): the
+// poses and the draws then copy them. One the record doesn't take after all is skinned for nothing, never wrongly.
+void skin_ahead()
+{
+    std::vector<MeshRef::SkinAhead> wanted;
+    for (const Singleton* instance = first_instance(); instance != nullptr; instance = instance->next()) {
+        if (!instance->active() || instance->viewports() == 0U) {
+            continue;
+        }
+        const SceneRef* scene = instance->scene();
+        const int bone_count = instance->bone_count_;
+        if (scene == nullptr || instance->bones() == nullptr || bone_count <= 0 ||
+            static_cast<int>(scene->unknown78()) != 0) {
+            continue; // (no palette, or its bones drawn a draw each - record_object)
+        }
+        const std::span<const maths::Mat4> palette(instance->bones(), static_cast<std::size_t>(bone_count));
+        for (const MeshRef* mesh : scene->mesh_run()) {
+            if (mesh != nullptr && mesh_shown(mesh) && mesh->per_vertex_data() != nullptr) {
+                wanted.push_back({.mesh = mesh, .owner = instance, .palette = palette});
+            }
+        }
+    }
+    MeshRef::skin_ahead(wanted);
 }
 
 // --- the baked sun (engine/gfx/rt_sun.h) ------------------------------------------------------------------------------
@@ -2486,6 +2512,7 @@ void record_frame()
     st.placed.clear();
     st.counts = {};
     record_world(*rt);
+    skin_ahead();
     for (const Singleton* instance = first_instance(); instance != nullptr; instance = instance->next()) {
         if (instance->active() && instance->viewports() != 0U) {
             record_object(instance, *rt);

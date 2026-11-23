@@ -179,15 +179,28 @@ void billboard_drawn(const MeshRef* mesh, std::span<const uint8_t> vertices)
     const std::span<const uint16_t> run = indices->index_run();
     const std::size_t count = std::min<std::size_t>(core::at(mesh->index_counts(), 0), run.size());
     const uint32_t stride = mesh->stride();
-    // (the billboard's own material, not the particle passes')
-    const MaterialRef* before = st.material;
-    st.material = mesh->material();
-    Draw* draw = new_draw(stride, count * 3);
-    st.material = before;
-    if (draw == nullptr) {
-        return;
+    // (round CPU) a card with the material, format and stride of the draw kept just before (the cards of a batch) added
+    // to it - record_apart joins a material's draws in their order anyway - instead of a draw (an allocation) a card
+    Draw* draw = nullptr;
+    const std::size_t bytes = count * 3 * stride;
+    if (!st.draws.empty() && st.draws.back().material == mesh->material() && st.draws.back().fvf == mesh->fvf() &&
+        st.draws.back().stride == stride && stride != 0 && count * 3 >= 3) {
+        if (st.kept_bytes + bytes > kMostKeptBytes) {
+            return;
+        }
+        st.kept_bytes += bytes;
+        draw = &st.draws.back();
+    } else {
+        // (the billboard's own material, not the particle passes')
+        const MaterialRef* before = st.material;
+        st.material = mesh->material();
+        draw = new_draw(stride, count * 3);
+        st.material = before;
+        if (draw == nullptr) {
+            return;
+        }
+        draw->fvf = mesh->fvf();
     }
-    draw->fvf = mesh->fvf();
     const auto triangle = [&](uint16_t first, uint16_t second, uint16_t third) {
         if (first == second || second == third || first == third) {
             return; // (a strip's joins)

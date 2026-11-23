@@ -747,6 +747,11 @@ SkyColours sky_colours(const std::array<float, 3>& toward)
     return colours;
 }
 
+std::array<float, 3> sky_sun_colour(const std::array<float, 3>& toward)
+{
+    return rt::sun_colour_at(elevation_of(toward)); // (as sky_colours makes it: two short marches toward the sun)
+}
+
 bool update_sky(Backend& state, VkCommandBuffer commands, const std::array<float, 3>& lighting_sun)
 {
     // (added by the time of day) the table's sky is the clock's sun's (the scene may be lit by the moon)

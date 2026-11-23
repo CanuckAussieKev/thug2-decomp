@@ -57,6 +57,8 @@ struct DeviceBuffer {
     VmaAllocation allocation = nullptr;
     void* mapped = nullptr;
     VkDeviceSize bytes = 0;
+    // (round CPU) its device address, taken once when it was made (0: none - not made for addressing)
+    VkDeviceAddress address = 0;
 };
 
 // Where a buffer lives.
@@ -158,7 +160,7 @@ private:
         Addressed was;
         uint64_t freed = 0; // the submission being recorded when it was destroyed
     };
-    void note_address(const DeviceBuffer& buffer, VkBufferUsageFlags usage);
+    VkDeviceAddress note_address(const DeviceBuffer& buffer, VkBufferUsageFlags usage);
     void forget_address(VkBuffer buffer);
     std::map<VkDeviceAddress, Addressed> addressed_;
     std::unordered_map<VkBuffer, VkDeviceAddress> address_of_;

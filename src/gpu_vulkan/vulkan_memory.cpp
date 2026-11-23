@@ -372,7 +372,7 @@ bool Memory::create_buffer(VkDeviceSize bytes, VkBufferUsageFlags usage, BufferP
     buffer->mapped = made.pMappedData;
     buffer->bytes = bytes;
     if ((usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) != 0) {
-        note_address(*buffer, usage);
+        buffer->address = note_address(*buffer, usage);
     }
     return true;
 }
@@ -386,17 +386,18 @@ void Memory::destroy_buffer(DeviceBuffer* buffer)
     *buffer = DeviceBuffer{};
 }
 
-void Memory::note_address(const DeviceBuffer& buffer, VkBufferUsageFlags usage)
+VkDeviceAddress Memory::note_address(const DeviceBuffer& buffer, VkBufferUsageFlags usage)
 {
     const VkBufferDeviceAddressInfo info{
         .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = buffer.buffer};
     const VkDeviceAddress address = vkGetBufferDeviceAddress(device_, &info);
     if (address == 0) {
-        return;
+        return 0;
     }
     const std::scoped_lock lock(addressed_mutex_);
     addressed_[address] = Addressed{.bytes = buffer.bytes, .usage = usage, .owner = nullptr, .made = submission_};
     address_of_[buffer.buffer] = address;
+    return address;
 }
 
 void Memory::name_buffer(const DeviceBuffer& buffer, const char* owner)

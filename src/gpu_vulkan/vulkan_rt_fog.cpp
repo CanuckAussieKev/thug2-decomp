@@ -2485,10 +2485,11 @@ void read_light()
     std::array<float, 3> model{1.0F, 1.0F, 1.0F};
     const RtSunSettings& sun = sun_settings_held();
     if (sun.sky_model) {
-        own.sun_colour = sky_colours(own.to_sun).sun;
+        // (round CPU: the sun's colour alone - sky_colours also marched the sky overhead, twice a frame, unread here)
+        own.sun_colour = sky_sun_colour(own.to_sun);
         const rt::DayLight day = rt::day_light();
         const std::array<float, 3> native = own.light.clock ? day.native : own.to_sun;
-        const std::array<float, 3> colour = sky_colours(native).sun;
+        const std::array<float, 3> colour = sky_sun_colour(native);
         const float luma = (0.2126F * core::at(colour, 0)) + (0.7152F * core::at(colour, 1)) +
                            (0.0722F * core::at(colour, 2));
         if (luma > 0.0F) {
