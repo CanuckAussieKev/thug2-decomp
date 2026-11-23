@@ -6418,6 +6418,14 @@ what the camera sees emit), each mismatch traced to the side that was wrong:
     ray's footprint (its length x 1 / sqrt(pi x its lobe's pdf)) covers the cell: the vertex sends its reflectance x the
     cell's whole light, no light sample. The sample pass then holds no light sampling at all: a path that doesn't end is
     queued whole and the continued pass traces its first ray again (96 registers, was 128 / 166).
+  - (Round LW2) A path ends there only where the vertex's specular lobe reflects at most 5 % of an even light (its
+    directional albedo at the view - vulkan_light_list.h cache_may_end; GI's vertices and the reflections' hits alike):
+    the cell's E / pi through the diffuse lobe is exact, through the specular one it assumes the light even - a floor
+    met at a grazing angle, its lobe on the horizon and the lamps overhead, sent its whole specular albedo x E / pi.
+    Ended paths were 15 % brighter than paths traced on at BO's bank; now 1.00 (Training too), the continued pass +0.07
+    ms at 853 x 480. A sample whose path ended there has a confidence of at most 8 in the temporal reuse (the
+    generalised balance heuristic's c_i(x): the same in its weight and in z) - round LW's age limit dropped such a
+    reservoir past 16 frames, a drop that depends on the sample and so biased (the check's red wall -2.5 %).
   - ReSTIR GI's spatial reuse with one neighbour, two where the pixel's history is under 4 samples (RTXDI's disocclusion
     boost; its rays-for-Z kept); the specular reservoir's reuse code (off in the game since round WS) compiled only into
     the check's shaders.
