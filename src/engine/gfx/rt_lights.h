@@ -57,6 +57,21 @@ inline constexpr uint32_t kCardBlendFixedAdd = 2;
 {
     return (first_pass_blend == kCardBlendAdd || first_pass_blend == kCardBlendFixedAdd) && !moving_texture;
 }
+// (round LW) Whether a first pass's blend mode draws the surface's own colour - as it is (0, 11: the texel's alpha x the
+// vertex's for the specular) or over what is behind it by an alpha (5, 6) - and not something done to what is behind
+// it: added (a light card above), subtracted (3, 4: a baked shadow - Training's rail shadow on its wall, drawn white
+// where it darkens most), multiplied or brightened (7 - 10, 15: a tint, a dirt or light-pool layer). Only a surface that
+// shows itself can be a lamp of its own (self-lit, textured) or a water surface (render_pc/water_materials.cpp): the
+// others' texels and vertex colours say how much they take away or tint, not what they are.
+inline constexpr uint32_t kBlendShowsDiffuse = 0;
+inline constexpr uint32_t kBlendShowsAlpha = 5;
+inline constexpr uint32_t kBlendShowsFixedAlpha = 6;
+inline constexpr uint32_t kBlendShowsVertexTexAlpha = 0xB;
+[[nodiscard]] constexpr bool blend_shows_surface(uint32_t first_pass_blend)
+{
+    return first_pass_blend == kBlendShowsDiffuse || first_pass_blend == kBlendShowsAlpha ||
+           first_pass_blend == kBlendShowsFixedAlpha || first_pass_blend == kBlendShowsVertexTexAlpha;
+}
 // (round A3) A candidate the bake must confirm (its light seen in the bake) - not an artist's glow or a point light.
 // (round indoor lamps) A lamp found from its pool too: a hypothesis the bake's light must tell.
 [[nodiscard]] constexpr bool candidate_kind(EmitterKind kind)

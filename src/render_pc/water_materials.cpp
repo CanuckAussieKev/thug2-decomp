@@ -13,6 +13,7 @@
 #include "engine/gfx/engine_parts.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/mesh_formats.h"
+#include "engine/gfx/rt_lights.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/water_surfaces.h"
 #include "engine/memory/arena_alloc.h"
@@ -28,8 +29,6 @@ constexpr uint32_t kPassUvWibble = 0x1;      // a pass's flags: its texture matr
 constexpr uint32_t kPassTextureAnim = 0x800; // ... its texture from the material's texture animation
 constexpr uint32_t kPassTransparent = 0x40;  // a material's first pass: drawn with the transparent meshes
 constexpr uint32_t kPassCount = 4;
-constexpr uint32_t kBlendDiffuse = 0;          // the pass drawn as it is
-constexpr uint32_t kBlendVertexTexAlpha = 0xB; // (kBlendModeVertexTexAlpha: blended by the texel's alpha x the vertex's)
 
 bool moving(const MaterialRef* material)
 {
@@ -42,12 +41,11 @@ bool moving(const MaterialRef* material)
     return moves;
 }
 
-// The first pass's blend shows the surface itself (or over what is behind it by alpha), not a light or a shadow.
+// The first pass's blend shows the surface itself (or over what is behind it by alpha), not a light or a shadow
+// (rt_lights.h blend_shows_surface - the lamps' rule too).
 bool drawn_as_surface(const MaterialRef* material)
 {
-    const uint32_t mode = core::at(material->blend_modes(), 0) & static_cast<uint32_t>(kBlendModeMask);
-    return mode == kBlendDiffuse || mode == static_cast<uint32_t>(kBlendModeAlpha) ||
-           mode == static_cast<uint32_t>(kBlendModeFixBlend) || mode == kBlendVertexTexAlpha;
+    return rt::blend_shows_surface(core::at(material->blend_modes(), 0) & static_cast<uint32_t>(kBlendModeMask));
 }
 
 // [debug] rt_water_materials=1: each moving material's passes, once (the survey of which surfaces count).
