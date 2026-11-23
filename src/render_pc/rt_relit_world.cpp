@@ -329,6 +329,7 @@ struct State {
     std::unordered_map<const MeshRef*, const char*> refused;
     std::string misses_logged;
     uint32_t misses_level = 0;
+    uint64_t misses_updates = 0; // (round CPU) update's calls - the misses looked at every kMissesEvery of them
     // (round P10 - objects relit) the listed objects' meshes' transforms (where each stands: its centre for the light
     // field) and the objects listed (`listing` they were last listed in): their draws take their light from the store
     std::unordered_map<const MeshRef*, std::array<float, 16>> placed_at;
@@ -1940,7 +1941,12 @@ void update(std::span<const WorldMesh> world, bool stable, rt::RayTracing& trace
         const frame_profile::Scope phase("relit_field");
         make_light_field(lighting, light); // (the one lighting path)
     }
-    log_misses(); // (round relit-misses)
+    // (round relit-misses; round CPU: looked at every 30th frame - it walks every vertex's flags, ~0.1 ms a frame for a
+    // log line that changes when the level's misses settle)
+    constexpr uint64_t kMissesEvery = 30;
+    if (++st.misses_updates % kMissesEvery == 0) {
+        log_misses();
+    }
     rt::note_sun_used(rt::SunUser::kRelit, true, st.sun);
     // (the relight's writes and the light field done, and the new light's bounce passes - started again at the cut)
     note.shown = st.day_serial == (published.on ? published.serial : 0) && !relight_running() &&

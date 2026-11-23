@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <vector>
 
 #include "engine/memory/manager.h"
 #include "engine/memory/mem.h"
@@ -84,6 +85,15 @@ namespace {
 
 void toggle_fog(bool on) { engine::enable_fog(on); }
 VertexBuffer* get_vertex_buffer(MeshRef* mesh, int index) { return mesh->fetch_vertex_store(index); }
+
+// Not original - (round CPU) a card's turned vertices made in memory of our own, then copied into the locked buffer in
+// one piece: the rays' copy (rt_apart.h) reads them from here - the locked buffer is the card's upload memory, slow to
+// read back. Original behaviour: written into the locked buffer directly.
+std::vector<uint8_t>& turned_vertices()
+{
+    static core::NoDestroy<std::vector<uint8_t>> made;
+    return made.get();
+}
 
 bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
 // The node after `node` (null at the head).
@@ -227,7 +237,9 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
     uint8_t* into_block = nullptr;
     get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into_block, gpu_value::kLockDiscard);
     const size_t vertex_bytes = static_cast<size_t>(mesh->stride()) * mesh->vertex_count();
-    core::Cursor<uint8_t> into(std::span<uint8_t>(into_block, vertex_bytes));
+    std::vector<uint8_t>& turned = turned_vertices(); // (not original - round CPU: see turned_vertices)
+    turned.resize(vertex_bytes);
+    core::Cursor<uint8_t> into{std::span<uint8_t>(turned)};
     core::Cursor<const uint8_t> from(std::span<const uint8_t>(get_vertex_buffer(mesh, 0)->data(), vertex_bytes));
     const auto& pivot = mesh->billboard()->pivot;
     const float px = core::at(pivot, 0);
@@ -283,7 +295,10 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
     }
     // Not original - (round PG) the card as turned for this camera kept for the rays (rt_apart.h). Original behaviour:
     // nothing.
-    rt_apart::billboard_drawn(mesh, std::span<const uint8_t>(into_block, vertex_bytes));
+    if (vertex_bytes != 0 && into_block != nullptr) {
+        std::memcpy(into_block, turned.data(), vertex_bytes);
+    }
+    rt_apart::billboard_drawn(mesh, turned);
     get_vertex_buffer(mesh, 0)->get_unlock();
     gpu().set_stream_source(0, get_vertex_buffer(mesh, 0)->buffer(), 0, mesh->stride());
     // (the index buffer's Direct3D buffer, +0xC: through the getter 0x00492E50 folded with others)

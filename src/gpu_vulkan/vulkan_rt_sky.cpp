@@ -468,10 +468,17 @@ struct SkyState {
     bool failed = false;
     uint64_t updates = 0;
     RtSunSettings settings;
-    // sky_colours' last answer (worked out again when the sun moves or the settings change)
-    bool colours_valid = false;
-    std::array<float, 3> colours_toward{};
-    SkyColours colours;
+    // sky_colours' last answers (worked out again when the sun moves, the air changes or the settings change). (round CPU)
+    // Two of them: the fog asks for two directions every frame (the light's and the clock's own sun's) - with one
+    // answer kept each evicted the other and the sky model ran twice a frame.
+    struct KeptColours {
+        bool valid = false;
+        std::array<float, 3> toward{};
+        rt::Aerosol air{};
+        SkyColours colours;
+    };
+    std::array<KeptColours, 2> colours{};
+    std::size_t colours_next = 0; // the one replaced next
     // (added by the sky) what the table was last made from: the sky-view table (and which one) or the model
     bool made_follow = false;
     uint64_t made_generation = 0;
@@ -730,8 +737,13 @@ bool visible_sun(std::array<float, 3>* toward)
 SkyColours sky_colours(const std::array<float, 3>& toward)
 {
     SkyState& own = sky_state();
-    if (own.colours_valid && own.colours_toward == toward) {
-        return own.colours;
+    const rt::Aerosol air = rt::aerosol();
+    for (std::size_t i = 0; i < own.colours.size(); ++i) {
+        const SkyState::KeptColours& kept = core::at(own.colours, i);
+        if (kept.valid && kept.toward == toward && kept.air == air) {
+            own.colours_next = 1 - i; // (the other one goes next)
+            return kept.colours;
+        }
     }
     const RtSunSettings& settings = own.settings;
     SkyColours colours;
@@ -741,9 +753,9 @@ SkyColours sky_colours(const std::array<float, 3>& toward)
     const rt::Rgb zenith = rt::sky_radiance({0.0, 1.0, 0.0}, rt::sun_direction_at(elevation), kColourSteps);
     colours.zenith = display_of({core::at(zenith, 0) * rt::sky_exposure(), core::at(zenith, 1) * rt::sky_exposure(),
                                  core::at(zenith, 2) * rt::sky_exposure()});
-    own.colours = colours;
-    own.colours_toward = toward;
-    own.colours_valid = true;
+    SkyState::KeptColours& kept = core::at(own.colours, own.colours_next);
+    kept = {.valid = true, .toward = toward, .air = air, .colours = colours};
+    own.colours_next = 1 - own.colours_next;
     return colours;
 }
 
@@ -873,7 +885,9 @@ bool update_sky(Backend& state, VkCommandBuffer commands, const std::array<float
 void invalidate_sky()
 {
     sky_state().valid = false;
-    sky_state().colours_valid = false;
+    for (SkyState::KeptColours& kept : sky_state().colours) {
+        kept.valid = false;
+    }
 }
 
 void sky_without_sun()

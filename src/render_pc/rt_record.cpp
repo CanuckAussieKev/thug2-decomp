@@ -780,7 +780,7 @@ rt::MeshId pose_id(const MeshRef* mesh, const Singleton* owner, std::span<const 
     const rt::MeshId id = st.poses.pose(
         owner, mesh, *layout, st.frame,
         [&](std::span<uint8_t> out) {
-            skinned = mesh->skin_for_rays(palette, out);
+            skinned = mesh->skin_for_rays(owner, palette, out);
             return skinned;
         },
         gpu(), rt);

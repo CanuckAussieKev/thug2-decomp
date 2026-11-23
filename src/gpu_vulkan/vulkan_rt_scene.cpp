@@ -346,6 +346,12 @@ VkDeviceAddress address_of(VkDevice device, VkBuffer buffer)
     return vkGetBufferDeviceAddress(device, &info);
 }
 
+// (round CPU) A buffer's device address as taken when it was made (no driver call a buffer a frame), or asked now.
+VkDeviceAddress address_of(VkDevice device, const DeviceBuffer& buffer)
+{
+    return buffer.address != 0 ? buffer.address : address_of(device, buffer.buffer);
+}
+
 VkDeviceAddress align_up(VkDeviceAddress value, VkDeviceSize alignment)
 {
     return alignment <= 1 ? value : (value + alignment - 1) / alignment * alignment;
@@ -543,6 +549,15 @@ struct Scene {
     std::unordered_map<rt::MeshId, GpuVertexBuffer*> light_streams; // (the light energy audit) set_light_stream's
     std::vector<VkAccelerationStructureInstanceKHR> instance_scratch; // (round PG: write_instances' - reused)
     std::vector<GeometryRecord> row_scratch;
+    // (round CPU) write_instances' rows a mesh, made again each frame (`made` its frame) - the map's entries kept from
+    // frame to frame (no allocation a mesh a frame), those unused for a while dropped
+    struct MeshRow {
+        uint64_t made = 0;
+        const Mesh* mesh = nullptr;
+        GeometryRecord row;
+    };
+    std::unordered_map<rt::MeshId, MeshRow> mesh_rows;
+    uint64_t rows_made = 0; // write_instances' calls
     std::array<FrameScene, Frames::kSlots> frames{};
     uint32_t current = 0; // the slot of the last TLAS built
     bool any_built = false;
@@ -671,7 +686,7 @@ bool ensure_scratch(Backend& state, Scene& made, VkDeviceSize bytes)
         return false;
     }
     state.memory.name_buffer(made.scratch, "the scene's build scratch"); // (round GF)
-    const VkDeviceAddress start = address_of(made.device, made.scratch.buffer);
+    const VkDeviceAddress start = address_of(made.device, made.scratch);
     made.scratch_address = align_up(start, made.scratch_alignment);
     made.scratch_bytes = wanted + made.scratch_alignment - (made.scratch_address - start);
     return true;
@@ -828,18 +843,18 @@ VkAccelerationStructureGeometryKHR triangles_of(Backend& state, const Mesh& mesh
     vertex_version.last_use = state.frames.serial(); // (a later copy into it waits for the build: vulkan_gpu.cpp)
     const VkDevice device = state.context.device();
     const VkDeviceAddress vertex_address =
-        address_of(device, vertex_version.memory.buffer) + geometry.vertex_offset + geometry.position_offset;
+        address_of(device, vertex_version.memory) + geometry.vertex_offset + geometry.position_offset;
     VkIndexType index_type = VK_INDEX_TYPE_NONE_KHR;
     VkDeviceAddress index_address = 0;
     if (mesh.list_indices.buffer != VK_NULL_HANDLE) {
         index_type = VK_INDEX_TYPE_UINT32;
-        index_address = address_of(device, mesh.list_indices.buffer);
+        index_address = address_of(device, mesh.list_indices);
     } else if (geometry.indices != nullptr) {
         Buffer* const indices = object(geometry.indices);
         BufferVersion& index_version = current_version(indices);
         index_version.last_use = state.frames.serial();
         index_type = geometry.indices_32bit ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16;
-        index_address = address_of(device, index_version.memory.buffer) +
+        index_address = address_of(device, index_version.memory) +
                         (static_cast<VkDeviceAddress>(geometry.index_offset) *
                          (geometry.indices_32bit ? kIndex32Bytes : kIndex16Bytes));
     }
@@ -1251,7 +1266,7 @@ bool ensure_frame_scene(Backend& state, Scene& made, FrameScene* frame, uint32_t
         return false;
     }
     state.memory.name_buffer(frame->object_lights, "a frame's objects' lights");
-    frame->instances_address = align_up(address_of(made.device, frame->instances.buffer), kInstanceAlignment);
+    frame->instances_address = align_up(address_of(made.device, frame->instances), kInstanceAlignment);
     VkAccelerationStructureGeometryKHR geometry{};
     geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
     geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
@@ -1614,7 +1629,7 @@ GeometryRecord geometry_record_of(Backend& state, const Scene& made, const rt::I
     };
     BufferVersion& vertex_version = current_version(vertices);
     hold(vertex_version);
-    row.vertex_address = address_words(address_of(made.device, vertex_version.memory.buffer));
+    row.vertex_address = address_words(address_of(made.device, vertex_version.memory));
     row.vertex_offset = geometry.vertex_offset;
     row.stride = geometry.vertex_stride;
     row.position_offset = geometry.position_offset;
@@ -1647,7 +1662,7 @@ GeometryRecord geometry_record_of(Backend& state, const Scene& made, const rt::I
         row.flags |= kGeometryNormal;
     }
     if (mesh->list_indices.buffer != VK_NULL_HANDLE) {
-        row.index_address = address_words(address_of(made.device, mesh->list_indices.buffer));
+        row.index_address = address_words(address_of(made.device, mesh->list_indices));
         row.flags |= kGeometryIndex32;
     } else if (geometry.indices != nullptr) {
         Buffer* const indices = live_buffer(state, object(geometry.indices));
@@ -1656,7 +1671,7 @@ GeometryRecord geometry_record_of(Backend& state, const Scene& made, const rt::I
         }
         BufferVersion& index_version = current_version(indices);
         hold(index_version);
-        row.index_address = address_words(address_of(made.device, index_version.memory.buffer));
+        row.index_address = address_words(address_of(made.device, index_version.memory));
         const uint32_t index_bytes = geometry.indices_32bit ? kIndex32Bytes : kIndex16Bytes;
         row.index_offset = geometry.index_offset * index_bytes;
         row.flags |= geometry.indices_32bit ? kGeometryIndex32 : 0U;
@@ -1674,7 +1689,7 @@ GeometryRecord geometry_record_of(Backend& state, const Scene& made, const rt::I
         if (light != nullptr) {
             BufferVersion& light_version = current_version(light);
             hold(light_version);
-            row.light_address = address_words(address_of(made.device, light_version.memory.buffer));
+            row.light_address = address_words(address_of(made.device, light_version.memory));
             row.light_vertices = static_cast<uint32_t>(light_version.memory.bytes / rt::kCelStreamBytes);
             row.flags |= kGeometryLight;
             row.light_exposure = rt::frame_pre_exposure(); // (round L: the store's physical light x it where it is read)
@@ -1714,12 +1729,17 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
         state.memory.flush(frame.object_lights, 0, lights * kObjectLightFloats * sizeof(float));
     }
     const VkDeviceAddress lights_address =
-        lights > 0 ? address_of(made.device, frame.object_lights.buffer) : VkDeviceAddress{0};
+        lights > 0 ? address_of(made.device, frame.object_lights) : VkDeviceAddress{0};
     // (round PG) a mesh's row made once a frame - every instance of it has the same one but for its flags (the clutter:
     // thousands of instances of a few meshes)
-    std::unordered_map<rt::MeshId, std::pair<const Mesh*, GeometryRecord>> made_rows;
+    // (round CPU: in the scene's map, kept from frame to frame - Scene::mesh_rows)
+    const uint64_t now = ++made.rows_made;
+    constexpr uint64_t kRowsKept = 600; // calls a row unused is kept for
+    if (now % kRowsKept == 0) {
+        std::erase_if(made.mesh_rows, [now](const auto& kept) { return kept.second.made + kRowsKept < now; });
+    }
     // (the run of instances of one mesh and material before - the clutter's, emitted in such runs: no lookups)
-    const std::pair<const Mesh*, GeometryRecord>* last_row = nullptr;
+    const Scene::MeshRow* last_row = nullptr;
     rt::MeshId last_mesh = 0;
     uint64_t last_material = std::numeric_limits<uint64_t>::max();
     bool last_reflective = false;
@@ -1727,13 +1747,14 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
     uint32_t last_flags = 0;
     for (const rt::Instance& given : record.instances) {
         if (last_row == nullptr || given.mesh != last_mesh) {
-            auto [kept, fresh] = made_rows.try_emplace(given.mesh);
-            if (fresh) {
+            Scene::MeshRow& kept = made.mesh_rows[given.mesh];
+            if (kept.made != now) {
+                kept.made = now;
                 const auto found = made.meshes.find(given.mesh);
-                kept->second.first = found == made.meshes.end() ? nullptr : &found->second;
-                kept->second.second = geometry_record_of(state, made, given, kept->second.first);
+                kept.mesh = found == made.meshes.end() ? nullptr : &found->second;
+                kept.row = geometry_record_of(state, made, given, kept.mesh);
             }
-            last_row = &kept->second;
+            last_row = &kept;
             last_mesh = given.mesh;
         }
         if (given.material != last_material || given.flags != last_flags) {
@@ -1742,10 +1763,10 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
             last_reflective = made.reflective.contains(given.material);
             last_tested = alpha_tested_for(made, given);
         }
-        const Mesh* const mesh = last_row->first;
+        const Mesh* const mesh = last_row->mesh;
         instances.push_back(instance_of(given, mesh, last_tested));
         frame.meshes.push_back(given.mesh);
-        rows.push_back(last_row->second);
+        rows.push_back(last_row->row);
         if ((rows.back().flags & kGeometryLive) != 0) {
             rows.back().instance_flags = given.flags;
         }
@@ -1765,7 +1786,7 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
     std::memcpy(frame.geometry.mapped, rows.data(), row_bytes);
     state.memory.flush(frame.geometry, 0, row_bytes);
     const std::size_t bytes = instances.size() * sizeof(VkAccelerationStructureInstanceKHR);
-    const auto skip = static_cast<std::size_t>(frame.instances_address - address_of(made.device, frame.instances.buffer));
+    const auto skip = static_cast<std::size_t>(frame.instances_address - address_of(made.device, frame.instances));
     const std::span<uint8_t> into(static_cast<uint8_t*>(frame.instances.mapped),
                                   static_cast<std::size_t>(frame.instances.bytes));
     std::memcpy(into.subspan(skip, bytes).data(), instances.data(), bytes);

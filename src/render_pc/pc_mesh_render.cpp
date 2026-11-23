@@ -6,7 +6,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <cstring>
 #include <span>
+#include <unordered_map>
+#include <vector>
+
+#include "base/core/no_destroy.h"
 
 #include "base/maths/view_transforms.h"
 #include "engine/gfx/gpu.h"
@@ -205,6 +210,64 @@ void get_skin(const MeshRef* mesh, uint8_t* out, int bones, std::span<const math
     }
 }
 
+// NOT ORIGINAL - (round CPU) skinned once a frame: the vertices ray tracing's record skinned for an instance's pose
+// (skin_for_rays, before the frame's draws) kept, with the bones they were skinned with, and copied into the draw's
+// buffer when render() skins the same mesh for the same instance with the same bones in the same frame - the same
+// function on the same inputs, so the same bytes, made once instead of twice.
+struct SkinnedOnce {
+    int frame = 0;
+    std::vector<maths::Mat4> palette;
+    std::vector<uint8_t> vertices;
+};
+
+struct SkinnedKey {
+    const MeshRef* mesh = nullptr;
+    const void* owner = nullptr;
+    bool operator==(const SkinnedKey&) const = default;
+};
+
+struct SkinnedKeyHash {
+    std::size_t operator()(const SkinnedKey& key) const
+    {
+        constexpr std::size_t kMix = 0x9E3779B97F4A7C15ULL;
+        return (std::bit_cast<uintptr_t>(key.mesh) * kMix) ^ std::bit_cast<uintptr_t>(key.owner);
+    }
+};
+
+struct SkinnedStore {
+    std::unordered_map<SkinnedKey, SkinnedOnce, SkinnedKeyHash> kept;
+    int purged_frame = 0;
+};
+
+SkinnedStore& skinned_store()
+{
+    static core::NoDestroy<SkinnedStore> made;
+    return made.get();
+}
+
+bool same_palette(std::span<const maths::Mat4> a, std::span<const maths::Mat4> b)
+{
+    return a.size() == b.size() && (a.empty() || std::memcmp(a.data(), b.data(), a.size_bytes()) == 0);
+}
+
+// The record's skinning of `mesh` for `owner` this frame with `palette` copied into `out` (vertex_count x stride bytes);
+// false when there is none (not recorded, other bones, another frame).
+bool copy_skinned(const MeshRef* mesh, const void* owner, std::span<const maths::Mat4> palette, uint8_t* out)
+{
+    SkinnedStore& store = skinned_store();
+    const auto found = store.kept.find({.mesh = mesh, .owner = owner});
+    if (found == store.kept.end()) {
+        return false;
+    }
+    const SkinnedOnce& once = found->second;
+    const std::size_t bytes = static_cast<std::size_t>(mesh->vertex_count()) * mesh->stride();
+    if (once.frame != renderer().frames_rendered() || once.vertices.size() != bytes || !same_palette(once.palette, palette)) {
+        return false;
+    }
+    std::memcpy(out, once.vertices.data(), bytes);
+    return true;
+}
+
 // The index buffers and their counts by level (the original read a level past the eighth on into the fields after
 // them: here it stops the game with a report).
 IdxStore* index_buffer_at(MeshRef* mesh, int level) { return mesh->index_store(level); }
@@ -226,11 +289,11 @@ void MeshRef::skin_three_bones(uint8_t* out) { get_skin(this, out, 3, bone_palet
 // (one, two or three bones a vertex - +0xA8), with `palette` (the drawing instance's bones), into `out` (vertex_count x
 // stride bytes). False (nothing written): not skinned on the processor, `out` too small, or a vertex's bone past the
 // palette.
-bool MeshRef::skin_for_rays(std::span<const maths::Mat4> palette, std::span<uint8_t> out) const
+bool MeshRef::skin_for_rays(const void* owner, std::span<const maths::Mat4> palette, std::span<uint8_t> out) const
 {
     const auto bones = static_cast<int>(unknowna8_);
-    if (per_vertex_data_ == nullptr || bones < 1 || bones > 3 ||
-        out.size() < static_cast<std::size_t>(vertex_count_) * stride_) {
+    const std::size_t bytes = static_cast<std::size_t>(vertex_count_) * stride_;
+    if (per_vertex_data_ == nullptr || bones < 1 || bones > 3 || out.size() < bytes) {
         return false;
     }
     const gpu::VertexView vertices(per_vertex_data_, sizeof(SkinVertex), vertex_count_);
@@ -242,7 +305,20 @@ bool MeshRef::skin_for_rays(std::span<const maths::Mat4> palette, std::span<uint
             }
         }
     }
-    get_skin(this, out.data(), bones, palette);
+    // (round CPU) skinned into memory of our own - kept for the draw's skinning this frame (copy_skinned) - and copied
+    // into `out` (the pose's buffer, written once, never read back)
+    SkinnedStore& store = skinned_store();
+    const int frame = renderer().frames_rendered();
+    if (store.purged_frame != frame) {
+        store.purged_frame = frame;
+        std::erase_if(store.kept, [frame](const auto& kept) { return kept.second.frame + 1 < frame; });
+    }
+    SkinnedOnce& once = store.kept[{.mesh = this, .owner = owner}];
+    once.frame = frame;
+    once.palette.assign(palette.begin(), palette.end());
+    once.vertices.resize(bytes);
+    get_skin(this, once.vertices.data(), bones, palette);
+    std::memcpy(out.data(), once.vertices.data(), bytes);
     return true;
 }
 
@@ -356,7 +432,10 @@ void MeshRef::render()
         void* locked = out;
         gpu().lock_vertex_buffer(vb->buffer(), 0, 0, &locked, gpu_value::kLockDiscard);
         out = static_cast<uint8_t*>(locked);
-        switch (unknowna8_) {
+        // (not original - round CPU: the record's skinning of this mesh for this instance with these bones this frame
+        // copied, when there is one - copy_skinned. Original behaviour: always skinned here.)
+        const bool copied = copy_skinned(this, mesh_pass().current_instance(), bone_palette(), out);
+        switch (copied ? 0 : unknowna8_) {
         case 1:
             skin_one_bone(out);
             break;
