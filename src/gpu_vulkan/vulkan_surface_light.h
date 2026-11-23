@@ -145,6 +145,7 @@ struct FrontLayerImages {
     std::array<Image*, 2> depth{};
     std::array<Image*, 2> light{};
     std::array<Image*, 2> sun{};
+    std::array<Image*, 2> reflect{}; // (round LW) what its rest surface mirrors
     bool history = false;
     uint32_t draws = 0; // (the see-through draws drawn into its depth this view)
 };

@@ -82,7 +82,11 @@ constexpr uint32_t kLightFrontBinding = 9;      // RGBA16F: rgb the light list's
                                                 // bounces' (a white diffuser's radiance, pre-exposed); a its history
 constexpr uint32_t kLightFrontSunBinding = 10;  // RGBA16F: rgb the disc's (the sun's or the moon's) on a white diffuser
                                                 // there; a its visibility (0 - 1)
-constexpr uint32_t kLightInputCount = 11;
+// (round LW) RGBA16F: rgb what a mirror at the layer's rest surface reflects - the ray along the view reflected about
+// its normal, its hit lit by the light list (or the sky) - pre-exposed; a the hit's distance (65504: the
+// sky; 0: none traced there)
+constexpr uint32_t kLightFrontReflectBinding = 11;
+constexpr uint32_t kLightInputCount = 12;
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.

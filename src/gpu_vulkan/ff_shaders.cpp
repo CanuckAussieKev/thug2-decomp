@@ -554,6 +554,7 @@ void light_write_guides()
 constexpr const char* kLightFrontGlsl = R"(layout(set = 1, binding = 8) uniform sampler2D light_front_depth_map;
 layout(set = 1, binding = 9) uniform sampler2D light_front_map;
 layout(set = 1, binding = 10) uniform sampler2D light_front_sun_map;
+layout(set = 1, binding = 11) uniform sampler2D light_front_reflect_map;
 bool light_front_at = false;
 float light_front_depth() { return texelFetch(light_front_depth_map, ivec2(gl_FragCoord.xy), 0).r; }
 void light_front_find(bool taken)
@@ -563,6 +564,8 @@ void light_front_find(bool taken)
 }
 vec4 light_front_now() { return light_front_at ? texelFetch(light_front_map, ivec2(gl_FragCoord.xy), 0) : vec4(0.0); }
 vec4 light_front_sun_now() { return light_front_at ? texelFetch(light_front_sun_map, ivec2(gl_FragCoord.xy), 0) : vec4(0.0); }
+// (round LW) what the layer's rest surface mirrors at `pixel` (the water's - its shading moves it by the waves' tilt)
+vec4 light_front_reflect_at(ivec2 pixel) { return light_front_at ? texelFetch(light_front_reflect_map, pixel, 0) : vec4(0.0); }
 )";
 
 // (the inputs' use - a key lit per pixel has them whether it reads the inputs or not)
@@ -1403,7 +1406,7 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
     if ((key.light & kLightFront) != 0U) {
         // (NOT ORIGINAL - round FL: the front layer's light - before the water's, which reads it)
         static_assert(kLightInputsSet == 1 && kLightFrontDepthBinding == 8 && kLightFrontBinding == 9 &&
-                          kLightFrontSunBinding == 10,
+                          kLightFrontSunBinding == 10 && kLightFrontReflectBinding == 11,
                       "kLightFrontGlsl names them");
         add(out, {"#define LIGHT_FRONT"});
         add(out, {kLightFrontGlsl});

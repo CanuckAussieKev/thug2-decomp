@@ -505,6 +505,30 @@ vec3 trace_path(vec3 origin, vec3 dir, inout uint rng)
         // emitter), a filter (the light behind it tinted), glass where it isn't painted (its Fresnel share reflected as a
         // mirror - a bounce -, the rest straight through)
         HitBlend blend = hit_blend(instance, primitive, id, bary);
+        // (round LW) the game's water: its whole surface an interface - Fresnel's share reflected as a mirror (water's F0),
+        // the rest into it: its texture's coverage the water's own colour (a surface, below), else seen through
+        if (blend.water && path_next(rng) < hit_dielectric_reflectance(dot(s.normal, dir), blend.f0)) {
+            if (depth == pass.frame.z) {
+                break; // (a bounce, as glass's reflection is)
+            }
+            vec3 up = dot(s.normal, dir) < 0.0 ? s.normal : -s.normal;
+            origin = s.position + up * ray_offset(s.position);
+            dir = reflect(dir, up);
+            last_pdf = PATH_DELTA_PDF;
+            continue;
+        }
+        if (blend.water) {
+            blend.kind = HIT_COVERAGE; // (no second Fresnel share: below, its colour by coverage or seen through)
+        }
+        if (blend.kind == HIT_COVERAGE && blend.water && path_next(rng) >= blend.coverage) {
+            if (crossed >= PATH_MOST_CROSSED) {
+                break;
+            }
+            ++crossed;
+            origin = s.position + dir * ray_offset(s.position);
+            --depth;
+            continue;
+        }
         if (blend.kind == HIT_ADDED || blend.kind == HIT_FILTER ||
             (blend.kind == HIT_GLASS && path_next(rng) >= blend.coverage)) {
             if (crossed >= PATH_MOST_CROSSED) {

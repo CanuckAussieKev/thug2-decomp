@@ -52,7 +52,9 @@ constexpr uint32_t kBindingSunNow = 7;
 constexpr uint32_t kBindingDepthBefore = 8; // ... the last view's, read (the history)
 constexpr uint32_t kBindingLightBefore = 9;
 constexpr uint32_t kBindingSunBefore = 10;
-constexpr uint32_t kBindingList = 11; // 11 - 18: the light list and the radiance cache (vulkan_light_list.h FrameLightList)
+constexpr uint32_t kBindingReflectNow = 11;    // (round LW) what the rest surface mirrors, written
+constexpr uint32_t kBindingReflectBefore = 12; // ... the last view's, read
+constexpr uint32_t kBindingList = 13; // 13 - 20: the light list and the radiance cache (vulkan_light_list.h FrameLightList)
 constexpr uint32_t kListBuffers = 8;
 constexpr uint32_t kBindingCloudMap = kBindingList + kListBuffers; // the clouds' shadow map on the disc's light
 constexpr uint32_t kBindingCount = kBindingCloudMap + 1;
@@ -108,20 +110,20 @@ struct LightEntry {
     float pdf;
     uint payload;
 };
-layout(std430, set = 0, binding = 11) readonly buffer Lights { LightEntry light_entries[]; };
-layout(std430, set = 0, binding = 12) readonly buffer Emitters {
+layout(std430, set = 0, binding = 13) readonly buffer Lights { LightEntry light_entries[]; };
+layout(std430, set = 0, binding = 14) readonly buffer Emitters {
     uint emitter_count;
     uint emitter_spare;
     uint emitter_unused;
     uint emitter_pad;
     uvec4 emitter_entries[];
 };
-layout(std430, set = 0, binding = 13) readonly buffer Lamps { LightRecord lamps[]; };
-layout(std430, set = 0, binding = 14) readonly buffer Membership { uint membership[]; };
-layout(std430, set = 0, binding = 15) readonly buffer Slots { uint slots[]; };
-layout(std430, set = 0, binding = 16) readonly buffer SkyCells { vec4 sky_cells[]; };
-layout(std430, set = 0, binding = 17) readonly buffer SkyAlias { uvec2 sky_alias[]; };
-layout(std430, set = 0, binding = 18) readonly buffer Cache { uvec4 cache[]; };
+layout(std430, set = 0, binding = 15) readonly buffer Lamps { LightRecord lamps[]; };
+layout(std430, set = 0, binding = 16) readonly buffer Membership { uint membership[]; };
+layout(std430, set = 0, binding = 17) readonly buffer Slots { uint slots[]; };
+layout(std430, set = 0, binding = 18) readonly buffer SkyCells { vec4 sky_cells[]; };
+layout(std430, set = 0, binding = 19) readonly buffer SkyAlias { uvec2 sky_alias[]; };
+layout(std430, set = 0, binding = 20) readonly buffer Cache { uvec4 cache[]; };
 #define LIST_INSTANCE_ADDRESS pass.instances.xy
 #define LIST_INSTANCES pass.instances.z
 #define LL_COUNT pass.counts.x
@@ -153,7 +155,15 @@ layout(set = 0, binding = 7, rgba16f) uniform writeonly image2D o_sun;
 layout(set = 0, binding = 8, r32f) uniform readonly image2D h_depth;
 layout(set = 0, binding = 9, rgba16f) uniform readonly image2D h_light;
 layout(set = 0, binding = 10, rgba16f) uniform readonly image2D h_sun;
+layout(set = 0, binding = 11, rgba16f) uniform writeonly image2D o_reflect;
+layout(set = 0, binding = 12, rgba16f) uniform readonly image2D h_reflect;
 const uint FRONT_RAYS = 15u; // (the light rays' kinds: the world, the objects, the cut-outs, drawn apart - ReSTIR GI's)
+// (round LW) the most frames a reflection's history weighs (a mirror's light moves with the view: shorter than the light's;
+// the image's alpha holds the hit's distance, the frames are the layer's own)
+const float REFLECT_FRAMES = 8.0;
+// (round LW) the rest surface's mirror: where the layer faces up this far (the water's test - water_shader.cpp - and a
+// level pane's; a wall's pane keeps the in-place reflections pass's)
+const float REFLECT_LEAST_UP = 0.82;
 
 vec3 good3(vec3 x) { return any(isnan(x)) || any(isinf(x)) ? vec3(0.0) : x; }
 vec3 world_at(vec2 pixel, float depth)
@@ -198,6 +208,58 @@ vec3 front_normal(ivec2 p, vec3 here, vec3 dir)
     return dot(n, dir) > 0.0 ? -n : n;
 }
 
+// (round LW) What a mirror at `origin` facing `n` reflects along `r`: the closest surface (the world, the objects, the
+// cut-outs by their alpha) lit as ReSTIR GI's secondary vertices and the reflections pass's hits are - its emission, the
+// light list's light through its BSDF (one sample, its own candidates), the disc's by its own ray, its reflectance x the
+// radiance cache's bounce - or the sky's light that way (the disc's glint is the water's own: its glitter). `travel` the
+// hit's distance (-1: the sky). The global unit (the caller pre-exposes).
+vec3 mirror_light(vec3 origin, vec3 r, inout uint rng, out float travel)
+{
+    travel = -1.0;
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, FRONT_RAYS, origin, 0.0, r, LL_REACH);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
+            cutout_kept(rayQueryGetIntersectionInstanceIdEXT(query, false), rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
+                        rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
+                        rayQueryGetIntersectionBarycentricsEXT(query, false))) {
+            rayQueryConfirmIntersectionEXT(query);
+        }
+    }
+    if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
+        return sky_radiance(r);
+    }
+    HitSurface h;
+    if (!hit_surface(rayQueryGetIntersectionInstanceIdEXT(query, true), rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                     rayQueryGetIntersectionInstanceCustomIndexEXT(query, true),
+                     rayQueryGetIntersectionBarycentricsEXT(query, true),
+                     rayQueryGetIntersectionObjectToWorldEXT(query, true), r, h) || h.hidden) {
+        return vec3(0.0);
+    }
+    travel = rayQueryGetIntersectionTEXT(query, true);
+    vec3 v = -r;
+    vec3 ng = dot(h.normal, v) >= 0.0 ? h.normal : -h.normal;
+    vec3 sn = dot(h.shading_normal, v) > 0.0 ? h.shading_normal : ng;
+    vec3 p = h.position + ng * local_light_offset(h.position);
+    vec3 lit = max(h.emitted, vec3(0.0));
+    ll_cell_candidates = false; // (its own candidates: no reuse smooths a shared cell's error - the reflections' hits)
+    vec3 toward;
+    vec3 incident = light_sample(p, sn, ng, FRONT_RAYS, rng, toward);
+    ll_cell_candidates = true;
+    if (max(incident.r, max(incident.g, incident.b)) > 0.0) {
+        lit += path_bsdf_cosine(h.material, sn, v, toward) * incident;
+    }
+    if (pass.sun.w < 1.5) {
+        vec3 l = path_to_world(pass.sun.xyz, path_cone_direction(pass.sun.w, path_next(rng), path_next(rng)));
+        if (dot(ng, l) > 0.0 && dot(sn, l) > 0.0) {
+            float seen = sun_kept(p) * ray_light_share(FRONT_RAYS, p, l, LL_REACH);
+            lit += path_bsdf_cosine(h.material, sn, v, l) * pass.sun_radiance.rgb * (pass.sun_radiance.w * seen);
+        }
+    }
+    lit += brdf_ambient(h.material, dot(sn, v), vec3(1.0), vec3(1.0)) * cache_bounce(h.position, ng);
+    return good3(lit);
+}
+
 void main()
 {
     ivec2 local = ivec2(gl_GlobalInvocationID.xy);
@@ -217,6 +279,7 @@ void main()
         imageStore(o_depth, p, vec4(1.0, 0.0, 0.0, 0.0));
         imageStore(o_light, p, vec4(0.0));
         imageStore(o_sun, p, vec4(0.0));
+        imageStore(o_reflect, p, vec4(0.0));
         return;
     }
     vec3 dir = (here - eye) / dist;
@@ -273,6 +336,35 @@ void main()
     imageStore(o_depth, p, vec4(z, 0.0, 0.0, 0.0));
     imageStore(o_light, p, vec4(min(rest_out, vec3(65504.0)), frames + 1.0));
     imageStore(o_sun, p, vec4(min(sun_out.rgb, vec3(65504.0)), sun_out.a));
+    // (round LW) the rest surface's mirror, where it faces up: the view's ray reflected about its normal, traced; its
+    // history where the mirror image's point (as far behind the surface along the view as the hit is in front of it - the
+    // point the reflection shows) was in the last view's layer
+    vec4 reflect_out = vec4(0.0);
+    vec3 up_n = n.y < 0.0 ? -n : n;
+    if (up_n.y >= REFLECT_LEAST_UP) {
+        vec3 r = reflect(dir, up_n);
+        float travel;
+        vec3 mirrored = mirror_light(here + up_n * local_light_offset(here), r, rng, travel) * pass.eye.w;
+        float r_frames = 0.0;
+        vec3 r_before = vec3(0.0);
+        if (frames > 0.0) {
+            // (its validity the layer's own history - the same point found there; its weight at most REFLECT_FRAMES)
+            vec3 image = here + dir * (travel > 0.0 ? travel : 1.0e5);
+            vec4 q = pass.prev_to_pixel * vec4(image, 1.0);
+            if (q.w > 0.0) {
+                ivec2 qi = ivec2(floor(q.xy / q.w));
+                if (all(greaterThanEqual(qi, pass.rect.xy)) && all(lessThan(qi, pass.rect.xy + pass.rect.zw))) {
+                    vec4 hr = imageLoad(h_reflect, qi);
+                    r_frames = hr.a > 0.0 ? min(frames, REFLECT_FRAMES - 1.0) : 0.0;
+                    r_before = good3(hr.rgb * pass.prev.x);
+                }
+            }
+        }
+        // (a the hit's distance - the water's shading moves the image by the waves' tilt x it; the sky's far)
+        reflect_out = vec4(min(mix(r_before, good3(mirrored), 1.0 / (r_frames + 1.0)), vec3(65504.0)),
+                           travel > 0.0 ? max(travel, 1.0e-3) : 65504.0);
+    }
+    imageStore(o_reflect, p, reflect_out);
 }
 )";
 
@@ -660,8 +752,9 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     }
     VkCommandBuffer commands = outside_pass(state);
     Memory::transition(commands, images.drawn, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-    std::array<Image*, 7> storage{images.opaque,         images.depth.front(), images.light.front(), images.sun.front(),
-                                  images.depth.back(),   images.light.back(),  images.sun.back()};
+    std::array<Image*, 9> storage{images.opaque,         images.depth.front(), images.light.front(), images.sun.front(),
+                                  images.depth.back(),   images.light.back(),  images.sun.back(),
+                                  images.reflect.front(), images.reflect.back()};
     for (Image* image : storage) {
         Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
     }
@@ -687,13 +780,14 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     const VkDescriptorImageInfo drawn_info{.sampler = own.sampler,
                                            .imageView = images.drawn->view,
                                            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL};
-    std::array<VkDescriptorImageInfo, 7> storage_info{};
+    std::array<VkDescriptorImageInfo, 9> storage_info{};
     for (std::size_t k = 0; k < storage.size(); ++k) {
         core::at(storage_info, k) = {.sampler = VK_NULL_HANDLE, .imageView = core::at(storage, k)->view,
                                      .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
     }
-    constexpr std::array<uint32_t, 7> kStorageBindings{kBindingOpaque,      kBindingDepthNow,   kBindingLightNow, kBindingSunNow,
-                                                       kBindingDepthBefore, kBindingLightBefore, kBindingSunBefore};
+    constexpr std::array<uint32_t, 9> kStorageBindings{kBindingOpaque,      kBindingDepthNow,    kBindingLightNow,
+                                                       kBindingSunNow,      kBindingDepthBefore, kBindingLightBefore,
+                                                       kBindingSunBefore,   kBindingReflectNow,  kBindingReflectBefore};
     std::vector<VkWriteDescriptorSet> writes;
     const auto add = [&writes](uint32_t binding, const VkDescriptorBufferInfo* buffer, const VkDescriptorImageInfo* image,
                                const void* next) {
