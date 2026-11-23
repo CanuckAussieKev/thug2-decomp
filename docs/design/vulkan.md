@@ -3524,6 +3524,13 @@ back exactly; a career level's own time of day unchanged; the frame time while t
 `upscale_quality=dlaa|quality|balanced|performance|ultra`, `ray_reconstruction`, `upscale_sharpness`, `fsr_version`;
 off by default - nothing is drawn differently then: no listener, no motion bit, the scale never published).
 
+- **The textures' level of detail** (round GRIT): the draws of the view being upscaled add log2(drawn / output width) to
+  their samplers' bias (`upscale_texture_lod_bias`, `with_lod_bias` - the game's stage textures, their surface maps and
+  the detail materials; -0.58 at Quality, 0 at DLAA - NVIDIA's DLSS Programming Guide's mip bias; one rule for FSR too).
+  Before, the textures were sampled for the drawn pixels: a level blurrier than the output can show, and Ray
+  Reconstruction's albedo guide with them. BO noon against `pt ref`: the fine band 0.660 -> 0.704 of the reference's,
+  the 15 x 15 local contrast 0.952 -> 0.982.
+
 - **The world drawn smaller** (contract additions in `engine/gfx/rt_scene.h`: `ViewScale`, `view_begins`,
   `ViewDrawn::output_rect` / `jitter`, `ViewOrder::kUpscale` = 950). The upscaler publishes a scale (1, 0.667, 0.588,
   0.5, 0.333) and the frame's jitter; render_pc's `draw_viewport` then draws the window's one viewport (not a split view,
@@ -5704,7 +5711,7 @@ through the tone curve at that EV. `pt off` ends it.
 
 The first real-time stage of the path tracer (gpu_vulkan/vulkan_restir_di.h; `[Graphics] direct_light`). In a view lit
 per surface (round V: ray tracing, a relit level, the linear frame, single-sampled, no cel), with `rt_lights` on and
-`direct_light` `restir` - or `auto` while DLSS Ray Reconstruction denoises the frame - ReSTIR DI (Bitterli et al. 2020)
+`direct_light` `restir` or `auto` (round GRIT: with or without Ray Reconstruction) - ReSTIR DI (Bitterli et al. 2020)
 makes the lamps' inputs (`lamps`: a white diffuser's radiance in the frame's pre-exposed unit; `lamps_on`: the same on
 the traced albedo) in place of the lamps pass, which then draws nothing in the view (it still chooses the view's lamps:
 the fog scatters them). The shading is unchanged: it stays the one consumer. (Round BR) The same chosen sample through
@@ -5794,7 +5801,7 @@ specular input against the reference's direct light, -0.30 %.
 ### ReSTIR GI: the indirect light in real time (path tracing, stage 5)
 
 The second real-time stage of the path tracer (gpu_vulkan/vulkan_restir_gi.h; `[Graphics] indirect_light`). In a view
-lit per surface, with `indirect_light` `restir` - or `auto` while DLSS Ray Reconstruction denoises the frame - ReSTIR GI
+lit per surface, with `indirect_light` `restir` or `auto` (round GRIT: with or without Ray Reconstruction) - ReSTIR GI
 (Ouyang et al. 2021; the reuse with Lin et al. 2022's reconnection shift) makes the light that reaches a surface from the
 sky and off the surfaces around it, and its environment's specular, in place of the light store's environment term (its
 traced sky K and bounce B) and of the occlusion and reflections passes. The shading stays the one consumer.
@@ -5842,7 +5849,7 @@ traced sky K and bounce B) and of the occlusion and reflections passes. The shad
     853x480: 0.94 -> 1.45 ms;
   - the specular ray's hit distance (R16F) - Ray Reconstruction's specular hit distance guide
     (kBufferTypeSpecularHitDistance, the view at its rect).
-- **The fallback tier** (`passes`, or `auto` without Ray Reconstruction): the store's sky and bounce with `rt_ao`; the
+- **The fallback tier** (`passes`; round GRIT: no longer `auto` without Ray Reconstruction): the store's sky and bounce with `rt_ao`; the
   reflections pass's surfaces shaded through their maps (`kReflectSurface`'s added reflection) are this pass's in a ReSTIR
   GI view (their specular is the input's), its in-place reflections - water, glass, the game's own shine - stay its own.
 - **Glass and water**: seen-through surfaces aren't in the prepass - they keep their own light and reflections (water its

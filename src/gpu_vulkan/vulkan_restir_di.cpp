@@ -2106,8 +2106,9 @@ bool wanted(Backend& state)
     if (!settings.on) {
         return false;
     }
-    const bool restir = settings.direct == RtDirectLight::kRestir ||
-                        (settings.direct == RtDirectLight::kAuto && ray_reconstruction_active());
+    // (round GRIT: auto is ReSTIR with or without Ray Reconstruction - one lighting path; without it the upscaler's own
+    // temporal accumulation takes the noise. Before, auto fell back to the lamps pass: another light, most lamps unlit)
+    const bool restir = settings.direct != RtDirectLight::kPasses;
     return restir && surface_inputs(state) != nullptr;
 }
 

@@ -84,9 +84,12 @@ FoundCapabilities find()
     found.problem = "this build was made without the Vulkan library (THUG2_VULKAN)";
 #endif
     const std::string game = build_info::executable_directory();
-    caps.surface_maps = has_files(game + "Data\\levels", 1, kSurfaceMapSuffix) ||
-                        has_files(game + "Data\\models", kDeepest, kSurfaceMapSuffix) ||
-                        has_files(frontend::data_overlay::get_folder() + "\\levels", 1, kSurfaceMapSuffix);
+    // (round GRIT: the levels' maps told apart from the models' - an install with the characters' maps alone lit every
+    // level surface as one smooth material while this line said "found")
+    const bool level_maps = has_files(game + "Data\\levels", 1, kSurfaceMapSuffix) ||
+                            has_files(frontend::data_overlay::get_folder() + "\\levels", 1, kSurfaceMapSuffix);
+    const bool model_maps = has_files(game + "Data\\models", kDeepest, kSurfaceMapSuffix);
+    caps.surface_maps = level_maps || model_maps;
     caps.material_library = fs::disk().kind((game + kMaterialLibrary).c_str()) == fs::PathKind::kFile;
     caps.height_maps = false; // (none are made yet: rt_displacement shows its test pattern alone)
     // (added by building relief: tools/pbr_maps/building_relief.ts writes them beside the level dictionaries)
@@ -98,7 +101,8 @@ FoundCapabilities find()
             caps.gpu.empty() ? "no Vulkan device" : caps.gpu.c_str(),
             caps.rtx > 0 ? (" (RTX " + std::to_string(caps.rtx) + " series)").c_str() : "",
             caps.ray_queries ? "possible" : "not possible", caps.x64 ? "64-bit" : "32-bit",
-            caps.surface_maps ? "found" : "none", caps.material_library ? "found" : "none", caps.texture_sets.size(),
+            level_maps ? "found" : model_maps ? "found for the models only - none for the levels" : "none",
+            caps.material_library ? "found" : "none", caps.texture_sets.size(),
             caps.relief_maps ? "found" : "none");
     return found;
 }

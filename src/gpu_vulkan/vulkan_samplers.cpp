@@ -33,6 +33,14 @@ SamplerKey sampler_key(const GpuStateBlock& block, uint32_t stage)
             .max_anisotropy = block.sampler_state(stage, GpuSamplerState::kMaxAnisotropy)};
 }
 
+SamplerKey with_lod_bias(SamplerKey key, float bias)
+{
+    if (bias != 0.0F) {
+        key.mip_lod_bias = std::bit_cast<uint32_t>(std::bit_cast<float>(key.mip_lod_bias) + bias);
+    }
+    return key;
+}
+
 VkSamplerCreateInfo sampler_info(const SamplerKey& key, const SamplerLimits& limits)
 {
     const bool anisotropic = limits.anisotropy && (key.min_filter == gpu_value::kFilterAnisotropic ||

@@ -54,6 +54,10 @@ test("capabilities reads what the game's start-up line finds", () => {
         capabilities(listing([])),
         "surface maps none, material library none, texture sets none, building relief files none",
     );
+    assert.equal(
+        capabilities(listing([["Data\\models\\Skater_Male\\a.tex.xbx.pbr", 1, 0]])),
+        "surface maps found for the models only - none for the levels, material library none, texture sets none, building relief files none",
+    );
 });
 
 test("parseSidecarSettings: values, defaults, (empty), arrows; not the running lines", () => {

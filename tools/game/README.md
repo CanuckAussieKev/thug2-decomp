@@ -41,7 +41,10 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   lighting term's view converged and the matching references (`pt ref` with `only <kinds>`, `direct`, `bounces 0 | 2`:
   emission and sky seen, the local lights' direct light, the disc and sky's, the indirect); `terms-analyse <Screenshots
   folder> <spot> [--tag t] [--grid CxR]` realtime / reference per term, whole and per cell; `pair <a.exr> <b.exr> <out.png>`
-  pictures side by side through one exposure.
+  pictures side by side through one exposure. (Round GRIT) `detail <picture.exr> <reference.exr> [reference2.exr]` what a
+  picture keeps of the reference's detail and contrast: display-luma percentiles, three bands' RMS (fine, mid, coarse)
+  and the 15 x 15 local contrast, the reference's noise taken out with a second one; `pt frames ... inputs` also saves
+  the roughness guide (`inputs_NNNN_roughness.exr`).
 - `node tools/game/settle_curve.ts <series folder> <x,y,w,h> [--settled N] [--threshold 30] [--frames 1,2,...]` - how a
   picture settles after a camera cut or stop (a `capture` started there, the camera then held): per listed frame the
   specks over the settled picture (the median of the last N frames) and over their 5x5 neighbourhood, and the RMS error.

@@ -5,10 +5,12 @@ import {
     cameraPoseAt,
     cellMeans,
     compare,
+    detailStats,
     display,
     halfToFloat,
     historyAge,
     holdOf,
+    keyExposure,
     kMotions,
     kSpots,
     moveFrameOf,
@@ -222,4 +224,41 @@ test("terms: the session holds each view, then the references", () => {
     assert.ok(lines.some((l) => l.startsWith("console pt frames 1 bias/p1_t/rt_lamps ")));
     assert.ok(lines.includes("console pt ref 256 0.89 only emit bounces 0 as bias_p1_t_b0_emit"));
     assert.equal(lines.filter((l) => l === "waitfor pt 3000").length, 10);
+});
+
+test("detail: a blurred picture keeps less of the fine band; the reference's noise is taken out", () => {
+    const w = 64;
+    const h = 64;
+    const sharp = new Float32Array(w * h * 3);
+    const blurred = new Float32Array(w * h * 3);
+    for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++) {
+            const v = (x + y) % 2 === 0 ? 0.3 : 0.1; // a checkerboard: all fine band
+            sharp.fill(v, (y * w + x) * 3, (y * w + x) * 3 + 3);
+            blurred.fill(0.2, (y * w + x) * 3, (y * w + x) * 3 + 3);
+        }
+    const a: Picture = { width: w, height: h, rgb: sharp };
+    const b: Picture = { width: w, height: h, rgb: blurred };
+    const sa = detailStats(a, 1);
+    const sb = detailStats(b, 1);
+    assert.ok(sa.bands[0]! > 10 && sb.bands[0]! < 1e-3);
+    assert.ok(Math.abs(sa.meanLuma - sb.meanLuma) < 1e-6);
+    // the same picture as its own second reference: all its band variance is "noise" only if they differ - here none
+    assert.ok(Math.abs(detailStats(a, 1, a).bands[0]! - sa.bands[0]!) < 1e-6);
+    // two noisy copies of a flat picture: the noise taken out leaves (about) nothing
+    const n1 = new Float32Array(w * h * 3);
+    const n2 = new Float32Array(w * h * 3);
+    let seed = 7;
+    const rand = (): number => {
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        return (seed / 2147483648) * 0.04;
+    };
+    for (let i = 0; i < w * h; i++) {
+        n1.fill(0.18 + rand(), i * 3, i * 3 + 3);
+        n2.fill(0.18 + rand(), i * 3, i * 3 + 3);
+    }
+    const noisy = detailStats({ width: w, height: h, rgb: n1 }, 1);
+    const cleaned = detailStats({ width: w, height: h, rgb: n1 }, 1, { width: w, height: h, rgb: n2 });
+    assert.ok(cleaned.bands[0]! < 0.25 * noisy.bands[0]!);
+    assert.ok(Math.abs(keyExposure(b) - 0.18 / 0.2) < 1e-3);
 });

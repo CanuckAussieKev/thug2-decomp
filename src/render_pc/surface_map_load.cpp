@@ -38,6 +38,18 @@ SurfacePack::SurfacePack(const char* name)
     }
     name_ = std::string(name) + kSuffix;
     if (!file::is_present(name_.c_str())) {
+        // (round GRIT) a level's dictionary without its maps: every surface of it lit as one smooth material (the
+        // table's "painted": roughness 0.72, flat normals, no detail material or relief) - said once a dictionary, as
+        // the maps' absence is otherwise silent (tools/pbr_maps/pbr_maps.ts make writes them)
+        std::string lower(name);
+        std::ranges::transform(lower, lower.begin(), [](char c) { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c; });
+        // (the skies get none: pbr_maps leaves them out)
+        if ((lower.starts_with("levels\\") || lower.find("\\levels\\") != std::string::npos) &&
+            lower.find("_sky") == std::string::npos) {
+            get_log("surface maps: %s - none: its surfaces lit as one smooth material, without their relief and "
+                    "roughness (tools/pbr_maps/pbr_maps.ts make)",
+                    name_.c_str());
+        }
         return;
     }
     file::Hdl handle = file::unseal(name_.c_str(), "rb");

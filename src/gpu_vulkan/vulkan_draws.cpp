@@ -1423,10 +1423,12 @@ Prepared prepare_draw(Backend& state, const GpuStateBlock& block, const DrawCall
         }
         return Prepared::kNone;
     }
+    // (round GRIT) a view drawn smaller and upscaled samples its textures for the output's pixels (vulkan_upscale.h)
+    const float lod_bias = upscale_texture_lod_bias();
     for (std::size_t stage = 0; stage < kStageCount; ++stage) {
         const Image* const image = core::at(images, stage);
-        const VkSampler sampler = state.samplers.sampler(image != nullptr ? sampler_key(block, static_cast<uint32_t>(stage))
-                                                                          : SamplerKey{});
+        const VkSampler sampler = state.samplers.sampler(
+            image != nullptr ? with_lod_bias(sampler_key(block, static_cast<uint32_t>(stage)), lod_bias) : SamplerKey{});
         if (sampler == VK_NULL_HANDLE) {
             return Prepared::kNone;
         }
@@ -1440,7 +1442,7 @@ Prepared prepare_draw(Backend& state, const GpuStateBlock& block, const DrawCall
     out->vertex_block = state.bound.vertex_block;
     out->fragment_block = state.bound.fragment_block;
     const VkSampler detail_sampler =
-        shaders.fragment.detail != 0U ? state.samplers.sampler(detail_sampler_key()) : VK_NULL_HANDLE;
+        shaders.fragment.detail != 0U ? state.samplers.sampler(with_lod_bias(detail_sampler_key(), lod_bias)) : VK_NULL_HANDLE;
     out->surface = {}; // NOT ORIGINAL - rt_pbr
     if (!surface_descriptors_for(state, block, {.surface = surface, .flags = shaders.fragment.surface, .image = surface_image,
                                                 .sampler = core::at(out->images, 0).sampler,

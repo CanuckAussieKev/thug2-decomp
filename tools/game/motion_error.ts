@@ -20,6 +20,10 @@
 //     realtime / reference per term (each view less the emission it holds), whole and per cell.
 //   node tools/game/motion_error.ts pair <a.exr> [b.exr ...] <out.png> [--exposure E]
 //     linear pictures side by side through one exposure (`pt frames` ones taken to the global unit first).
+//   node tools/game/motion_error.ts detail <picture.exr> <reference.exr> [reference2.exr] [--exposure E] [--json out]
+//     (round GRIT) what a picture keeps of the reference's detail and contrast: display luma (ACES + sRGB at one exposure
+//     - the reference's log-average at middle grey unless given) percentiles, the RMS of three bands (fine 1 px, mid
+//     ~3 px, coarse ~9 px) and the 15 x 15 local contrast; a second reference takes the reference's own noise out.
 //   node tools/game/motion_error.ts motion <folder>
 //     Ray Reconstruction's motion vectors (`pt frames ... inputs`) against the depth and the two frames' cameras (a
 //     frozen world: the camera's motion is all there is), and the albedo guide of the frame before fetched through them.
@@ -39,7 +43,8 @@ const USAGE =
     "       motion_error.ts motion <pt frames ... inputs folder>\n" +
     "       motion_error.ts terms <spot> [--ref-samples N] [--tag t] [--out file]\n" +
     "       motion_error.ts terms-analyse <Screenshots folder> <spot> [--tag t] [--grid CxR] [--json out.json]\n" +
-    "       motion_error.ts pair <a.exr> [b.exr ...] <out.png> [--exposure E]";
+    "       motion_error.ts pair <a.exr> [b.exr ...] <out.png> [--exposure E]\n" +
+    "       motion_error.ts detail <picture.exr> <reference.exr> [reference2.exr] [--exposure E] [--json out.json]";
 
 // --- linear pictures ---------------------------------------------------------------------------------------------------
 
@@ -180,8 +185,8 @@ export interface Error {
 
 const kBroadRadius = 7; // (a 15 x 15 box: the error's broad part)
 
-// A luma map's 15 x 15 box mean (an integral image; the box cut at the edges).
-function boxMean(w: number, h: number, v: Float32Array): Float32Array {
+// A luma map's box mean, (2 radius + 1)^2 - 15 x 15 by default (an integral image; the box cut at the edges).
+export function boxMean(w: number, h: number, v: Float32Array, radius = kBroadRadius): Float32Array {
     const integral = new Float64Array((w + 1) * (h + 1));
     for (let y = 0; y < h; y++) {
         let row = 0;
@@ -192,11 +197,11 @@ function boxMean(w: number, h: number, v: Float32Array): Float32Array {
     }
     const out = new Float32Array(w * h);
     for (let y = 0; y < h; y++) {
-        const y0 = Math.max(0, y - kBroadRadius);
-        const y1 = Math.min(h, y + kBroadRadius + 1);
+        const y0 = Math.max(0, y - radius);
+        const y1 = Math.min(h, y + radius + 1);
         for (let x = 0; x < w; x++) {
-            const x0 = Math.max(0, x - kBroadRadius);
-            const x1 = Math.min(w, x + kBroadRadius + 1);
+            const x0 = Math.max(0, x - radius);
+            const x1 = Math.min(w, x + radius + 1);
             const sum =
                 integral[y1 * (w + 1) + x1]! -
                 integral[y0 * (w + 1) + x1]! -
@@ -996,6 +1001,120 @@ function compareCommand(a: string, b: string, exposure: number, grid: string): n
     return 0;
 }
 
+// --- (round GRIT) the detail and contrast a picture keeps against the reference ----------------------------------------
+
+// The display luma's bands: fine (a pixel less its 3 x 3 mean), mid (3 x 3 less 9 x 9), coarse (9 x 9 less 27 x 27) - the
+// texture grain, the small shapes (cracks, joints, contact shadows) and the larger shading.
+export const kDetailBands = [
+    { name: "fine", inner: 0, outer: 1 },
+    { name: "mid", inner: 1, outer: 4 },
+    { name: "coarse", inner: 4, outer: 13 },
+] as const;
+
+export interface DetailStats {
+    meanLuma: number; // linear
+    percentiles: [number, number, number]; // display luma p5, p50, p95 (0 - 255)
+    bands: number[]; // each band's RMS (display luma, 0 - 255), kDetailBands' order
+    localContrast: number; // the 15 x 15 neighbourhoods' standard deviation, averaged (0 - 255)
+}
+
+export function displayLuma(p: Picture, exposure: number): Float32Array {
+    const d = display(p, exposure);
+    const y = new Float32Array(p.width * p.height);
+    for (let i = 0; i < y.length; i++) y[i] = luma(d[i * 3]!, d[i * 3 + 1]!, d[i * 3 + 2]!);
+    return y;
+}
+
+// Each band's variance over the picture (noise: a second picture of the same view - the band's variance of their
+// half-difference is the mean's noise, taken out).
+function bandVariances(w: number, h: number, y: Float32Array): number[] {
+    const means = new Map<number, Float32Array>();
+    const meanOf = (r: number): Float32Array => {
+        let m = means.get(r);
+        if (!m) {
+            m = r === 0 ? y : boxMean(w, h, y, r);
+            means.set(r, m);
+        }
+        return m;
+    };
+    return kDetailBands.map((band) => {
+        const a = meanOf(band.inner);
+        const b = meanOf(band.outer);
+        let s = 0;
+        for (let i = 0; i < y.length; i++) s += (a[i]! - b[i]!) ** 2;
+        return s / y.length;
+    });
+}
+
+export function detailStats(p: Picture, exposure: number, noise?: Picture): DetailStats {
+    const w = p.width;
+    const h = p.height;
+    const y = displayLuma(p, exposure);
+    let variances = bandVariances(w, h, y);
+    if (noise) {
+        // (p and noise two independent estimates of one view: p's own noise in a band is var(band(p - noise)) / 2)
+        const yn = displayLuma(noise, exposure);
+        const half = new Float32Array(y.length);
+        for (let i = 0; i < y.length; i++) half[i] = (y[i]! - yn[i]!) / Math.SQRT2;
+        const floor = bandVariances(w, h, half);
+        variances = variances.map((v, k) => Math.max(0, v - floor[k]!));
+    }
+    const sorted = Float32Array.from(y).sort();
+    const at = (q: number): number => 255 * sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))]!;
+    const m = boxMean(w, h, y);
+    const sq = new Float32Array(y.length);
+    for (let i = 0; i < y.length; i++) sq[i] = y[i]! * y[i]!;
+    const m2 = boxMean(w, h, sq);
+    let contrast = 0;
+    let linear = 0;
+    for (let i = 0; i < y.length; i++) {
+        contrast += Math.sqrt(Math.max(0, m2[i]! - m[i]! * m[i]!));
+        linear += luma(p.rgb[i * 3]!, p.rgb[i * 3 + 1]!, p.rgb[i * 3 + 2]!);
+    }
+    return {
+        meanLuma: linear / y.length,
+        percentiles: [at(0.05), at(0.5), at(0.95)],
+        bands: variances.map((v) => 255 * Math.sqrt(v)),
+        localContrast: (255 * contrast) / y.length,
+    };
+}
+
+// The exposure that puts a picture's log-average luma at middle grey (0.18).
+export function keyExposure(p: Picture): number {
+    let s = 0;
+    const n = p.width * p.height;
+    for (let i = 0; i < n; i++) s += Math.log(1e-9 + luma(p.rgb[i * 3]!, p.rgb[i * 3 + 1]!, p.rgb[i * 3 + 2]!));
+    return 0.18 / Math.exp(s / n);
+}
+
+function detailCommand(files: string[], exposureGiven: number, json?: string): number {
+    const [a, b, c] = files.map(globalUnit) as [Picture, Picture, Picture | undefined];
+    if (a.width !== b.width || a.height !== b.height) {
+        print(`the pictures differ in size: ${a.width} x ${a.height}, ${b.width} x ${b.height}`);
+        return 2;
+    }
+    const exposure = exposureGiven > 0 ? exposureGiven : keyExposure(b);
+    const ra = detailStats(a, exposure);
+    const rb = detailStats(b, exposure, c);
+    const f = (v: number): string => v.toFixed(2).padStart(7);
+    print(`display exposure ${exposure.toPrecision(4)}${c ? " (the reference's noise taken out of its bands)" : ""}`);
+    print(`                  picture  reference   ratio`);
+    print(
+        `mean luma (linear) ${ra.meanLuma.toPrecision(4).padStart(8)} ${rb.meanLuma.toPrecision(4).padStart(9)}  ${(ra.meanLuma / rb.meanLuma).toFixed(3)}`,
+    );
+    for (const [k, name] of ["p5", "p50", "p95"].entries())
+        print(`display ${name.padEnd(10)} ${f(ra.percentiles[k]!)}  ${f(rb.percentiles[k]!)}`);
+    for (const [k, band] of kDetailBands.entries())
+        print(
+            `band ${band.name.padEnd(13)} ${f(ra.bands[k]!)}  ${f(rb.bands[k]!)}  ${(ra.bands[k]! / rb.bands[k]!).toFixed(3)}`,
+        );
+    print(
+        `local contrast     ${f(ra.localContrast)}  ${f(rb.localContrast)}  ${(ra.localContrast / rb.localContrast).toFixed(3)}`,
+    );
+    if (json) fs.writeFileSync(json, JSON.stringify({ exposure, picture: ra, reference: rb }, null, 1));
+    return 0;
+}
+
 // --- (round BIAS) the light term by term against the reference, the camera held ---------------------------------------
 
 // The realtime views captured converged (each holds the surfaces' own emission: the `emission` view is that alone).
@@ -1351,6 +1470,12 @@ function main(): number {
     if (verb === "pair" && rest.length >= 2)
         return pairCommand(rest.slice(0, -1), rest[rest.length - 1]!, Number(values.exposure));
     if (verb === "motion" && rest.length === 1) return motionCommand(rest[0]!);
+    if (verb === "detail" && (rest.length === 2 || rest.length === 3))
+        return detailCommand(
+            rest,
+            values.exposure === "20000" ? 0 : Number(values.exposure),
+            values.json as string | undefined,
+        );
     if (verb === "compare" && rest.length === 2)
         return compareCommand(rest[0]!, rest[1]!, Number(values.exposure), values.grid as string);
     print(USAGE);

@@ -218,6 +218,7 @@ struct UpscaleState {
     UpscaleJitterTerms jitter_terms;
     // the view being drawn
     bool view_on = false;
+    float lod_bias = 0.0F; // (round GRIT) its textures' level-of-detail bias (upscale_texture_lod_bias)
     Extent last_render{};
     Extent last_output{};
     uint32_t jitter_index = 0;
@@ -1105,9 +1106,25 @@ void begin_upscaled_view(Backend& state, const rt::ViewDrawn& view)
         return;
     }
     own.view_on = true;
+    // (round GRIT) the textures' level of detail for the output's pixels: log2(drawn / output) - NVIDIA's DLSS
+    // Programming Guide's mip bias (-0.58 at Quality's 2/3; 0 at DLAA). The draws' derivatives are the drawn pixels';
+    // the upscaler puts several frames' jittered samples into each output pixel, so the texture detail the output can
+    // show is the output's - sampled at the drawn size's level it is a level blurrier, and Ray Reconstruction keeps
+    // that blur (its albedo guide is sampled the same way).
+    const uint32_t drawn_width = core::at(view.rect, 2);
+    const uint32_t output_width = core::at(view.output_rect, 2);
+    own.lod_bias = drawn_width > 0 && output_width > drawn_width
+                       ? std::log2(static_cast<float>(drawn_width) / static_cast<float>(output_width))
+                       : 0.0F;
     if (!rt::view_scale().on) {
         publish_scale(true); // (from the next frame: this one's viewport is already set)
     }
+}
+
+float upscale_texture_lod_bias()
+{
+    const UpscaleState& own = upscale();
+    return own.view_on ? own.lod_bias : 0.0F;
 }
 
 bool record_upscale(Backend& state, const rt::ViewDrawn& view)
@@ -1116,6 +1133,7 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
     MotionVectors& motion = state.motion;
     const bool was_on = own.view_on;
     own.view_on = false;
+    own.lod_bias = 0.0F;
     motion.active = false;
     if (!was_on || own.provider == nullptr) {
         return false;

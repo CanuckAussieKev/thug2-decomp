@@ -29,6 +29,9 @@ struct SamplerKey {
 
 // Stage `stage`'s sampler states in the block.
 SamplerKey sampler_key(const GpuStateBlock& block, uint32_t stage);
+// (round GRIT) `key` with `bias` levels added to its level-of-detail bias: a view drawn at a fraction of its output's
+// size and upscaled samples its textures for the output's pixels (vulkan_upscale.h upscale_texture_lod_bias). 0: as it is.
+SamplerKey with_lod_bias(SamplerKey key, float bias);
 
 // What the device allows (its features and limits).
 struct SamplerLimits {

@@ -458,7 +458,7 @@ std::vector<Decl> declarations()
             .live(E::kLights),
         // (path tracing, stage 4 - gpu_vulkan/vulkan_restir_di.h) how the lamps' direct light is made: ReSTIR DI (every
         // lamp and lit surface, noisy - Ray Reconstruction's to clean), or the lamps pass (the nearest lamps); auto:
-        // ReSTIR where Ray Reconstruction denoises the frame
+        // ReSTIR (round GRIT: with or without Ray Reconstruction)
         gfx("direct_light", K::kChoice, "auto")
             .tab(G::kLighting, t::kOptDirectLight, t::kOptDirectLightHelp)
             .pick({c("auto", t::kAuto), c("restir", "ReSTIR"), c("passes", t::kOptDirectLightPasses)})
@@ -466,8 +466,8 @@ std::vector<Decl> declarations()
             .live(E::kLights),
         // (path tracing, stage 5 - gpu_vulkan/vulkan_restir_gi.h) how the indirect light and the environment's reflections
         // are made: ReSTIR GI (the sky and one bounce of every light traced, noisy - Ray Reconstruction's to clean), or the
-        // relit store's sky and bounce with the occlusion and reflections passes; auto: ReSTIR where Ray Reconstruction
-        // denoises the frame
+        // relit store's sky and bounce with the occlusion and reflections passes; auto: ReSTIR (round GRIT: with or
+        // without Ray Reconstruction)
         gfx("indirect_light", K::kChoice, "auto")
             .tab(G::kLighting, t::kOptIndirectLight, t::kOptIndirectLightHelp)
             .pick({c("auto", t::kAuto), c("restir", "ReSTIR"), c("passes", t::kOptDirectLightPasses)})
