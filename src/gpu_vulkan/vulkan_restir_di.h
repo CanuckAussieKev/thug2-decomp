@@ -147,11 +147,14 @@ inline constexpr float kSharedPrimaryNone = 0.0F;
 inline constexpr float kSharedPrimaryTraced = 1.0F;
 inline constexpr float kSharedPrimaryDepth = 2.0F;
 // (`pt frames ... inputs`) The last view's primary surfaces read back (the frame's work finished first; the caller holds
-// the lock): per pixel of its rectangle, row-major, the traced albedo and the kind above. False: none made.
+// the lock): per pixel of its rectangle, row-major, the traced albedo and the kind above (round ALBEDO: and the traced
+// surface's material id + 1 - rt::Material's, the record's `rt: material` lines -, 0 where none was traced). False: none
+// made.
 struct RestirPrimaryReadback {
     uint32_t width = 0;
     uint32_t height = 0;
     std::vector<std::array<float, 4>> albedo_kind;
+    std::vector<float> material;
 };
 bool read_restir_primary(Backend& state, RestirPrimaryReadback* out);
 
