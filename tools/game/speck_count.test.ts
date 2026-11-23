@@ -39,3 +39,12 @@ test("the heat map's ramp", () => {
     assert.deepEqual(heatColour(kHeatFull), [255, 255, 255]);
     assert.deepEqual(heatColour(kHeatFull / 3), [255, 0, 0]);
 });
+
+test("(round NOISE) a region breathing together: its mean's deviation and the blocks' equal the pixels'", () => {
+    const r = { x: 0, y: 0, w: 32, h: 32 };
+    const breathing = Array.from({ length: 8 }, (_, k) => new Float32Array(32 * 32).fill(k % 2 === 0 ? 40 : 50));
+    const s = speckStats(breathing, r, 30);
+    assert.ok(Math.abs(s.regionStd - 5) < 1e-6);
+    assert.ok(Math.abs(s.regionStep - 10) < 1e-6);
+    assert.ok(Math.abs(s.blockStd - s.std) < 1e-6);
+});

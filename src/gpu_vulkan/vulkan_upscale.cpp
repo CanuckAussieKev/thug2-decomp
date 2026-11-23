@@ -25,6 +25,7 @@
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/sys/frame_blend.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/glsl_compiler.h"
@@ -221,6 +222,7 @@ struct UpscaleState {
     Extent last_output{};
     uint32_t jitter_index = 0;
     bool reset = true;
+    uint64_t cuts_seen = 0; // (round NOISE) frame_blend::cuts() at the last view upscaled
     std::chrono::steady_clock::time_point last_time;
     uint64_t passes = 0;
     double evaluate_seconds = 0.0; // (processor time recording the provider's work, the log's)
@@ -1334,7 +1336,13 @@ bool record_upscale(Backend& state, const rt::ViewDrawn& view)
             (1.0F - (static_cast<float>(render.height) / static_cast<float>(output.height)))};
     frame.jitter = {(core::at(terms.sign, 0) * core::at(view.jitter, 0)) + core::at(align, 0),
                     (core::at(terms.sign, 1) * core::at(view.jitter, 1)) + core::at(align, 1)};
-    frame.reset = own.reset || own.last_render.width != render.width || own.last_render.height != render.height ||
+    // (round NOISE) a cut - the camera snapped, the skater teleported or respawned, a level loaded (frame_blend::note_cut) -
+    // throws the history away, as the DLSS / DLSS-RR guides ask: the history was a picture of another place (Australia's
+    // lamp pool and windows 40 % too bright for half a second after a teleport, settling as the old history faded)
+    const uint64_t cuts = frame_blend::cuts();
+    const bool cut = cuts != own.cuts_seen;
+    own.cuts_seen = cuts;
+    frame.reset = own.reset || cut || own.last_render.width != render.width || own.last_render.height != render.height ||
                   own.last_output.width != output.width || own.last_output.height != output.height;
     frame.sharpness = own.settings.sharpness;
     frame.pre_exposure = rt::frame_pre_exposure(); // (round S2)

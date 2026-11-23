@@ -31,12 +31,24 @@ export interface SpeckStats {
     steady: number; // a frame, on average
     std: number; // the pixels' temporal standard deviation, mean over the rectangle
     mean: number; // the rectangle's luma, mean over the pixels and the frames
+    // (round NOISE) correlated flicker: the rectangle's mean frame by frame - its temporal standard deviation (the whole
+    // region breathing) and its mean change from one frame to the next - and the 16 x 16 blocks' means' temporal standard
+    // deviation, averaged over the blocks (patches changing together; independent per-pixel noise gives std / 16 here)
+    regionStd: number;
+    regionStep: number;
+    blockStd: number;
     stdMap: Float32Array; // each pixel's temporal standard deviation (w x h)
 }
 
 function median(values: Float32Array): number {
     values.sort();
     return values[values.length >> 1]!;
+}
+
+const kBlock = 16;
+function deviation(values: number[]): number {
+    const mean = values.reduce((a, v) => a + v, 0) / Math.max(values.length, 1);
+    return Math.sqrt(values.reduce((a, v) => a + (v - mean) * (v - mean), 0) / Math.max(values.length, 1));
 }
 
 // The frames' luma over the rectangle, frame-major.
@@ -91,8 +103,29 @@ export function speckStats(frames: Float32Array[], rect: Rect, threshold: number
             }
         }
     }
+    const regionMeans = frames.map((f) => f.reduce((a, v) => a + v, 0) / (w * h));
+    const regionStd = deviation(regionMeans);
+    let regionStep = 0;
+    for (let k = 1; k < n; k++) regionStep += Math.abs(regionMeans[k]! - regionMeans[k - 1]!);
+    regionStep = n > 1 ? regionStep / (n - 1) : 0;
+    let blockSum = 0;
+    let blocks = 0;
+    for (let by = 0; by + kBlock <= h; by += kBlock) {
+        for (let bx = 0; bx + kBlock <= w; bx += kBlock) {
+            const means = frames.map((f) => {
+                let sum = 0;
+                for (let y = by; y < by + kBlock; y++) for (let x = bx; x < bx + kBlock; x++) sum += f[y * w + x]!;
+                return sum / (kBlock * kBlock);
+            });
+            blockSum += deviation(means);
+            ++blocks;
+        }
+    }
     return {
         frames: n,
+        regionStd,
+        regionStep,
+        blockStd: blocks > 0 ? blockSum / blocks : 0,
         flickering: flickering / n,
         steady: steady / n,
         std: stdSum / (w * h),
@@ -162,7 +195,8 @@ function main(): number {
     }
     print(
         `${folder}: ${s.frames} frames, specks a frame ${s.flickering.toFixed(1)} flickering + ${s.steady.toFixed(1)} steady, ` +
-            `per-pixel std ${s.std.toFixed(2)}, mean ${s.mean.toFixed(2)}`,
+            `per-pixel std ${s.std.toFixed(2)}, mean ${s.mean.toFixed(2)}, region std ${s.regionStd.toFixed(2)} ` +
+            `(step ${s.regionStep.toFixed(2)}), 16x16 blocks' std ${s.blockStd.toFixed(2)}`,
     );
     return 0;
 }

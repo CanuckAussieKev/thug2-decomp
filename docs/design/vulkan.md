@@ -6437,3 +6437,24 @@ emit - 21 % of p1's light, open: 0.94), its lamps' and emitters' direct light 0.
 reflections pass 0.93 -> 0.99; p2 0.83 -> 0.88, direct 0.88 -> 0.95, GI 0.40 -> 0.51; p3 0.60 -> 0.71, direct 0.64 ->
 0.77, GI 0.30 -> 0.29. Open: GI's diffuse under RTXDI's boiling filter (-29 % at p2 - near-lamp bounces are its
 "outliers"), GI's remaining deficit near lamps (p2 0.68 without the filter, p3 ~0.3), the additive glows' single owner.
+- **Round NOISE: ReSTIR DI's bias, flicker after cuts** (the user's flickering lights).
+  - ReSTIR DI keeps the sample it shades even when its one light ray finds it hidden (RTXDI's `discardInvisibleSamples`
+    off - its default). Round BUDGET dropped such a sample (W 0) but kept its M: the next frames read the reservoir as M
+    candidates that had brought nothing, so the pixel's light fell to one frame's candidates over the whole history and
+    climbed back over its length. Wherever candidates often meet a hidden light (emitters beyond a wall, lamps round a
+    corner) the direct light sat 25 - 40 % low and lights came and went over seconds. Barcelona's fountain at night,
+    the lamps' and emitters' direct light against `pt ref ... only emit,lamps direct` (less what the camera sees emit),
+    240 frames averaged: 0.59 -> 0.77 of the reference (its opaque surfaces 0.66 - 0.86 -> 0.93 - 0.98; the rest is the
+    see-through net and pool, which ReSTIR DI doesn't light - the front layer does). Resetting such a reservoir to M 0
+    instead was ~1.5 x too bright (the history then keeps only seen samples) - not used.
+  - The presampled points on an emitting triangle are stratified (64 a frame, one in each cell of an 8 x 8 grid over
+    the unit square the triangle is mapped from): each still uniform for the candidate that takes one at random, the
+    frame's set covering the triangle evenly (a lamp drawn in a few texels no longer caught by 0 - 4 of 16 points).
+  - RTXDI's disocclusion boost in the spatial reuse: a pixel without history takes 4 neighbours, not 1.
+  - Ray Reconstruction is reset on a cut (`frame_blend::note_cut` - a teleport, a respawn, a level load), as the DLSS-RR
+    guide asks; before, only with frame generation on.
+  - The radiance cache's update paths take their light samples from the pool (candidates of their own), not the light
+    grid cell's shared picks: the cache's history is these samples' only reuse.
+  - Open (measured, not fixed): a held, frozen view still has a slow wave of ReSTIR GI's term (Training: the whole term
+    +-5 % over ~4 s, its regions 8 - 14 %), not from the light grid's picks (tried); the see-through scaffold net at
+    Barcelona is dark with bright cell-sized squares in the front layer (its own bounce ray tried - no change).
