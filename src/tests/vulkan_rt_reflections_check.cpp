@@ -2205,6 +2205,7 @@ void run_sky_misses(render::Gpu& gpu, Mirror& mirror, Tally* tally)
         vk::prepare_rt_sky(state);
         vk::finish_work(state);
         ready = vk::read_atmosphere_table(state, vk::AtmosphereTable::kSkyView, &table);
+        table = vk::sky_view_table_part(table, 0); // (round NIGHTSKY: the sun's table; no moon by day)
     }
     // (no sky drawn - a level with no sky scene: the misses show the floor's own estimate of its environment - its
     // bake - added to its black)

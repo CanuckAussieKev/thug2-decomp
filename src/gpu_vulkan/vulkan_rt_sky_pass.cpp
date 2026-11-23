@@ -221,16 +221,23 @@ layout(set = 0, binding = 12, rgba16f) uniform readonly image2D i_b;
 layout(location = 0) out vec4 o_colour;
 
 // (added by the time of day - engine/gfx/rt_daylight.h) the night's sky: the stars - cells on a cube round the celestial
-// pole, turned with the hours, one star in about STAR_SHARE of them at a hashed place, each a pixel-wide spot - and the
-// moon's disc. (round S: physical) A star's magnitude by the counts' law (N(< m) grows as 10^(0.5 m): m = STAR_FAINTEST
-// + 2 log10(u), u its hash's place among the stars - Sirius' -1.4 the brightest of ~94 000), its illuminance
-// STAR_ZERO x 10^(-0.4 m) (a magnitude-0 star's, in the unit) spread over its spot's solid angle; the moon its mean
-// radiance over its true disc. Both x the frame's pre-exposure (sky.night.y); no glow (the air's forward scattering is
-// the sky's own).
+// pole, turned with the hours, a star in a cell at a hashed place - and the moon's disc. (round S: physical) A star's
+// magnitude by the counts' law (N(< m) grows as 10^(0.5 m): m = STAR_FAINTEST + 2 log10(u), u its hash's place among
+// the stars - Sirius' -1.4 the brightest of ~94 000), its illuminance STAR_ZERO x 10^(-0.4 m) (a magnitude-0 star's, in
+// the unit); the moon its mean radiance over its true disc. Both x the frame's pre-exposure (sky.night.y); no glow (the
+// air's forward scattering is the sky's own).
+// (Round NIGHTSKY) A star is a point: its whole flux drawn as a pixel-footprint point spread function - a Gaussian of
+// STAR_PSF pixels' sigma about its true place, normalised to its flux (radiance = E / (2 pi sigma^2) at the centre, so
+// the pixels it covers sum to E over a pixel's solid angle whatever the jitter) - the flux-conserving point sprite of
+// space and flight games under TAA / DLSS, which keeps a point from flickering in and out of the jittered samples. The
+// radiance in the unit is pi E / (unit lux x solid angle) - the pi was missing (every star was 1.24 magnitudes faint).
+// Each star dims through the air as the moon's disc does (the transmittance toward it, not a ramp at the horizon); the
+// cells' share of stars follows their solid angle (a cube's corner cells are 5 x smaller than its centre's: the same
+// stars per steradian everywhere); the 3 x 3 cells round the pixel are read, so a star near a cell's edge is whole.
 const float STAR_CELLS = 512.0;
-const float STAR_SHARE = 0.06;
+const float STAR_SHARE = 0.06;   // the mean cell's chance of a star (6 x 512^2 x 0.06 = 94 000 stars)
 const float STAR_FAINTEST = 8.5;
-const float STAR_CELL_ANGLE = 1.5707963 / STAR_CELLS;
+const float STAR_PSF = 0.5;      // the spread's sigma, in pixels (a pixel's footprint)
 const float SUN_LIMB = 0.6; // (added by the physical air: rt_sky.h kSunLimbDarkening)
 float star_hash(vec3 p)
 {
@@ -238,7 +245,7 @@ float star_hash(vec3 p)
     p += dot(p, p.yxz + 33.33);
     return fract((p.x + p.y) * p.z);
 }
-vec3 night_light(vec3 dir, float pixel)
+vec3 night_light(vec3 dir, float pixel, float pixel_angle)
 {
     vec3 add = vec3(0.0);
     if (sky.night.x > 0.0 && dir.y > 0.0) {
@@ -259,19 +266,37 @@ vec3 night_light(vec3 dir, float pixel)
             face = d.z > 0.0 ? 4.0 : 5.0;
         }
         vec2 g = (uv * 0.5 + 0.5) * STAR_CELLS;
-        vec2 cell = floor(g);
-        float h = star_hash(vec3(cell, face));
-        if (h > 1.0 - STAR_SHARE) {
-            vec2 centre = cell + 0.25 + 0.5 * vec2(star_hash(vec3(cell, face + 7.0)), star_hash(vec3(cell, face + 13.0)));
-            float spread = max(pixel * 0.5 * STAR_CELLS, 0.05);
-            float r = length(g - centre) / spread;
-            float u = max((h - (1.0 - STAR_SHARE)) / STAR_SHARE, 1e-6);
-            float magnitude = STAR_FAINTEST + 2.0 * log(u) / log(10.0);
-            float spot = 3.14159265 / 1.5 * (spread * STAR_CELL_ANGLE) * (spread * STAR_CELL_ANGLE);
-            float light = STAR_ZERO * pow(10.0, -0.4 * magnitude) / spot * sky.night.y;
-            vec3 tint = mix(vec3(0.75, 0.85, 1.0), vec3(1.0, 0.9, 0.75), star_hash(vec3(cell, face + 3.0)));
-            add += tint * (light * sky.night.x) * exp(-r * r * 1.5) * smoothstep(0.0, 0.08, dir.y);
+        vec2 base = floor(g);
+        // a cell's angle here (radians per cell): the face's uv over its gnomonic distortion, (1 + u^2 + v^2)^(-3/4)
+        // linear (the solid angle's (1 + u^2 + v^2)^(-3/2))
+        float stretch = 1.0 + dot(uv, uv);
+        float cell_angle = 2.0 / STAR_CELLS * pow(stretch, -0.75);
+        float sigma = STAR_PSF * pixel_angle / cell_angle; // (in cells)
+        float sigma_angle = STAR_PSF * pixel_angle;
+        // the air between: the transmittance from the viewer toward the star (as the moon's disc's)
+        vec3 through = atmosphere_transmittance(ATMOSPHERE_GROUND + sky.camera.w, dir.y);
+        float flux_to_peak = 3.14159265 / (2.0 * 3.14159265 * sigma_angle * sigma_angle) * sky.night.y * sky.night.x;
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                vec2 cell = base + vec2(dx, dy);
+                if (any(lessThan(cell, vec2(0.0))) || any(greaterThanEqual(cell, vec2(STAR_CELLS)))) {
+                    continue;
+                }
+                vec2 at = (cell + 0.5) / STAR_CELLS * 2.0 - 1.0;
+                float share = STAR_SHARE * (6.0 / 3.14159265) * pow(1.0 + dot(at, at), -1.5);
+                float h = star_hash(vec3(cell, face));
+                if (h <= 1.0 - share) {
+                    continue;
+                }
+                vec2 centre = cell + 0.25 + 0.5 * vec2(star_hash(vec3(cell, face + 7.0)), star_hash(vec3(cell, face + 13.0)));
+                vec2 off = (g - centre) / sigma;
+                float u = max((h - (1.0 - share)) / share, 1e-6);
+                float magnitude = STAR_FAINTEST + 2.0 * log(u) / log(10.0);
+                vec3 tint = mix(vec3(0.75, 0.85, 1.0), vec3(1.0, 0.9, 0.75), star_hash(vec3(cell, face + 3.0)));
+                add += tint * (STAR_ZERO * pow(10.0, -0.4 * magnitude) * flux_to_peak) * exp(-0.5 * dot(off, off));
+            }
         }
+        add *= through;
     }
     if (sky.moon.w > 0.0) {
         float angle = acos(clamp(dot(dir, sky.moon.xyz), -1.0, 1.0));
@@ -317,8 +342,9 @@ void main()
     vec3 light = sky_view_linear(dir, sky.sun.xyz);
 #endif
     float pixel = max(length(fwidth(dir)), 1e-5); // (a pixel's angle: outside any branch)
+    float pixel_angle = max(sqrt(length(dFdx(dir)) * length(dFdy(dir))), 1e-6); // (round NIGHTSKY: a pixel's side)
     if (sky.night.x > 0.0 || sky.moon.w > 0.0) {
-        light += night_light(dir, pixel);
+        light += night_light(dir, pixel, pixel_angle);
     }
     // (added by the physical air) the sun's disc - the real sun, limb-darkened, its edge a pixel soft - in the sky,
     // so the clouds cover it as they do the sky behind them
@@ -732,16 +758,23 @@ VkShaderModule make_module(VkDevice device, RtShaderStage stage, const std::stri
 
 // (added by the low sun's sky) The sky's light on the clouds' bases and tops from the drawn sky's table - rt_clouds.h
 // cloud_sky_taps, the texels and weights the processor's cloud_sky_light reads.
+// (Round NIGHTSKY) and the moon's table's, the same taps in its rows (the taps weigh every azimuth alike: what they sum
+// doesn't depend on where the table's source stands), while it is drawn.
 std::string cloud_sky_glsl()
 {
     std::string bottom;
     std::string top;
+    std::string moon_bottom;
+    std::string moon_top;
     for (const rt::CloudSkyTap& tap : rt::cloud_sky_taps()) {
         (tap.top ? top : bottom) += text::format("    %s += max(texelFetch(u_sky_view, ivec2(%u, %u), 0).rgb, vec3(0.0)) * %.9g;\n",
                                                  tap.top ? "top" : "bottom", tap.column, tap.row, tap.weight);
+        (tap.top ? moon_top : moon_bottom) +=
+            text::format("        %s += max(texelFetch(u_sky_view, ivec2(%u, %u), 0).rgb, vec3(0.0)) * %.9g;\n",
+                         tap.top ? "top" : "bottom", tap.column, tap.row + kSkyViewMoonRow, tap.weight);
     }
     return "void cloud_sky_light(out vec3 bottom, out vec3 top)\n{\n    bottom = vec3(0.0);\n    top = vec3(0.0);\n" +
-           bottom + top + "}\n";
+           bottom + top + "    if (sky_view_moon().w > 0.5) {\n" + moon_bottom + moon_top + "    }\n}\n";
 }
 
 std::string source_of(const char* body, const char* define)
@@ -1470,6 +1503,11 @@ bool ensure_level(const std::array<float, 3>& drawn)
     const rt::DayLight day = rt::day_light();
     own.level.atmosphere.sun = drawn;
     own.level.atmosphere.night = day.on ? day.night_sky : std::array<float, 3>{};
+    // (round NIGHTSKY) the moon's own sky once the sun is down (with the sun up its sky is over 10^5 x the moon's - under
+    // the table's 16-bit resolution)
+    const bool moon_sky = day.on && core::at(day.sun, 1) < 0.0F;
+    own.level.atmosphere.moon = day.on ? day.moon : std::array<float, 3>{0.0F, 1.0F, 0.0F};
+    own.level.atmosphere.moon_light = moon_sky ? day.moon_top : std::array<float, 3>{};
     own.level.atmosphere.aerosol = rt::aerosol(); // (added by the physical air: the weather's)
     own.level.atmosphere.exposure = rt::frame_pre_exposure(); // (round S)
     return true;

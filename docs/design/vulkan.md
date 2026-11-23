@@ -2655,6 +2655,21 @@ implement TOD, we need TOD"). `engine/gfx/rt_daylight.h`, `rt_clouds.h`, `gpu_vu
   atmosphere (`daylight_check`: 0.1 - 0.3), sun : moon ~4 x 10^5. Its place: east of the sun by its elongation (the
   hour angle less it, the declination x cos). Its colour is the sun's reflected - never blue. Its sky: the atmosphere's
   for a source at the moon's elevation x its light. The night sky's own light (airglow, stars, zodiacal) 0.002 lux.
+  **(Round NIGHTSKY) The moon's sky is drawn as the sun's is**: the sky-view image holds a second table, the same
+  multiple-scattering model about the moon x its light at the top (`DayLight::moon_top`), rows 108 - 215 under the
+  sun's, and a marker texel (toward the moon, on / off); `sky_view_linear` adds the two, the clouds' sky light reads
+  both, the fog's table folds the moon's into its sun-relative rows. Before, the moon's sky was spread evenly
+  (its illuminance as a uniform radiance, 1.5 x at the horizon): a flat grey 0.011 - 0.017 cd/m^2 - 3 - 5 x the measured
+  moonlit sky away from the moon. Now (full moon 41 degrees up) 5.9e-3 cd/m^2 62 degrees from it, 45 up (Krisciunas and
+  Schaefer's model: 4.9e-3 - 5.8e-3), bright about the moon, dark across from it, blue (Rayleigh's) as by day, ~3 x
+  brighter toward the horizon (the air mass). Drawn only while the sun is down (by day it is under the table's 16-bit
+  resolution). The airglow floor stays the uniform night sky's own light (6.4e-4 cd/m^2 overhead).
+  **The stars** are points of their magnitude's flux: a Gaussian of half a pixel's sigma about the star's place,
+  normalised to its flux (the flux-conserving point sprite space and flight games draw under TAA / DLSS: a sub-pixel
+  point stays in every jittered frame instead of flickering in and out), the 3 x 3 cells round a pixel read; their
+  radiance pi E / (lux x solid angle) - the pi had been missing (1.24 magnitudes faint); dimmed by the air's
+  transmittance toward them (not a ramp at the horizon); the cells' share of stars by their solid angle (the cube's
+  corners no longer 5 x as crowded). Under a full moon a few stars to magnitude ~3 show; moonless, many more.
   The scene's light is whichever direct light is brighter on the ground (the moon once the sun is down) - no switch
   elevations. The lamps by their photocells: on from 50 lux down, all by 10.
 - **Clouds dim the light** (`rt_clouds.h` cloud_layer_light): one coverage for everything (`cloud_coverage`: the

@@ -81,6 +81,15 @@ void release_sky(Backend& state);
 // whenever its input changes: the drawn sky's sun (the time of day's - rt::DayLight - or the level's); below the horizon
 // the horizon's haze giving way to the model's far ground. The sky is the model's alone at every time of day: the level's
 // painted dome is not matched (retired with rt_sky_match - the original look is rt_sky=0).
+// (Round NIGHTSKY) The sky-view image holds two such tables, each about its own source - the sun's in rows 0 - 107 (its
+// azimuth from the sun's), the moon's in rows 108 - 215 (from the moon's; the moon's light at the top x the same model) -
+// and one row more: texel (0, 216) toward the moon (world), w 1 while its rows are drawn. sky_view_linear (the GLSL
+// below) adds the two; what reads the texels itself (the clouds' sky light) reads both. The moon's sky is the
+// atmosphere's light scattered from the moon, as the day's is from the sun - not a uniform glow.
+inline constexpr uint32_t kSkyViewTables = 2;
+inline constexpr uint32_t kSkyViewRows = (kSkyViewTables * rt::kSkyViewHeight) + 1;
+inline constexpr uint32_t kSkyViewMoonRow = rt::kSkyViewHeight;                    // the moon table's first row
+inline constexpr uint32_t kSkyViewMarkerRow = kSkyViewTables * rt::kSkyViewHeight; // texel 0: toward the moon, w on
 // Below the horizon: the haze's elevation (radians, just above the horizon - the model's viewer is kViewerAltitude up,
 // its own horizon 0.3 degrees down), how far down (radians) the model's ground comes in, and how much of it at most.
 inline constexpr double kHazeElevation = 0.01;
@@ -92,6 +101,11 @@ struct AtmosphereInput {
     // (added by the time of day - engine/gfx/rt_daylight.h DayLight::night_sky) the night sky's light overhead, added
     // to the model's (exposed linear; kNightHorizon times it at the horizon and below); 0 by day and without the clock
     std::array<float, 3> night{};
+    // (round NIGHTSKY) the moon as the sky's second source: toward it (world, normalised) and its light at the
+    // atmosphere's top per unit of the sun's (rt::DayLight::moon_top; 0: no moon rows - by day the sun's sky is over
+    // 10^5 times the moon's, below the table's 16-bit floats' resolution)
+    std::array<float, 3> moon{0.0F, 1.0F, 0.0F};
+    std::array<float, 3> moon_light{};
     // (added by the physical air) the weather's aerosol (rt_sky.h): a change makes the transmittance and Psi again
     rt::Aerosol aerosol = rt::aerosol_for(rt::Weather::kClear);
     // (round S) the frame's pre-exposure (rt_daylight.h frame_pre_exposure): the sky-view table's radiance x it
@@ -111,12 +125,21 @@ void atmosphere_used(uint64_t serial); // (the tables read by a submission)
 //   vec3 atmosphere_transmittance(float r, float mu)  toward the top from radius r (metres), zenith cosine mu
 //   vec3 sky_view_linear(vec3 dir, vec3 sun)          the drawn sky toward dir (world), exposed linear
 [[nodiscard]] std::string atmosphere_glsl(uint32_t transmittance_binding, uint32_t sky_view_binding);
+// (round NIGHTSKY) The reads of the sky-view image's two tables from the sampler `table` (atmosphere_glsl includes them):
+//   vec2 sky_view_uv_about(vec3 dir, vec3 source)  a direction's place in a table about `source`
+//   vec3 sky_view_table_at(vec2 uv, float which)   table `which` (0 the sun's, 1 the moon's) there, exposed linear
+//   vec4 sky_view_moon()                           toward the moon (world), w 1 while its table is drawn
+//   vec3 sky_view_both(vec3 dir, vec3 sun)         the two added: the drawn sky toward dir
+[[nodiscard]] std::string sky_view_reads_glsl(const char* table);
 struct AtmosphereTexels {
     uint32_t width = 0;
     uint32_t height = 0;
     std::vector<std::array<float, 4>> texels;
 };
 bool read_atmosphere_table(Backend& state, AtmosphereTable which, AtmosphereTexels* out);
+// (round NIGHTSKY) One of the sky-view image's tables (0 the sun's, 1 the moon's) out of the image read back: its
+// kSkyViewWidth x kSkyViewHeight texels; empty if the image is smaller.
+[[nodiscard]] AtmosphereTexels sky_view_table_part(const AtmosphereTexels& image, uint32_t which);
 [[nodiscard]] uint64_t atmosphere_generation();
 // (path tracing, stage 1) Whether the sky-view table is made, and what it was made for (its sun, its exposure - the
 // frame's pre-exposure it holds the light x). The caller holds the lock.

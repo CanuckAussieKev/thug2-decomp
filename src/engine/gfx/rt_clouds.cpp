@@ -583,15 +583,24 @@ std::vector<CloudSkyTap> cloud_sky_taps()
 CloudSkyLight cloud_sky_light(const std::vector<std::array<float, 4>>& table)
 {
     CloudSkyLight out;
-    for (const CloudSkyTap& tap : cloud_sky_taps()) {
-        const std::size_t index = (static_cast<std::size_t>(tap.row) * kSkyViewWidth) + tap.column;
-        if (index >= table.size()) {
+    // (round NIGHTSKY) an image with the moon's table under the sun's (and its marker row) while the marker says drawn
+    const std::size_t table_texels = static_cast<std::size_t>(kSkyViewWidth) * kSkyViewHeight;
+    const std::size_t marker = 2 * table_texels;
+    const bool moon = table.size() > marker && std::get<3>(core::at(table, marker)) > 0.5F;
+    for (const std::size_t first : {std::size_t{0}, table_texels}) {
+        if (first != 0 && !moon) {
             continue;
         }
-        const std::array<float, 4>& texel = core::at(table, index);
-        std::array<double, 3>& sum = tap.top ? out.top : out.bottom;
-        for (std::size_t channel = 0; channel < 3; ++channel) {
-            core::at(sum, channel) += tap.weight * std::max(0.0, static_cast<double>(core::at(texel, channel)));
+        for (const CloudSkyTap& tap : cloud_sky_taps()) {
+            const std::size_t index = first + (static_cast<std::size_t>(tap.row) * kSkyViewWidth) + tap.column;
+            if (index >= table.size()) {
+                continue;
+            }
+            const std::array<float, 4>& texel = core::at(table, index);
+            std::array<double, 3>& sum = tap.top ? out.top : out.bottom;
+            for (std::size_t channel = 0; channel < 3; ++channel) {
+                core::at(sum, channel) += tap.weight * std::max(0.0, static_cast<double>(core::at(texel, channel)));
+            }
         }
     }
     return out;

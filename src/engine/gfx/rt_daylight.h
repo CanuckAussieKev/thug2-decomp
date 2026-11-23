@@ -275,8 +275,11 @@ struct DayLight {
     DayRgb moon_radiance{};   // (round S) the moon's disc's mean radiance (linear, the sky's unit; its transmittance at
                               // its elevation, its phase's light spread over the whole disc - the textured, phased disc
                               // is to come)
-    DayRgb night_sky{};       // added to the drawn sky (linear radiance in the sky's unit, overhead): the moonlit sky's
-                              // and the night sky's own light
+    DayRgb night_sky{};       // added to the drawn sky (linear radiance in the sky's unit, overhead): the night sky's
+                              // own light (round NIGHTSKY: no longer the moon's - moon_top)
+    DayRgb moon_top{};        // (round NIGHTSKY) the moon's light at the atmosphere's top per unit of the sun's
+                              // (moon_irradiance at its age; a ratio, never pre-exposed): the source its own sky is
+                              // drawn from - the atmosphere's model about the moon (gpu_vulkan/vulkan_rt_sky.h)
     std::array<float, 4> stars_pole{}; // xyz toward the celestial pole; w the stars' turn about it (radians)
     TodBlend blend;           // the original's states
     // (round S - the clouds) the cloud cover the light was made with, the share of the direct light the clouds keep
