@@ -26,6 +26,7 @@
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
+#include "engine/sys/frame_blend.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
@@ -621,6 +622,7 @@ struct MeterSlot {
     bool started = false;
     std::chrono::steady_clock::time_point last_pass;
     uint64_t cut = 0; // (round S2) the lighting's cut it adapted in (rt_daylight.h DayLight::cut)
+    uint64_t camera_cuts = 0; // (round NOBIAS) frame_blend::cuts() when it last metered
 };
 
 struct HdrState {
@@ -1333,10 +1335,16 @@ void record_meter(VkCommandBuffer commands, VkPipeline pipeline, std::size_t slo
     // (round LS2) A level's first frames under the loading screen (level_cover.h covered) are a view not shown yet - UE5
     // starts a new view's eye adaptation at its target (on a camera cut, a level loaded): each of them starts at its
     // target, so the first frame shown is exposed where the eye settles, with no adaptation after.
+    // (round NOBIAS) A camera cut too - a teleport, a respawn, the camera snapped (frame_blend::note_cut): the one cut
+    // signal Ray Reconstruction's reset, the motion blur and frame generation read. The eye's state was of another
+    // place; before, it adapted from there over seconds while every history had started again (UE5's auto exposure
+    // starts at its target on a camera cut).
     const uint64_t cut = rt::day_light().cut;
-    if (cut != slot.cut || rt::cut_settling() || level_cover::covered()) {
+    const uint64_t camera_cuts = frame_blend::cuts();
+    if (cut != slot.cut || camera_cuts != slot.camera_cuts || rt::cut_settling() || level_cover::covered()) {
         seconds = 0.0;
         slot.cut = cut;
+        slot.camera_cuts = camera_cuts;
     }
     slot.started = true;
     slot.last_pass = now;
