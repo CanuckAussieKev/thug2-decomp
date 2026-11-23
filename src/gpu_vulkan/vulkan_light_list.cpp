@@ -730,6 +730,17 @@ bool cache_lookup_whole(vec3 at, vec3 ng, out vec3 bounce, out vec3 direct)
     direct = max(d.rgb, vec3(0.0));
     return true;
 }
+// (round LW2) Whether a path may END at a vertex whose specular lobe reflects `specular_albedo` of an even light (its
+// directional albedo - brdf_specular_albedo at the view): the cell's whole light is E / pi, the light a white diffuser
+// gets - exact for the diffuse lobe (a Lambertian surface sends albedo x E / pi whatever the light's directions), not for
+// the specular one, which sends the light from its own directions: the cell's light taken as even, a lobe that looks
+// away from the lights (a floor met at a grazing angle, its lobe on the horizon, lamps overhead) sent its albedo x the
+// whole E / pi - paths ending at the cache came out 15 % (Boston at night) - 25 % (Training) brighter in ReSTIR GI's
+// light than paths traced on, which sample the lights through the vertex's BSDF. Where the lobe reflects more than
+// CACHE_END_SPECULAR_MOST the path goes on (its light sample takes the lobe's own directions); under it the error is at
+// most a few % of the vertex's light (Boston: ending vs traced 1.00, the continued paths +0.07 ms at 853 x 480).
+const float CACHE_END_SPECULAR_MOST = 0.05;
+bool cache_may_end(vec3 specular_albedo) { return path_luma(specular_albedo) <= CACHE_END_SPECULAR_MOST; }
 // The bounce at a point, 0 on a miss (a reader that can't continue the path: the front layer's).
 vec3 cache_bounce(vec3 at, vec3 ng)
 {

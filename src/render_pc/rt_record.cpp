@@ -64,6 +64,7 @@
 #include "render_pc/scatter_world.h"
 #include "render_pc/sub_mesh.h"
 #include "render_pc/vertex_buffers.h"
+#include "render_pc/water_materials.h"
 
 namespace render::rt_record {
 
@@ -670,6 +671,12 @@ rt::Material material_of(const MaterialRef* material)
         out.least_texel_alpha = out.texture == nullptr ? 1.0F : texels.known ? static_cast<float>(texels.least) * kPerByte : 0.0F;
     }
     reflectivity_of(material, &out);
+    // (round LW) water whatever its passes draw of a reflection: the game's water (water_materials.h - the moving
+    // surfaces, rt_water's) is water to every ray (the path tracer's Fresnel interface, water's F0 - the material
+    // table's), whether it has an environment pass or not (Barcelona's fountain pool has none)
+    if (water_materials::is_water(material)) {
+        out.reflection_class = rt::kReflectWater;
+    }
     layers_of(material, &out);
     return out;
 }
@@ -1959,6 +1966,12 @@ void emitter_work()
         // colours (a blended overlay's are often the white of no light at all - a light cone, a decal)
         const bool blended = lamp_texels_solid_only(mesh, material, entry->second.material);
         if (!glow && !bake) {
+            continue;
+        }
+        // (round LW) a self-lit or textured candidate shows its own surface: a subtracted or multiplied layer (a baked
+        // shadow drawn white where it darkens most - Training's rail on its wall, found a lamp by its texture) is never
+        // one (rt_lights.h blend_shows_surface)
+        if (!glow && !rt::blend_shows_surface(blend_mode(material, 0))) {
             continue;
         }
         blended_read += blended ? 1 : 0;

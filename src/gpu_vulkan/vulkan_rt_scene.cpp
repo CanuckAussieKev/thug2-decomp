@@ -2614,6 +2614,8 @@ std::string_view cutout_rays_glsl()
     static const std::string made = [] {
         std::string text = "const float HIT_GLASS_F0 = " +
                            std::to_string(std::get<0>(rt::material_f0(rt::MaterialKind::kGlass))) +
+                           ";\nconst float HIT_WATER_F0 = " +
+                           std::to_string(std::get<0>(rt::material_f0(rt::MaterialKind::kWater))) +
                            ";\nconst float HIT_BLEND_GAMMA = " + std::to_string(rt::kDisplayGamma) +
                            ";\nconst float RAY_LAYER_LIFT = " + std::to_string(kLayerLift) + ";\n"; // (round DECAL)
         text += R"(
@@ -2723,10 +2725,16 @@ const uint HIT_ADDED = 4u;    // adds to or takes from what is behind (1 - 4, 9,
                               // surface; light passes unchanged, its own emission (the light store's) added
 const uint HIT_INSTANCE_TRANSPARENT = 64u; // (rt::kTransparent)
 const uint HIT_CLASS_GLASS = 2u;              // (rt::kReflectGlass)
+const uint HIT_CLASS_WATER = 1u;              // (rt::kReflectWater)
+// (round LW) `f0`: a seen-through dielectric's Fresnel reflectance face-on - glass's, or water's (the game's water, met as a
+// thin interface the same way: its texture's coverage the water's own colour, the rest reflected by Fresnel or seen
+// through); `water` - the path tracer reflects water's whole surface by Fresnel first (water_shader.cpp's model)
 struct HitBlend {
     uint kind;
     float coverage;
     vec3 tint;
+    float f0;
+    bool water;
 };
 HitBlend hit_blend(uint instance, uint primitive, uint id, vec2 barycentrics)
 {
@@ -2734,6 +2742,8 @@ HitBlend hit_blend(uint instance, uint primitive, uint id, vec2 barycentrics)
     b.kind = HIT_SOLID;
     b.coverage = 1.0;
     b.tint = vec3(1.0);
+    b.f0 = HIT_GLASS_F0;
+    b.water = false;
     GeometryRecord g = geometry_record(instance);
     if ((g.instance_flags & HIT_INSTANCE_TRANSPARENT) == 0u) {
         return b;
@@ -2755,7 +2765,9 @@ HitBlend hit_blend(uint instance, uint primitive, uint id, vec2 barycentrics)
         b.tint = vec3(clamp(m.colour.a, 0.0, 1.0));
         return b;
     }
-    uint kind = m.reflection_class == HIT_CLASS_GLASS ? HIT_GLASS : HIT_COVERAGE;
+    uint kind = m.reflection_class == HIT_CLASS_GLASS || m.reflection_class == HIT_CLASS_WATER ? HIT_GLASS : HIT_COVERAGE;
+    b.water = m.reflection_class == HIT_CLASS_WATER;
+    b.f0 = b.water ? HIT_WATER_F0 : HIT_GLASS_F0;
     // (round PF: one texel, the corners' UVs of the material's set and their alphas - corners_uv, record_drawn_alpha)
     vec4 texel;
     uint uv_offset = g.uv_offset + (m.uv_set < ((g.flags >> 8) & 15u) ? m.uv_set * 8u : 0u);
@@ -2777,13 +2789,14 @@ HitBlend hit_blend(uint instance, uint primitive, uint id, vec2 barycentrics)
     b.kind = kind;
     return b;
 }
-// The share of light a thin pane of glass reflects at `cos_theta` (Schlick, HIT_GLASS_F0).
-float hit_glass_reflectance(float cos_theta)
+// The share of light a thin dielectric interface reflects at `cos_theta` (Schlick): glass's (HIT_GLASS_F0), or `f0`'s.
+float hit_dielectric_reflectance(float cos_theta, float f0)
 {
     float c = clamp(1.0 - abs(cos_theta), 0.0, 1.0);
     float c2 = c * c;
-    return HIT_GLASS_F0 + (1.0 - HIT_GLASS_F0) * c2 * c2 * c;
+    return f0 + (1.0 - f0) * c2 * c2 * c;
 }
+float hit_glass_reflectance(float cos_theta) { return hit_dielectric_reflectance(cos_theta, HIT_GLASS_F0); }
 // The light a ray takes through a blended surface it crosses (shadow rays: its expected share - a covered part blocks
 // it, glass reflects some of it, a filter tints it, an added surface lets it all through).
 vec3 hit_blend_transmittance(HitBlend b, float cos_theta)
@@ -2796,7 +2809,7 @@ vec3 hit_blend_transmittance(HitBlend b, float cos_theta)
     }
     float open = 1.0 - b.coverage;
     if (b.kind == HIT_GLASS) {
-        open *= 1.0 - hit_glass_reflectance(cos_theta);
+        open *= 1.0 - hit_dielectric_reflectance(cos_theta, b.f0);
     }
     return vec3(open);
 }

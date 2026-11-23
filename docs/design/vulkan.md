@@ -4944,8 +4944,9 @@ their own draw: waves, a reflection, refraction, colour by depth, shoreline foam
   light pools). Every later draw with that texture on stage 0 is water until the next material. The shader narrows it
   per pixel: only where the surface faces up (the triangle's normal from the position's derivatives, y above
   0.82 - 0.94: not waterfalls, flags, scrolling signs), and only where the texture's mean colour (its smallest level)
-  looks like water's - not warm (red over blue by 0.04 - 0.12: lava, foliage, sunlight pools), not near white (luma
-  above 0.58 - 0.68: foam and caustic sheets drawn over the water) nor near black (below 0.06 - 0.12: shadows).
+  looks like water's - not warm (red over blue by 0.04 - 0.12: lava, foliage, sunlight pools). (Round LW: the near-white
+  and near-black tests are gone - a shadow or a light pool is never a water material by its blend, rt_lights.h
+  blend_shows_surface, and Barcelona's fountain pool, EDA1D05C, a dark pebbled water texture, was left a flat sheet.)
   `node tools/game/water_survey.ts` applies the same rules to the levels' files: of the moving materials, AP 6 of 22,
   AU 10 / 21 (the sea E51F4A45, pools), BA 30 / 75 (the sea CDC12099 / BAC6100F, the harbour 53A5B53A / B3705C24,
   fountains), BE 36 / 63 (the canal E06BBC98, fountains), BO 9 / 50 (the harbour 669D49A1), NO 21 / 58 (the river
@@ -5047,6 +5048,17 @@ their own draw: waves, a reflection, refraction, colour by depth, shoreline foam
   sand; the ripple texture's levels 0 and 4 against `water_waves_reference` (0.0005); opaque water kept back and drawn
   after the opaque world; no NaN. In the game `node tools/game/water_check.ts run` (five levels, `rt_water` off and on
   over the user's settings, pictures and the frame profile's device time).
+- **Round LW: the traced mirror.** Where the front layer (below, "Round FL") is the water's rest surface and faces up,
+  its pass traces the view's ray reflected about the rest normal: the hit lit as ReSTIR GI's secondary vertices and the
+  reflections pass's hits are (its emission, one light-list sample through its BSDF with its own candidates, the disc by
+  its own ray, its reflectance x the radiance cache's bounce), else the sky grid's light; pre-exposed, averaged over at
+  most 8 frames through the mirror image's point (as far behind the surface along the view as the hit is in front of it).
+  The water's shading takes it in place of the screen's march, moved on the screen by twice the waves' tilt x the hit's
+  distance (the image's alpha). The screen march stays where the layer isn't the water (another see-through surface in
+  front of it). Rays and the path tracer meet every water material (rt::kReflectWater - render_pc gives the class to the
+  water materials whether they have an environment pass or not) as a Fresnel interface: water's F0 (the material
+  table's), its texture's coverage its own colour, the rest seen through (`pt ref`: the whole surface reflects by Fresnel
+  first, then coverage or through - water_shader.cpp's model; a thin interface: no bending, no absorption on the path).
 - **Not done:** ray-traced reflection rays from the water (with ray tracing the reflection is still the screen's and the
   sky's - a ray query in the water's shader would need the TLAS, the geometry table and the material set bound to the
   draws); the water's own geometry moves only with `rt_water_geometry` (below); stacked sheets are each shaded; the copy is
@@ -6406,6 +6418,14 @@ what the camera sees emit), each mismatch traced to the side that was wrong:
     ray's footprint (its length x 1 / sqrt(pi x its lobe's pdf)) covers the cell: the vertex sends its reflectance x the
     cell's whole light, no light sample. The sample pass then holds no light sampling at all: a path that doesn't end is
     queued whole and the continued pass traces its first ray again (96 registers, was 128 / 166).
+  - (Round LW2) A path ends there only where the vertex's specular lobe reflects at most 5 % of an even light (its
+    directional albedo at the view - vulkan_light_list.h cache_may_end; GI's vertices and the reflections' hits alike):
+    the cell's E / pi through the diffuse lobe is exact, through the specular one it assumes the light even - a floor
+    met at a grazing angle, its lobe on the horizon and the lamps overhead, sent its whole specular albedo x E / pi.
+    Ended paths were 15 % brighter than paths traced on at BO's bank; now 1.00 (Training too), the continued pass +0.07
+    ms at 853 x 480. A sample whose path ended there has a confidence of at most 8 in the temporal reuse (the
+    generalised balance heuristic's c_i(x): the same in its weight and in z) - round LW's age limit dropped such a
+    reservoir past 16 frames, a drop that depends on the sample and so biased (the check's red wall -2.5 %).
   - ReSTIR GI's spatial reuse with one neighbour, two where the pixel's history is under 4 samples (RTXDI's disocclusion
     boost; its rays-for-Z kept); the specular reservoir's reuse code (off in the game since round WS) compiled only into
     the check's shaders.

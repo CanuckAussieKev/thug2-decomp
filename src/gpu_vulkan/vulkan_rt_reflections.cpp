@@ -1072,6 +1072,7 @@ bool list_hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, m
     vec3 cached;
     vec3 cached_direct;
     if (list_footprint > 0.0 && list_footprint >= cache_cell_side(h.position) &&
+        cache_may_end(brdf_specular_albedo(h.material.f0, max(dot(n, v), 1.0e-4), h.material.roughness)) &&
         cache_lookup_whole(h.position, ng, cached, cached_direct)) {
         lit = (max(h.emitted, vec3(0.0)) + reflectance * (cached_direct + cached)) * list.eye.w;
         lit = any(isnan(lit)) || any(isinf(lit)) ? vec3(0.0) : lit;

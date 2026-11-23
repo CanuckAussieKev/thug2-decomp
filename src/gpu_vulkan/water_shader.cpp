@@ -144,12 +144,12 @@ float water_luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 // Whether a texture's mean colour is water's (1) or not (0): not warm (red over blue: lava, fire, foliage, sunlight
 // pools), not near white (foam, caustics, glints drawn over the water) nor near black (shadows) - vulkan_water.h
 // water_hue_weight is the same on the processor.
-float water_hue_weight(vec3 mean)
-{
-    float luma = water_luma(mean);
-    return (1.0 - smoothstep(0.04, 0.12, mean.r - mean.b)) * smoothstep(0.06, 0.12, luma) *
-           (1.0 - smoothstep(0.58, 0.68, luma));
-}
+// (round LW) Only a warm texture says a moving surface isn't water (lava, a fire's flow); its darkness or brightness
+// doesn't: Barcelona's fountain pool (EDA1D05C, a dark pebbled water texture over the basin) was left a flat dark sheet
+// by a "near black: a shadow" test - a shadow or a foam sheet drawn so is no water material (render_pc/water_materials:
+// its first pass shows the surface, rt_lights.h blend_shows_surface), and whatever its colour, water's surface reflects
+// by Fresnel; its colour is its body's.
+float water_hue_weight(vec3 mean) { return 1.0 - smoothstep(0.04, 0.12, mean.r - mean.b); }
 
 // The swell (water_wave) at rest point p as its normal's parts - x and z the slope, y the crests' sharpening -, each wave
 // faded out where a pixel spans a good part of its wavelength. The moving surface's shape is the same waves'
@@ -403,6 +403,22 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
     }
     vec4 found = (copied && water.misc.x > 0.5) ? water_screen_trace(eye, r_eye) : vec4(0.0);
     vec3 reflected = mix(sky, found.rgb, found.w);
+#ifdef LIGHT_FRONT
+    // (NOT ORIGINAL - round LW) where the front layer is this water, what its rest surface mirrors - a ray traced from it
+    // and its hit lit by the light list as everything else is (vulkan_front_layer.h): the lamps, the lit walls, the
+    // skater, the sky - not the screen's. The waves move the mirror image by twice their tilt x its distance (the image's
+    // alpha), on the screen.
+    vec4 mirror_here = light_front_reflect_at(ivec2(gl_FragCoord.xy));
+    if (mirror_here.a > 0.0) {
+        float focal = abs(water.projection[1][1]) * water.viewport.w * 0.5;
+        vec2 moved_by = vec2(tilt.x, -tilt.y) * (2.0 * min(mirror_here.a, 1.0e4) * focal / surface_w);
+        ivec2 low = ivec2(water.viewport.xy);
+        ivec2 high = ivec2(water.viewport.xy + water.viewport.zw) - 1;
+        vec4 mirror = light_front_reflect_at(clamp(ivec2(gl_FragCoord.xy + moved_by), low, high));
+        reflected = display_from_linear(max((mirror.a > 0.0 ? mirror : mirror_here).rgb, vec3(0.0)));
+        found = vec4(0.0, 0.0, 0.0, 1.0);
+    }
+#endif
 
     // 6. the sun's glitter: a sharp highlight of the scene's sun on the wave normals (normalised Blinn-Phong, Fresnel
     // at the half vector), where the bake says the water is in the sun
