@@ -681,6 +681,40 @@ rt::Material material_of(const MaterialRef* material)
     return out;
 }
 
+// A material's passes as the material logs show them: flags, blend, colour (as stored: 0.5 leaves the texture as it is),
+// texture checksum and size.
+std::string passes_text(const MaterialRef* material)
+{
+    std::string text;
+    const uint32_t count = std::min(material->pass_count(), kPassCount);
+    for (uint32_t pass = 0; pass < count; ++pass) {
+        const TextureImage* texture = core::at(material->textures(), pass);
+        const std::array<float, 4>& colour = core::at(material->pass_color(), pass);
+        text += text::format(" | pass %u flags %04X blend %u colour %.2f %.2f %.2f %.2f tex %08X %ux%u%s", pass,
+                             core::at(material->pass_flags(), pass), core::at(material->blend_modes(), pass),
+                             static_cast<double>(core::at(colour, 0)), static_cast<double>(core::at(colour, 1)),
+                             static_cast<double>(core::at(colour, 2)), static_cast<double>(core::at(colour, 3)),
+                             texture != nullptr ? texture->checksum : 0U,
+                             texture != nullptr ? unsigned{texture->width} : 0U,
+                             texture != nullptr ? unsigned{texture->height} : 0U,
+                             core::at(material->uv_wibble(), pass) != nullptr ? " wibble" : "");
+    }
+    return text;
+}
+
+// (round ALBEDO) [debug] rt_material_passes=1: every material's passes logged once, when first registered - the key of
+// `pt frames ... inputs`' di_material (the per-material albedo measure).
+void log_material_passes(const MaterialRef* material, rt::MaterialId id)
+{
+    static const bool kWanted = build_info::fetch_flag("debug", "rt_material_passes", false);
+    if (!kWanted) {
+        return;
+    }
+    get_log("rt: material passes %u = %08X (name %08X): passes %u, alpha ref %u%s", static_cast<unsigned>(id),
+            material->checksum(), material->name_hash(), material->pass_count(), unsigned{material->alpha_ref()},
+            passes_text(material).c_str());
+}
+
 // [debug] rt_reflection_materials=1: each environment-mapped material's passes logged once, when first registered (how
 // R5b's surfaces were classified - water, glass, other - and where they reflect: their mask passes; "not reflective":
 // its environment pass draws no environment colour).
@@ -704,19 +738,7 @@ void log_reflective_material(const MaterialRef* material, const rt::Material& ou
                                  mask.texture_alpha ? " (texture alpha)" : "");
         }
     }
-    const uint32_t count = std::min(material->pass_count(), kPassCount);
-    for (uint32_t pass = 0; pass < count; ++pass) {
-        const TextureImage* texture = core::at(material->textures(), pass);
-        const std::array<float, 4>& colour = core::at(material->pass_color(), pass);
-        text += text::format(" | pass %u flags %04X blend %u colour %.2f %.2f %.2f %.2f tex %08X %ux%u%s", pass,
-                             core::at(material->pass_flags(), pass), core::at(material->blend_modes(), pass),
-                             static_cast<double>(core::at(colour, 0)), static_cast<double>(core::at(colour, 1)),
-                             static_cast<double>(core::at(colour, 2)), static_cast<double>(core::at(colour, 3)),
-                             texture != nullptr ? texture->checksum : 0U,
-                             texture != nullptr ? unsigned{texture->width} : 0U,
-                             texture != nullptr ? unsigned{texture->height} : 0U,
-                             core::at(material->uv_wibble(), pass) != nullptr ? " wibble" : "");
-    }
+    text += passes_text(material);
     get_log("%s", text.c_str());
 }
 
@@ -759,6 +781,7 @@ rt::MaterialId material_id(const MaterialRef* material, rt::RayTracing& rt)
     }
     if (made) {
         log_seen_through_material(material, now, entry.id);
+        log_material_passes(material, entry.id);
     }
     if (made || !same_material(entry.material, now)) {
         entry.material = now;

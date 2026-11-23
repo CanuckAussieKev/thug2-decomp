@@ -565,11 +565,8 @@ bool expected(const Case& given, const Quad& quad, uint32_t px, uint32_t py, Vec
         const brdf::Rgb base = lin(Vec3{kMaterialAmbient.at(0) * ambient.at(0), kMaterialAmbient.at(1) * ambient.at(1),
                                         kMaterialAmbient.at(2) * ambient.at(2)});
         radiance = brdf::ambient(m, nv, {base.at(0) * hemi, base.at(1) * hemi, base.at(2) * hemi}, base);
-        brdf::Material lit = m;
-        const brdf::Rgb cd = lin(test.bake);
-        for (std::size_t channel = 0; channel < 3; ++channel) {
-            core::at(lit.albedo, channel) *= core::at(cd, channel);
-        }
+        // (round ALBEDO: one albedo definition - the draw's diffuse colour, the vertex colour here, is never the albedo)
+        const brdf::Material lit = m;
         const Light& light = light_of(test);
         const brdf::Rgb colour = lin(light.colour);
         brdf::Rgb one{};

@@ -276,6 +276,7 @@ void fill_fragment_uniforms(const GpuStateBlock& block, FragmentUniforms* unifor
     uniforms->fog = {float_state(block, GpuRenderState::kFogStart), float_state(block, GpuRenderState::kFogEnd),
                      float_state(block, GpuRenderState::kFogDensity), 0.0F};
     uniforms->alpha_reference = {static_cast<float>(state(block, GpuRenderState::kAlphaRef) & kByte), 0.0F, 0.0F, 0.0F};
+    uniforms->pass_tint = block.pass_tint;
 }
 
 VertexLayout vertex_layout(uint32_t fvf)

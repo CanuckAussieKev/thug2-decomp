@@ -1608,7 +1608,10 @@ void save_upscaler_inputs(Backend& state, const LinearFrames& own, const rt::Vie
     if (read_restir_primary(state, &primary) && primary.width == width && primary.height == height) {
         std::vector<std::array<float, 3>> albedo(primary.albedo_kind.size());
         std::vector<std::array<float, 3>> kind(primary.albedo_kind.size());
+        std::vector<std::array<float, 3>> material(primary.albedo_kind.size());
         for (std::size_t i = 0; i < albedo.size(); ++i) {
+            const float id = core::at(primary.material, i);
+            core::at(material, i) = {id, id, id};
             const std::array<float, 4>& row = core::at(primary.albedo_kind, i);
             core::at(albedo, i) = {core::at(row, 0), core::at(row, 1), core::at(row, 2)};
             const float k = core::at(row, 3);
@@ -1616,6 +1619,9 @@ void save_upscaler_inputs(Backend& state, const LinearFrames& own, const rt::Vie
         }
         write_file(text::format("%sinputs_%04u_di_albedo.exr", own.folder.c_str(), number), exr_bytes(width, height, albedo));
         write_file(text::format("%sinputs_%04u_di_kind.exr", own.folder.c_str(), number), exr_bytes(width, height, kind));
+        // (round ALBEDO) the traced surface's material id + 1 (0: none) - the per-material albedo measure's key
+        write_file(text::format("%sinputs_%04u_di_material.exr", own.folder.c_str(), number),
+                   exr_bytes(width, height, material));
     }
 }
 

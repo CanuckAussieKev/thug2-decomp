@@ -444,6 +444,8 @@ const float PRIMARY_NONE = 0.0;
 const float PRIMARY_TRACED = 1.0;
 const float PRIMARY_DEPTH = 2.0;
 layout(buffer_reference, buffer_reference_align = 16, scalar) writeonly buffer SharedSurfaces { vec4 rows[]; };
+// (round ALBEDO - `pt frames ... inputs`' di_material) the traced primary's material id + 1 (0: none) in the F0 row's w
+uint g_primary_material = 0u;
 Surface shared_primary(ivec2 p, Surface s, bool metal, vec3 f0, float rough, float kind)
 {
     if (pass.surfaces.z != 0u) {
@@ -455,7 +457,7 @@ Surface shared_primary(ivec2 p, Surface s, bool metal, vec3 f0, float rough, flo
         rows.rows[at + 1u] = vec4(s.n, rough);
         rows.rows[at + 2u] = vec4(s.ng, uintBitsToFloat(flags));
         rows.rows[at + 3u] = vec4(s.albedo, kind);
-        rows.rows[at + 4u] = vec4(f0, 0.0);
+        rows.rows[at + 4u] = vec4(f0, float(g_primary_material));
     }
     return s;
 }
@@ -519,6 +521,7 @@ Surface primary(ivec2 p)
     // (GI's: the albedo, the material's F0 and roughness as the surface has them - it puts its check's on them itself)
     Surface written = s;
     written.albedo = h.base_colour;
+    g_primary_material = id + 1u;
     shared_primary(p, written, h.kind == HIT_KIND_METAL, h.material.f0, h.material.roughness, PRIMARY_TRACED);
     return s;
 }
@@ -2577,10 +2580,14 @@ bool read_restir_primary(Backend& state, RestirPrimaryReadback* out)
     }
     out->width = own.width;
     out->height = own.height;
+    constexpr std::size_t kMaterialFloat = (4 * 4) + 3; // (the F0 row's w)
     out->albedo_kind.resize(pixels);
+    out->material.resize(pixels);
     for (std::size_t i = 0; i < pixels; ++i) {
         std::memcpy(core::at(out->albedo_kind, i).data(),
                     &core::at(bytes, ((i * kRowFloats) + (kAlbedoRow * 4)) * sizeof(float)), 4 * sizeof(float));
+        std::memcpy(&core::at(out->material, i), &core::at(bytes, ((i * kRowFloats) + kMaterialFloat) * sizeof(float)),
+                    sizeof(float));
     }
     return true;
 }
