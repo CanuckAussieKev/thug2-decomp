@@ -22,7 +22,9 @@
 //     the pre-exposure drifts 0.1 % a frame: the frame's light and the emitters' surroundings' out / in within 2 % of the
 //     same scene held still; --rr-probe prints the frame's and the emitters' out / in too. (Round DD) A transparency
 //     layer of the drawn size: its square shown at its place and not again at its drawn coordinates; one of the
-//     output's size isn't given.
+//     output's size isn't given. (Round NOBIAS2) --rr-probe also: emitters 1 - 2 px wide, lit in every frame or one in
+//     four (smaller than a pixel under the jitter), given in the colour, in the transparency layer or with the
+//     bias-current-colour hint - what Ray Reconstruction keeps of small bright lights seen directly.
 //   thug2_vulkan_upscale_check [--device N] [--display N] [--no-validation] [--dlss] [--rr-probe] [--quality ...]
 //                              [--save <folder>] (the round trip's pictures as .ppm)
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan or no upscaler for it.
@@ -1179,6 +1181,12 @@ struct RrScene {
     // its top-left (as the colour target is - the game gave that before round DD) instead of exactly the drawn size
     float layer_light = 0.0F;
     bool layer_whole = false;
+    // (round NOBIAS2) where the emitters' light is given: 0 in the colour, 1 in the transparency layer (alpha 0: added
+    // over the surface, not denoised), 2 in the colour with the bias-current-colour hint at 0.9 on them
+    uint32_t route = 0;
+    // (round NOBIAS2) an emitter smaller than a pixel under the jitter: lit one frame in `sparse` at `sparse` x its value
+    // (the same light on average); the output then the mean of the last `sparse` frames
+    uint32_t sparse = 1;
 };
 constexpr std::array<double, 2> kRrLayerAt{0.6, 0.3};
 
@@ -1259,7 +1267,7 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
             }
         }
     }
-    const std::vector<float> reactive(pixels, 0.0F);
+    std::vector<float> reactive(pixels, 0.0F);
     std::vector<uint8_t> emitting(pixels, 0);
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
@@ -1267,6 +1275,9 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
             const float a = (((x / kRrChecker) + (y / kRrChecker)) % 2U) == 0U ? kRrAlbedoDark : kRrAlbedoLight;
             const bool on = emitter_near(static_cast<double>(x) + 0.5, static_cast<double>(y) + 0.5, half_patch);
             core::at(emitting, index) = on ? 1 : 0;
+            if (on && scene.route == 2) {
+                core::at(reactive, index) = 0.9F;
+            }
             core::at(lit, index) = on ? scene.emitter : a * scene.level;
             for (std::size_t channel = 0; channel < 3; ++channel) {
                 core::at(albedo, (index * 4) + channel) = a;
@@ -1285,13 +1296,25 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
     double sum_in = 0.0;
     std::size_t count_in = 0;
     float scale = 1.0F;
+    uint32_t made_frames = 0;
     const auto make_colour = [&]() {
+        const bool lit_now = (made_frames++ % scene.sparse) == 0;
         for (std::size_t index = 0; index < pixels; ++index) {
             float value = core::at(lit, index) * scale;
+            if (core::at(emitting, index) != 0) {
+                value = lit_now ? value * static_cast<float>(scene.sparse) : 0.0F;
+            }
             if (scene.noisy && core::at(emitting, index) == 0) {
                 value *= static_cast<float>(-std::log(next_unit()));
             }
             value = std::min(value, kRrHalfMost);
+            if (scene.route == 1 && core::at(emitting, index) != 0) {
+                for (std::size_t channel = 0; channel < 3; ++channel) {
+                    core::at(layer, (index * 4) + channel) = value;
+                }
+                core::at(layer, (index * 4) + 3) = 0.0F;
+                value = 0.0F;
+            }
             for (std::size_t channel = 0; channel < 3; ++channel) {
                 core::at(colour, (index * 4) + channel) = value;
             }
@@ -1331,6 +1354,7 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
         }
     }
     std::string why;
+    std::vector<float> averaged;
     std::unique_ptr<render::vulkan::UpscaleProvider> provider;
     if (ok) {
         const std::scoped_lock lock(state.mutex);
@@ -1346,7 +1370,7 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
         const uint32_t phases = render::vulkan::upscale_jitter_phases(1.0F / ratio);
         const int frames = scene.step_at > 0 ? scene.step_at + 1 : kRrFrames;
         for (int frame_index = 0; frame_index < frames && ok; ++frame_index) {
-            const std::scoped_lock lock(state.mutex);
+            std::unique_lock lock(state.mutex);
             const bool stepped = scene.step_at > 0 && frame_index >= scene.step_at;
             if (stepped && frame_index == scene.step_at) {
                 scale = scene.step;
@@ -1356,9 +1380,12 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
                 scale *= scene.drift;
                 make_colour();
                 ok = rr_fill(state, &images.colour, colour);
-            } else if (scene.noisy && frame_index > 0) {
+            } else if ((scene.noisy || scene.sparse > 1) && frame_index > 0) {
                 make_colour();
                 ok = rr_fill(state, &images.colour, colour);
+                if (scene.route == 1) {
+                    ok = ok && rr_fill(state, &images.layer, layer);
+                }
             }
             state.motion.before = {.known = true, .view = view_floats, .projection = projection_floats};
             render::vulkan::UpscaleFrame frame;
@@ -1385,6 +1412,18 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
                 frame.commands = commands;
                 ok = provider->evaluate(state, frame, &why);
             }) && ok;
+            if (scene.sparse > 1 && frame_index >= frames - static_cast<int>(scene.sparse)) {
+                lock.unlock();
+                std::vector<float> one;
+                if (read_floats(&images.output, 4, &one)) {
+                    if (averaged.empty()) {
+                        averaged.assign(one.size(), 0.0F);
+                    }
+                    for (std::size_t k = 0; k < one.size(); ++k) {
+                        averaged[k] += one[k] / static_cast<float>(scene.sparse);
+                    }
+                }
+            }
         }
     }
     if (!why.empty()) {
@@ -1392,6 +1431,9 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
     }
     std::vector<float> out;
     result.ran = ok && read_floats(&images.output, 4, &out);
+    if (!averaged.empty()) {
+        out = averaged;
+    }
     if (result.ran) {
         result.finite = true;
         for (const float number : out) {
@@ -1465,7 +1507,7 @@ void probe_reconstruction(render::vulkan::Backend& state)
         RrScene scene;
     };
     const float old_grey = kRrCameraGrey * std::exp2(-2.8F);
-    const std::array<Probe, 28> probes{{
+    const std::array<Probe, 42> probes{{
         {"flat 0.18, pre-exposure x 1.01 a frame", {.level = kRrCameraGrey, .drift = 1.01F}},
         {"flat 0.18, pre-exposure x 1/1.01 a frame", {.level = kRrCameraGrey, .drift = 1.0F / 1.01F}},
         {"noisy 0.18, pre-exposure x 1.01 a frame", {.level = kRrCameraGrey, .noisy = true, .drift = 1.01F}},
@@ -1496,6 +1538,23 @@ void probe_reconstruction(render::vulkan::Backend& state)
         {"noisy 0.18, 40 4 px emitters 1000, x 1.001 a frame", {.level = kRrCameraGrey, .emitter = 1000.0F, .patch = 4, .spots = 40, .noisy = true, .drift = 1.001F}},
         {"flat 0.0028, 40 4 px emitters 16, x 1.001 a frame", {.level = kRrCameraGrey / 64.0F, .emitter = 16.0F, .patch = 4, .spots = 40, .drift = 1.001F}},
         {"flat 0.0028, 40 4 px emitters 16", {.level = kRrCameraGrey / 64.0F, .emitter = 16.0F, .patch = 4, .spots = 40}},
+        // (round NOBIAS2) small bright emitters seen directly - New Orleans at night: 5 pixels held 80 % of the emission
+        // view's light, Ray Reconstruction kept 0.16 of it -, a pixel or two wide, lit in some frames only, given in the
+        // colour, in the transparency layer, or with the bias-current-colour hint
+        {"flat 0.18, 40 1 px emitters 100", {.level = kRrCameraGrey, .emitter = 100.0F, .patch = 1, .spots = 40}},
+        {"flat 0.18, 40 2 px emitters 100", {.level = kRrCameraGrey, .emitter = 100.0F, .patch = 2, .spots = 40}},
+        {"flat 0.18, 40 2 px emitters 10", {.level = kRrCameraGrey, .emitter = 10.0F, .patch = 2, .spots = 40}},
+        {"noisy 0.18, 40 2 px emitters 100", {.level = kRrCameraGrey, .emitter = 100.0F, .patch = 2, .spots = 40, .noisy = true}},
+        {"noisy 0.05, 40 2 px emitters 100", {.level = 0.05F, .emitter = 100.0F, .patch = 2, .spots = 40, .noisy = true}},
+        {"flat 0.18, 40 2 px emitters 100 1 in 4", {.level = kRrCameraGrey, .emitter = 100.0F, .patch = 2, .spots = 40, .sparse = 4}},
+        {"noisy 0.05, 40 2 px emitters 100 1 in 4", {.level = 0.05F, .emitter = 100.0F, .patch = 2, .spots = 40, .noisy = true, .sparse = 4}},
+        {"noisy 0.05, 40 4 px emitters 30", {.level = 0.05F, .emitter = 30.0F, .patch = 4, .spots = 40, .noisy = true}},
+        {"flat 0.18, 40 2 px emitters 100 LAYER", {.level = kRrCameraGrey, .emitter = 100.0F, .patch = 2, .spots = 40, .route = 1}},
+        {"flat 0.18, 40 1 px emitters 100 LAYER", {.level = kRrCameraGrey, .emitter = 100.0F, .patch = 1, .spots = 40, .route = 1}},
+        {"noisy 0.05, 40 2 px emitters 100 1 in 4 LAYER", {.level = 0.05F, .emitter = 100.0F, .patch = 2, .spots = 40, .noisy = true, .route = 1, .sparse = 4}},
+        {"flat 0.18, 40 2 px emitters 100 REACTIVE", {.level = kRrCameraGrey, .emitter = 100.0F, .patch = 2, .spots = 40, .route = 2}},
+        {"flat 0.18, 40 1 px emitters 100 REACTIVE", {.level = kRrCameraGrey, .emitter = 100.0F, .patch = 1, .spots = 40, .route = 2}},
+        {"noisy 0.05, 40 2 px emitters 100 1 in 4 REACTIVE", {.level = 0.05F, .emitter = 100.0F, .patch = 2, .spots = 40, .noisy = true, .route = 2, .sparse = 4}},
     }};
     for (const Probe& probe : probes) {
         const RrResult result = rr_floor(state, probe.scene);
