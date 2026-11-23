@@ -293,7 +293,10 @@ export function capabilities(listing: Listing): string {
     const relief = keys.some(
         (k) => k.endsWith(".relief") && (k.startsWith("data\\levels") || k.startsWith("thug2-decomp-data\\levels")),
     );
-    const maps = keys.some((k) => k.endsWith(".pbr"));
+    // (round GRIT) the levels' maps apart from the models' (as the game's line says)
+    const pbr = keys.filter((k) => k.endsWith(".pbr"));
+    const levelMaps = pbr.some((k) => k.startsWith("data\\levels") || k.startsWith("thug2-decomp-data\\levels"));
+    const maps = levelMaps ? "found" : pbr.length ? "found for the models only - none for the levels" : "none";
     const library = keys.includes("thug2-decomp-materials.t2dm");
     const sets = new Set(
         keys
@@ -301,7 +304,7 @@ export function capabilities(listing: Listing): string {
             .map((k) => k.split("\\")[1]!)
             .filter((s) => !s.includes(".")),
     );
-    return `surface maps ${maps ? "found" : "none"}, material library ${library ? "found" : "none"}, texture sets ${sets.size ? [...sets].sort().join(" ") : "none"}, building relief files ${relief ? "found" : "none"}`;
+    return `surface maps ${maps}, material library ${library ? "found" : "none"}, texture sets ${sets.size ? [...sets].sort().join(" ") : "none"}, building relief files ${relief ? "found" : "none"}`;
 }
 
 function copyFile(fromGame: string, toGame: string, rel: string): void {

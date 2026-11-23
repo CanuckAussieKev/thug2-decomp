@@ -1275,6 +1275,8 @@ render::vulkan::RtLightSettings settings_for(bool on, unsigned shadowed)
     settings.on = on;
     settings.strength = kStrength;
     settings.shadowed = shadowed;
+    // (round GRIT: `auto` is ReSTIR DI now, with or without Ray Reconstruction - these cases are the lamps pass's)
+    settings.direct = render::vulkan::RtDirectLight::kPasses;
     return settings;
 }
 
@@ -3772,7 +3774,7 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                  text::format("  the opaque floor under the same lamp (ReSTIR DI's lamps input): %d pixels, %.4f x the "
                               "model's - the glass / the floor %.4f",
                               floor_pixels, floor_ratio, floor_ratio > 0.0 ? glass_ratio / floor_ratio : 0.0));
-    vk::set_rt_gi_settings({});
+    vk::set_rt_gi_settings({.indirect = vk::RtIndirectLight::kPasses});
     vk::set_rt_light_settings({});
     rt::set_level_emitters({});
     gpu.set_render_target(0, nullptr);
@@ -4050,6 +4052,9 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         return render::vulkan::loader_version() == 0 ? 2 : 1;
     }
     render::Gpu& gpu = render::vulkan::gpu();
+    // (round GRIT: `auto` is ReSTIR GI now, with or without Ray Reconstruction - the cases that name no tier are the
+    // passes')
+    render::vulkan::set_rt_gi_settings({.indirect = render::vulkan::RtIndirectLight::kPasses});
     std::array<SceneMesh, kScene.size()> meshes{};
     bool made = true;
     for (std::size_t i = 0; i < kScene.size(); ++i) {

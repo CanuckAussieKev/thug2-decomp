@@ -1513,8 +1513,10 @@ std::vector<uint8_t> exr_half_bytes(uint32_t width, uint32_t height, const std::
 }
 
 // One of the upscaler's images read back now (the frame's work finished first) as linear RGB over the drawn `width` x
-// `height` at its top-left: RGBA16F as it is, a one-channel R16F / R32F in all three. False: an image or format it can't.
-bool read_input_image(Backend& state, Image* image, uint32_t width, uint32_t height, std::vector<std::array<float, 3>>* out)
+// `height` at its top-left: RGBA16F as it is (`alpha`: its alpha in all three - round GRIT, the normals' roughness), a
+// one-channel R16F / R32F in all three. False: an image or format it can't.
+bool read_input_image(Backend& state, Image* image, uint32_t width, uint32_t height, std::vector<std::array<float, 3>>* out,
+                      bool alpha = false)
 {
     if (image == nullptr || image->image == VK_NULL_HANDLE || image->extent.width < width || image->extent.height < height) {
         return false;
@@ -1541,7 +1543,7 @@ bool read_input_image(Backend& state, Image* image, uint32_t width, uint32_t hei
             if (texel == 8) {
                 for (std::size_t ch = 0; ch < 3; ++ch) {
                     uint16_t half = 0;
-                    std::memcpy(&half, &core::at(bytes, at + (ch * 2)), sizeof(half));
+                    std::memcpy(&half, &core::at(bytes, at + ((alpha ? 3 : ch) * 2)), sizeof(half));
                     core::at(rgb, ch) = half_to_float(half);
                 }
             } else if (texel == 4) {
@@ -1582,6 +1584,11 @@ void save_upscaler_inputs(Backend& state, const LinearFrames& own, const rt::Vie
         if (read_input_image(state, image, width, height, &rgb)) {
             write_file(text::format("%sinputs_%04u_%s.exr", own.folder.c_str(), number, name), exr_bytes(width, height, rgb));
         }
+    }
+    // (round GRIT) the normals' alpha - the roughness Ray Reconstruction is given - in all three channels
+    std::vector<std::array<float, 3>> rough;
+    if (read_input_image(state, guides.normals, width, height, &rough, true)) {
+        write_file(text::format("%sinputs_%04u_roughness.exr", own.folder.c_str(), number), exr_bytes(width, height, rough));
     }
 }
 

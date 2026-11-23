@@ -2889,8 +2889,8 @@ bool ensure_image(Backend& state, Image* image, VkFormat format, const Extent& e
 bool restir_gi_chosen(const Backend& state)
 {
     const RtGiSettings settings = rt_gi_settings_locked();
-    const bool restir = settings.indirect == RtIndirectLight::kRestir ||
-                        (settings.indirect == RtIndirectLight::kAuto && ray_reconstruction_active());
+    // (round GRIT: auto is ReSTIR with or without Ray Reconstruction - one lighting path, as the direct light's)
+    const bool restir = settings.indirect != RtIndirectLight::kPasses;
     return restir && !gi_state().failed && state.context.ray_tracing_enabled();
 }
 
