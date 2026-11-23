@@ -603,6 +603,14 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
 // event estimation owns it at every vertex). Written by ReSTIR GI's sparse update paths (vulkan_restir_gi.cpp), read at
 // its secondary vertices and (round WF) wherever a surface the prepass doesn't hold is lit by the list - the reflections'
 // hits: there the light they reflect is their direct light (light_sample) + their reflectance x the cache's bounce.
+// (Round BUDGET2) An entry also holds the direct light a white diffuser there gets (E / pi, the update paths' light
+// samples): a path may then END at a cell - its vertex's light its reflectance x the cell's whole light, no light sample -
+// where its footprint covers the cell (cache_lookup_whole: SHaRC's intended use - its paths end at the cache, not only
+// on a miss). The bounce alone stays what the readers that sample their own direct light take.
+// (round BUDGET2) An entry is CACHE_STRIDE uvec4s: its key, its bounce's sums (low, high words) and light, then the light
+// a white diffuser there gets straight from the lights (E / pi - next-event estimation's, the same unit) - its sums and
+// light - and a spare: the second half lets a path END at the cache (SHaRC's intended use - cache_lookup_whole).
+const uint CACHE_STRIDE = 8u;
 uint cache_hash(uint x)
 {
     // (the "lowbias32" integer hash - Chris Wellons 2018)
@@ -653,33 +661,74 @@ void cache_key(vec3 at, vec3 ng, out uint slot, out uint check)
 // every entry is younger than both.
 const uint CACHE_TRUSTED_SAMPLES = 32u;
 const uint CACHE_TRUSTED_FRAMES = 16u;
+// (round BUDGET2) the direct part's kept samples a path may end on (16: the continued pass +0.4 ms at the bench spot, the
+// GI term's error after a fast turn no different within the sessions' spread)
+const float CACHE_TRUSTED_DIRECT = 4.0;
+// The entry of a point's cell, CACHE_CAPACITY for none.
+uint cache_find(vec3 at, vec3 ng)
+{
+    uint slot;
+    uint check;
+    cache_key(at, ng, slot, check);
+    for (uint k = 0u; k < CACHE_PROBES; ++k) {
+        uint i = (slot + k) & (CACHE_CAPACITY - 1u);
+        uint there = cache[i * CACHE_STRIDE].x;
+        if (there == check) {
+            return i;
+        }
+        if (there == 0u) {
+            break;
+        }
+    }
+    return CACHE_CAPACITY;
+}
 bool cache_lookup(vec3 at, vec3 ng, out vec3 bounce)
 {
     bounce = vec3(0.0);
     if (!(LL_CACHE_ON)) {
         return true;
     }
-    uint slot;
-    uint check;
-    cache_key(at, ng, slot, check);
-    for (uint k = 0u; k < CACHE_PROBES; ++k) {
-        uint i = (slot + k) & (CACHE_CAPACITY - 1u);
-        uint there = cache[i * 4u].x;
-        if (there == check) {
-            vec4 l = uintBitsToFloat(cache[i * 4u + 3u]);
-            if (!(l.w > 0.0) || any(isnan(l.rgb)) || any(isinf(l.rgb))) {
-                return false;
-            }
-            bounce = max(l.rgb, vec3(0.0));
-            // (a young entry: still a miss - its light is returned all the same)
-            uvec4 key = cache[i * 4u];
-            return key.z >= CACHE_TRUSTED_SAMPLES || key.w >= CACHE_TRUSTED_FRAMES;
-        }
-        if (there == 0u) {
-            break;
-        }
+    uint i = cache_find(at, ng);
+    if (i == CACHE_CAPACITY) {
+        return false;
     }
-    return false;
+    vec4 l = uintBitsToFloat(cache[i * CACHE_STRIDE + 3u]);
+    if (!(l.w > 0.0) || any(isnan(l.rgb)) || any(isinf(l.rgb))) {
+        return false;
+    }
+    bounce = max(l.rgb, vec3(0.0));
+    // (a young entry: still a miss - its light is returned all the same)
+    uvec4 key = cache[i * CACHE_STRIDE];
+    return key.z >= CACHE_TRUSTED_SAMPLES || key.w >= CACHE_TRUSTED_FRAMES;
+}
+// (round BUDGET2) A cell's side at a point (world units - cache_key's quantisation): how far the cache's light is smeared.
+float cache_cell_side(vec3 at)
+{
+    float distance = length(at - LL_EYE);
+    return CACHE_CELL_LEAST * exp2(max(floor(log2(max(distance * LL_CACHE_CELLS / CACHE_CELL_LEAST, 1.0))), 0.0));
+}
+// (round BUDGET2) The whole light a white diffuser at a point gets (E / pi): its bounce and the lights' own (direct) -
+// true where both are trusted (the bounce as cache_lookup; the direct part has its samples). SHaRC's intended use: a path
+// ENDS where it meets a trusted cell its footprint covers - no light sample, no ray past it (the vertex then sends its
+// reflectance x this, a view-averaged light: SHaRC's cached radiance is too).
+bool cache_lookup_whole(vec3 at, vec3 ng, out vec3 bounce, out vec3 direct)
+{
+    bounce = vec3(0.0);
+    direct = vec3(0.0);
+    uint i = LL_CACHE_ON ? cache_find(at, ng) : CACHE_CAPACITY;
+    if (i == CACHE_CAPACITY) {
+        return false;
+    }
+    uvec4 key = cache[i * CACHE_STRIDE];
+    vec4 l = uintBitsToFloat(cache[i * CACHE_STRIDE + 3u]);
+    vec4 d = uintBitsToFloat(cache[i * CACHE_STRIDE + 6u]);
+    if (!(key.z >= CACHE_TRUSTED_SAMPLES || key.w >= CACHE_TRUSTED_FRAMES) || !(l.w > 0.0) ||
+        !(d.w >= CACHE_TRUSTED_DIRECT) || any(isnan(l.rgb)) || any(isinf(l.rgb)) || any(isnan(d.rgb)) || any(isinf(d.rgb))) {
+        return false;
+    }
+    bounce = max(l.rgb, vec3(0.0));
+    direct = max(d.rgb, vec3(0.0));
+    return true;
 }
 // The bounce at a point, 0 on a miss (a reader that can't continue the path: the front layer's).
 vec3 cache_bounce(vec3 at, vec3 ng)

@@ -61,7 +61,10 @@ constexpr uint64_t kReportImages = 0x52360006U;
 constexpr uint64_t kReportNoMirrors = 0x52360007U;
 constexpr uint64_t kReportNoMaterials = 0x52360008U;
 
-constexpr uint32_t kRoughRays = 4;    // the rays a rough pixel traces
+// the rays a rough pixel traces - (round BUDGET2) one, drawn anew each frame (was 4 over a fixed disc: 2.9 -> 1.4 ms at
+// 1707 x 960, BO at night - the shine's rough pixels most of it; under Ray Reconstruction one ray a pixel a frame, as
+// 2026's path-traced games trace their reflections)
+constexpr uint32_t kRoughRays = 1;
 // (added for the surface reflections) the roughest surface-map texel that reflects (perceptual roughness; faded out from
 // three quarters of it), a rough surface's cone per GGX alpha (radians)
 constexpr float kSurfaceRoughest = kReflectionRoughest; // (round M: the surface shading's twin, vulkan_rt_reflections.h)
@@ -407,6 +410,7 @@ bool reflection_hit(vec3 origin, vec3 direction, out uint id, out uint instance,
 // is shaded with (the pixel's own surface: its mesh's smooth normal), or zero for the triangle's own, facing the ray.
 // (Round PERF4) The one shading of a reflected ray's hit and of the painted glass's own colour - two inlined copies of
 // list_hit_light and hit_light before (the pass's code and registers).
+float reflection_cone = 0.0; // (round BUDGET2) the pixel's reflected rays' cone (half-angle, radians; 0 a mirror)
 vec3 hit_shown(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x3 to_world, vec3 origin, vec3 direction,
                float t, float travelled, vec3 given)
 {
@@ -428,12 +432,24 @@ vec3 hit_shown(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x3
     // (round WF) a view ReSTIR GI lit: the hit lit by the same light list and radiance cache (list_hit_light) - (round FL)
     // the painted glass's own colour too, as the front layer lights the see-through surfaces, not the light store's
     vec3 listed;
+    list_footprint = travelled > 0.0 ? reflection_cone * t : 0.0; // (round BUDGET2: a reflected ray's, not the camera's)
     if (list_hit_light(id, instance, primitive, barycentrics, to_world, direction, listed)) {
         return listed;
     }
 #endif
     // (round O) the hit lit as its own pixels are - the light store's light now (hit_light)
     return hit_light(id, instance, primitive, barycentrics, v, texel, origin + direction * t, n, -direction, travelled + t);
+}
+
+// (round BUDGET2) an integer hash (the "lowbias32" of Chris Wellons 2018) - a rough pixel's ray each frame
+uint reflection_hash(uint x)
+{
+    x ^= x >> 16;
+    x *= 0x7FEB352Du;
+    x ^= x >> 15;
+    x *= 0x846CA68Bu;
+    x ^= x >> 16;
+    return x;
 }
 
 void main()
@@ -461,6 +477,12 @@ void main()
             float t = rayQueryGetIntersectionTEXT(query, true);
             uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, true);
             float reflectivity = material(id).reflectivity;
+            // (round BUDGET2) in a view ReSTIR GI lit, a surface shaded through its map takes its environment's specular
+            // from GI (left_out 0 below: weight 0, no ray) - nothing to do for it, so nothing read for it either (its
+            // triangle, mask, normals and texels were read for a weight of 0: most of the view's pixels)
+            if (pass.surface.w > 0.5 && material(id).reflection_class == CLASS_SURFACE && material(id).reflection_mask == 0u) {
+                reflectivity = 0.0;
+            }
             HitVertices v;
             if (abs(t - distance) <= 1.0 + 0.02 * distance && reflectivity > 0.0 &&
                 hit_vertices(rayQueryGetIntersectionInstanceIdEXT(query, true),
@@ -568,6 +590,7 @@ void main()
                     if (rough <= MIRROR_PIXELS * pass.ambient.w) {
                         rough = 0.0;
                     }
+                    reflection_cone = rough;
                     // (an added reflection's misses: the surface's own estimate - it left it out)
                     vec3 estimate = adds && weight > 0.0 ? own_environment(hit_instance, primitive, bary, v, sn, object)
                                                          : vec3(0.0);
@@ -596,6 +619,16 @@ void main()
                             if (ray_step > 0u && rough > 0.0) {
                                 float radius = sqrt((float(i) + 0.5) / float(rays)) * rough;
                                 float angle = float(i) * 2.39996323 + turn;
+                                if (rays == 1u) {
+                                    // (round BUDGET2) one ray a rough pixel: a point of the cone's disc drawn anew each
+                                    // frame and pixel (the same distribution as the rays' stratified disc - its
+                                    // expectation the same reflection), the apply's 3 x 3 blur and Ray Reconstruction's
+                                    // history gathering the frames' directions
+                                    uint seed = reflection_hash(uint(p.x) ^ reflection_hash(uint(p.y) ^
+                                                                                            reflection_hash(uint(pass.extra.w))));
+                                    radius = sqrt(float(seed & 0xFFFFu) / 65536.0) * rough;
+                                    angle = float(seed >> 16) / 65536.0 * 6.2831853;
+                                }
                                 d = normalize(mirror + (across * cos(angle) + up * sin(angle)) * radius);
                                 if (dot(d, n) <= 0.0) {
                                     d = mirror; // (below the surface: the mirror direction instead)
@@ -1018,6 +1051,10 @@ layout(std140, set = 0, binding = 22) uniform ListBlock {
 )";
 constexpr const char* kListHitGlsl = R"(
 const uint LIST_RAYS = 7u; // (world, objects, alpha-tested: GI's light rays)
+// (round BUDGET2) The reflected ray's footprint at its hit (its length x its cone's half-angle; 0: a mirror's, the camera's):
+// where it covers a radiance cache cell with trusted light (vulkan_light_list.h cache_lookup_whole), the hit takes the
+// cell's whole light - SHaRC's path ending, as ReSTIR GI's secondary vertices do - not a light sample of its own.
+float list_footprint = 0.0;
 bool list_hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x3 to_world, vec3 dir, out vec3 lit)
 {
     lit = vec3(0.0);
@@ -1031,6 +1068,15 @@ bool list_hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, m
     // (round DO: each ray's own sequence - a rough pixel's rays all started the same one: the same candidates at each hit)
     uint rng = path_sequence_start(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, list.counts.z,
                                    0x57F1C0DEu ^ path_pcg(floatBitsToUint(dir.x) ^ path_pcg(floatBitsToUint(dir.y))));
+    vec3 reflectance = brdf_ambient(h.material, dot(n, v), vec3(1.0), vec3(1.0));
+    vec3 cached;
+    vec3 cached_direct;
+    if (list_footprint > 0.0 && list_footprint >= cache_cell_side(h.position) &&
+        cache_lookup_whole(h.position, ng, cached, cached_direct)) {
+        lit = (max(h.emitted, vec3(0.0)) + reflectance * (cached_direct + cached)) * list.eye.w;
+        lit = any(isnan(lit)) || any(isinf(lit)) ? vec3(0.0) : lit;
+        return true;
+    }
     vec3 p = h.position + ng * local_light_offset(h.position);
     vec3 toward;
     // (round FA) the hit's local lights from candidates of its own, not a light grid cell's picks: the pass keeps no
@@ -1041,7 +1087,6 @@ bool list_hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, m
     vec3 incident = light_sample(p, n, ng, LIST_RAYS, rng, toward);
     vec3 direct = max(incident.r, max(incident.g, incident.b)) > 0.0 ? path_bsdf_cosine(h.material, n, v, toward) * incident
                                                                      : vec3(0.0);
-    vec3 reflectance = brdf_ambient(h.material, dot(n, v), vec3(1.0), vec3(1.0));
     lit = (max(h.emitted, vec3(0.0)) + direct + reflectance * cache_bounce(h.position, ng)) * list.eye.w;
     if (any(isnan(lit)) || any(isinf(lit))) {
         lit = vec3(0.0);
@@ -1934,8 +1979,9 @@ TraceBlock trace_block(const Matrix& to_world, const rt::ViewDrawn& view, const 
         }
     }
     block.ambient.back() = angle;
+    // (round BUDGET2: w the frame's number - a rough pixel's ray each frame)
     block.extra = {static_cast<int32_t>(kReflectionMask), static_cast<int32_t>(lights),
-                   static_cast<int32_t>(kReflectedRayMask), 0};
+                   static_cast<int32_t>(kReflectedRayMask), static_cast<int32_t>(backend().frame & 0x7FFFFFFFU)};
     // (round W2: yzw and surface.x the rain's rings on standing water - vulkan_rain.h rain_ripples_now, the wet trace's)
     const std::array<float, 4> rings = rain_ripples_now();
     block.rays = {static_cast<float>(kRoughRays), core::at(rings, 0), core::at(rings, 1), core::at(rings, 2)};
