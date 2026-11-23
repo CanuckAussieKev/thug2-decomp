@@ -320,4 +320,19 @@ struct ViewLightRequest {
 [[nodiscard]] float emitter_core(float area);
 [[nodiscard]] float point_core(float reach);
 
+// (round UNITS - one physical unit for every level's lamps) A lamp's reach - where its light ends - from its own light,
+// not its size or the original's radius. The light falls with the inverse square without end; a renderer ends it where
+// it no longer shows (Frostbite's influence radius from a threshold, Lagarde and de Rousiers 2014; Unreal's attenuation
+// radius with its windowed falloff - the same (1 - (d / r)^4)^2 window light_falloff applies). The threshold is an
+// illuminance: kLampReachLux, a starlit night's light - about 7 stops under middle grey at the camera's least exposure
+// (EV100 -4.1) - so the window's last stretch lies under anything the camera shows. Before, a found emitter reached 12
+// cores (200 - 1500 units) and a light node its original's outer radius, where its light was still ~5 lux (rt_relit.h
+// kGameLightReachLux): at night, metered for ~1 lux, a pool's edge was a sharp circle.
+// The intensity: the light right at the lamp (Emitter::intensity, the global unit) x unit_illuminance x its core's area
+// (a point or a panel - its far field I = E r^2) or its core x half length (a line - I = E r h far off broadside):
+// reach = sqrt(I / kLampReachLux), at least two cores. The relit data's lamps (their intensities physical) take it at
+// load (render_pc/rt_record.cpp).
+inline constexpr double kLampReachLux = 1.0e-3;
+[[nodiscard]] float lamp_reach(const Emitter& lamp);
+
 } // namespace render::rt

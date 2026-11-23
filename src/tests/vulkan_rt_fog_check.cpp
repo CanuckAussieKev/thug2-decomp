@@ -1,4 +1,4 @@
-// NOT ORIGINAL - thug2_vulkan_rt_fog_check.exe: the Vulkan Gpu's volumetric fog and light shafts
+﻿// NOT ORIGINAL - thug2_vulkan_rt_fog_check.exe: the Vulkan Gpu's volumetric fog and light shafts
 // (gpu_vulkan/vulkan_rt_fog.h) tried on this machine against references worked out on the processor.
 //
 // A wall with a window in it, standing on a ground square, the sun low behind it (world, instance mask 0x01): the light
@@ -71,6 +71,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
@@ -79,6 +80,7 @@
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
+#include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
@@ -110,7 +112,7 @@ constexpr uint32_t kRedShift = 16;
 constexpr uint32_t kGreenShift = 8;
 constexpr std::size_t kPixelBytes = 4;
 constexpr float kFogStart = 10.0F;
-constexpr float kFogEnd = 500.0F;
+constexpr float kFogEnd = 1000.0F; // (round UNITS: Koschmieder's even medium - its extinction near the eye about the old model's 1 / (end - d))
 constexpr std::array<float, 3> kFogColour{0.6F, 0.65F, 0.7F};
 constexpr unsigned kSteps = 32;
 // (round BUDGET) the frames a still view is drawn: past the froxels' history (kFogMaxHistory, 32 frames - was 20 with 40)
@@ -433,7 +435,6 @@ bool sunlit(const Vec3& at)
     });
 }
 
-constexpr double kLeastLeft = 1e-4;             // the shortest way to the fog's end a segment counts (x its length)
 constexpr double kMostDepth = 40.0;             // a segment's optical depth at most
 
 // (the air's phase - engine/gfx/rt_volume_light.h medium_phase, the weather's aerosol's: the march's)
@@ -527,6 +528,33 @@ double sky_share(const Vec3& at)
     return static_cast<double>(open) / (kRings * kAround);
 }
 
+// (round UNITS) The scene's light in the global unit, as a relit level publishes it (rt_cel.h CelWorld - what
+// vulkan_light_list.h scene_lighting gives the fog): the light per unit of N.L kCheckSun x `colour` toward the light,
+// the sky's light on a level surface kCheckSky.
+constexpr float kCheckSun = 4.0F / 3.0F; // (the sunlit fog's light per unit of optical depth the old model's: 0.6 x 0.5 x phase)
+constexpr float kCheckSky = 0.2F;
+std::array<float, 3>& published_colour()
+{
+    static std::array<float, 3> colour{1.0F, 1.0F, 1.0F};
+    return colour;
+}
+float& published_sky()
+{
+    static float sky = kCheckSky;
+    return sky;
+}
+// (each frame too - a frame without a relit world clears it: render_pc rt_relit_world.cpp restore_all)
+void publish_light(const std::array<float, 3>& colour, float sky = kCheckSky)
+{
+    published_colour() = colour;
+    published_sky() = sky;
+    render::rt::set_cel_world({.relit = true,
+                               .sun = {core::at(colour, 0) * kCheckSun, core::at(colour, 1) * kCheckSun,
+                                       core::at(colour, 2) * kCheckSun},
+                               .toward = floats(to_sun()),
+                               .sky = {sky, sky, sky}});
+}
+
 // The share of the fog's light the sun gives where the replacing mode isn't drawing (the sky, shafts mode).
 double sunlit_share(bool sky, bool replace)
 {
@@ -551,6 +579,37 @@ Media& media()
 {
     static Media now;
     return now;
+}
+
+// (round UNITS) What lights the fog, as the pass takes it (vulkan_rt_fog.cpp block_for): the lighting's light in the
+// global unit (vulkan_light_list.h scene_lighting) x the frame's pre-exposure - the light's irradiance (pi x its light
+// per unit of N.L), the open sky's in-scattering per unit of albedo (half its light on a level surface) -, the aerosol's
+// albedo; a level without physical light: the fog colour as its own light.
+struct FogLight {
+    std::array<double, 3> albedo{};
+    std::array<double, 3> irradiance{};
+    std::array<double, 3> sky_in{};
+    std::array<double, 3> ambient{};
+    bool sky_on = false;
+};
+FogLight fog_light()
+{
+    FogLight out;
+    const render::vulkan::SceneLighting lighting = render::vulkan::scene_lighting(false, true);
+    const bool physical = render::rt::cel_world().relit || render::rt::day_light().on;
+    const double pre = render::rt::frame_pre_exposure();
+    const std::array<float, 3> albedo = render::rt::aerosol_albedo(render::rt::aerosol());
+    for (std::size_t i = 0; i < 3; ++i) {
+        core::at(out.albedo, i) = core::at(albedo, i);
+        if (physical) {
+            core::at(out.irradiance, i) = std::numbers::pi * core::at(lighting.sun_light, i) * pre;
+            core::at(out.sky_in, i) = 0.5 * core::at(lighting.sky, i) * pre;
+        } else {
+            core::at(out.ambient, i) = render::rt::linear_from_display(static_cast<double>(core::at(media().colour, i)));
+        }
+    }
+    out.sky_on = core::at(out.sky_in, 0) + core::at(out.sky_in, 1) + core::at(out.sky_in, 2) > 0.0;
+    return out;
 }
 
 // A layer's optical depth between s0 and s1 along a ray from height `eye_y` rising `dy` a unit (the pass's
@@ -634,12 +693,13 @@ Fogged march(const ViewRay& ray, const Marching& how)
         return out;
     }
     const double span = last - first;
-    const double fade = end - start;
     const double shaped = how.dark ? 0.0 : phase(dot(ray.direction, to_sun()));
     const double share = sunlit_share(sky, replace);
-    const double ambient = render::vulkan::kFogAmbientShare;
-    const double scatter = render::vulkan::kFogStreetAirLight * (sky ? render::vulkan::kFogSkyShare : 1.0);
-    const std::array<double, 3> sun_tint = tint();
+    // (round UNITS - the pass's: rt_volume_light.h level_fog_extinction; both media the aerosol, lit in the global
+    // unit x the frame's pre-exposure)
+    const FogLight light = fog_light();
+    const double sigma = render::rt::level_fog_extinction(static_cast<float>(start), static_cast<float>(end)) *
+                         now.density;
     // (the pass's march_at: first + span x t^2; a ray leaving the air's sun map's reach `steps` steps within it (t^2)
     // and half as many more past it in a geometric series)
     const double near_reach = map_used() && !how.dark ? render::rt::kAirMapReach * render::rt::kUnitsPerMetre : 0.0;
@@ -679,7 +739,7 @@ Fogged march(const ViewRay& ray, const Marching& how)
     double pair_seen = 0.0;
     // (round W2) the street air's shade light only as far as its air sees the sky: the pairs' rays as the pass traces
     // them, else the open share (integrated every kSkyEvery steps - the exact integral's stand-in)
-    const bool sky_traced = replace && air_on;
+    const bool sky_traced = replace && light.sky_on;
     double sky_open = 1.0;
     constexpr uint32_t kSkyEvery = 256;
     for (uint32_t i = 0; i < total; ++i) {
@@ -705,11 +765,9 @@ Fogged march(const ViewRay& ray, const Marching& how)
             }
             seen = pair_seen;
         }
-        const double x0 = std::clamp(near_end, start, end);
-        const double x1 = std::clamp(far_end, start, end);
-        const double fog_depth =
-            x1 > x0 ? now.density * std::log(std::max(end - x0, kLeastLeft * fade) / std::max(end - x1, kLeastLeft * fade))
-                    : 0.0;
+        const double x0 = std::max(near_end, start);
+        const double x1 = std::max(far_end, start);
+        const double fog_depth = x1 > x0 ? sigma * (x1 - x0) : 0.0;
         const double depth_air = air_on ? air_depth(ray, near_end, far_end) : 0.0;
         const double depth = std::max(fog_depth, 0.0) + std::max(depth_air, 0.0);
         if (!(depth > 1e-9)) {
@@ -719,14 +777,13 @@ Fogged march(const ViewRay& ray, const Marching& how)
         const double lit = seen * shaped;
         double step_light = 0.0;
         for (std::size_t channel = 0; channel < 3; ++channel) {
-            const double fog = core::at(now.colour, channel);
-            const double tinted = lit * core::at(sun_tint, channel);
-            const double here_fog = replace ? fog * (ambient + ((1.0 - ambient) * tinted))
-                                            : fog * (1.0 - ambient) * tinted * share;
-            // (the street air's light: the aerosol's phase, its shade the replaced fog's)
-            const double lit_air = how.dark ? 0.0 : seen * shaped * core::at(sun_tint, channel);
-            const double here_air = (replace ? fog * ambient * sky_open : 0.0) + (scatter * lit_air);
-            const double here = ((std::max(fog_depth, 0.0) * here_fog) + (std::max(depth_air, 0.0) * here_air)) / depth;
+            const double albedo = core::at(light.albedo, channel);
+            const double sunlit = lit * core::at(light.irradiance, channel) / (4.0 * std::numbers::pi);
+            double here = albedo * sunlit * share;
+            if (replace) {
+                here += (albedo * core::at(light.sky_in, channel) * sky_open) +
+                        (core::at(light.ambient, channel) * std::max(fog_depth, 0.0) / depth);
+            }
             const double added = out.transmittance * (1.0 - kept) * here;
             core::at(out.light, channel) += added;
             step_light = std::max(step_light, added);
@@ -763,14 +820,18 @@ Fogged dark_at(const View& view, Pixel pixel)
                  {.steps = kFineSteps, .jitter = kMiddle, .dark = true});
 }
 
-// The exact transmittance: the game's linear fog, ((end - distance) / (end - start)) clamped.
+// The exact transmittance (round UNITS): the even medium of Koschmieder's extinction from the fog's start
+// (rt_volume_light.h level_fog_extinction), to the grid's far - the fog's end.
 double exact_transmittance(double distance)
 {
     if (distance < 0.0) {
         return 1.0;
     }
+    const double sigma = render::rt::level_fog_extinction(static_cast<float>(media().start),
+                                                          static_cast<float>(media().end)) *
+                         media().density;
     const double clamped = std::clamp(distance, media().start, media().end);
-    return (media().end - clamped) / (media().end - media().start);
+    return std::exp(-sigma * (clamped - media().start));
 }
 
 // --- the acceleration structures (the check's own) -----------------------------------------------------------------
@@ -1101,6 +1162,7 @@ uint64_t draw_frame(render::Gpu& gpu, const Targets& targets, const Vec3& eye, b
     // (the sun as the console's `rt sun` sets it: the level's baked one otherwise - none in this scene)
     const std::array<float, 3> toward = floats(to_sun());
     render::rt::set_sun_override(clock_lights() ? nullptr : &toward);
+    publish_light(published_colour(), published_sky()); // (round UNITS)
     const uint64_t before = render::vulkan::rt_fog_passes();
     render::rt::world_view_drawn(view_drawn(eye, targets.width, targets.height, fog_on));
     const uint64_t passes = render::vulkan::rt_fog_passes() - before;
@@ -1275,7 +1337,7 @@ void compare_raw(const View& view, bool shafts, Tally* tally)
                               percentile(distance_errors, kNinetyNinth)));
     tally->check(percentile(transmittance_errors, kAll) < kMostTransmittanceError,
                  text::format("the transmittance = exp(-integral) = %s: largest error %.2g (16-bit floats)",
-                              shafts ? "1 (shafts mode)" : "(end - d) / (end - start)",
+                              shafts ? "1 (shafts mode)" : "e^(-sigma (d - start)), Koschmieder's",
                               percentile(transmittance_errors, kAll)));
 }
 
@@ -1300,8 +1362,8 @@ void compare_shaft(const View& view, Tally* tally)
             continue;
         }
         const Fogged exact = exact_at(view, pixel, false);
-        const double ambient_only =
-            core::at(kFogColour, 0) * render::vulkan::kFogAmbientShare * (1.0 - exact_transmittance(seen.distance));
+        const Fogged shade = dark_at(view, pixel); // (round UNITS: the shade's light alone)
+        const double ambient_only = core::at(shade.light, 0);
         const double extra_want = core::at(exact.light, 0) - ambient_only;
         const double extra_got = static_cast<double>(core::at(core::at(history.texels, i), 0)) - ambient_only;
         if (extra_want > kInsideShaft) {
@@ -1467,9 +1529,9 @@ void compare_composite(const View& view, const std::vector<uint8_t>& texels, boo
             const Rgb surface = rgb_of(core::at(kSolids, seen.solid - 1).colour);
             double error = 0.0;
             for (std::size_t channel = 0; channel < 3; ++channel) {
-                // (round F: the target is the frame's linear light; the level fog's light display-referred - decoded)
-                const double want = std::min(1.0, (core::at(surface, channel) * exact.transmittance) +
-                                                      render::rt::linear_from_display(core::at(exact.light, channel)));
+                // (round UNITS: the target is the frame's linear light; the level fog's light linear radiance too)
+                const double want =
+                    std::min(1.0, (core::at(surface, channel) * exact.transmittance) + core::at(exact.light, channel));
                 error = std::max(error, std::abs(core::at(got, channel) - want));
             }
             errors.push_back(error * kLevels);
@@ -1721,6 +1783,8 @@ void run_haze(render::Gpu& gpu, const Scene& scene, Tally* tally)
     const bool read_plain = read_colour(targets, &plain);
     render::vulkan::RtFogSettings settings = settings_of(false);
     settings.haze = true;
+    // (round UNITS: a level without fog has the weather's air alone - a misty one shows the shaft)
+    settings.weather = render::rt::Weather::kMisty;
     use_settings(settings, scene.top.handle);
     tally->check(draw_frame(gpu, targets, kEye, false) == 1, "the pass recorded");
     tally->check(!render::vulkan::rt_fog_replaces_level_fog(), "the draws keep the level's fog");
@@ -1777,12 +1841,16 @@ void clock_light(const Vec3& toward, const std::array<float, 3>& colour, bool mo
     day.light_colour = colour;
     day.light_radius = 0.0F; // (a point: the exact integral's)
     rt::set_day_light(day);
+    // (round UNITS: the clock's cases measure where the light's shafts lie - no sky: the open sky's air near the wall is
+    // the froxel grid's own leak across it, which the first case measures)
+    publish_light(colour, 0.0F);
 }
 
 void clock_off()
 {
     namespace rt = render::rt;
     rt::set_day_light({});
+    publish_light({1.0F, 1.0F, 1.0F}); // (round UNITS)
     rt::set_sun_relight({});
     rt::set_baked_sun({});
     clock_lights() = false;
@@ -1862,6 +1930,7 @@ void run_clock(render::Gpu& gpu, const Scene& scene, Tally* tally)
         // the moon: the haze (no level fog) lit by its light - the moon's colour's share of the sun's, bluer
         render::vulkan::RtFogSettings haze = settings_of(false);
         haze.haze = true;
+        haze.weather = render::rt::Weather::kMisty; // (round UNITS: the weather's air is the haze)
         use_settings(haze, scene.top.handle);
         std::array<std::array<double, 3>, 2> sums{};
         for (std::size_t which = 0; which < 2; ++which) {
@@ -2557,6 +2626,7 @@ int run(const Options& options, SDL_Window* window)
     tally.check(built, "the check's acceleration structures built (a BLAS of the wall and the ground, a TLAS)");
     if (built) {
         render::Gpu& gpu = render::vulkan::gpu();
+        publish_light({1.0F, 1.0F, 1.0F}); // (round UNITS: the light in the global unit, a relit level's)
         run_air_model(&tally); // (added by the street air)
         run_replace(gpu, scene, &tally);
         run_quarter(gpu, scene, &tally); // (added by the street air)

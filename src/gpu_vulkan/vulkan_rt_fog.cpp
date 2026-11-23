@@ -23,6 +23,7 @@
 #include "base/core/format.h"
 #include "engine/gfx/gpu_markers.h"
 #include "engine/gfx/rt_daylight.h"
+#include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_light_list.h"
 #include "engine/gfx/rt_lights.h"
@@ -295,16 +296,14 @@ float air_depth(vec3 direction, float s0, float s1)
 }
 
 #ifndef AERIAL
-// The level's own fog between s0 and s1: its linear range fog f(d) = (end - d) / (end - start) as a medium of
-// extinction 1 / (end - d) between start and end, integrated exactly (its transmittance the game's f, to the power
-// rt_fog_density) - x the height falloff at the segment's middle.
+// The level's own fog between s0 and s1 (round UNITS - rt_volume_light.h level_fog_extinction): an even medium of
+// extinction fog.medium.w per world unit (Koschmieder's, from the game's distances) from `start` on, x rt_fog_density,
+// x the height falloff at the segment's middle.
 float main_depth(vec3 direction, float s0, float s1)
 {
     float start = fog.fog_range.x;
-    float end = fog.fog_range.y;
-    float fade = end - start;
-    float x0 = clamp(s0, start, end);
-    float x1 = clamp(s1, start, end);
+    float x0 = max(s0, start);
+    float x1 = max(s1, start);
     if (!(x1 > x0)) {
         return 0.0;
     }
@@ -313,7 +312,7 @@ float main_depth(vec3 direction, float s0, float s1)
         float y = fog.camera.y + direction.y * 0.5 * (s0 + s1);
         height = clamp(exp(-(y - fog.camera.y) * fog.fog_range.z), 0.0, 8.0);
     }
-    return max(fog.fog_colour.w * height * log(max(end - x0, 1e-4 * fade) / max(end - x1, 1e-4 * fade)), 0.0);
+    return max(fog.fog_colour.w * fog.medium.w * height * (x1 - x0), 0.0);
 }
 #endif
 
@@ -604,7 +603,8 @@ void main()
 #ifdef AERIAL
     bool need_sky = true;
 #else
-    bool need_sky = fog.flags.x == 0 && (fog.air.x > 0.0 || fog.air.w > 0.0);
+    // (round UNITS) the open sky lights the replaced fog's air where the lighting has a sky
+    bool need_sky = fog.flags.x == 0 && dot(fog.medium.rgb, vec3(1.0)) > 0.0;
 #endif
     int samples = max(fog.low.w, 1);
     vec4 a = vec4(0.0);
@@ -745,17 +745,23 @@ void main()
     // that reaches it - the sun's or the moon's, the lamps' - and its shade's own light, mixed by their share of each
     // slice's optical depth. Replaced (mode 0): the surfaces' fog whole; the shafts over the game's fog (mode 1) and the
     // haze a share; the sky's pixels a smaller one.
+    // (round UNITS - one physical unit) Both media - the level's fog and the street air - are the weather's aerosol
+    // (rt_volume_light.h level_fog_extinction): albedo fog.fog_colour.rgb, lit in the global unit x the frame's
+    // pre-exposure by the light's irradiance (fog.sun_tint) x the phase / 4 pi, the lamps' estimate (E x phase / pi) x
+    // pi / 4 pi and the open sky (fog.medium.rgb: half the sky's light on a level surface - an even upper hemisphere's
+    // in-scattering) - linear radiance. Replaced (mode 0) all of it; the shafts over the game's fog (mode 1) and the haze
+    // a share of the sunlit and lamp light; the sky's pixels a smaller one. fog.ambient.rgb: a level without physical
+    // light (no relit data, no clock) - the game's fog colour as its own light, its look's unit.
     bool replace = fog.flags.x == 0;
     bool air_on = fog.air.x > 0.0 || fog.air.w > 0.0;
     float share = replace ? 1.0 : fog.shares.z;
-    vec3 ambient = replace ? fog.fog_colour.rgb * fog.shares.x : vec3(0.0);
-    vec3 medium = fog.medium.rgb * share;
-    vec3 medium_sky = fog.medium.rgb * fog.shares.y;
-    vec3 air_ambient = replace ? fog.air_ambient.rgb * fog.air_light.y : vec3(0.0);
-    float air_medium = fog.air_light.x;
-    float air_medium_sky = fog.air_light.x * fog.shares.y;
+    vec3 albedo = fog.fog_colour.rgb;
+    vec3 ambient = replace ? fog.ambient.rgb : vec3(0.0);
+    vec3 sky_in = replace ? albedo * fog.medium.rgb : vec3(0.0);
+    vec3 medium = albedo * share;
+    vec3 medium_sky = albedo * fog.shares.y;
     // (the god rays: their forward peak taken out - the screen draws it)
-    vec3 sun = fog.sun_tint.rgb * (phase(mu) - god_peak(mu));
+    vec3 sun = fog.sun_tint.rgb * ((phase(mu) - god_peak(mu)) * 0.0795775); // (/ 4 pi)
     vec3 sky_light = vec3(0.0);
     float sky_potential = 0.0;
     float sky_potential_lit = 0.0;
@@ -830,16 +836,13 @@ void main()
         float tau_air = air_on ? max(air_depth(direction, s0, s1), 0.0) : 0.0;
         tau = tau_main + tau_air;
         if (tau > 1e-9) {
-            vec3 lamp = a.rgb;
-            vec3 here_main = ambient + medium * (sun * sun_seen + lamp);
-            vec3 here_air = air_ambient * b.a + air_medium * (sun * (sun_seen * fog.air_ambient.w) + lamp);
-            here = (tau_main * here_main + tau_air * here_air) / tau;
-            vec3 here_sky = (tau_main * medium_sky * (sun * sun_seen + lamp) +
-                             tau_air * air_medium_sky * (sun * (sun_seen * fog.air_ambient.w) + lamp)) / tau;
-            // (the god rays' potential: the light the peak's phase would scatter here per unit of it, unshadowed by the
-            // world - the screen's shadows stand for those - luma of the media's light per unit of light)
-            per_unit = (tau_main * dot(medium, LUMA) + tau_air * air_medium * fog.air_ambient.w) / tau;
-            float per_unit_sky = (tau_main * dot(medium_sky, LUMA) + tau_air * air_medium_sky * fog.air_ambient.w) / tau;
+            vec3 lights = sun * sun_seen + 0.25 * a.rgb;
+            here = medium * lights + sky_in * b.a + ambient * (tau_main / tau);
+            vec3 here_sky = medium_sky * lights;
+            // (the god rays' potential: the albedo the peak's phase would scatter here per unit of the light's
+            // irradiance, unshadowed by the world - the screen's shadows stand for those)
+            per_unit = dot(medium, LUMA);
+            float per_unit_sky = dot(medium_sky, LUMA);
             float e_sky = exp(-min(tau, 40.0));
             float w_sky = transmittance * (1.0 - e_sky);
             sky_light += w_sky * here_sky;
@@ -1114,11 +1117,9 @@ void main()
     vec3 light_in = f.light + god_rays_light(local, f);
     // (round FA - the debug views: without the fog its in-scattered light is none; what the air takes away stays)
     light_in *= fog.list_light.y;
-#ifndef LINEAR_COMPOSITE
-    // (round F) the level fog path's light is display-referred (the level's fog colour as its light): decoded as the
-    // frame's inputs are, then added to the linear frame; never clamped
-    light_in = linear_from_display(light_in);
-#endif
+    // (round UNITS: the level fog's light is linear radiance as the aerial air's - before, it was taken as
+    // display-referred and decoded with the display's 2.2 power, which raised a lamp's pre-exposed light in the air,
+    // tens to thousands at night, to its 2.2th power: the glowing balls round street lamps)
     // (not finite: the colour left as it is)
     o_colour = finite4(vec4(light_in, f.transmittance)) ? vec4(min(light_in, vec3(65504.0)), f.transmittance)
                                                        : vec4(0.0, 0.0, 0.0, 1.0);
@@ -1323,6 +1324,11 @@ struct FogState {
     std::array<float, 3> to_sun{};
     std::array<float, 3> sun_tint{};
     bool have_sun = false;
+    // (round UNITS) the lighting's light in the global unit (vulkan_light_list.h scene_lighting): the light per unit of
+    // N.L and the sky's on a level surface; physical: the level has them (relit data or the clock)
+    std::array<float, 3> lit_sun{};
+    std::array<float, 3> lit_sky{};
+    bool physical = false;
     rt::MediumLight light; // (added by the volumetric light) the light the air is lit by this view
     // (added by the cinematic air) the street air last logged: its ground's height and look (logged again when either
     // changes - a new level, another look)
@@ -2513,11 +2519,14 @@ void read_lights(Backend& state, VkCommandBuffer commands)
     FogState& own = fog_state();
     own.lights = false;
     own.local = {};
+    const SceneLighting lighting = scene_lighting(false, true);
+    own.lit_sun = lighting.sun_light;
+    own.lit_sky = lighting.sky;
+    own.physical = rt::cel_world().relit || rt::day_light().on;
     if (!own.cutouts || own.settings.lamps == 0 || own.material_layout != state.materials.layout()) {
         own.lights_before = false;
         return;
     }
-    const SceneLighting lighting = scene_lighting(false, true);
     own.lights = restir_local_lights(state, commands, lighting, &own.local) && own.local.entries > 0 &&
                  own.local.table != VK_NULL_HANDLE && own.local.emitters != VK_NULL_HANDLE &&
                  own.local.lamps != VK_NULL_HANDLE && own.local.membership != VK_NULL_HANDLE &&
@@ -2715,19 +2724,19 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
                            have_before ? 1.0F : 0.0F};
     // (the phase: the weather's aerosol's - rt_sky.h)
     block.sun = {core::at(own.to_sun, 0), core::at(own.to_sun, 1), core::at(own.to_sun, 2), static_cast<float>(air.g)};
-    // (the volumetric light) the light's colour: the haze is lit by the light as it is now (the moon's 0.22 blue at
-    // night); the game's own fog - whose colour the game sets for the time of day (its states' fog colours) - by its hue
-    // alone, the fog's colour carrying its brightness
-    std::array<float, 3> tint = own.sun_tint;
-    if (!own.haze && !own.aerial) {
-        const float luma = (0.2126F * core::at(tint, 0)) + (0.7152F * core::at(tint, 1)) + (0.0722F * core::at(tint, 2));
-        for (float& channel : tint) {
-            channel = luma > 1e-4F ? channel / luma : 1.0F;
-        }
-    }
-    block.sun_tint = {core::at(tint, 0), core::at(tint, 1), core::at(tint, 2), own.have_sun ? 1.0F : 0.0F};
-    block.fog_colour = {core::at(view.fog.colour, 0), core::at(view.fog.colour, 1), core::at(view.fog.colour, 2),
-                        own.settings.density};
+    // (round UNITS - one physical unit for every level's fog: rt_volume_light.h level_fog_extinction) the level's fog
+    // and the street air are the weather's aerosol: its albedo, lit by the lighting's light in the global unit x the
+    // frame's pre-exposure - the light's irradiance (pi x its light per unit of N.L), the open sky's in-scattering (half
+    // its light on a level surface), every lamp. A level without physical light (no relit data, no clock) keeps the game's
+    // fog colour as its own light (decoded as the frame's inputs are - its look's unit).
+    const float pre = rt::frame_pre_exposure();
+    const std::array<float, 3> albedo = rt::aerosol_albedo(air);
+    const bool lit_sun = own.physical && own.have_sun;
+    block.sun_tint = {lit_sun ? std::numbers::pi_v<float> * core::at(own.lit_sun, 0) * pre : 0.0F,
+                      lit_sun ? std::numbers::pi_v<float> * core::at(own.lit_sun, 1) * pre : 0.0F,
+                      lit_sun ? std::numbers::pi_v<float> * core::at(own.lit_sun, 2) * pre : 0.0F,
+                      own.have_sun ? 1.0F : 0.0F};
+    block.fog_colour = {core::at(albedo, 0), core::at(albedo, 1), core::at(albedo, 2), own.settings.density};
     const double jitter = std::fmod(static_cast<double>(slot.passes % (1U << 20U)) * kGoldenRatio, 1.0);
     block.fog_range = {view.fog.start, view.fog.end, own.settings.height > 0.0F ? 1.0F / own.settings.height : 0.0F,
                        static_cast<float>(jitter)};
@@ -2736,7 +2745,7 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
     // (no light - indoors: the replaced fog is the game's colour whole, the lamps' light added in it)
     // (w, round PX: the history's light into this frame's pre-exposure - the camera's moves it every frame, UE5's
     // PreExposure correction of a history)
-    block.shares = {own.have_sun ? kFogAmbientShare : 1.0F, kFogSkyShare, kFogShaftShare,
+    block.shares = {1.0F, kFogSkyShare, kFogShaftShare,
                     slot.pre_exposure > 0.0F ? rt::frame_pre_exposure() / slot.pre_exposure : 1.0F};
     block.rect = {static_cast<int32_t>(core::at(view.rect, 0)), static_cast<int32_t>(core::at(view.rect, 1)),
                   static_cast<int32_t>(core::at(view.rect, 2)), static_cast<int32_t>(core::at(view.rect, 3))};
@@ -2749,10 +2758,20 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
                    static_cast<int32_t>(slot.passes % (1U << 24U))};
     const std::array<float, 2> reach = grid_reach(view, own.aerial);
     block.grid = {reach.front(), reach.back(), core::at(slot.grid_before, 0), core::at(slot.grid_before, 1)};
-    // the medium's light per unit of light (phase 1): the fog's (or the haze's) colour x the light's share
-    const float light_share = 1.0F - kFogAmbientShare;
-    block.medium = {core::at(view.fog.colour, 0) * light_share, core::at(view.fog.colour, 1) * light_share,
-                    core::at(view.fog.colour, 2) * light_share, 0.0F};
+    // (round UNITS) the open sky's in-scattering per unit of albedo (half its light on a level surface, pre-exposed) and
+    // the fog's extinction per world unit (Koschmieder's, from the game's distances)
+    constexpr float kHalf = 0.5F;
+    block.medium = {own.physical ? kHalf * core::at(own.lit_sky, 0) * pre : 0.0F,
+                    own.physical ? kHalf * core::at(own.lit_sky, 1) * pre : 0.0F,
+                    own.physical ? kHalf * core::at(own.lit_sky, 2) * pre : 0.0F,
+                    // (a level without fog - the haze - has the weather's street air alone: the clear night air is no
+                    // 100-metre haze; kFogHazeEnd is only the grid's reach then)
+                    own.haze ? 0.0F : static_cast<float>(rt::level_fog_extinction(view.fog.start, view.fog.end))};
+    if (!own.physical) {
+        block.ambient = {rt::linear_from_display(core::at(view.fog.colour, 0)),
+                         rt::linear_from_display(core::at(view.fog.colour, 1)),
+                         rt::linear_from_display(core::at(view.fog.colour, 2)), 0.0F};
+    }
     const double radius = static_cast<double>(own.light.radius_degrees) * std::numbers::pi / 180.0;
     block.soft = {own.light.have ? static_cast<float>(std::tan(radius)) : 0.0F, 0.0F, 0.0F, 0.0F};
     if (own.have_cloud) {
@@ -2767,26 +2786,18 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
         set_air_map(view, &block);
     }
     // (added by the street air; changed by the physical air) the level's own fog's air near the ground
-    // (rt_volume_light.h street_air): the weather's aerosol as one layer and the falling rain or snow; its light the
-    // level fog path's (display-referred - kFogStreetAirLight), x the light's whole colour (over a level's fog the tint
-    // is a hue: its brightness given back here)
-    if (own.light.have && !own.aerial) {
+    // (rt_volume_light.h street_air): the weather's aerosol as one layer and the falling rain or snow; (round UNITS) lit
+    // as the level's fog is - the same aerosol
+    // (round UNITS: the weather's air is there with or without a sun - at night it is what the lamps light)
+    if (!own.aerial) {
         const rt::StreetAir street_air = rt::street_air(air, rt::air_weather());
         // (over the level's street level - the middle of its upward faces -, not its lowest floor)
         const float street = baked.scene != 0 && baked.street_known ? baked.street : ground;
         block.air = {static_cast<float>(street_air.extinction),
                      street_air.height > 0.0 ? static_cast<float>(1.0 / street_air.height) : 0.0F, street,
                      static_cast<float>(street_air.snow)};
-        block.air_light = {kFogStreetAirLight, 1.0F, 0.0F,
+        block.air_light = {0.0F, 0.0F, 0.0F,
                            street_air.snow_height > 0.0 ? static_cast<float>(1.0 / street_air.snow_height) : 0.0F};
-        const float tint_luma = (0.2126F * core::at(tint, 0)) + (0.7152F * core::at(tint, 1)) +
-                                (0.0722F * core::at(tint, 2));
-        const float whole_luma = (0.2126F * core::at(own.sun_tint, 0)) + (0.7152F * core::at(own.sun_tint, 1)) +
-                                 (0.0722F * core::at(own.sun_tint, 2));
-        block.air_ambient = {core::at(view.fog.colour, 0) * kFogAmbientShare,
-                             core::at(view.fog.colour, 1) * kFogAmbientShare,
-                             core::at(view.fog.colour, 2) * kFogAmbientShare,
-                             tint_luma > 1e-4F ? whole_luma / tint_luma : 1.0F};
     }
     if (own.aerial) {
         // (rewritten by the physical air) the atmosphere's air (rt_sky.h): the air's molecules (Rayleigh) and the
@@ -2835,9 +2846,8 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
     // (round FA - vulkan_debug_view.h) the in-scattered light kept, or none in a debug view without the fog
     core::at(block.list_light, 1) = (debug_terms() & debug_term::kFog) != 0U ? 1.0F : 0.0F;
     block.rays = own.rays; // (added by the god rays: set_rays)
-    if (own.aerial) {
-        core::at(block.rays, 2) = static_cast<float>(1.0 / (4.0 * std::numbers::pi)); // (the peak x 4 pi, per sr)
-    }
+    // (the peak x 4 pi, per sr - round UNITS: the level's fog's too, its light being the irradiance now)
+    core::at(block.rays, 2) = static_cast<float>(1.0 / (4.0 * std::numbers::pi));
     return block;
 }
 

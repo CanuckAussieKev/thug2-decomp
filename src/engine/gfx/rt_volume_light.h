@@ -74,6 +74,24 @@ struct StreetAir {
 };
 [[nodiscard]] StreetAir street_air(const Aerosol& aerosol, const AirWeather& weather);
 
+// (round UNITS - one physical unit for every level's fog) The level's own fog as a participating medium. The original
+// blends a surface toward the fog colour linearly from `start` to `end` (the game's SetFogDistance: end = start x 4, or
+// start + 7200 with distance clipping): at `end` a thing is gone - the end is the fog's visibility. The physical medium
+// with that visibility is an even one of extinction sigma_t = kKoschmieder / (end - start) per world unit
+// (Koschmieder's law: the distance at which a black object's contrast falls to 2 %; rt_sky.h's visibilities are the
+// same rule), beginning `start` from the eye (Unreal's exponential height fog's Start Distance - a world medium has no
+// distance from the camera; the game's fog-free near range is kept as engines keep it). It is the weather's aerosol made
+// denser: its single-scattering albedo, phase and light are the aerosol's (rt_sky.h Aerosol - mist and haze droplets),
+// lit by what lights the level - the sun or the moon, the open sky, every lamp - in the global unit. The game's fog
+// colour is then not an input: it was the light this medium sends the eye under the original's lighting, which the
+// physical medium makes from the lights (the census, tools/game/light_units.ts, sets the two side by side).
+// THUG2's night fog (start 8000, end 32 000 units) is a visibility of 610 m - a mist, 50 - 60 times the extinction of a
+// clear night's air (40 km): physically lamps in it have halos (Koschmieder's mist in street light); its day haze the
+// same density lit by the sun.
+[[nodiscard]] double level_fog_extinction(float start, float end); // per world unit (0: no fog)
+// The medium's single-scattering albedo per channel: the aerosol's scattering over its extinction (1 where it has none).
+[[nodiscard]] std::array<float, 3> aerosol_albedo(const Aerosol& aerosol);
+
 // The air's phase function x 4 pi (1 on average over the sphere): the aerosol's - Cornette-Shanks with its g (rt_sky.h
 // aerosol_phase), the one phase the sky is made with.
 [[nodiscard]] double henyey_greenstein(double cosine, double g); // x 4 pi

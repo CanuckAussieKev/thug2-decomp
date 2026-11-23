@@ -2094,6 +2094,11 @@ void emitter_work()
             found.surfaced = std::move(surfaced); // (path tracing: the lamps whose own surface emits)
             found.triangle_emitter.clear();
             found.solved = true; // (round O: only the solved lamps shine)
+            // (round UNITS) each lamp's reach from its own light (rt_lights.h lamp_reach) - the data's is its size's or
+            // the original's radius, the bake's
+            for (rt::Emitter& lamp : found.emitters) {
+                lamp.reach = rt::lamp_reach(lamp);
+            }
             // (round PX) who owns each shining lamp and how it switches: its own surface (sampled as emitting triangles)
             // or analytic; always on (no sky where it lights) or by a photocell, and the photocells' range
             std::size_t own_surface = 0;

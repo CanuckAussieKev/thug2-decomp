@@ -19,6 +19,7 @@
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_light_list.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_sky.h"
 #include "engine/gfx/rt_sun.h"
 
 namespace render::rt {
@@ -577,6 +578,22 @@ float emitter_core(float area)
 }
 
 float point_core(float reach) { return kPointCoreShare * reach; }
+
+float lamp_reach(const Emitter& lamp)
+{
+    constexpr double kMetresPerUnit = 1.0 / 39.37; // (the world's units are inches)
+    const double core = static_cast<double>(std::max(lamp.core, 0.0F)) * kMetresPerUnit;
+    const double right_at = static_cast<double>(std::max(lamp.intensity, 0.0F)) * unit_illuminance(); // (lux)
+    double candela = right_at * core * core;
+    if (lamp.shape == EmitterShape::kLine && lamp.half_length > 0.0F) {
+        candela = std::max(candela, right_at * core * static_cast<double>(lamp.half_length) * kMetresPerUnit);
+    }
+    const double metres = std::sqrt(std::max(candela, 0.0) / kLampReachLux);
+    if (!std::isfinite(metres)) {
+        return lamp.reach;
+    }
+    return std::max(static_cast<float>(metres / kMetresPerUnit), 2.0F * lamp.core);
+}
 
 float light_falloff(float distance, float core, float reach)
 {

@@ -68,6 +68,24 @@ double precipitation_extinction(const AirWeather& weather)
     return (weather.snow ? snow::extinction(snow::kSnowfallRate) : 0.0) + rain::extinction(rate);
 }
 
+double level_fog_extinction(float start, float end)
+{
+    const double range = static_cast<double>(end) - static_cast<double>(start);
+    return std::isfinite(range) && range > 0.0 ? kKoschmieder / range : 0.0;
+}
+
+std::array<float, 3> aerosol_albedo(const Aerosol& aerosol)
+{
+    std::array<float, 3> out{1.0F, 1.0F, 1.0F};
+    for (std::size_t i = 0; i < 3; ++i) {
+        const double t = core::at(aerosol.extinction, i);
+        if (t > 0.0) {
+            core::at(out, i) = static_cast<float>(std::clamp(core::at(aerosol.scattering, i) / t, 0.0, 1.0));
+        }
+    }
+    return out;
+}
+
 StreetAir street_air(const Aerosol& aerosol, const AirWeather& weather)
 {
     StreetAir air;

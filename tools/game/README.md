@@ -291,6 +291,9 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   (fsr:quality by default), the rest as the ini and --set have it. compare: per spot, `on` against `off` - PSNR (at
   least 20 dB) and SSIM (luma, 8 x 8 windows), at most 0.2% turned black; each configuration's frame time; the `on`
   logs must show "upscaler: the first frame upscaled by" and no failure, the `off` ones no upscaled frame.
+- `node tools/game/light_units.ts census --game <folder> [--json <file>] [--levels a,b]` - every level's lamps (cd, lm, surface
+  cd/m^2, reach before / after and the light at the old reach), emitting triangles and fog (extinction per metre,
+  visibility) through the one physical-unit conversion (docs/design/vulkan.md "Round UNITS"); only reads the folder.
 - `node tools/game/light_audit.ts walk|capture|compare|html|textures ...` - the light energy audit (docs/design/vulkan.md
   "Each light counted once"): `walk --game C:\Games\THUG2-<n> --build <x64 build> --out <folder> [--levels BO,BE,LA,NO,nj
   | all] [--restarts 4]` loads each level in a game of its own, takes the census there (`console rt census`: the world's
