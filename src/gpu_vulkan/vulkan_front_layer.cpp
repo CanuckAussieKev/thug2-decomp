@@ -12,6 +12,7 @@
 #include <volk.h>
 
 #include "base/core/checked_index.h"
+#include "engine/gfx/gpu_markers.h"
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
@@ -20,6 +21,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_debug_view.h"
+#include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_restir_gi.h"
@@ -700,7 +702,13 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     }
     // 1. the see-through draws' depth
     FrontLayerImages images;
-    if (!surface_light_front_prepass(state, &images)) {
+    bool depth_made = false;
+    {
+        // (round LW2) each step its own GPU marker - the frame profile's and a lost device's places
+        const FrameStep step(state.frames, outside_pass(state), gpu_markers::section::kFrontDepth);
+        depth_made = surface_light_front_prepass(state, &images);
+    }
+    if (!depth_made) {
         if (timed) {
             vkCmdWriteTimestamp(outside_pass(state), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timing.pool, (slot * 2) + 1);
         }
@@ -814,6 +822,7 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     if (map_now) {
         add(kBindingCloudMap, nullptr, &cloud_map.image, nullptr);
     }
+    const FrameStep light_step(state.frames, commands, gpu_markers::section::kFrontLight);
     vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
     const VkDescriptorSet material_set = state.materials.descriptor_set();
     vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1, &material_set, 0,

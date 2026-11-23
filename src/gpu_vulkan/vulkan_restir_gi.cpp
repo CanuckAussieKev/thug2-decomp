@@ -733,6 +733,7 @@ Secondary trace_secondary(uint mask, vec3 origin, vec3 dir, float spread, inout 
         vec3 cached;
         vec3 cached_direct;
         out_s.ended = spread > 0.0 && out_s.t * spread >= cache_cell_side(h.position) &&
+                      cache_may_end(brdf_specular_albedo(m.f0, max(dot(n, v), 1.0e-4), m.roughness)) &&
                       cache_lookup_whole(h.position, ng, cached, cached_direct);
         out_s.bounce = out_s.reflectance * cached_direct;
         out_s.beyond = cached;
@@ -788,7 +789,10 @@ vec3 continue_path(Secondary sec, inout uint rng)
         vec3 cached;
         vec3 cached_direct;
         // (round BUDGET2) a cosine lobe's ray (spread 1) ends at a trusted cell its footprint covers - no light sample
-        if (t >= cache_cell_side(h.position) && cache_lookup_whole(h.position, ng, cached, cached_direct)) {
+        // (round LW2: not where the vertex's specular lobe reflects much - cache_may_end)
+        if (t >= cache_cell_side(h.position) &&
+            cache_may_end(brdf_specular_albedo(m.f0, max(dot(n, v), 1.0e-4), m.roughness)) &&
+            cache_lookup_whole(h.position, ng, cached, cached_direct)) {
             beyond += through * reflectance * (cached_direct + cached);
             break;
         }
@@ -841,15 +845,14 @@ vec3 view_of(Surface s, vec3 eye) { return normalize(eye - s.at); }
 // A reservoir: its sample (a point on a surface and that surface's normal toward the pixel that found it, or a direction
 // to the sky), the sample's reflected light, its weight W (the unbiased contribution weight - 1 / the sample's effective
 // pdf in solid angle at its pixel) and its sample count M.
-// (Round LW) A sample whose path ended at the radiance cache (Secondary::ended - its light the reflectance x the cell's
-// whole light, read when it was taken) and its age (the frames since): such a sample is dropped from the history past
-// GI_ENDED_AGE_MOST frames (RTXDI's ReSTIR GI maxReservoirAge), reservoir and M with it. Its light is the cell's
-// estimate of that frame - the cell's error, the same for every pixel whose path ended there; kept in a reservoir it
-// stayed on the screen as long as the sample lived (each reservoir passing it on: 20 frames and more), the cache's own
-// history (CACHE_FRAMES) long since past it: Training's bounce light breathing by +-5 % over ~4 s with the world still
-// (round NOISE; round LW: each 1/15-s cell's light correlated 0.51 four frames apart, 0.23 eight). Read again at every
-// load instead (the cell's light now), the memory went but fireflies came: a sample taken while its cell was dim keeps
-// the W of that target. Paths traced to their end keep their samples (their errors are each pixel's own).
+// (Round LW) Whether the sample's path ended at the radiance cache (Secondary::ended - its light the reflectance x the
+// cell's whole light, read when it was taken): its light is the cell's estimate of that frame - the cell's error, the
+// same for every pixel whose path ended there; kept in a reservoir it stayed on the screen as long as the sample lived
+// (each reservoir passing it on: 20 frames and more), the cache's own history (CACHE_FRAMES) long since past it:
+// Training's bounce light breathing by +-5 % over ~4 s with the world still (round NOISE; round LW: each 1/15-s cell's
+// light correlated 0.51 four frames apart, 0.23 eight). Read again at every load instead (the cell's light now), the
+// memory went but fireflies came: a sample taken while its cell was dim keeps the W of that target. The temporal reuse
+// gives the history less confidence for such a sample (history_confidence).
 struct Reservoir {
     uint kind;
     vec3 y;
@@ -858,12 +861,24 @@ struct Reservoir {
     float W;
     float M;
     bool ended;
-    uint age;
 };
-Reservoir no_reservoir(float m) { return Reservoir(KIND_NONE, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), 0.0, m, false, 0u); }
-const uint GI_ENDED_AGE_MOST = 16u;
-// The kind byte's words: the kind (bits 0 - 1), ended (bit 2), the age (bits 3 - 7, at most 31)
-uint kind_byte(Reservoir r) { return (r.kind & 3u) | (r.ended ? 4u : 0u) | (min(r.age, 31u) << 3); }
+Reservoir no_reservoir(float m) { return Reservoir(KIND_NONE, vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), 0.0, m, false); }
+// (round LW2) The confidence the temporal reuse gives last frame's reservoir (its M) for a sample x: at most
+// GI_ENDED_CONFIDENCE where x's path ended at the cache, so such a sample stays ~that many frames where a traced one
+// stays the history's 20 (kHistoryCap). A confidence of the sample, not a drop: the generalised
+// balance heuristic's c_i(x) (Lin et al. 2022) - each input's weight a function of the sample, the same function
+// where the sample is the history's (its resampling weight) and where it is this frame's (could the history have made
+// it - z), so the weights still sum to 1 for every sample and the estimate stays unbiased. Round LW's rule dropped the
+// reservoir (sample and M) past 16 frames when its sample had ended: a drop that depends on the sample - an ended
+// sample's share of the reservoirs fell under its share of the light (thug2_vulkan_restir_gi_check's red wall, whose
+// light comes by ended paths: the floor's red -2.54 %, now -0.40 %; main's -0.72 %). An age limit on every sample (RTXDI's
+// maxReservoirAge) is biased the same way, less (a long-lived sample is a bright one: red -1.6 %), and a drop at random
+// or a history cap of 8 for every sample are unbiased but take the traced samples' reuse too (each pixel's flicker
+// +6 - 12 % in the check's lamps floor - its RIS-against-one-pick case failed).
+const float GI_ENDED_CONFIDENCE = 8.0;
+float history_confidence(bool ended, float m) { return ended ? min(m, GI_ENDED_CONFIDENCE) : m; }
+// The kind byte's words: the kind (bits 0 - 1), ended (bit 2)
+uint kind_byte(Reservoir r) { return (r.kind & 3u) | (r.ended ? 4u : 0u); }
 uvec2 pack_light(vec3 c)
 {
     c = max(c, vec3(0.0));
@@ -890,7 +905,6 @@ Reservoir reservoir_of(uvec4 w0, uvec4 w1)
     uint kind = w1.y >> 24;
     r.kind = kind & 3u;
     r.ended = (kind & 4u) != 0u;
-    r.age = kind >> 3;
     r.y = uintBitsToFloat(w0.xyz);
     r.ny = oct_decode(unpackSnorm2x16(w0.w));
     r.bounce = unpack_light(w1.x, w1.y & 0x00FFFFFFu);
@@ -1250,7 +1264,7 @@ void store_samples(uint i, Surface s, bool traced, bool take_specular, vec3 dir,
             c.y = sec.at;
             c.ny = sec.n;
             c.bounce = with_bounces(sec);
-            c.ended = sec.ended; // (round LW: its light the cache's - dropped past GI_ENDED_AGE_MOST frames)
+            c.ended = sec.ended; // (round LW: its light the cache's - history_confidence)
         } else {
             c.kind = KIND_SKY;
             c.y = dir;
@@ -1496,11 +1510,6 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
     if (has_then) {
         Reservoir h = load_b(j);
         h.M = min(h.M, cap);
-        // (round LW) a frame older; a cache-ended sample past its age dropped, reservoir and M (RTXDI's maxReservoirAge)
-        h.age += 1u;
-        if (h.ended && h.age > GI_ENDED_AGE_MOST) {
-            h = no_reservoir(0.0);
-        }
         vec3 h_dir;
         float h_reach;
         float g_here;
@@ -1511,7 +1520,7 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
         float jacobian = t_h > 0.0 && sample_from(then, h, then_dir, then_reach, g_then) && g_then > 0.0
                              ? good(g_here / g_then) : 0.0;
         float w_r = chosen * r.W * r.M;
-        float w_h = good(t_h * h.W * jacobian * h.M);
+        float w_h = good(t_h * h.W * jacobian * history_confidence(h.ended, h.M));
         float total = w_r + w_h;
         Reservoir out_r = no_reservoir(r.M + h.M);
         if (total > 0.0) {
@@ -1534,7 +1543,7 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
                 if (visible) {
                     out_r = h;
                     target = t_h;
-                    z = h.M + r.M;
+                    z = history_confidence(h.ended, h.M) + r.M;
                 }
             } else {
                 out_r = r;
@@ -1542,7 +1551,7 @@ Reservoir temporal_reservoir(ivec2 local, uint i, out float weight, out Reservoi
                 z = r.M;
                 // could last frame's reservoir have made it: its surface's target and a ray from there
                 if (visible) {
-                    z += h.M;
+                    z += history_confidence(r.ended, h.M);
                 }
             }
             out_r.M = r.M + h.M;
