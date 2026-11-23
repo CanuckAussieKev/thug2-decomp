@@ -437,6 +437,7 @@ export function historyAge(frames: TapFrame[], k: number, most: number): Uint8Ar
 
 export interface Spot {
     name: string;
+    level?: string; // (round NOISE) the level's short name (BO when not given)
     skater: Vec3;
     heading: number;
     camera: Vec3;
@@ -464,6 +465,32 @@ export const kSpots: Spot[] = [
         heading: -59.0,
         camera: { x: 2101.8, y: 131.1, z: -427.7 },
         direction: { x: -0.842, y: -0.187, z: 0.506 },
+    },
+    // (round NOISE) Barcelona's fountain (the user's 2026-11-23 17-04-15), New Orleans' street and Australia's lamp pool
+    // at night (the flicker series of 2026-11-23)
+    {
+        name: "ba",
+        level: "ba",
+        skater: { x: 130.7, y: 48.0, z: 281.3 },
+        heading: -0.8,
+        camera: { x: 129.9, y: 126.6, z: 422.7 },
+        direction: { x: 0.005, y: -0.187, z: -0.982 },
+    },
+    {
+        name: "no",
+        level: "no",
+        skater: { x: -2.8, y: 0.0, z: 2014.9 },
+        heading: -179.2,
+        camera: { x: -0.8, y: 77.4, z: 2156.6 },
+        direction: { x: -0.014, y: -0.179, z: -0.984 },
+    },
+    {
+        name: "au",
+        level: "au",
+        skater: { x: -945.0, y: 164.4, z: 7333.1 },
+        heading: 134.1,
+        camera: { x: -1046.7, y: 241.8, z: 7431.7 },
+        direction: { x: 0.7069, y: -0.179, z: -0.685 }, // (the sidecar's 0.707)
     },
 ];
 
@@ -522,7 +549,7 @@ export function planCommands(
 ): string[] {
     const folder = `mv/${spot.name}${tag}`;
     const out: string[] = [
-        "waitfor level bo 600",
+        `waitfor level ${spot.level ?? "bo"} 600`,
         `teleport ${fixed(spot.skater, 1)} ${spot.heading}`,
         "wait 90",
         "console measure on",
@@ -1003,7 +1030,7 @@ export function planTermCommands(spot: Spot, refSamples: number, tag = ""): stri
     const folder = `bias/${spot.name}${tag}`;
     const pose = `camera ${fixed(spot.camera)} ${fixed(spot.direction, 6)}`;
     const out: string[] = [
-        "waitfor level bo 600",
+        `waitfor level ${spot.level ?? "bo"} 600`,
         `teleport ${fixed(spot.skater, 1)} ${spot.heading}`,
         "wait 90",
         "console measure on",
@@ -1188,7 +1215,7 @@ export function termRows(rt: Map<string, number[]>, ref: Map<string, number[]>):
 
 // A linear picture in the global unit: a `pt frames` frame (frames.txt beside it) over its pre-exposure, a reference as
 // it is.
-function globalUnit(file: string): Picture {
+export function globalUnit(file: string): Picture {
     const list = path.join(path.dirname(file), "frames.txt");
     if (!fs.existsSync(list)) return readExr(fs.readFileSync(file));
     const k = Number(/frame_(\d+)\.exr$/.exec(file)?.[1] ?? "1");

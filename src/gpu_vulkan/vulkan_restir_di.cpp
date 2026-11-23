@@ -123,8 +123,10 @@ constexpr uint32_t kGridSlots = 512;
 constexpr uint32_t kGridCandidates = 8;
 // (round BUDGET) vec4s an entry in the bounds buffer: its bounds (2), its prepared record (3 - light_point_at) and its
 // presampled points (RTXDI's presampled light samples: each drawn uniformly on the triangle and its emission found there
-// once a frame - a candidate takes one, no texel read per pixel)
-constexpr VkDeviceSize kPresampled = 16;
+// once a frame - a candidate takes one, no texel read per pixel). (Round NOISE) 64, stratified 8 x 8 (PASS_BOUNDS): the
+// pass costs the entries x the points (BA: 890 x 64 emission reads a frame), the candidates' cost is unchanged.
+constexpr VkDeviceSize kPresampledSide = 8;
+constexpr VkDeviceSize kPresampled = kPresampledSide * kPresampledSide;
 constexpr VkDeviceSize kRecordStride = 5 + kPresampled;
 // (round PERF3) The grid makes only the cells read lately (kGridBody PASS_CELLS): every reader marks the cell it reads
 // (its state word - vulkan_light_list.cpp light_grid_slot), and a cell is made while it was marked within kGridKeepFrames
@@ -241,6 +243,7 @@ layout(std430, set = 0, binding = 19) buffer Bounds { vec4 bounds[]; };
 // corners (light_point_at) and PRESAMPLED points on it drawn this frame, each its kept uv (x's bits) and its emission
 // there (yzw) - RTXDI's presampled light samples
 const uint PRESAMPLED = PRESAMPLED_POINTS; // (kPresampled)
+const uint PRESAMPLED_SIDE = PRESAMPLED_POINTS_SIDE; // (round NOISE: the strata on each side)
 const uint RECORD_STRIDE = 5u + PRESAMPLED;
 layout(std430, set = 0, binding = 20) buffer Cells { uvec2 cells[]; };
 const uvec2 sky_alias[1] = uvec2[1](uvec2(0u)); // (the light list's sky isn't sampled here)
@@ -974,7 +977,11 @@ void main()
     taken[0] = reservoir_of(res_a[2u * i], res_a[2u * i + 1u]);
     where[0] = s;
     if ((pass.counts.w & FLAG_SPATIAL) != 0u) {
-        for (uint k = 0u; k < min(pass.params.y, MOST_SPATIAL); ++k) {
+        // (round NOISE) RTXDI's disocclusion boost: a pixel without history (its reservoir no more than this frame's
+        // candidates - newly revealed, beside a moving skater) takes MOST_SPATIAL neighbours, not one: its first frames
+        // otherwise show one pixel's 16 candidates, the bright specks Ray Reconstruction keeps as stars for a moment
+        uint neighbours = taken[0].M <= float(pass.params.x) ? MOST_SPATIAL : min(pass.params.y, MOST_SPATIAL);
+        for (uint k = 0u; k < neighbours; ++k) {
             float angle = 2.0 * PATH_PI * path_next(rng);
             float radius = pass.tune.x * sqrt(path_next(rng));
             ivec2 q = local + ivec2(round(vec2(cos(angle), sin(angle)) * radius));
@@ -1019,8 +1026,16 @@ void main()
     if (chosen != 0xFFFFFFFFu) {
         // (round BUDGET) Z by the targets alone (RTXDI's basic bias correction): the samples of every reservoir whose
         // surface has the chosen light's target over 0 there (its prepared record) - no ray a neighbour. Then the one
-        // light ray of the pixel: the chosen sample seen from here; a sample this surface doesn't see is dropped from the
-        // reservoir it keeps (its W 0, its M kept - RTXDI's visibility reuse: the next frame's history holds what is seen).
+        // light ray of the pixel: the chosen sample seen from here, shaded with what gets through.
+        // (round NOISE) The reservoir keeps its sample whether it is seen or not (RTXDI's discardInvisibleSamples off -
+        // its default): its weight is the unshadowed target's, the one the reuse resamples by, and only so is the
+        // estimate unbiased. Dropping a sample this surface doesn't see (its W 0) while keeping its M - round BUDGET's
+        // visibility reuse - told the next frames that the reservoir's M candidates had brought nothing: the pixel's light
+        // fell to this frame's candidates over the whole history (16 of up to 320) and climbed back over the history's
+        // length. Wherever the candidates often meet an occluded light (emitters beyond a wall, lamps round a corner) the
+        // light sat 25 - 40 % low and whole lights came and went over seconds (Barcelona's fountain: ReSTIR DI 0.59 of the
+        // reference's local direct light, kept 0.77 - its opaque surfaces 0.66 - 0.86 -> 0.93 - 0.98). Reset to M 0
+        // instead it was ~1.5 x too bright (the history then holds only seen samples).
         float z = 0.0;
         for (uint k = 0u; k < n; ++k) {
             LightPoint toward;
@@ -1032,11 +1047,13 @@ void main()
         bool shown = light_point(taken[chosen].entry - 1u, taken[chosen].uv, s, exact); // (its own light: the texel's)
         vec3 through = shown ? seen(s, chosen_point) : vec3(0.0);
         count_ray(chosen_point.reach);
-        if (seen_at_all(through)) {
+        if (shown) {
             r.entry = taken[chosen].entry;
             r.uv = taken[chosen].uv;
             r.light = exact.emitted; // (its emission now: a lamp switched off is dropped by its target)
             r.W = z > 0.0 && target > 0.0 ? good(total / (z * target)) : 0.0;
+        }
+        if (seen_at_all(through)) {
             if (r.W > 0.0) {
                 lamps = exact.light * through * r.W;
                 // (round BR) the light's specular reflection: the same sample through the material's specular lobe, over
@@ -1134,8 +1151,16 @@ void main()
                 // (seeded by the triangle itself, not its place in the list: the scan lists them in any order)
                 uint rng = path_sequence_start(listed.x, listed.y, pass.counts.z, pass.params.w ^ 0x51ED270Bu);
                 uint material_id = instance_material(listed.x);
+                // (round NOISE) stratified: point k in its own cell of a PRESAMPLED_SIDE x PRESAMPLED_SIDE grid over the unit
+                // square (path_triangle_point keeps areas: equal parts of the triangle), at random within it. A candidate
+                // takes a point at random, so each is still uniform on the triangle, but the frame's set covers the
+                // triangle evenly: its share of a lamp drawn in a few texels no longer swings with the draw (16 points
+                // drawn independently caught 0 - 4 of a lamp covering a tenth of its triangle - every pixel's light from
+                // it rose and fell together for as long as the reservoirs kept the samples)
                 for (uint k = 0u; k < PRESAMPLED; ++k) {
-                    vec2 uv = round(clamp(vec2(path_next(rng), path_next(rng)), 0.0, 1.0) * 65535.0) / 65535.0;
+                    vec2 cell = vec2(float(k % PRESAMPLED_SIDE), float(k / PRESAMPLED_SIDE));
+                    vec2 uv = round(clamp((cell + vec2(path_next(rng), path_next(rng))) / float(PRESAMPLED_SIDE), 0.0, 1.0) *
+                                    65535.0) / 65535.0;
                     vec3 bc = path_triangle_point(uv.x, uv.y);
                     vec3 emitted;
                     if (!hit_emission_of(listed.x, listed.y, material_id, bc.yz, tri, emitted)) {
@@ -1298,6 +1323,7 @@ std::string shader_source(Shader which, bool check)
     source += "#extension GL_KHR_shader_subgroup_basic : require\n#extension GL_KHR_shader_subgroup_arithmetic : require\n";
     source += "#define DI_COUNTS " + std::to_string(kDiCounts) + "u\n";
     source += "#define PRESAMPLED_POINTS " + std::to_string(kPresampled) + "u\n"; // (round BUDGET)
+    source += "#define PRESAMPLED_POINTS_SIDE " + std::to_string(kPresampledSide) + "u\n"; // (round NOISE)
     for (std::size_t k = 0; k < kCountNames.size(); ++k) {
         source += "#define DI_COUNT_" + std::string(core::at(kCountNames, k).define) + " " + std::to_string(k) + "u\n";
     }
