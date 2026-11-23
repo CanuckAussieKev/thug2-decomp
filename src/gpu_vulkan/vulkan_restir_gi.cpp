@@ -139,6 +139,7 @@ constexpr uint32_t kFlagSpecularOnly = 256U;  // (round WS - the check's) the su
 constexpr uint32_t kFlagNoDiffuse = 512U;
 constexpr uint32_t kFlagNoSpecular = 1024U;
 constexpr uint32_t kFlagNoSky = 2048U;
+constexpr uint32_t kFlagCacheEnds = 4096U; // (round BUDGET2) paths end at trusted cache cells (RestirGiOverrides::cache_ends)
 // (round WS) The specular reservoir's reuse in the game: OFF. The check measures it unbiased and its estimate's noise
 // halved (the specular alone, a still or orbiting camera), but in the game under Ray Reconstruction (BO at night, the
 // ledge under the sign and the brick wall, 60-frame series) it made the picture noisier - the ledge's specks a frame
@@ -278,6 +279,7 @@ layout(std430, set = 0, binding = 9) readonly buffer SkyAlias { uvec2 sky_alias[
 #define LL_EYE pass.eye.xyz
 #define LL_CACHE_CELLS pass.cache_cells.x
 #define LL_CACHE_ON ((pass.counts.w & 64u) != 0u)
+#define GI_CACHE_ENDS ((pass.counts.w & 4096u) != 0u)
 )";
 
 // The passes (PASS_SAMPLE - round PERF2: the surface and the pixel's secondary path, one lobe's; PASS_TEMPORAL: the
@@ -1340,7 +1342,7 @@ void main()
     // (round BUDGET2) the footprint of the lobe's own sample (its pdf without the lobe's chance): where it covers a
     // trusted cell the path ends there (trace_secondary)
     float lobe_pdf = pdf / max(take_specular ? specular_chance : 1.0 - specular_chance, 1.0e-6);
-    Secondary sec = trace_secondary(mask, origin, dir, ray_spread(lobe_pdf), rng);
+    Secondary sec = trace_secondary(mask, origin, dir, GI_CACHE_ENDS ? ray_spread(lobe_pdf) : FOOTPRINT_NONE, rng);
     ll_cell_candidates = true;
     if (sec.hit && !sec.ended) {
         // (round BUDGET2) a vertex the path doesn't end at: its light sample - and past a cache miss the path - in the
@@ -3133,6 +3135,7 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
                            (!check || own.overrides.permutation ? kFlagPermute : 0U) |
                            (!check || own.overrides.boiling_filter ? kFlagBoiling : 0U) |
                            (!check || own.overrides.cache ? kFlagCache : 0U) |
+                           (!check || own.overrides.cache_ends ? kFlagCacheEnds : 0U) |
                            ((check ? own.overrides.specular_reuse : kSpecularReuseInGame) ? kFlagSpecularReuse : 0U) |
                            (check && own.overrides.specular_only ? kFlagSpecularOnly : 0U) | debug_flags(check);
     block.counts = {own.entries, static_cast<uint32_t>(local.lamp_list.size()), static_cast<uint32_t>(own.frames), flags};

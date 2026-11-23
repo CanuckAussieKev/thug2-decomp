@@ -673,6 +673,7 @@ struct RunPlan {
     bool cache = true; // (round MB) the radiance cache's further bounces
     uint32_t local_candidates = 0; // (round DD) the secondary vertices' local lights' RIS candidates (0: the game's)
     bool boiling_filter = true;    // (round DD) RTXDI's boiling filter (off: the estimate unbiased)
+    bool cache_ends = true;        // (round BUDGET2) paths end at trusted cache cells
     bool specular_reuse = true;    // (round WS) the specular reservoir's reuse (off: each frame's own GGX ray)
     bool specular_only = false;    // (round WS) the sums the specular alone
     std::function<Vec3(int)> camera;
@@ -703,6 +704,7 @@ Answer restir_gi(render::Gpu& gpu, const Targets& targets, std::span<const Scene
         overrides.cache = plan.cache;
         overrides.local_candidates = plan.local_candidates;
         overrides.boiling_filter = plan.boiling_filter;
+    overrides.cache_ends = plan.cache_ends;
         overrides.specular_reuse = plan.specular_reuse;
         overrides.specular_only = plan.specular_only;
         overrides.seed = 977U + (static_cast<uint32_t>(batch) * 104729U);
@@ -869,6 +871,9 @@ void check_local_candidates(render::Gpu& gpu, const Targets& targets, const std:
         plan.counted = [](int /*frame*/) { return true; };
         plan.local_candidates = candidates;
         plan.boiling_filter = boiling;
+        // (round BUDGET2) every first vertex takes its light sample: the case measures that sampling, which a path
+        // ending at the cache skips
+        plan.cache_ends = false;
         plan.each_frame = [&series](const vk::RestirGiAccumulation& one) {
             for (std::size_t i = 0; i < series.size() && i < one.last.size(); ++i) {
                 const std::array<float, 3>& c = core::at(one.last, i);
@@ -942,6 +947,7 @@ void check_grid_candidates(render::Gpu& gpu, const Targets& targets, const std::
         plan.camera = [](int /*frame*/) { return kEyeA; };
         plan.counted = [](int /*frame*/) { return true; };
         plan.boiling_filter = false; // (unbiased: the means compared with the reference's)
+        plan.cache_ends = false;     // (round BUDGET2) every first vertex samples the lights - what this case compares
         plan.each_frame = [&series](const vk::RestirGiAccumulation& one) {
             for (std::size_t i = 0; i < series.size() && i < one.last.size(); ++i) {
                 const std::array<float, 3>& c = core::at(one.last, i);

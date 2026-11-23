@@ -100,6 +100,9 @@ struct RestirGiOverrides {
     bool permutation = true;
     bool boiling_filter = true;
     bool cache = true; // (round MB) the secondary vertices' further bounces from the radiance cache (false: one bounce)
+    // (round BUDGET2) a path ends at a trusted cache cell its footprint covers (false: every first vertex takes its
+    // light sample - the checks of the secondary vertices' light sampling)
+    bool cache_ends = true;
     // (round DD) the local lights' RIS candidates a next-event sample takes from the pool (0: the game's; 1: one pick
     // by power alone, as before round DD)
     uint32_t local_candidates = 0;
