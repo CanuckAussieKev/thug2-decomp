@@ -276,9 +276,11 @@ function findGameFolder(folder: string): string {
 
 function levelCodes(game: string): Map<number, string> {
     const out = new Map<number, string>();
-    const levels = path.join(game, "Data", "levels");
-    if (!fs.existsSync(levels)) return out;
-    for (const d of fs.readdirSync(levels)) if (!/_sky$/i.test(d)) out.set(checksum(d) >>> 0, d);
+    // (the game's levels and the data overlay's - the ported ones)
+    for (const levels of [path.join(game, "Data", "levels"), path.join(game, "thug2-decomp-data", "levels")]) {
+        if (!fs.existsSync(levels)) continue;
+        for (const d of fs.readdirSync(levels)) if (!/_sky$/i.test(d)) out.set(checksum(d) >>> 0, d);
+    }
     return out;
 }
 
@@ -330,13 +332,14 @@ function census(game: string, levelsWanted: Set<string> | null, json: string | u
     if (!fs.existsSync(relit)) return exitWith(`no thug2-decomp-relit under ${game}`);
     const codes = levelCodes(folder);
     const reports: LevelReport[] = [];
+    const stale: string[] = [];
     for (const file of fs
         .readdirSync(relit)
         .filter((f) => f.endsWith(".relit"))
         .sort()) {
         const head = readRelit(fs.readFileSync(path.join(relit, file)));
         if (!head) {
-            print(`${file}: not relit data v${RELIT_OLDEST} - ${RELIT_VERSION} - skipped`);
+            stale.push(codes.get(Number.parseInt(file, 16) >>> 0) ?? file.replace(/\.relit$/, ""));
             continue;
         }
         const name = codes.get(head.scene >>> 0) ?? file.replace(/\.relit$/, "");
@@ -344,6 +347,11 @@ function census(game: string, levelsWanted: Set<string> | null, json: string | u
         reports.push(report(name, head));
     }
     reports.sort((a, b) => a.level.localeCompare(b.level));
+    if (stale.length)
+        print(
+            `Relit data older than v${RELIT_OLDEST} (the game reads it as out of date - the level keeps the original's ` +
+                `lighting; its lamps not physical until it is baked again): ${stale.length} - ${stale.sort().join(", ")}\n`,
+        );
     print(
         "Lamps (shining), per level: count; intensity cd, flux lm, surface nits min / median / max; reach before (m)",
     );
