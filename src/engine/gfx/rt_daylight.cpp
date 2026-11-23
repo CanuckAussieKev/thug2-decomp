@@ -241,11 +241,11 @@ bool same_light(const DayLight& a, const DayLight& b)
            a.native == b.native && a.moonlit == b.moonlit && a.direct == b.direct && a.direct_tint == b.direct_tint &&
            a.light_colour == b.light_colour && a.light_radius == b.light_radius && a.bounce == b.bounce &&
            a.sky == b.sky && a.shadow == b.shadow && a.lamps == b.lamps && a.stars == b.stars &&
-           a.moon_disc == b.moon_disc && a.night_sky == b.night_sky && a.direct_share == b.direct_share &&
-           a.stars_pole == b.stars_pole && a.blend == b.blend && a.sun_light == b.sun_light &&
-           a.sky_light == b.sky_light && a.moon_age == b.moon_age && a.moon_radiance == b.moon_radiance &&
-           a.cloud_cover == b.cloud_cover && a.cloud_beam == b.cloud_beam && a.cloud_sky == b.cloud_sky &&
-           a.illuminance_lux == b.illuminance_lux && a.cut == b.cut; // (round PX: not the
+           a.moon_disc == b.moon_disc && a.night_sky == b.night_sky && a.moon_top == b.moon_top &&
+           a.direct_share == b.direct_share && a.stars_pole == b.stars_pole && a.blend == b.blend &&
+           a.sun_light == b.sun_light && a.sky_light == b.sky_light && a.moon_age == b.moon_age &&
+           a.moon_radiance == b.moon_radiance && a.cloud_cover == b.cloud_cover && a.cloud_beam == b.cloud_beam &&
+           a.cloud_sky == b.cloud_sky && a.illuminance_lux == b.illuminance_lux && a.cut == b.cut; // (round PX: not the
     // pre-exposure - the frame's, latched apart)
 }
 
@@ -680,10 +680,14 @@ DayLight day_light_at(const NativeDay& native, double hours, const DayWeather& w
                                                (moon_beam * moon_clouds.sun_diffuse) + (moon_sky * moon_clouds.sky_kept) +
                                                (floor * sun_clouds.sky_kept));
         core::at(clear_sky, ch) = static_cast<float>(core::at(by_sun.sky, ch) + moon_sky + floor);
-        // the night sky drawn: the moonlit sky's and the night sky's own light as a radiance overhead (a uniform sky of
-        // radiance L gives L on a level surface in the unit)
-        core::at(light.night_sky, ch) = static_cast<float>(moon_sky + floor);
+        // the night sky drawn: the night sky's own light as a radiance overhead (a uniform sky of radiance L gives L on a
+        // level surface in the unit). (Round NIGHTSKY) Not the moon's sky: that is the atmosphere's light scattered from
+        // the moon, drawn by the same model as the sun's sky about the moon (moon_top - vulkan_rt_sky.h's moon rows) -
+        // bright round the moon, dark across from it, blue as the day's; spread evenly as before it was a flat grey
+        // 3 - 5 x brighter than the moonlit sky's measured luminance away from the moon.
+        core::at(light.night_sky, ch) = static_cast<float>(floor);
     }
+    light.moon_top = moon_share;
     // the scene's light: the brighter direct light on a level surface - the sun, or the moon once the sun is down
     const double sun_on_ground = luma_of(sun_direct) * std::max(sun_sine, 0.0);
     const double moon_on_ground = luma_of(moon_direct) * std::max(moon_sine, 0.0);

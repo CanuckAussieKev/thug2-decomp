@@ -183,7 +183,9 @@ struct CloudSkyLight {
     std::array<double, 3> bottom{};
     std::array<double, 3> top{};
 };
-// The taps' sums over a sky-view table read back (row by row, kSkyViewWidth texels a row, rgb + a; negatives as 0).
+// The taps' sums over a sky-view table read back (row by row, kSkyViewWidth texels a row, rgb + a; negatives as 0) -
+// (round NIGHTSKY) and over the moon's table in the rows after it when the image holds one (gpu_vulkan/vulkan_rt_sky.h:
+// rows kSkyViewHeight on, the marker row after both, its first texel's w 1 while drawn).
 [[nodiscard]] CloudSkyLight cloud_sky_light(const std::vector<std::array<float, 4>>& table);
 
 // --- (round S - clouds dim the light) the weather's cloud cover, one state ------------------------------------------

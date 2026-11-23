@@ -589,11 +589,25 @@ vk::RtSkySettings sky_settings(bool clouds, bool hdr)
     return settings;
 }
 
-bool read_table(vk::AtmosphereTable which, vk::AtmosphereTexels* out)
+// (round NIGHTSKY: the sky-view image read whole - both tables and the moon's marker row)
+bool read_image(vk::AtmosphereTable which, vk::AtmosphereTexels* out)
 {
     vk::Backend& state = vk::backend();
     const std::scoped_lock lock(state.mutex);
     return vk::read_atmosphere_table(state, which, out);
+}
+
+// A table read back - for the sky-view image its first table, the sun's (round NIGHTSKY)
+bool read_table(vk::AtmosphereTable which, vk::AtmosphereTexels* out)
+{
+    if (!read_image(which, out)) {
+        return false;
+    }
+    if (which == vk::AtmosphereTable::kSkyView) {
+        *out = vk::sky_view_table_part(*out, 0);
+        return !out->texels.empty();
+    }
+    return true;
 }
 
 int count_not_finite(const std::vector<std::array<float, 4>>& texels)
@@ -776,8 +790,10 @@ void run_atmosphere(render::Gpu& gpu, Tally* tally)
 
 // The sky-view table against the processor's (sky_radiance_ms, the below-horizon blend, and the night's light added as
 // the shader adds it) with the sun `elevation` radians up and `night` overhead: each value's relative error.
+// (round NIGHTSKY: `scale` the source's light per channel - 1 for the sun, the moon's light at the top x the exposure for
+// the moon's table)
 std::vector<double> view_errors(const vk::AtmosphereTexels& view, double elevation, const std::array<float, 3>& night,
-                                const rt::MultipleTable& cpu_table)
+                                const rt::MultipleTable& cpu_table, const Rgb& scale = {1.0, 1.0, 1.0})
 {
     std::vector<double> errors;
     constexpr uint32_t kReferenceLight = 256;
@@ -805,7 +821,7 @@ std::vector<double> view_errors(const vk::AtmosphereTexels& view, double elevati
             const double night_share = vk::kNightHorizon + ((1.0 - vk::kNightHorizon) * up);
             const std::array<float, 4>& got = core::at(view.texels, (static_cast<std::size_t>(row) * view.width) + column);
             for (std::size_t channel = 0; channel < 3; ++channel) {
-                const double exposed = (core::at(want, channel) * rt::sky_exposure()) +
+                const double exposed = (core::at(want, channel) * rt::sky_exposure() * core::at(scale, channel)) +
                                        (static_cast<double>(core::at(night, channel)) * night_share);
                 errors.push_back(error_of(core::at(got, channel), exposed, kViewFloor));
             }
@@ -889,18 +905,97 @@ void run_time_of_day(render::Gpu& gpu, Tally* tally)
         core::at(zenith, i) = luma(sky_view_at(view, {0.0, 1.0, 0.0}, doubles(light.sun)));
         tally->check(count_not_finite(view.texels) == 0, "  no NaN");
     }
-    tally->check(core::at(zenith, 0) > core::at(zenith, 1) && core::at(zenith, 1) > core::at(zenith, 2) &&
-                     core::at(zenith, 2) > core::at(zenith, 3),
-                 text::format("  the zenith darkens from noon into the night (%.4f, %.4f, %.4f, %.4f; the moon's sky at "
-                              "midnight %.5f)",
-                              core::at(zenith, 0), core::at(zenith, 1), core::at(zenith, 2), core::at(zenith, 3),
-                              core::at(zenith, 4)));
-    // (round S: the night's light physical - the moonlit sky's and the night sky's own)
-    const double night_zenith = luma(doubles(rt::day_light_at(day, rt::kNightHours).night_sky));
-    constexpr double kNightTolerance = 0.1;
-    tally->check(std::abs(core::at(zenith, 4) - night_zenith) < night_zenith * kNightTolerance,
-                 text::format("  at midnight the zenith is the night's light (%.5f against %.5f)", core::at(zenith, 4),
-                              night_zenith));
+    tally->check(
+        core::at(zenith, 0) > core::at(zenith, 1) && core::at(zenith, 1) > core::at(zenith, 2) &&
+            core::at(zenith, 2) > core::at(zenith, 3),
+        text::format("  the zenith darkens from noon into the night (%.4f, %.4f, %.4f, %.4f; the sun's table at "
+                     "midnight %.5f)",
+                     core::at(zenith, 0), core::at(zenith, 1), core::at(zenith, 2), core::at(zenith, 3),
+                     core::at(zenith, 4)));
+    // (round S: the night's light physical - round NIGHTSKY: the night sky's own; the moon's is its own table) - exposed
+    // as a night's frame is (its light about 1: the 16-bit table holds no 2e-8)
+    {
+        const rt::DayLight midnight = rt::day_light_at(day, rt::kNightHours);
+        const double night_zenith = luma(doubles(midnight.night_sky));
+        const double exposure = 1.0 / night_zenith;
+        vk::AtmosphereInput input;
+        input.sun = midnight.sun;
+        input.exposure = static_cast<float>(exposure);
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            core::at(input.night, channel) = static_cast<float>(core::at(midnight.night_sky, channel) * exposure);
+        }
+        vk::AtmosphereTexels view;
+        const bool read = view_for(input, &view);
+        const double got = read ? luma(sky_view_at(view, {0.0, 1.0, 0.0}, doubles(midnight.sun))) / exposure : 0.0;
+        constexpr double kNightTolerance = 0.1;
+        tally->check(std::abs(got - night_zenith) < night_zenith * kNightTolerance,
+                     text::format("  at midnight the zenith is the night's own light (%.3e against %.3e; %.2e cd/m^2)",
+                                  got, night_zenith, got * rt::unit_illuminance() / kPi));
+    }
+    // (round NIGHTSKY) the moon's own sky: the same model about the moon, x its light at the top - its table against the
+    // processor's, and the moonlit sky away from the moon as measured (Krisciunas & Schaefer 1991: a full moon's sky
+    // 60 - 120 degrees from it about 18.5 - 19.5 V mag / arcsec^2 at a dark site, 1.7 - 4.3 mcd/m^2; the old uniform
+    // glow was 11 - 17)
+    {
+        const rt::DayLight midnight = rt::day_light_at(day, rt::kNightHours);
+        const double moon_luma = luma(doubles(midnight.moon_top));
+        vk::AtmosphereInput input;
+        input.sun = midnight.sun;
+        input.moon = midnight.moon;
+        input.moon_light = midnight.moon_top;
+        input.exposure = static_cast<float>(1.0 / moon_luma); // (the moon's table about where the day's sun's is)
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            core::at(input.night, channel) =
+                static_cast<float>(static_cast<double>(core::at(midnight.night_sky, channel)) / moon_luma);
+        }
+        vk::AtmosphereTexels image;
+        bool read = false;
+        {
+            vk::Backend& state = vk::backend();
+            const std::scoped_lock lock(state.mutex);
+            vk::update_atmosphere(state, vk::outside_pass(state), input);
+        }
+        read = read_image(vk::AtmosphereTable::kSkyView, &image);
+        const vk::AtmosphereTexels moon_table = vk::sky_view_table_part(image, 1);
+        const std::size_t marker = static_cast<std::size_t>(vk::kSkyViewMarkerRow) * rt::kSkyViewWidth;
+        const bool marked = read && image.texels.size() > marker && core::at(core::at(image.texels, marker), 3) > 0.5F;
+        const double moon_elevation = std::asin(std::clamp(static_cast<double>(core::at(midnight.moon, 1)), -1.0, 1.0));
+        Rgb scale{};
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            core::at(scale, channel) = static_cast<double>(core::at(midnight.moon_top, channel)) / moon_luma;
+        }
+        const std::vector<double> errors = moon_table.texels.empty()
+                                               ? std::vector<double>{1.0}
+                                               : view_errors(moon_table, moon_elevation, {}, cpu_table, scale);
+        tally->check(
+            marked && mean_of(errors) < kMostViewErrorMean && percentile(errors, kNinetyNinth) < kMostViewError99,
+            text::format("  midnight, the moon %.1f degrees up: its sky's table against the processor's about it "
+                         "(%zu values): mean %.4f, 99th percentile %.4f",
+                         moon_elevation / kDegrees, errors.size(), mean_of(errors), percentile(errors, kNinetyNinth)));
+        // the sky 45 degrees up at right angles to the moon's azimuth, in cd/m^2 (the sun's table holds the night's own
+        // light)
+        const Vec3 to_moon = doubles(midnight.moon);
+        const double flat = std::hypot(x_of(to_moon), z_of(to_moon));
+        const Vec3 sky_dir = normalised({-z_of(to_moon) / flat, 1.0, x_of(to_moon) / flat});
+        const vk::AtmosphereTexels sun_table = vk::sky_view_table_part(image, 0);
+        const double unit = rt::unit_illuminance() / kPi / static_cast<double>(input.exposure);
+        const double moonlit = luma(sky_view_at(moon_table, sky_dir, to_moon)) * unit;
+        const double own = luma(sky_view_at(sun_table, sky_dir, doubles(midnight.sun))) * unit;
+        // (Krisciunas & Schaefer's model there, V, extinction 0.17 - 0.3 mag / airmass: 4.9e-3 - 5.8e-3 cd/m^2)
+        constexpr double kLeastMoonlit = 2.0e-3;
+        constexpr double kMostMoonlit = 1.0e-2;
+        const double apart = std::acos(std::clamp(dot(sky_dir, to_moon), -1.0, 1.0)) / kDegrees;
+        tally->check(
+            moonlit + own > kLeastMoonlit && moonlit + own < kMostMoonlit,
+            text::format("  the full moon's sky %.0f degrees from it, 45 up: %.2e cd/m^2 (%.2e of it the moon's, "
+                         "%.2e the night's own) - Krisciunas & Schaefer 4.9e-3 - 5.8e-3",
+                         apart, moonlit + own, moonlit, own));
+        // the moon's sky blue as the day's (Rayleigh's): blue over red there
+        const Rgb colour = sky_view_at(moon_table, sky_dir, to_moon);
+        tally->check(core::at(colour, 2) > core::at(colour, 0),
+                     text::format("  the moonlit sky blue (%.3g %.3g %.3g)", core::at(colour, 0), core::at(colour, 1),
+                                  core::at(colour, 2)));
+    }
     // the composite at night: the moon's disc where it is, stars over the sky, none with the stars off
     const View view = view_from(sky_pose(), kTargetWidth, kTargetHeight);
     const Point middle{.x = kTargetWidth / 2.0, .y = kTargetHeight / 4.0};
@@ -909,9 +1004,14 @@ void run_time_of_day(render::Gpu& gpu, Tally* tally)
     // check; the sky table and the stars scale with it. Round PX: the state published physical, the frame's
     // pre-exposure with it - the clock's for the night x 1000)
     rt::set_camera_exposure(0.0F); // (no camera read: the night's own rule, 1 / its light - not this check's earlier frames')
-    night.pre_exposure = rt::pre_exposure_for(night) * 1000.0F;
+    constexpr float kLongExposure = 1000.0F;
+    night.pre_exposure = rt::pre_exposure_for(night) * kLongExposure;
     for (float& channel : night.night_sky) {
-        channel /= 1000.0F; // (the night sky's own light added to the drawn sky as before: by the night's rule alone)
+        channel /=
+            kLongExposure; // (the night sky's own light added to the drawn sky as before: by the night's rule alone)
+    }
+    for (float& channel : night.moon_top) {
+        channel /= kLongExposure; // (round NIGHTSKY: and the moon's own sky the same)
     }
     night.moon = floats(direction_at(view, middle));
     night.moon_disc = 1.0F;
@@ -920,7 +1020,11 @@ void run_time_of_day(render::Gpu& gpu, Tally* tally)
     tally->check(draw_frame(gpu, targets, sky_pose()) == 1, "  a night pass ran");
     std::vector<Rgb> lit;
     vk::AtmosphereTexels night_table;
-    const bool read_night = read_colour(targets, &lit) && read_table(vk::AtmosphereTable::kSkyView, &night_table);
+    vk::AtmosphereTexels night_image;
+    const bool read_night = read_colour(targets, &lit) && read_image(vk::AtmosphereTable::kSkyView, &night_image);
+    night_table = vk::sky_view_table_part(night_image, 0);
+    const vk::AtmosphereTexels night_moon_table = vk::sky_view_table_part(night_image, 1); // (round NIGHTSKY)
+    const Vec3 night_moon = doubles(night.moon);
     const Rgb moon =
         read_night ? core::at(lit, (static_cast<std::size_t>(middle.y) * kTargetWidth) + static_cast<std::size_t>(middle.x))
                    : Rgb{};
@@ -930,7 +1034,8 @@ void run_time_of_day(render::Gpu& gpu, Tally* tally)
                               core::at(moon, 1), core::at(moon, 2)));
     // stars: sky pixels away from the moon brighter than the table's sky by a step
     const Vec3 night_sun = doubles(night.sun);
-    const auto count_stars = [&view, &night_table, &night_sun, &middle](const std::vector<Rgb>& picture) {
+    const auto count_stars = [&view, &night_table, &night_moon_table, &night_sun, &night_moon,
+                              &middle](const std::vector<Rgb>& picture) {
         constexpr double kStep = 0.08;
         constexpr double kAwayFromMoon = 40.0; // pixels
         int count = 0;
@@ -941,9 +1046,15 @@ void run_time_of_day(render::Gpu& gpu, Tally* tally)
                     std::hypot(column - middle.x, row - middle.y) < kAwayFromMoon) {
                     continue;
                 }
-                const Rgb linear = sky_view_at(
-                    night_table, direction_at(view, {.x = static_cast<double>(column), .y = static_cast<double>(row)}),
-                    night_sun);
+                const Vec3 toward =
+                    direction_at(view, {.x = static_cast<double>(column), .y = static_cast<double>(row)});
+                Rgb linear = sky_view_at(night_table, toward, night_sun);
+                if (!night_moon_table.texels.empty()) {
+                    const Rgb moonlit = sky_view_at(night_moon_table, toward, night_moon); // (round NIGHTSKY)
+                    for (std::size_t channel = 0; channel < 3; ++channel) {
+                        core::at(linear, channel) += core::at(moonlit, channel);
+                    }
+                }
                 const Rgb& got = core::at(picture, (static_cast<std::size_t>(row) * kTargetWidth) + column);
                 const double want = std::pow(luma(linear), 1.0 / rt::kDisplayGamma);
                 count += luma(got) > want + kStep ? 1 : 0;
@@ -1290,7 +1401,7 @@ void check_march(const rt::CloudNoise& noise, const vk::RtSkyTexels& march, cons
     const vk::RtSkyFrame frame = vk::rt_sky_frame();
     // (the sky's light on the clouds: the drawn sky's table, as the march reads it - rt_clouds.h cloud_sky_light)
     vk::AtmosphereTexels table;
-    const bool table_read = read_table(vk::AtmosphereTable::kSkyView, &table);
+    const bool table_read = read_image(vk::AtmosphereTable::kSkyView, &table); // (both tables, as the march reads them)
     tally->check(table_read, "the sky-view table read back (the clouds' sky light)");
     const rt::CloudSkyLight sky = rt::cloud_sky_light(table.texels);
     std::vector<double> t_errors;

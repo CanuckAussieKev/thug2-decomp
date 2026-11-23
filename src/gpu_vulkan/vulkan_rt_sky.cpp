@@ -173,7 +173,20 @@ void main()
         // (added by the sky) the drawn sky's colour there: its sky-view table (rt_sky.h's sky_view_uv)
         float e = asin(clamp(view.y, -1.0, 1.0));
         vec2 at = vec2(sqrt(azimuth / PI), 0.5 + 0.5 * sign(e) * sqrt(abs(e) / (0.5 * PI)));
-        value.rgb = max(textureLod(u_view, at, 0.0).rgb, vec3(0.0));
+        value.rgb = sky_view_table_at(at, 0.0);
+        // (round NIGHTSKY) and the moon's sky toward the same world directions - this table keeps one side of the sun's
+        // vertical plane, so the two directions it stands for, mirrored about that plane, averaged
+        vec4 moon = sky_view_moon();
+        if (moon.w > 0.5) {
+            vec2 hs = sky.view_sun.xz;
+            float ls = length(hs);
+            hs = ls > 1e-5 ? hs / ls : vec2(1.0, 0.0);
+            vec2 side = vec2(-hs.y, hs.x);
+            vec3 a = vec3(hs * view.x + side * view.z, view.y).xzy;
+            vec3 b = vec3(hs * view.x - side * view.z, view.y).xzy;
+            value.rgb += 0.5 * (sky_view_table_at(sky_view_uv_about(a, moon.xyz), 1.0) +
+                                sky_view_table_at(sky_view_uv_about(b, moon.xyz), 1.0));
+        }
 #else
         value.rgb = radiance(view, sun) * sky.sun.w;
 #endif
@@ -208,6 +221,8 @@ layout(push_constant) uniform Atmosphere {
     vec4 aerosol_s;  // (added by the physical air: as the table's block)
     vec4 aerosol_t;
     vec4 aerosol_h;
+    vec4 moon;       // (round NIGHTSKY) xyz toward the moon (world); w 1: its rows drawn
+    vec4 moon_light; // rgb its light at the top x the exposure (as sun.w for the sun)
 } atmosphere;
 #define AIR atmosphere
 )";
@@ -362,27 +377,52 @@ vec3 radiance_ms(vec3 view, vec3 sun)
     return sum;
 }
 
-void main()
+// One table's texel: the sky about a source along `source` (the model's frame: (cos e, sin e, 0)), x `light`.
+vec3 sky_view_texel(ivec2 q, vec3 source, vec3 light)
 {
-    ivec2 q = ivec2(gl_GlobalInvocationID.xy);
-    if (q.x >= VIEW_W || q.y >= VIEW_H) {
-        return;
-    }
     float u = (float(q.x) + 0.5) / float(VIEW_W);
     float v = (float(q.y) + 0.5) / float(VIEW_H);
     float azimuth = PI * u * u;
     float s = 2.0 * v - 1.0;
     float e = sign(s) * s * s * (0.5 * PI);
     vec3 view = vec3(cos(e) * cos(azimuth), sin(e), cos(e) * sin(azimuth));
-    vec3 value = radiance_ms(view, atmosphere.sun.xyz) * atmosphere.sun.w;
+    vec3 value = radiance_ms(view, source) * light;
     if (e < 0.0) {
         vec3 level = vec3(cos(HAZE_ELEVATION) * cos(azimuth), sin(HAZE_ELEVATION), cos(HAZE_ELEVATION) * sin(azimuth));
-        vec3 haze = radiance_ms(level, atmosphere.sun.xyz) * atmosphere.sun.w;
+        vec3 haze = radiance_ms(level, source) * light;
         value = mix(haze, value, BELOW_SHARE * smoothstep(0.0, 1.0, -e / BELOW_FADE));
     }
-    // (added by the time of day) the night sky's own light - the moon's scattered and the airglow: overhead, half as
-    // much again toward the horizon (more air), the horizon's below it
+    return value;
+}
+
+void main()
+{
+    ivec2 q = ivec2(gl_GlobalInvocationID.xy);
+    if (q.x >= VIEW_W || q.y >= VIEW_ROWS) {
+        return;
+    }
+    // (round NIGHTSKY) the marker: toward the moon, w 1 while its rows are drawn
+    if (q.y == VIEW_MARKER_ROW) {
+        imageStore(o_out, q, q.x == 0 ? atmosphere.moon : vec4(0.0));
+        return;
+    }
+    // (round NIGHTSKY) the moon's table: the same model about the moon, x its light at the top
+    if (q.y >= VIEW_H) {
+        vec3 value = vec3(0.0);
+        if (atmosphere.moon.w > 0.5) {
+            float rise = clamp(atmosphere.moon.y, -1.0, 1.0);
+            value = sky_view_texel(ivec2(q.x, q.y - VIEW_H), vec3(sqrt(1.0 - rise * rise), rise, 0.0),
+                                   atmosphere.moon_light.rgb);
+        }
+        imageStore(o_out, q, vec4(max(value, vec3(0.0)), 1.0));
+        return;
+    }
+    vec3 value = sky_view_texel(q, atmosphere.sun.xyz, vec3(atmosphere.sun.w));
+    // (added by the time of day) the night sky's own light - the airglow (round NIGHTSKY: the moon's is its own table):
+    // overhead, half as much again toward the horizon (more air), the horizon's below it
     if (atmosphere.night.r + atmosphere.night.g + atmosphere.night.b > 0.0) {
+        float s = 2.0 * (float(q.y) + 0.5) / float(VIEW_H) - 1.0;
+        float e = sign(s) * s * s * (0.5 * PI);
         value += atmosphere.night.rgb * mix(NIGHT_HORIZON, 1.0, sqrt(clamp(e / (0.5 * PI), 0.0, 1.0)));
     }
     imageStore(o_out, q, vec4(max(value, vec3(0.0)), 1.0));
@@ -421,8 +461,10 @@ struct AtmosphereConstants {
     std::array<float, 4> sun{};
     std::array<float, 4> night{}; // (added by the time of day) rgb the night sky overhead (exposed linear)
     AerosolConstants aerosol;     // (added by the physical air)
+    std::array<float, 4> moon{};  // (round NIGHTSKY) toward the moon (world), w 1: its rows drawn
+    std::array<float, 4> moon_light{}; // its light at the top x the exposure
 };
-constexpr std::size_t kAtmosphereConstantBytes = 80;
+constexpr std::size_t kAtmosphereConstantBytes = 112;
 static_assert(sizeof(AtmosphereConstants) == kAtmosphereConstantBytes, "the shaders' push-constant block");
 
 constexpr uint32_t kTransmittanceSteps = 80; // (changed by the physical air: a hazier ground layer)
@@ -534,6 +576,8 @@ std::string defines()
     add("VIEW_W", std::to_string(rt::kSkyViewWidth));
     add("VIEW_H", std::to_string(rt::kSkyViewHeight));
     add("VIEW_STEPS", std::to_string(rt::kSkyViewSteps));
+    add("VIEW_ROWS", std::to_string(kSkyViewRows));            // (round NIGHTSKY) the image's rows: both tables
+    add("VIEW_MARKER_ROW", std::to_string(kSkyViewMarkerRow)); // and the moon's marker
     add("HAZE_ELEVATION", number(kHazeElevation));
     add("BELOW_FADE", number(kBelowFade));
     add("BELOW_SHARE", number(kBelowShare));
@@ -786,7 +830,8 @@ bool update_sky(Backend& state, VkCommandBuffer commands, const std::array<float
         if (atmosphere.table_from_view == VK_NULL_HANDLE) {
             atmosphere.table_from_view =
                 make_compute(state.context.device(), own.layout,
-                             "#version 460\n#define FROM_SKY_VIEW\n" + defines() + kTableHeader + kModelFunctions + kTableMain,
+                             "#version 460\n#define FROM_SKY_VIEW\n" + defines() + kTableHeader +
+                                 sky_view_reads_glsl("u_view") + kModelFunctions + kTableMain,
                              &error);
         }
         if (atmosphere.table_from_view == VK_NULL_HANDLE) {
@@ -1109,7 +1154,7 @@ bool update_atmosphere(Backend& state, VkCommandBuffer commands, const Atmospher
     if (!make_objects(state, &error) || !make_atmosphere_objects(state, &error) ||
         !make_storage(state, rt::kTransmittanceWidth, rt::kTransmittanceHeight, &own.transmittance_table) ||
         !make_storage(state, rt::kMultipleWidth, rt::kMultipleHeight, &own.multiple_table) ||
-        !make_storage(state, rt::kSkyViewWidth, rt::kSkyViewHeight, &own.sky_view_table)) {
+        !make_storage(state, rt::kSkyViewWidth, kSkyViewRows, &own.sky_view_table)) {
         own.failed = true;
         if (first_report(state, kReportAtmosphereFailed)) {
             get_log("vulkan: rt_sky: the atmosphere's tables couldn't be made (%s) - the original sky kept",
@@ -1125,6 +1170,16 @@ bool update_atmosphere(Backend& state, VkCommandBuffer commands, const Atmospher
                      static_cast<float>(rt::sky_exposure() * static_cast<double>(input.exposure))};
     constants.night = {core::at(input.night, 0), core::at(input.night, 1), core::at(input.night, 2), 0.0F};
     constants.aerosol = aerosol_constants(input.aerosol);
+    // (round NIGHTSKY) the moon's table: its light at the top in the sun's terms, exposed as the sun's (sun.w)
+    const bool moon_rows = core::at(input.moon_light, 0) > 0.0F || core::at(input.moon_light, 1) > 0.0F ||
+                           core::at(input.moon_light, 2) > 0.0F;
+    constants.moon = {core::at(input.moon, 0), core::at(input.moon, 1), core::at(input.moon, 2),
+                      moon_rows ? 1.0F : 0.0F};
+    for (std::size_t channel = 0; channel < 3; ++channel) {
+        core::at(constants.moon_light, channel) =
+            static_cast<float>(static_cast<double>(core::at(input.moon_light, channel)) * rt::sky_exposure() *
+                               static_cast<double>(input.exposure));
+    }
     if (own.fixed_made && !(own.fixed_aerosol == input.aerosol)) {
         own.fixed_made = false; // (another weather: the transmittance and Psi made again)
     }
@@ -1195,18 +1250,51 @@ vec3 atmosphere_transmittance(float r, float mu)
                    0.5 / TRANS_H_F + clamp(rho / span, 0.0, 1.0) * (1.0 - 1.0 / TRANS_H_F));
     return textureLod(u_transmittance, uv, 0.0).rgb;
 }
-// the drawn sky toward dir (world, y up) with its sun along `sun`: exposed linear (rt_sky.h sky_view_uv)
-vec3 sky_view_linear(vec3 dir, vec3 sun)
+)";
+    out += sky_view_reads_glsl("u_sky_view");
+    out += R"(
+// the drawn sky toward dir (world, y up) with its sun along `sun`: exposed linear (rt_sky.h sky_view_uv) - the sun's
+// table and (round NIGHTSKY) the moon's
+vec3 sky_view_linear(vec3 dir, vec3 sun) { return sky_view_both(dir, sun); }
+)";
+    return out;
+}
+
+std::string sky_view_reads_glsl(const char* table)
 {
-    vec2 hs = sun.xz;
+    std::string out = "#define SKY_VIEW_TABLE " + std::string(table) + "\n";
+    out += "const float SKY_VIEW_H = " + number(rt::kSkyViewHeight) + ";\n";
+    out += "const float SKY_VIEW_ROWS = " + number(kSkyViewRows) + ";\n";
+    out += "const int SKY_VIEW_MARKER_ROW = " + std::to_string(kSkyViewMarkerRow) + ";\n";
+    out += R"(
+// (round NIGHTSKY) the sky-view image's tables: `uv` (rt_sky.h sky_view_uv) in table `which` (0 the sun's, 1 the moon's),
+// read bilinearly without crossing into the other table
+vec2 sky_view_uv_about(vec3 dir, vec3 source)
+{
+    vec2 hs = source.xz;
     vec2 hv = dir.xz;
     float ls = length(hs);
     float lv = length(hv);
     float c = (ls > 1e-5 && lv > 1e-5) ? dot(hs, hv) / (ls * lv) : 1.0;
     float azimuth = acos(clamp(c, -1.0, 1.0));
     float e = asin(clamp(dir.y, -1.0, 1.0));
-    vec2 uv = vec2(sqrt(azimuth / 3.14159265358979), 0.5 + 0.5 * sign(e) * sqrt(abs(e) / 1.57079632679));
-    return max(textureLod(u_sky_view, uv, 0.0).rgb, vec3(0.0));
+    return vec2(sqrt(azimuth / 3.14159265358979), 0.5 + 0.5 * sign(e) * sqrt(abs(e) / 1.57079632679));
+}
+vec3 sky_view_table_at(vec2 uv, float which)
+{
+    float row = clamp(uv.y * SKY_VIEW_H, 0.5, SKY_VIEW_H - 0.5) + which * SKY_VIEW_H;
+    return max(textureLod(SKY_VIEW_TABLE, vec2(uv.x, row / SKY_VIEW_ROWS), 0.0).rgb, vec3(0.0));
+}
+// toward the moon (world), w 1 while its table is drawn
+vec4 sky_view_moon() { return texelFetch(SKY_VIEW_TABLE, ivec2(0, SKY_VIEW_MARKER_ROW), 0); }
+vec3 sky_view_both(vec3 dir, vec3 sun)
+{
+    vec3 light = sky_view_table_at(sky_view_uv_about(dir, sun), 0.0);
+    vec4 moon = sky_view_moon();
+    if (moon.w > 0.5) {
+        light += sky_view_table_at(sky_view_uv_about(dir, moon.xyz), 1.0);
+    }
+    return light;
 }
 )";
     return out;
@@ -1224,6 +1312,21 @@ bool read_atmosphere_table(Backend& state, AtmosphereTable which, AtmosphereTexe
     out->width = image->extent.width;
     out->height = image->extent.height;
     return own.view_valid && read_half_image(state, image, &out->texels);
+}
+
+AtmosphereTexels sky_view_table_part(const AtmosphereTexels& image, uint32_t which)
+{
+    AtmosphereTexels out;
+    const std::size_t texels = static_cast<std::size_t>(rt::kSkyViewWidth) * rt::kSkyViewHeight;
+    const std::size_t first = texels * which;
+    if (image.width != rt::kSkyViewWidth || image.texels.size() < first + texels) {
+        return out;
+    }
+    out.width = rt::kSkyViewWidth;
+    out.height = rt::kSkyViewHeight;
+    const auto from = image.texels.begin() + static_cast<std::ptrdiff_t>(first);
+    out.texels.assign(from, from + static_cast<std::ptrdiff_t>(texels));
+    return out;
 }
 
 uint64_t atmosphere_generation() { return atmosphere_state().generation; }
