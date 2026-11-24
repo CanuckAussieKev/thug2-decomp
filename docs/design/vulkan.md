@@ -3271,11 +3271,20 @@ already (kLightShare), blended by its alpha, writing no depth - kLightFront:
   surface's light for the whole of a cloud of particles - Lumen's front layer lights only the nearest; the layers behind
   it take its light rather than none), the disc's and the rest's on a white diffuser (`ff_shaders.cpp` share_front);
   without a layer there, the game's light on it (its vertex colour doubled, as the bake's).
-Open: at Barcelona's fountain the particles cover far more in the raster than in the rays - the mist hides ~99 % of the
-building behind it in the raster, ~30 % in the path tracer (with the particles left out of both, the facade agrees within
-0.6 - 0.9). A quad's alpha is the same formula in both (the particles' program, kTextureVertexX4: 2 x the vertex alpha x
-the texel's; the rays' material_drawn_alpha), so it is which quads each has (rt_apart's capture against the draws) - to
-trace.
+**Round FRONT2: a particle stays a particle when it is drawn again.** FRONT left Barcelona's fountain mist black over
+the facade at night, read then as the raster covering ~99 % against the path tracer's ~30 %. It was not coverage: the
+raster and the rays hold the same quads (rt_apart's capture keeps every particle draw - its triangles and its draws'
+counts agree), with the same alpha (2 x the vertex alpha x the texel's) and the same textures. With the particles left out
+of the raster alone the facade is lit; the path tracer shows the mist as a lit brown haze over it. The cause: under Ray
+Reconstruction every transparency is drawn last, recorded again into its transparency layer (round RG) - after the
+particle passes have ended, so `surface_light_finish` read `rt::particles_drawing()` false there and gave the particle
+no kLightFront: its colour was the game's light on it, 0 at night - a black, nearly opaque cloud. The particle mark is now
+the draw's own (`KeptDraw::particle`, taken when it is kept, given back while it is prepared - at the keep and when it is
+recorded again - `LightState::particle_now`, the one state `surface_light_finish` reads). A check case
+(`thug2_vulkan_rt_lights_check`, round FL's scene): a particle pane over the lamp-lit floor - in the front layer where it
+covers, its light the lamp model's; drawn with its albedo (the program's under v0 0.5, not its dark vertex colour) x the
+layer's light; and the same drawn into the transparency layer (forced) - 0 pixels off; with the mark read from the passes'
+flag again, 3 101 of 6 470 off.
 
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 

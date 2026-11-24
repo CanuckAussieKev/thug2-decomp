@@ -109,6 +109,9 @@ struct KeptDraw {
     water::WaterBody water_body;
     bool water_waves = false;
     MotionSourceState motion;
+    // (round FRONT2) drawn by the particle passes (rt::particles_drawing when it was kept): a draw recorded again at the
+    // shading - Ray Reconstruction's transparency layer - is still a particle there
+    bool particle = false;
     bool ready = false; // prepared
     bool water = false; // (round FL) rt_water's (recorded at the shading - its front-layer depth prepared on its own)
     PreparedDraw prepared;
@@ -132,6 +135,7 @@ enum class Phase : uint8_t {
 struct LightState {
     Phase phase = Phase::kIdle;
     SurfaceDrawRole role = SurfaceDrawRole::kAsItComes;
+    bool particle_now = false; // (round FRONT2) the draw prepared now is a particle (KeptDraw::particle)
     bool decided = false;      // whether this view is lit per surface was decided (at its first world draw)
     bool on = false;           // ... and it is (its inputs' images made then)
     rt::ViewDrawn view;
@@ -761,7 +765,9 @@ void draw_kept(Backend& state)
         water::set_current_body(draw.water_body);
         water::set_current_waves(draw.water_waves);
         state.motion.source = draw.motion;
+        own.particle_now = draw.particle;
         (void)record_draw(state, draw.block, draw.call);
+        own.particle_now = false;
         ++own.stats.recorded;
     };
     for (KeptDraw& draw : kept) {
@@ -1222,6 +1228,7 @@ bool surface_light_keep(Backend& state, const GpuStateBlock& block, const DrawCa
     kept.water_body = water::current_body();
     kept.water_waves = water::current_waves();
     kept.motion = state.motion.source;
+    kept.particle = rt::particles_drawing();
     kept.ready = false;
     ++own.stats.kept;
     // (water rt_water shades: recorded at the shading, its copy behind the water made then - never in the prepass)
@@ -1231,7 +1238,9 @@ bool surface_light_keep(Backend& state, const GpuStateBlock& block, const DrawCa
     }
     // Prepared once as the shading will draw it (its key with the light inputs, its pipeline, blocks and descriptors)
     own.role = SurfaceDrawRole::kShaded;
+    own.particle_now = kept.particle;
     const Prepared prepared = prepare_draw(state, block, call, &kept.prepared);
+    own.particle_now = false;
     own.role = SurfaceDrawRole::kAsItComes;
     if (prepared != Prepared::kDraw) {
         own.kept.pop_back(); // (nothing to draw: the shading would have skipped it too)
@@ -1329,8 +1338,12 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
     // the front layer at or behind it: its light on their colour under the game's neutral light (ff_shaders.cpp
     // share_front - the material's, as the path tracer's surface by its coverage is), the nearest see-through surface's
     // light for the whole of a cloud of them.
-    const bool particle =
-        fragment.light == kLightShare && fragment.surface == 0 && see_through(block) && rt::particles_drawing();
+    // (round FRONT2) Whether it is a particle is the draw's own: kept with it (KeptDraw::particle) and given back when it
+    // is recorded again at the shading - under Ray Reconstruction every transparency is (into its transparency layer),
+    // after the particle passes have ended. Read from the passes' flag there, the particles drawn into the layer lost the
+    // front layer: their colour was the game's light on them, 0 at night (Barcelona's fountain mist black over the facade).
+    const bool particle = fragment.light == kLightShare && fragment.surface == 0 && see_through(block) &&
+                          own.particle_now;
     if (own.front_on && (overlay || particle)) {
         fragment.light = static_cast<uint8_t>(fragment.light | kLightFront);
     }
