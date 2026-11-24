@@ -7,7 +7,8 @@
 //                         [--retro] [--detail] [--water] [--characters] [--trails] [--light]
 // --light (NOT ORIGINAL - round V, gpu_vulkan/vulkan_surface_light.h): every pair again as a prepass's draw (FragmentKey::
 // light kLightDepthOnly, and kLightDepthHalf - a blended one's), every pair not lit per pixel with the light inputs as
-// shares (kLightShare), and with --surface every pair lit per pixel with the light inputs (kLightInputs) - after
+// shares (kLightShare) - and as shares reading the front layer with their depth in it where they cover (kLightFront: round
+// FRONT's particles) -, and with --surface every pair lit per pixel with the light inputs (kLightInputs) - after
 // --surface's, --trails' and --water's, before --motion's.
 // --detail (NOT ORIGINAL - rt_detail / rt_delight, gpu_vulkan/vulkan_detail.h): with --surface, every pair lit per pixel
 // with a surface map added again with each of the detail layer's bit sets (ff_key.h kDetail*; the relief's - rt_relief -
@@ -516,6 +517,16 @@ void add_light_keys(ff_check::KeySets& sets)
                                                                                              : uint8_t{0};
         if (lit.fragment.light != 0U) {
             keys.push_back(lit);
+        }
+        if (lit.fragment.light == kLightShare) {
+            // (round FRONT: a particle - shares that read the front layer - and its depth in the layer where it covers)
+            ShaderKey particle = lit;
+            particle.fragment.light = static_cast<uint8_t>(kLightShare | render::vulkan::kLightFront);
+            keys.push_back(particle);
+            ShaderKey covered = pair;
+            covered.fragment = render::vulkan::depth_only_fragment(pair.fragment, false);
+            covered.fragment.light = static_cast<uint8_t>(covered.fragment.light | render::vulkan::kLightFront);
+            keys.push_back(covered);
         }
         for (const ShaderKey& key : keys) {
             sets.vertex.insert(key.vertex);

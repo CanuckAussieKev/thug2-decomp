@@ -13,6 +13,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/enum_ops.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_scene.h"
 #include "engine/gfx/surface_trail.h"
 #include "engine/gfx/water_surfaces.h"
 #include "gpu_vulkan/ff_uniforms.h"
@@ -237,12 +238,16 @@ bool environment_mapped(const VertexKey& vertex)
 }
 
 // A kept draw's prepass pipeline: its shaded pipeline's key (`shaded`) with the fragment half depth alone
-// (depth_only_fragment - `half`: a blended draw's) and nothing written to or blended into the colour; the vertex half,
-// the targets and the rest the shaded draw's. VK_NULL_HANDLE when it can't be made (reported once).
-VkPipeline depth_pipeline(Backend& state, const PipelineKey& shaded, bool half)
+// (depth_only_fragment - `half`: a blended draw's; `covered`: round FRONT's particles in the front layer, where they cover
+// at all) and nothing written to or blended into the colour; the vertex half, the targets and the rest the shaded draw's.
+// VK_NULL_HANDLE when it can't be made (reported once).
+VkPipeline depth_pipeline(Backend& state, const PipelineKey& shaded, bool half, bool covered = false)
 {
     PipelineKey key = shaded;
     key.shaders.fragment = depth_only_fragment(shaded.shaders.fragment, half);
+    if (covered) {
+        key.shaders.fragment.light = static_cast<uint8_t>(key.shaders.fragment.light | kLightFront);
+    }
     key.blend = 0;
     key.source_blend = 0;
     key.dest_blend = 0;
@@ -1319,7 +1324,14 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
     // windows - reads the front layer where it is the nearest see-through surface (its prepass: surface_light_front_prepass)
     const bool overlay = fragment.light == kLightInputs && see_through(block) &&
                          (fragment.surface & (kSurfaceRelit | kSurfaceLit)) != 0U;
-    if (own.front_on && overlay) {
+    // (round FRONT) and the particles (rt::particles_drawing - drawn inside the world's passes): see-through surfaces too,
+    // their colour lit already in the game's way - the level's light as a whole on every particle, 0 at night. They read
+    // the front layer at or behind it: its light on their colour under the game's neutral light (ff_shaders.cpp
+    // share_front - the material's, as the path tracer's surface by its coverage is), the nearest see-through surface's
+    // light for the whole of a cloud of them.
+    const bool particle =
+        fragment.light == kLightShare && fragment.surface == 0 && see_through(block) && rt::particles_drawing();
+    if (own.front_on && (overlay || particle)) {
         fragment.light = static_cast<uint8_t>(fragment.light | kLightFront);
     }
     // (round DECAL - UE's DBuffer decals) such an overlay of the relit world is a material layer of the surface it lies
@@ -1394,7 +1406,10 @@ bool surface_light_front_prepass(Backend& state, FrontLayerImages* out)
         front.dynamics.depth_test = true;
         front.dynamics.depth_write = true;
         front.dynamics.depth_compare = VK_COMPARE_OP_LESS_OR_EQUAL;
-        const VkPipeline pipeline = depth_pipeline(state, front.key, false);
+        // (round FRONT) a particle - a colour lit already, read the layer from behind - is in it where it covers at all: a
+        // quad's clear corners would hide the glass or water behind them from the layer
+        const VkPipeline pipeline =
+            depth_pipeline(state, front.key, false, (front.key.shaders.fragment.light & kLightShare) != 0U);
         if (pipeline != VK_NULL_HANDLE) {
             emit_draw(state, front, {.pipeline = pipeline, .light_inputs = false});
             ++drawn;

@@ -3254,6 +3254,29 @@ Not done: the layers behind the front one keep their own light (Lumen's too); li
 diffuse) is not the layer's; the lamps' specular highlight on glass is the reflections pass's emitters only (analytic
 lamps without a surface give none there).
 
+**Round FRONT: the particles are see-through surfaces of the front layer.** The particle systems' alpha-blended quads
+(smoke, mist, a fountain's spray) were drawn after the world's passes, as they came, in the game's colour: the level's
+light as a whole on every particle (`day_clock.cpp`, the light energy audit's kParticlesWhole - one value for the level,
+no place). At night that value is 0: Barcelona's fountain mist was black and alpha-blended over the scaffold net and the
+building behind it (the scene's top-left cells 0.02 - 0.12 of the path-traced reference). The path tracer meets the same
+quads as surfaces by their coverage, lit where they are. Now (`render_pc/draw_frame.cpp`): the particles are drawn inside
+the world's passes, before the effects are told the opaque world is drawn (`rt::set_particles_drawing` marks them), so the
+per-surface lighting keeps them with its other see-through draws; `surface_light_finish` gives such a draw - a colour lit
+already (kLightShare), blended by its alpha, writing no depth - kLightFront:
+- its depth goes into the front layer where it covers at all (its prepass discards alpha under 1 / 255: a quad's clear
+  corners would hide the glass or water behind them from the layer);
+- its colour is the program's under the game's neutral light (v0 0.5 - the material's, as the per-pixel lighting's albedo
+  and the path tracer's surface are; the vertex colour's own tint is not the albedo, as everywhere since round ALBEDO);
+- its light is the front layer's at its depth or in front of it (`light_front_find_behind`: the nearest see-through
+  surface's light for the whole of a cloud of particles - Lumen's front layer lights only the nearest; the layers behind
+  it take its light rather than none), the disc's and the rest's on a white diffuser (`ff_shaders.cpp` share_front);
+  without a layer there, the game's light on it (its vertex colour doubled, as the bake's).
+Open: at Barcelona's fountain the particles cover far more in the raster than in the rays - the mist hides ~99 % of the
+building behind it in the raster, ~30 % in the path tracer (with the particles left out of both, the facade agrees within
+0.6 - 0.9). A quad's alpha is the same formula in both (the particles' program, kTextureVertexX4: 2 x the vertex alpha x
+the texel's; the rays' material_drawn_alpha), so it is which quads each has (rt_apart's capture against the draws) - to
+trace.
+
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
 Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3

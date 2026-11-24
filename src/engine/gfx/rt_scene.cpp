@@ -124,6 +124,17 @@ void set_world_surfaces_drawing(bool inside)
 bool world_surfaces_drawing() { return world_surfaces_slot().load(std::memory_order_relaxed); }
 
 namespace {
+std::atomic<bool>& particles_slot()
+{
+    static std::atomic<bool> inside{false};
+    return inside;
+}
+} // namespace
+
+void set_particles_drawing(bool inside) { particles_slot().store(inside, std::memory_order_relaxed); }
+bool particles_drawing() { return particles_slot().load(std::memory_order_relaxed); }
+
+namespace {
 struct FocusPoint {
     std::array<float, 3> point{};
     std::chrono::steady_clock::time_point noted;

@@ -573,6 +573,13 @@ void light_front_find(bool taken)
     float z = light_front_depth();
     light_front_at = !taken && z < 1.0 && abs(gl_FragCoord.z - z) <= max(1.0e-6, (1.0 - z) * 0.01);
 }
+// (round FRONT) a see-through surface whose colour is lit already - the particles (share_front) - reads the layer at its
+// depth or in front of it: the nearest see-through surface's light for the whole of a cloud of them
+void light_front_find_behind()
+{
+    float z = light_front_depth();
+    light_front_at = z < 1.0 && gl_FragCoord.z >= z - max(1.0e-6, (1.0 - z) * 0.01);
+}
 vec4 light_front_now() { return light_front_at ? texelFetch(light_front_map, ivec2(gl_FragCoord.xy), 0) : vec4(0.0); }
 vec4 light_front_sun_now() { return light_front_at ? texelFetch(light_front_sun_map, ivec2(gl_FragCoord.xy), 0) : vec4(0.0); }
 // (round LW) what the layer's rest surface mirrors at `pixel` (the water's - its shading moves it by the waves' tilt)
@@ -1379,6 +1386,16 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
     add(out, {"    colour.rgb = frame_linear() ? surface_out : clamp(display_from_linear(surface_out), 0.0, 1.0);"});
 }
 
+// (NOT ORIGINAL - round FRONT) Whether a key is a colour lit already that reads the front layer - the particles
+// (vulkan_surface_light.cpp surface_light_finish): its colour the program's under the game's neutral light (v0 0.5, the
+// game's light 1 - the material's, as the per-pixel lighting's albedo and the path tracer's surface are), lit by the
+// front layer's light at its depth or in front of it (the disc's and the rest's on a white diffuser).
+bool share_front(const FragmentKey& key)
+{
+    return (key.light & kLightShare) != 0U && (key.light & kLightFront) != 0U && (key.light & kLightDepthOnly) == 0U &&
+           key.surface == 0 && key.water == 0U;
+}
+
 // (NOT ORIGINAL - round SUBPIX) Whether a relit draw keeps only its emitters' share the splat doesn't take
 // (rt_emission_map.h emission_splat_share): lit per pixel with the inputs while Ray Reconstruction denoises the view
 // (kLightGuides) - the view whose transparency layer the light list's small emitters are splatted into.
@@ -1456,7 +1473,7 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
     } else if (key.water != 0U) {
         add(out, {kSurfaceVaryingsIn}); // (NOT ORIGINAL - rt_water: the water's inputs alone)
     }
-    if ((key.light & kLightFront) != 0U) {
+    if ((key.light & kLightFront) != 0U && (key.light & kLightDepthOnly) == 0U) {
         // (NOT ORIGINAL - round FL: the front layer's light - before the water's, which reads it)
         static_assert(kLightInputsSet == 1 && kLightFrontDepthBinding == 8 && kLightFrontBinding == 9 &&
                           kLightFrontSunBinding == 10 && kLightFrontReflectBinding == 11,
@@ -1750,7 +1767,10 @@ bool albedo_lit_per_pixel(const FragmentKey& key)
 
 void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
 {
-    add(out, {"    vec4 v0 = ", key.surface != 0 ? "surface_v0" : "v_diffuse",
+    add(out, {"    vec4 v0 = ",
+              key.surface != 0   ? "surface_v0"
+              : share_front(key) ? "vec4(0.5, 0.5, 0.5, v_diffuse.a)" // (round FRONT: the material's colour)
+                                 : "v_diffuse",
               ";\n    vec4 v1 = v_specular;\n    vec4 r0 = vec4(0.0);\n    vec4 r1 = vec4(0.0);"});
     if (key.unlit != 0) {
         // The unlit twin (render_pc/view_mode.cpp): each whole v0 operand is c7 = 0.5 there. The game's shaders read v0
@@ -2083,7 +2103,9 @@ std::string fragment_shader_glsl(const FragmentKey& key)
         if (layer_write(key)) {
             add(out, {"    layer_write_m = brdf_material(vec3(0.0), vec3(0.04), 1.0);"}); // (round DECAL)
         }
-        if ((key.light & kLightFront) != 0U) {
+        if (share_front(key)) {
+            add(out, {"    light_front_find_behind();"}); // (round FRONT: the particles - the layer at or in front of them)
+        } else if ((key.light & kLightFront) != 0U) {
             add(out, {"    light_front_find(light_at);"}); // (round FL: the front layer, where the inputs' surface isn't)
         }
     }
@@ -2098,7 +2120,15 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     if (!surface_light_out(key)) {
         fragment_linear_output(out);
     }
-    if ((key.light & kLightShare) != 0U && key.surface == 0 && !water) {
+    if (share_front(key)) {
+        // (NOT ORIGINAL - round FRONT: a particle - a see-through surface by its coverage, as the path tracer meets it - its
+        // colour (the material's, v0 0.5 above) lit by the front layer's light; where it has none, the game's light on it -
+        // its vertex colour doubled, as the bake's)
+        add(out, {"    if (frame_linear()) {\n"
+                  "        colour.rgb *= light_front_at ? max(light_front_now().rgb + light_front_sun_now().rgb, vec3(0.0))\n"
+                  "                                     : linear_from_display(v_diffuse.rgb * 2.0);\n"
+                  "    } else {\n        colour.rgb = clamp(colour.rgb * v_diffuse.rgb * 2.0, 0.0, 1.0);\n    }"});
+    } else if ((key.light & kLightShare) != 0U && key.surface == 0 && !water) {
         // (NOT ORIGINAL - round V: a colour lit already - its light not separated - takes the surface's light inputs as
         // shares of it, and the lamps on its traced albedo; kLightInputsGlsl)
         // (round DB: such a colour has no albedo apart from its light - the decals' layer laid over it as over a white
@@ -2115,6 +2145,11 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     fragment_alpha_test(out, key);
     if ((key.light & kLightGuides) != 0U && (key.light & (kLightInputs | kLightShare)) != 0U) {
         add(out, {"    light_write_guides();"}); // (round V: once kept)
+    }
+    if ((key.light & kLightDepthOnly) != 0U && (key.light & kLightFront) != 0U) {
+        // (NOT ORIGINAL - round FRONT: a particle's depth in the front layer where it covers at all - vulkan_surface_light.cpp
+        // depth_pipeline's `covered`)
+        add(out, {"    if (colour.a < 1.0 / 255.0) discard;"});
     }
     if ((key.light & kLightDepthOnly) != 0U && (key.light & kLightDepthHalf) != 0U) {
         // (NOT ORIGINAL - round V: a blended draw's prepass keeps only its mostly opaque part - its translucent edges

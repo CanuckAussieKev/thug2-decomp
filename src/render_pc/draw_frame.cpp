@@ -1100,15 +1100,27 @@ void draw_viewport(int index)
     // material on, kSkyFreeScenePasses. Before, the passes ran between the two groups, and every surface of the later
     // group - a level's roads and pavements drawn with a blended first pass, e.g. the THUG1 ports' - was drawn over
     // their result: no sun or object shadows, no lamps' pools, no decals, AO or bounce on it.)
+    // Not original - (round FRONT) the particles drawn inside the world's passes, before the effects are told the opaque
+    // world is drawn: a backend that lights the world per surface keeps them with its other see-through draws and lights
+    // them as see-through surfaces by the light at their place (the front layer - gpu_vulkan/vulkan_surface_light.h), as
+    // the path tracer meets them (a surface by its coverage). Before, they were drawn after, as they came, in the game's
+    // colour - the level's light as a whole on every particle (day_clock.cpp's kParticlesWhole): 0 at night, so the
+    // fountains' spray and mist were black, alpha-blended over whatever was behind them. Original behaviour: the
+    // particles after the occlusion pass's instances and queries (both draw nothing a particle hides or is hidden by:
+    // the particles write no depth).
+    set_render_state(RenderStateId::kZWrite, 0);
+    rt_apart::set_particle_passes(true); // (not original - round PG: the particles' draws kept for the rays, rt_apart.h)
+    rt::set_particles_drawing(true);
+    flexible_particle_manager()->render_systems(index > 0);
+    objects::particle_hub()->draw_particles();
+    rt::set_particles_drawing(false);
+    rt_apart::set_particle_passes(false);
+    set_render_state(RenderStateId::kZWrite, 1);
     note_opaque_drawn(index);
     set_pass(kOcclusionPass);
     rt_record::set_world_passes(false);
     issue_occlusion_queries();
     set_render_state(RenderStateId::kZWrite, 0);
-    rt_apart::set_particle_passes(true); // (not original - round PG: the particles' draws kept for the rays, rt_apart.h)
-    flexible_particle_manager()->render_systems(index > 0);
-    objects::particle_hub()->draw_particles();
-    rt_apart::set_particle_passes(false);
     weather()->render(); // (through the jump 0x004A10A0)
     {
         // (not original: what the weather puts in the air - the volumetric light's street air, rt_volume_light.h)
