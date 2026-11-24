@@ -4099,7 +4099,12 @@ light face-on (the frame's unit).
   its light is the original's own - the vertex's, the draw's lights -, the other draws scale the colours as the
   original) - and never x the draw's diffuse colour Cd (0.5, the game's neutral under its doubled light, made an
   object 0.22 of its texture). New Orleans' night colour (0.2 - 0.29 on every pass colour) had darkened its raster
-  albedo to 0.2 - 0.3 of the rays'.
+  albedo to 0.2 - 0.3 of the rays'. (Round BAKEALB) The relit bake reads the same definition: its bounce B brings each
+  hit's light x the albedo of the texel the ray lands on (the ray probe's `hit_albedo`), so the fit's unit makes the
+  tint the part of the albedo the texture doesn't hold (stored a byte x 64, up to ~4); an albedo (texel x tint) is
+  held to 1 in every pass. A camera ray's surface (`camera_surface`: ReSTIR's shared primary) samples each pass at the
+  raster's mip (ray differentials from the neighbouring pixels, the upscaler's level bias, the anisotropy) and lays the
+  blended world layer lying on it over its material as the raster's DBuffer does.
 - **Retired**: rt_pbr_specular, rt_pbr_normal_strength, rt_relief_strength, rt_detail_strength, rt_characters_skin /
   _cloth / _hair ("Set by the material now"); the bake relit by luma thresholds (kRtPbrAmbientShare, kRtPbrShade*,
   kRtPbrDetail*, kRtPbrSkyDetail, kRtPbrGameSun); the hue-found skin texels; the relief's per-kind weight and shadow
