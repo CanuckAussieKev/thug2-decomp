@@ -296,7 +296,6 @@ export function startedLevel(log: string, level: string): boolean {
     return false;
 }
 
-
 // Whether a run made its level's data: the file written and the game ended with 0 (any other end - an exit code of a
 // failed batch run, a crash, killed - is a failure, whatever its log says).
 export function bakeMade(code: number | null, result: BakeResult): boolean {
