@@ -3350,7 +3350,8 @@ std::string_view hit_surface_glsl()
                            std::to_string(std::get<0>(rt::material_f0(rt::MaterialKind::kPainted))) +
                            ";\nconst float HIT_SURFACE_ROUGHNESS = " +
                            std::to_string(rt::material_values(rt::MaterialKind::kPainted).roughness) +
-                           ";\nconst float HIT_SURFACE_METAL_F0 = " + std::to_string(kHitMetalF0) + ";\n";
+                           ";\nconst float HIT_SURFACE_METAL_F0 = " + std::to_string(kHitMetalF0) +
+                           ";\nconst float EMITTER_FRONT_SIGN = " + std::to_string(rt::kFrontFaceSign) + ";\n";
         text += rt::lamp_texel_glsl(); // (round FG: the bake's lamp-texel test - store_emission)
         text += hit_albedo_glsl();     // (round BAKEALB: the albedo, the relit bake's bounce rays' too)
         text += R"(
@@ -3380,6 +3381,24 @@ struct HitSurface {
 vec3 store_emission(vec3 emit, vec3 linear, float alpha, uint texels)
 {
     return lamp_texel_shown(linear, alpha, texels) ? emit * linear : vec3(0.0);
+}
+// (round EMIT - an emitter's faces) The faces an emitting triangle of material `id` sends its light from: both (2) when
+// the game draws it two-sided (MATERIAL_TWO_SIDED), else the one face the game draws (1 - its front: (b - a) x (c - a)
+// x EMITTER_FRONT_SIGN, rt_scene.h kFrontFaceSign). Its luminance is the relit bake's flux over the area of the faces
+// it sends from, so its flux is sides x pi x its area x its luminance - one-sided panels (signs, downlights) one face,
+// double-sided cards both, the flux split between them, never doubled. Before, every emitter sent from both faces: the
+// light list's emitting triangles 2 x their lamps' flux.
+float emitter_sides(uint id)
+{
+    return (material(id).flags & MATERIAL_TWO_SIDED) != 0u ? 2.0 : 1.0;
+}
+// The cosine at an emitting triangle (`across`: (b - a) x (c - a) of its corners in the world, wound as drawn) toward the
+// unit direction `toward` leaving it: |cos| from a two-sided one, its front's cosine (0 behind it) from a one-sided one.
+float emitter_cos(float sides, vec3 across, vec3 toward)
+{
+    float l = length(across);
+    float c = l > 0.0 ? dot(across, toward) / l : 0.0;
+    return sides > 1.5 ? abs(c) : max(c * EMITTER_FRONT_SIGN, 0.0);
 }
 // (round PT4b) The light a triangle of the world sends at a point (hit_surface's `emitted` alone - no normals, no
 // material: ReSTIR DI's target evaluates it at every candidate); false where nothing is there (a cut-out texel, a hidden
@@ -3509,6 +3528,10 @@ bool hit_surface_at(uint instance, uint primitive, uint id, vec2 barycentrics, m
         // model, is the original's light, not the surface's; an albedo at most 1 - material_albedo)
         s.base_colour = albedo;
         s.emitted = store_emission(emit, linear, s.alpha, texels);
+        // (round EMIT) a ray that meets a one-sided emitter from behind sees none of its light (emitter_sides)
+        if (emitter_sides(id) < 1.5 && !(emitter_cos(1.0, across, -direction) > 0.0)) {
+            s.emitted = vec3(0.0);
+        }
     } else {
         s.origin = object ? HIT_OBJECT : HIT_BAKED_WORLD;
         s.base_colour = albedo;

@@ -96,7 +96,7 @@ double disc_power(const Rgb& light) { return kPiD * static_cast<double>(luma(lig
 
 double sky_power(double integral) { return integral; }
 
-double triangle_power(double radiance, double area) { return 2.0 * kPiD * area * radiance; }
+double triangle_power(double radiance, double area, double sides) { return sides * kPiD * area * radiance; }
 
 double lamp_power(const Emitter& lamp)
 {

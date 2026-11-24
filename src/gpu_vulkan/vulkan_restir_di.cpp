@@ -655,7 +655,7 @@ bool light_point(uint e, vec2 uv, Surface s, out LightPoint lp)
         }
         vec3 dir = to / d;
         float cos_here = dot(s.n, dir);
-        float cos_there = abs(dot(across / twice, dir));
+        float cos_there = emitter_cos(emitter_sides(instance_material(listed.x)), across, -dir); // (round EMIT)
         if (!(cos_here > 0.0) || dot(s.ng, dir) <= 0.0 || !(cos_there > 0.0)) {
             return false;
         }
@@ -728,7 +728,8 @@ bool light_point_at(uint e, vec2 uv, vec3 emitted, Surface s, out LightPoint lp)
     }
     vec3 dir = to / d;
     float cos_here = dot(s.n, dir);
-    float cos_there = abs(dot(across / twice, dir));
+    // (round EMIT: the triangle's faces - emitter_sides - in its record's first word w)
+    float cos_there = emitter_cos(bounds[record_at(e)].w, across, -dir);
     if (!(cos_here > 0.0) || dot(s.ng, dir) <= 0.0 || !(cos_there > 0.0)) {
         return false;
     }
@@ -1179,11 +1180,13 @@ void main()
                 // most L A / (pi d^2) = power / (2 pi^2 d^2) face-on, and L (= power / (2 pi A)) next to it. Before, both
                 // were pi x that while a lamp's numbers were in its own unit: the cells weighed the lamps at a third of
                 // the triangles (cell_weight)
-                numbers = vec4(flux / (2.0 * PATH_PI * PATH_PI), flux / (2.0 * PATH_PI * area), 0.0, 1.0);
+                // (round EMIT: the listed power is sides x pi A L - emitter_sides)
+                float sides = emitter_sides(instance_material(listed.x));
+                numbers = vec4(flux / (sides * PATH_PI * PATH_PI), flux / (sides * PATH_PI * area), 0.0, 1.0);
                 // (round BUDGET) the record light_point_at reads: the corners in the world - and the frame's presampled
                 // points on it, each drawn uniformly (as a candidate's point was) and its emission found there (hit_surface's
                 // `emitted`, light_point's): every pixel's candidates on the triangle take one of them
-                record[0] = vec4(a, 0.0);
+                record[0] = vec4(a, sides);
                 record[1] = vec4(b, 0.0);
                 record[2] = vec4(c, 0.0);
                 // (seeded by the triangle itself, not its place in the list: the scan lists them in any order)

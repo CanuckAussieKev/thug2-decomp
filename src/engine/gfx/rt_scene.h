@@ -86,7 +86,18 @@ enum InstanceFlag : uint32_t {
     // surface for the light rays and the secondary rays (shadows, occlusion, bounce, reflections, the path tracer),
     // never a camera ray's surface (its pixels are not in the depth those passes read)
     kDrawnApart = 1U << 9,
+    // (round EMIT - a Material's flags only) drawn with no culling (the material's two-sided flag): both its faces are
+    // seen, so an emitting one sends its light from both; without it only its front (kFrontFaceSign) is ever drawn, and
+    // it emits from that face alone
+    kTwoSided = 1U << 10,
 };
+
+// (round EMIT) The front of a triangle the game draws one-sided: (b - a) x (c - a) x kFrontFaceSign points out of it, the
+// corners wound as drawn (a strip's odd triangles turned back round - the ray tracing's lists, rt_relit's meshes). The
+// game draws every view through the same camera convention and culls the faces wound one way on the screen, so it is
+// one sign for every level - measured over the levels' one-sided floors (render_pc/rt_record.cpp world_facing, logged
+// per level: their level area faces up out of this side).
+inline constexpr float kFrontFaceSign = 1.0F;
 
 // (the one lighting path - the objects' shadows) The game's lights an object is lit by (render_pc/pc_lights.cpp, as its
 // draw sends them: the device's ambient, light 0 - the key light, the direct light: the sun's or the moon's -, light 1

@@ -257,14 +257,15 @@ uint64_t triangle_key(uint32_t x, uint32_t y, uint32_t z)
 
 // `drawn` (round NOBIAS): per lamp the luminous area its marked vertices draw (m^2) - each triangle's area x its lit
 // share (a lamp's own triangle's; 1 for a head's) x the mean of its corners that show the lamp (the store's emission is
-// blended across the triangle from its corners).
+// blended across the triangle from its corners), x (round EMIT) the faces it sends from; `shown` the same for one face.
 std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt::RelitMesh> meshes,
                                                               std::span<const rt::RelitLamp> lamps,
                                                               const std::unordered_map<rt::MeshId, std::size_t>& mesh_of,
-                                                              std::vector<double>* drawn)
+                                                              std::vector<double>* drawn, std::vector<double>* shown)
 {
     std::vector<std::vector<rt::RelitEmitting>> out(meshes.size());
     drawn->assign(lamps.size(), 0.0);
+    shown->assign(lamps.size(), 0.0);
     const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters();
     if (found == nullptr) {
         return out;
@@ -478,7 +479,9 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
                 own_surface, attached, none);
     }
     // (round NOBIAS) the area each lamp's marks draw: a triangle with a corner showing lamp L shows it over its area x its
-    // lit share x the share of its corners that show L (the blend of the corners' emission)
+    // lit share x the share of its corners that show L (the blend of the corners' emission). (Round EMIT) x the faces it
+    // shows it from: a one-sided surface its front alone, a two-sided one both (RelitMesh::two_sided - the renderers'
+    // emitter_sides) - so the lamp's flux is split between a card's two faces, not doubled.
     constexpr double kSquareMetresPerUnit = (1.0 / 39.37) * (1.0 / 39.37);
     for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
         const auto& mesh_marks = core::at(marked, mi);
@@ -486,6 +489,7 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
             continue;
         }
         const rt::RelitMesh& mesh = core::at(meshes, mi);
+        const double sides = mesh.two_sided ? 2.0 : 1.0;
         const auto& own_triangles = core::at(own, mi);
         for (const auto& [x, y, z] : mesh.triangles) {
             if (x >= mesh.positions.size() || y >= mesh.positions.size() || z >= mesh.positions.size()) {
@@ -505,7 +509,8 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
             for (std::size_t c = 0; c < 3; ++c) {
                 const uint32_t lamp = core::at(lamp_at, c);
                 if (lamp < drawn->size()) {
-                    core::at(*drawn, lamp) += area * share / 3.0;
+                    core::at(*drawn, lamp) += sides * area * share / 3.0;
+                    core::at(*shown, lamp) += area * share / 3.0;
                 }
             }
         }
@@ -522,21 +527,38 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
 }
 
 // (round NOBIAS - one owner, one energy) A lamp whose surface shows it sends its flux from that surface: its luminance
-// is its flux over pi x the area its marked vertices draw (emitting_vertices' `drawn`), whatever its kind's or the
+// is its flux over pi x the area its marked vertices draw (emitting_vertices' `drawn`, x the faces it sends from - round
+// EMIT), whatever its kind's or the
 // bake's own area said. Before, the luminance was the flux over the area of its own triangles (or its kind's luminance)
 // while the store blended it across every triangle its corners touch: the surfaces sent other than their lamps' flux
 // (New Orleans' 2122 emitting triangles 27 x their 381 lamps'). Reported: the flux the surfaces would have sent at the
 // luminance before against the lamps' own.
-void drawn_luminances(std::span<rt::RelitLamp> lamps, std::span<const double> drawn)
+// (round EMIT - a surface owns its lamp only if it shows most of it; round NOBIAS's open rule) Returned: the lamps
+// whose own surface (a self-lit or textured candidate's triangles) the store can show less than half of (`shown`: the
+// marked area, one face, against the lamp's luminous area - rt_relit.h RelitLamp::area): their surface's corners are
+// mostly shared with other surfaces, so the few triangles left would show the whole flux - School's line at 4 x 10^6
+// cd/m^2, New Orleans' brightest triangle 3.3 x 10^6 after round NOBIAS (a sub-pixel firefly no fixture reaches). Such a
+// lamp keeps its analytic light alone (its marks dropped: data_emitters' `surfaced` follows them - one owner).
+inline constexpr double kLeastShownShare = 0.5;
+std::vector<uint8_t> drawn_luminances(std::span<rt::RelitLamp> lamps, std::span<const double> drawn,
+                                      std::span<const double> shown)
 {
     constexpr double kPiD = 3.14159265358979323846;
     double before = 0.0;
     double after = 0.0;
     std::size_t lamps_drawn = 0;
-    for (std::size_t li = 0; li < lamps.size() && li < drawn.size(); ++li) {
+    std::size_t too_small = 0;
+    std::vector<uint8_t> dropped(lamps.size(), 0);
+    for (std::size_t li = 0; li < lamps.size() && li < drawn.size() && li < shown.size(); ++li) {
         rt::RelitLamp& lamp = core::at(lamps, li);
         const double area = core::at(drawn, li);
         if (!(area > 0.0) || !(lamp.lumens > 0.0F) || !(luma(lamp.light) > 0.0F)) {
+            continue;
+        }
+        if (rt::candidate_kind(lamp.kind) && lamp.area > 0.0F &&
+            core::at(shown, li) < kLeastShownShare * static_cast<double>(lamp.area)) {
+            core::at(dropped, li) = 1;
+            ++too_small;
             continue;
         }
         before += kPiD * static_cast<double>(lamp.luminance) * area;
@@ -545,8 +567,10 @@ void drawn_luminances(std::span<rt::RelitLamp> lamps, std::span<const double> dr
         ++lamps_drawn;
     }
     get_log("relit bake: lamps' surfaces at their flux - %zu lamps shown by their surfaces, %.0f lm from them (at the "
-            "luminance their area or kind gave: %.0f lm, x %.2f)",
-            lamps_drawn, after, before, after > 0.0 ? before / after : 0.0);
+            "luminance their area or kind gave: %.0f lm, x %.2f); %zu lamps' own surfaces shown under half (their "
+            "analytic light alone)",
+            lamps_drawn, after, before, after > 0.0 ? before / after : 0.0, too_small);
+    return dropped;
 }
 // (round P10, the bake's report) An emitter kind's name.
 const char* kind_name(rt::EmitterKind kind)
@@ -1594,9 +1618,15 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             }
         }
         std::vector<double> drawn_areas;
-        const std::vector<std::vector<rt::RelitEmitting>> emitting =
-            emitting_vertices(meshes, lamps, mesh_of, &drawn_areas);
-        drawn_luminances(lamps, drawn_areas);
+        std::vector<double> shown_areas;
+        std::vector<std::vector<rt::RelitEmitting>> emitting =
+            emitting_vertices(meshes, lamps, mesh_of, &drawn_areas, &shown_areas);
+        const std::vector<uint8_t> dropped = drawn_luminances(lamps, drawn_areas, shown_areas);
+        for (std::vector<rt::RelitEmitting>& marks : emitting) {
+            std::erase_if(marks, [&dropped](const rt::RelitEmitting& mark) {
+                return mark.lamp < dropped.size() && core::at(dropped, mark.lamp) != 0;
+            });
+        }
         data.lamp_list = lamps;
         if (const std::shared_ptr<const rt::LevelEmitters> found = rt::level_emitters(); found != nullptr) {
             constexpr float kLambertian = 1.0F / 3.14159265F; // (a Lambertian emitter's radiance: its intensity over pi)

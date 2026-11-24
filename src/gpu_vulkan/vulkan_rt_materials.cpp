@@ -112,6 +112,7 @@ layout(set = THUG2_MATERIAL_SET, binding = 1) uniform sampler material_samplers[
 layout(set = THUG2_MATERIAL_SET, binding = 2) uniform texture2D material_textures[];
 const uint MATERIAL_ALPHA_TESTED = 2u;
 const uint MATERIAL_TRANSPARENT = 64u;
+const uint MATERIAL_TWO_SIDED = 1024u; // (round EMIT: rt::kTwoSided - drawn without culling, an emitter's both faces)
 // (round PERF4) An id past the table reads its last row - always the default record (MaterialTable keeps one spare row:
 // texture 0, white, no environment pass). One record loaded by index: the compiler loads only the fields the caller
 // reads. Before, a whole 49-word record chosen between the table's and a constant - every field loaded and kept live
@@ -367,6 +368,7 @@ MaterialRecord material_record(const rt::Material& material, uint32_t slot,
     return record;
 }
 
+static_assert(rt::kTwoSided == 1024U, "the GLSL's MATERIAL_TWO_SIDED");
 std::string_view material_glsl() { return kMaterialGlsl; }
 
 uint32_t MaterialTable::device_slot_limit(VkPhysicalDevice device)

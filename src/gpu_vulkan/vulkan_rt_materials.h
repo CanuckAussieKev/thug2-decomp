@@ -132,7 +132,7 @@ void surface_reflection(const rt::Material& material, const Texture* colour, Mat
 //                     uint mask_texture[3]; uint mask_sampler[3]; uint mask_mode[3];
 //                     float kind_roughness; float kind_roughness_weight; float albedo_scale;
 //                     uint layer_texture[3]; uint layer_sampler[3]; uint layer_mode[3]; vec4 layer_colour[3]; };
-//   const uint MATERIAL_ALPHA_TESTED = 2u, MATERIAL_TRANSPARENT = 64u;   (rt::InstanceFlag's values)
+//   const uint MATERIAL_ALPHA_TESTED = 2u, MATERIAL_TRANSPARENT = 64u, MATERIAL_TWO_SIDED = 1024u;   (rt::InstanceFlag's values)
 //   Material material(uint id)                       - the record (id: rt::MaterialId; 0: untextured white)
 //   vec4 material_texel(uint id, vec2 uv)            - its texture at level 0 through its sampler (non-uniform indexing)
 //   vec4 material_texel_lod(uint id, vec2 uv, float lod)

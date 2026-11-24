@@ -4227,6 +4227,7 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
         RelitLampSource source = RelitLampSource::kNone;
         bool model = false;
         bool typical = false; // (no luminous area of a fixture's: its kind's typical fixture's flux)
+        bool glow_row = false; // (round EMIT: a row drawn as a light card - below)
         bool by_reach = false; // (round SL: one of the game's lights with no surface - its flux from its own reach)
         const bool candidate = candidate_kind(lamp.kind);
         // (its flux against its kind's range - x its fittings' count for a row)
@@ -4244,7 +4245,13 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
             const bool kind_luminance =
                 luminance >= static_cast<double>(values.least) && luminance <= static_cast<double>(values.most);
             lamp.luminance = kind_luminance ? static_cast<float>(luminance) : values.luminance;
-            if (!(counts.exposure > 0.0) || flux_out) {
+            // (round EMIT - the catalogue's luminance bounds the flux too) its drawn luminous area holds the lamp with its
+            // housing and glare, so it is at least the lamp's own: a flux over pi x its kind's brightest luminance x
+            // that area is more than any fixture of its kind that size sends - a failed measurement. Before, a solve
+            // was held to its kind's flux alone: New Orleans' sign (5.97 m^2) 51 000 lm - 2 700 cd/m^2 on a sign whose
+            // kind is at most 1 000 -, Boston's textured sign (1.8 m^2) 53 600 lm.
+            const bool area_out = area > 0.0F && values.most > 0.0F && luminance > static_cast<double>(values.most);
+            if (!(counts.exposure > 0.0) || flux_out || area_out) {
                 source = RelitLampSource::kImplausible;
                 model = true;
                 typical = !fixtures.sized;
@@ -4305,11 +4312,26 @@ LampModelCounts relit_lamp_models(std::span<RelitLamp> lamps, std::span<const Re
         } else {
             lamp.light = {}; // (a bright surface the bake doesn't confirm: no lamp - A3's rule)
         }
+        if (lamp.kind == EmitterKind::kGlow && lamp.shape == EmitterShape::kLine && fixtures.count > 1.0 && area > 0.0F &&
+            !typical) {
+            // (round EMIT) a row drawn as a light card: the card's saturated core is the row's glare blown out along it,
+            // not its tubes' surface - its width passes for a fitting's (a troffer's lens is 0.6 m), so pi x a tube's
+            // luminance x the core sent up to the brightest fittings' flux the length holds (New Orleans' 39 m row
+            // 150 000 lm, School's 21 m rows 58 000 - 81 000 lm). The core's area is then a bound, not a measure: a row's
+            // flux is at most its fittings' typical (one fixture's x the count its length holds), as a card's whose
+            // core is no one fixture's size - and no more than its core shows at its kind's luminance (a narrow core:
+            // a sparse or short row).
+            glow_row = true;
+        }
         if (model) {
             // Phi = pi L A (or, with no luminous area of a fixture's, its kind's typical fixture's), in its colour: a
             // sign's or a neon's own, a light's own where it is one, else its kind's
             double lumens = typical ? static_cast<double>(values.lumens)
                                     : kPi * static_cast<double>(values.luminance) * static_cast<double>(area);
+            if (glow_row) {
+                lumens = std::min(kPi * static_cast<double>(values.luminance) * static_cast<double>(area),
+                                  static_cast<double>(values.lumens) * fixtures.count);
+            }
             if (by_reach) {
                 // (round SL) a light node has no surface to size it, but the artists gave it a reach (the game's outer
                 // radius: where its light ends on the level). One rule for every light: its light falls to

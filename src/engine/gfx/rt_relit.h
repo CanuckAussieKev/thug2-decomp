@@ -188,6 +188,9 @@ struct RelitMesh {
     // Its triangles as the RayTracing numbers them (a hit's primitive): a strip's odd ones turned back round, so all
     // wind the same way; a degenerate one (two corners the same) kept in its place.
     std::vector<std::array<uint32_t, 3>> triangles;
+    // (round EMIT) drawn with no culling (its material's two-sided flag - rt_scene.h kTwoSided): an emitting surface of it
+    // sends its light from both faces, a one-sided one from its front alone (the bake's drawn area counts the faces)
+    bool two_sided = false;
     // (added by building relief - engine/gfx/facade_relief.h) A vertex made from others: the relief's points lie on a
     // flat wall's triangle (moved off it), so their traced light is that triangle's corners' blended - the wall's light
     // at that point, as without relief - never traced from the relief's own corners (a point at the foot of a sill's

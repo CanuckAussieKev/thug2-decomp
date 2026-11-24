@@ -44,6 +44,7 @@
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sky.h"
 #include "engine/gfx/rt_sun.h"
+#include "engine/gfx/surface_material.h"
 #include "engine/memory/arena_alloc.h"
 #include "platform/frame_profile.h"
 #include "platform/platform_config.h"
@@ -627,6 +628,7 @@ bool make_entry(const WorldMesh& world, Entry* out)
     entry.stride = stride;
     entry.colour_offset = geometry.colour_offset;
     entry.input.id = world.id;
+    entry.input.two_sided = mesh->material() != nullptr && mesh->material()->two_sided() != 0U; // (round EMIT)
     entry.input.positions.resize(count);
     entry.originals.resize(count);
     entry.animated.assign(count, 0);
@@ -2161,6 +2163,11 @@ bool unlit_object_colour(const std::array<float, 3>& position, std::array<uint8_
     }
     core::at(*out, 3) = static_cast<uint8_t>(kOne);
     return !same; // (the light there the bake's: drawn as the original draws it)
+}
+
+bool light_card_hidden(const MeshRef* mesh)
+{
+    return state().status == Status::kRelit && mesh != nullptr && rt_record::light_card_material(mesh->material());
 }
 
 bool unlit_world_colour(const MeshRef* mesh, std::array<uint8_t, 4>* out)

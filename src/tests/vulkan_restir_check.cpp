@@ -307,7 +307,9 @@ bool make_mesh(render::Gpu& gpu, const std::vector<Triangle>& triangles, bool em
     mesh->material = rt::next_material_id();
     rt::Material surface;
     surface.colour = {1.0F, 1.0F, 1.0F, 1.0F};
-    surface.flags = rt::kOpaque;
+    // (round EMIT) an emitting mesh two-sided - its light from both faces, as every emitter sent before the round (the
+    // scene is wound without the game's convention: the disc's front faces up; vulkan_path_check has the one-sided cases)
+    surface.flags = rt::kOpaque | (emitting ? rt::kTwoSided : 0U);
     surface.texture = lamp_texture;
     surface.filter = value::kFilterPoint;
     rt::ray_tracing()->set_material(mesh->material, surface);
