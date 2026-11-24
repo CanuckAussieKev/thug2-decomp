@@ -13,6 +13,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/enum_ops.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_scene.h"
 #include "engine/gfx/surface_trail.h"
 #include "engine/gfx/water_surfaces.h"
 #include "gpu_vulkan/ff_uniforms.h"
@@ -108,6 +109,9 @@ struct KeptDraw {
     water::WaterBody water_body;
     bool water_waves = false;
     MotionSourceState motion;
+    // (round FRONT2) drawn by the particle passes (rt::particles_drawing when it was kept): a draw recorded again at the
+    // shading - Ray Reconstruction's transparency layer - is still a particle there
+    bool particle = false;
     bool ready = false; // prepared
     bool water = false; // (round FL) rt_water's (recorded at the shading - its front-layer depth prepared on its own)
     PreparedDraw prepared;
@@ -131,6 +135,7 @@ enum class Phase : uint8_t {
 struct LightState {
     Phase phase = Phase::kIdle;
     SurfaceDrawRole role = SurfaceDrawRole::kAsItComes;
+    bool particle_now = false; // (round FRONT2) the draw prepared now is a particle (KeptDraw::particle)
     bool decided = false;      // whether this view is lit per surface was decided (at its first world draw)
     bool on = false;           // ... and it is (its inputs' images made then)
     rt::ViewDrawn view;
@@ -237,12 +242,16 @@ bool environment_mapped(const VertexKey& vertex)
 }
 
 // A kept draw's prepass pipeline: its shaded pipeline's key (`shaded`) with the fragment half depth alone
-// (depth_only_fragment - `half`: a blended draw's) and nothing written to or blended into the colour; the vertex half,
-// the targets and the rest the shaded draw's. VK_NULL_HANDLE when it can't be made (reported once).
-VkPipeline depth_pipeline(Backend& state, const PipelineKey& shaded, bool half)
+// (depth_only_fragment - `half`: a blended draw's; `covered`: round FRONT's particles in the front layer, where they cover
+// at all) and nothing written to or blended into the colour; the vertex half, the targets and the rest the shaded draw's.
+// VK_NULL_HANDLE when it can't be made (reported once).
+VkPipeline depth_pipeline(Backend& state, const PipelineKey& shaded, bool half, bool covered = false)
 {
     PipelineKey key = shaded;
     key.shaders.fragment = depth_only_fragment(shaded.shaders.fragment, half);
+    if (covered) {
+        key.shaders.fragment.light = static_cast<uint8_t>(key.shaders.fragment.light | kLightFront);
+    }
     key.blend = 0;
     key.source_blend = 0;
     key.dest_blend = 0;
@@ -756,7 +765,9 @@ void draw_kept(Backend& state)
         water::set_current_body(draw.water_body);
         water::set_current_waves(draw.water_waves);
         state.motion.source = draw.motion;
+        own.particle_now = draw.particle;
         (void)record_draw(state, draw.block, draw.call);
+        own.particle_now = false;
         ++own.stats.recorded;
     };
     for (KeptDraw& draw : kept) {
@@ -1217,6 +1228,7 @@ bool surface_light_keep(Backend& state, const GpuStateBlock& block, const DrawCa
     kept.water_body = water::current_body();
     kept.water_waves = water::current_waves();
     kept.motion = state.motion.source;
+    kept.particle = rt::particles_drawing();
     kept.ready = false;
     ++own.stats.kept;
     // (water rt_water shades: recorded at the shading, its copy behind the water made then - never in the prepass)
@@ -1226,7 +1238,9 @@ bool surface_light_keep(Backend& state, const GpuStateBlock& block, const DrawCa
     }
     // Prepared once as the shading will draw it (its key with the light inputs, its pipeline, blocks and descriptors)
     own.role = SurfaceDrawRole::kShaded;
+    own.particle_now = kept.particle;
     const Prepared prepared = prepare_draw(state, block, call, &kept.prepared);
+    own.particle_now = false;
     own.role = SurfaceDrawRole::kAsItComes;
     if (prepared != Prepared::kDraw) {
         own.kept.pop_back(); // (nothing to draw: the shading would have skipped it too)
@@ -1319,7 +1333,18 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
     // windows - reads the front layer where it is the nearest see-through surface (its prepass: surface_light_front_prepass)
     const bool overlay = fragment.light == kLightInputs && see_through(block) &&
                          (fragment.surface & (kSurfaceRelit | kSurfaceLit)) != 0U;
-    if (own.front_on && overlay) {
+    // (round FRONT) and the particles (rt::particles_drawing - drawn inside the world's passes): see-through surfaces too,
+    // their colour lit already in the game's way - the level's light as a whole on every particle, 0 at night. They read
+    // the front layer at or behind it: its light on their colour under the game's neutral light (ff_shaders.cpp
+    // share_front - the material's, as the path tracer's surface by its coverage is), the nearest see-through surface's
+    // light for the whole of a cloud of them.
+    // (round FRONT2) Whether it is a particle is the draw's own: kept with it (KeptDraw::particle) and given back when it
+    // is recorded again at the shading - under Ray Reconstruction every transparency is (into its transparency layer),
+    // after the particle passes have ended. Read from the passes' flag there, the particles drawn into the layer lost the
+    // front layer: their colour was the game's light on them, 0 at night (Barcelona's fountain mist black over the facade).
+    const bool particle = fragment.light == kLightShare && fragment.surface == 0 && see_through(block) &&
+                          own.particle_now;
+    if (own.front_on && (overlay || particle)) {
         fragment.light = static_cast<uint8_t>(fragment.light | kLightFront);
     }
     // (round DECAL - UE's DBuffer decals) such an overlay of the relit world is a material layer of the surface it lies
@@ -1394,7 +1419,10 @@ bool surface_light_front_prepass(Backend& state, FrontLayerImages* out)
         front.dynamics.depth_test = true;
         front.dynamics.depth_write = true;
         front.dynamics.depth_compare = VK_COMPARE_OP_LESS_OR_EQUAL;
-        const VkPipeline pipeline = depth_pipeline(state, front.key, false);
+        // (round FRONT) a particle - a colour lit already, read the layer from behind - is in it where it covers at all: a
+        // quad's clear corners would hide the glass or water behind them from the layer
+        const VkPipeline pipeline =
+            depth_pipeline(state, front.key, false, (front.key.shaders.fragment.light & kLightShare) != 0U);
         if (pipeline != VK_NULL_HANDLE) {
             emit_draw(state, front, {.pipeline = pipeline, .light_inputs = false});
             ++drawn;

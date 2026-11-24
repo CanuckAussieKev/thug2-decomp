@@ -796,6 +796,8 @@ struct PathState {
     RayFrame rays;
     std::array<uint32_t, 4> rect{};
     uint64_t scene_key = 0;
+    std::vector<rt::Instance> scene_instances; // (round FRONT2) the run's scene as it began: a restart says what changed
+    uint64_t scene_poses = 0;
     uint64_t lighting_key = 0;
     Lighting lighting;
     SkySource sky_source = SkySource::kEven;
@@ -833,6 +835,41 @@ PathState& path_state()
 {
     static PathState made;
     return made;
+}
+
+// (round FRONT2) What changed in the scene since the run began (scene_key_of's parts): the instances that moved or were
+// put in or taken out - the first of them by its mesh and place -, and the skinned meshes' poses. Training's `pt ref`
+// taken without `measure on` started again every frame: a pedestrian walking (its instances moved ~4 units a frame, its
+// poses with them) - a real change, which this names.
+std::string scene_change_text(const PathState& own, const rt::FrameRecord& record)
+{
+    const std::vector<rt::Instance>& before = own.scene_instances;
+    const std::vector<rt::Instance>& now = record.instances;
+    std::size_t changed = 0;
+    std::size_t first = now.size();
+    for (std::size_t i = 0; i < std::min(before.size(), now.size()); ++i) {
+        const rt::Instance& a = core::at(before, i);
+        const rt::Instance& b = core::at(now, i);
+        if (a.mesh != b.mesh || a.material != b.material || a.flags != b.flags || a.object_to_world != b.object_to_world) {
+            first = std::min(first, i);
+            ++changed;
+        }
+    }
+    std::string said;
+    if (before.size() != now.size()) {
+        said = text::format("%zu instances, were %zu", now.size(), before.size());
+    }
+    if (changed > 0) {
+        const rt::Instance& one = core::at(now, first);
+        said += text::format("%s%zu instances changed, the first mesh %u at %.1f %.1f %.1f", said.empty() ? "" : "; ",
+                             changed, static_cast<unsigned>(one.mesh), static_cast<double>(core::at(core::at(one.object_to_world, 0), 3)),
+                             static_cast<double>(core::at(core::at(one.object_to_world, 1), 3)),
+                             static_cast<double>(core::at(core::at(one.object_to_world, 2), 3)));
+    }
+    if (own.scene_poses != record.poses_key) {
+        said += said.empty() ? "the skinned meshes' poses" : "; the skinned meshes' poses";
+    }
+    return said.empty() ? "the instances' order" : said;
 }
 
 bool first_report(Backend& state, uint64_t what) { return state.reported.insert(what).second; }
@@ -1900,7 +1937,9 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
     if (fresh) {
         if (own.running && own.request_serial == (checking ? own.overrides_serial : request.serial) &&
             !own.restart_asked) {
-            note = own.scene_key != key ? "the scene changed - started again"
+            note = own.scene_key != key ? "the scene changed (" + scene_change_text(own, rt::frame_record()) +
+                                              ") - started again (a reference is of a world that stands still: "
+                                              "`measure on` freezes it)"
                    : relit              ? "the lighting changed - started again"
                                         : "the camera moved - started again";
             get_log("pt: %s", note.c_str());
@@ -1911,6 +1950,8 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
         own.rect = rect;
         own.rays = rays;
         own.scene_key = key;
+        own.scene_instances = rt::frame_record().instances; // (round FRONT2: what a restart's note compares)
+        own.scene_poses = rt::frame_record().poses_key;
         own.lighting_key = lighting_key;
         own.lighting = lighting;
         own.weights = weights;

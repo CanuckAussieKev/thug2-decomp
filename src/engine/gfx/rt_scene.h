@@ -557,6 +557,11 @@ void view_begins(const ViewDrawn& view); // (added by the upscaler)
 // draw_frame through rt_record::set_world_passes.
 void set_world_surfaces_drawing(bool inside);
 [[nodiscard]] bool world_surfaces_drawing();
+// (NOT ORIGINAL - round FRONT) Whether render_pc is drawing the particles now (the particle systems' quads, inside the
+// world's passes): a backend that lights the world per surface lights their alpha-blended draws as the see-through
+// surfaces they are - by the front layer's light, their colour the material's (gpu_vulkan/vulkan_surface_light.h).
+void set_particles_drawing(bool inside);
+[[nodiscard]] bool particles_drawing();
 
 // --- Upscaling (added by the upscaler round; the Vulkan Gpu's [Graphics] upscaler) ----------------------------------
 // A backend that upscales asks for its views' world to be drawn smaller: render_pc then draws a viewport's world

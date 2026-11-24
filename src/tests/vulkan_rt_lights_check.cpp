@@ -3568,7 +3568,9 @@ void run_overlay_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tal
 // The glass is the view's front layer; its light there must be the lamp's as the light list's model sends it (rt_lights.h
 // lamp_geometry on a white diffuser facing up, x the colour, the intensity and the frame's pre-exposure) - as the floor's
 // lamps input (ReSTIR DI's) is the same model's at its points. The same frames with indirect_light passes (no ReSTIR GI,
-// no list): no front layer lit.
+// no list): no front layer lit. (round FRONT2) The pane again as a particle (rt::set_particles_drawing): the same light
+// in the layer, drawn with its albedo x the layer's light, also when it is recorded again into Ray Reconstruction's
+// transparency layer.
 constexpr double kFrontGlassHeight = 40.0;
 constexpr std::array<double, 4> kFrontGlass{30.0, 130.0, -70.0, 40.0}; // x0, x1, z0, z1
 constexpr Vec3 kFrontLamp{-40.0, 120.0, 40.0};
@@ -3579,11 +3581,15 @@ constexpr double kFrontMargin = 4.0;    // (units kept off the quads' and the bo
 constexpr double kFrontRatioLow = 0.93;  // the device's light over the model's, its mean over the pixels
 constexpr double kFrontRatioHigh = 1.07;
 constexpr double kFrontGlassAlpha = 2.0 * 64.0 / 255.0; // (the pane's vertex alpha 0x40: the program's x 2 on v0.a x t0.a)
+// (round FRONT2) the same pane as a particle: vertex alpha 0x40, its colour 0x20 grey (the game's light on it - never its
+// albedo), the pass colour 0.25: its albedo the program's under v0 0.5 - 4 x 0.5 x the white texel x 0.25 = 0.5 (display)
+constexpr uint32_t kParticleFrontColour = 0x40202020U;
+constexpr float kParticleFrontC0 = 0.25F;
 
 // A frame of the view: the floor, the glass over it or not; `front` / `lamps` read (RGBA16F each) when given.
 bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, std::span<const rt::Light> points,
                 bool glass, uint64_t frame, std::vector<uint8_t>* front, std::vector<uint8_t>* lamps,
-                std::vector<uint8_t>* colour = nullptr)
+                std::vector<uint8_t>* colour = nullptr, bool particle = false, std::vector<uint8_t>* layer = nullptr)
 {
     using render::GpuRenderState;
     rt::FrameRecord& record = rt::frame_record();
@@ -3633,8 +3639,27 @@ bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneM
         gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 1);
         gpu.set_render_state(GpuRenderState::kSrcBlend, value::kBlendSrcAlpha);
         gpu.set_render_state(GpuRenderState::kDestBlend, value::kBlendInvSrcAlpha);
-        quad(kFrontGlassHeight, core::at(kFrontGlass, 0), core::at(kFrontGlass, 1), core::at(kFrontGlass, 2),
-             core::at(kFrontGlass, 3), 0x40FFFFFFU);
+        if (particle) {
+            // (round FRONT2) the pane drawn as the particles are: unlit, no normal, its vertex colour dark (the game's
+            // light on it - not its albedo), the pass colour kParticleFrontC0, inside the particle passes
+            gpu.set_render_state(GpuRenderState::kLighting, 0);
+            gpu.set_vertex_format(kFvfColour);
+            const std::array<float, 4> c0{kParticleFrontC0, kParticleFrontC0, kParticleFrontC0, kParticleFrontC0};
+            gpu.set_pixel_constants(0, c0.data(), 1);
+            rt::set_particles_drawing(true);
+            const std::vector<ColourVertex> corners =
+                quad_at(kFrontGlassHeight, core::at(kFrontGlass, 0), core::at(kFrontGlass, 1), core::at(kFrontGlass, 2),
+                        core::at(kFrontGlass, 3), kParticleFrontColour);
+            gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(corners.size() / 3),
+                                 corners.data(), sizeof(ColourVertex));
+            rt::set_particles_drawing(false);
+            gpu.set_pixel_constants(0, kHalf.data(), 1);
+            gpu.set_vertex_format(kFvfColourNormal);
+            gpu.set_render_state(GpuRenderState::kLighting, 1);
+        } else {
+            quad(kFrontGlassHeight, core::at(kFrontGlass, 0), core::at(kFrontGlass, 1), core::at(kFrontGlass, 2),
+                 core::at(kFrontGlass, 3), 0x40FFFFFFU);
+        }
         gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
         gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
     }
@@ -3662,6 +3687,14 @@ bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneM
             lamps->resize(bytes);
             read = state.memory.read_image_level(lamps_image, 0, lamps);
         }
+    }
+    if (layer != nullptr) { // (round FRONT2: Ray Reconstruction's transparency layer as the transparencies drew it)
+        render::vulkan::Backend& state = render::vulkan::backend();
+        const std::scoped_lock lock(state.mutex);
+        render::vulkan::Image* const image = render::vulkan::surface_light_layer(state);
+        layer->resize(static_cast<std::size_t>(kTargetWidth) * kTargetHeight * 8);
+        read = read && image != nullptr && render::vulkan::finish_work(state) &&
+               state.memory.read_image_level(image, 0, layer);
     }
     if (colour != nullptr) {
         read = read && render::vulkan::read_surface(targets.colour, colour);
@@ -3831,6 +3864,91 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                  text::format("  the opaque floor under the same lamp (ReSTIR DI's lamps input): %d pixels, %.4f x the "
                               "model's - the glass / the floor %.4f",
                               floor_pixels, floor_ratio, floor_ratio > 0.0 ? glass_ratio / floor_ratio : 0.0));
+    // (round FRONT2) the same pane drawn as a particle (rt::set_particles_drawing - a colour lit already, kLightShare):
+    // in the front layer where it covers, its light there the lamp model's as the glass's; drawn as its albedo (the
+    // program's under v0 0.5, not its dark vertex colour) x the layer's light over the floor behind by its alpha
+    std::vector<uint8_t> particle_front;
+    std::vector<uint8_t> with_particle;
+    for (int k = 0; ok && k < kFrontFrames; ++k) {
+        const bool last = k + 1 == kFrontFrames;
+        ok = draw_front(gpu, targets, meshes, points, true, frame++, last ? &particle_front : nullptr, nullptr,
+                        last ? &with_particle : nullptr, true);
+    }
+    const double particle_albedo = rt::linear_from_display(static_cast<float>(4.0 * 0.5 * kParticleFrontC0));
+    double particle_got = 0.0;
+    double particle_want = 0.0;
+    int particle_pixels = 0;
+    int particle_wrong = 0;
+    for (int y = 0; ok && emitter && y < kRows; ++y) {
+        for (int x = 0; x < kColumns; ++x) {
+            Vec3 at{};
+            if (!through_quad(x, y, kFrontGlassHeight, x0, x1, z0, z1) || !floor_point(kEye, x, y, kFrontGlassHeight, &at) ||
+                x_of(at) < x0 + kFrontMargin || x_of(at) > x1 - kFrontMargin || z_of(at) < z0 + kFrontMargin ||
+                z_of(at) > z1 - kFrontMargin) {
+                continue;
+            }
+            const double want = luma_of(model(at));
+            if (want < kFrontLeast) {
+                continue;
+            }
+            const double layer = luma_of(linear_pixel_at(particle_front, x, y));
+            particle_got += layer;
+            particle_want += want;
+            ++particle_pixels;
+            const double drawn = luma_of(linear_pixel_at(with_particle, x, y));
+            const double behind = luma_of(linear_pixel_at(without_glass, x, y));
+            const double expected = (kFrontGlassAlpha * particle_albedo * layer) + ((1.0 - kFrontGlassAlpha) * behind);
+            particle_wrong += std::abs(drawn - expected) > std::max(0.002, 0.03 * expected) ? 1 : 0;
+        }
+    }
+    // the same frames with the transparencies drawn last into Ray Reconstruction's transparency layer (as in the game with
+    // it on): the particle recorded again there is still a particle - its layer pixel its alpha x its albedo x the front
+    // layer's light (premultiplied), not the game's light on it (its dark vertex colour)
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        vk::set_surface_light_layer_forced(true);
+    }
+    std::vector<uint8_t> particle_layer;
+    for (int k = 0; ok && k < 4; ++k) {
+        ok = draw_front(gpu, targets, meshes, points, true, frame++, nullptr, nullptr, nullptr, true,
+                        k == 3 ? &particle_layer : nullptr);
+    }
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        vk::set_surface_light_layer_forced(false);
+    }
+    int layered_pixels = 0;
+    int layered_wrong = 0;
+    for (int y = 0; ok && emitter && y < kRows; ++y) {
+        for (int x = 0; x < kColumns; ++x) {
+            Vec3 at{};
+            if (!through_quad(x, y, kFrontGlassHeight, x0, x1, z0, z1) || !floor_point(kEye, x, y, kFrontGlassHeight, &at) ||
+                x_of(at) < x0 + kFrontMargin || x_of(at) > x1 - kFrontMargin || z_of(at) < z0 + kFrontMargin ||
+                z_of(at) > z1 - kFrontMargin || luma_of(model(at)) < kFrontLeast) {
+                continue;
+            }
+            const double expected = kFrontGlassAlpha * particle_albedo * luma_of(linear_pixel_at(particle_front, x, y));
+            const double drawn = luma_of(linear_pixel_at(particle_layer, x, y));
+            ++layered_pixels;
+            layered_wrong += std::abs(drawn - expected) > std::max(0.002, 0.05 * expected) ? 1 : 0;
+        }
+    }
+    tally->check(ok && layered_pixels > 500 && layered_wrong * 100 <= layered_pixels * 8,
+                 text::format("  ... and drawn into Ray Reconstruction's transparency layer (round FRONT2: recorded again "
+                              "there, still a particle - its alpha x albedo x the front layer's light): %d of %d pixels off",
+                              layered_wrong, layered_pixels));
+    const double particle_ratio = particle_want > 0.0 ? particle_got / particle_want : 0.0;
+    tally->check(ok && emitter && particle_pixels > 500 && particle_ratio >= kFrontRatioLow &&
+                     particle_ratio <= kFrontRatioHigh,
+                 text::format("  a particle pane (round FRONT: the front layer where it covers): %d pixels, its light %.4f x "
+                              "the lamp model's",
+                              particle_pixels, particle_ratio));
+    tally->check(ok && particle_pixels > 500 && particle_wrong * 100 <= particle_pixels * 8,
+                 text::format("  ... and drawn by it (the program's albedo under v0 0.5, %.3f, x the layer's light over the "
+                              "floor behind - not its vertex colour): %d of %d pixels off",
+                              particle_albedo, particle_wrong, particle_pixels));
     vk::set_rt_gi_settings({.indirect = vk::RtIndirectLight::kPasses});
     vk::set_rt_light_settings({});
     rt::set_level_emitters({});
