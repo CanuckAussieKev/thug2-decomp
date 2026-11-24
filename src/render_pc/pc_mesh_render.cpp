@@ -97,7 +97,10 @@ void set_cel_source(VertexBuffer* vb)
     // (lighting round A: and the relit mode - the world's draws read its light store in place of their vertex colour)
     if (rt::cel_shading_on() || snow::settings().on || rt::relit_settings().on) {
         gpu().set_cel_source(
-            {.vertices = vb->buffer(), .offset = vb->arena_offset(), .stream = rt_relit_world::cel_stream(vb)});
+            {.vertices = vb->buffer(),
+             .offset = vb->arena_offset(),
+             .stream = rt_relit_world::cel_stream(vb),
+             .emission = rt_relit_world::cel_emission(vb)});
     }
 }
 

@@ -99,8 +99,12 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // texels that emit, so its luminance is its flux over pi x that colour's mean over its drawn area (relit_bake.cpp
 // emitting_vertices' `emitted`) - 1.5 - 5 x v21's on textured lamps -, its pattern kept; a lamp whose surface draws no
 // emitting texel keeps its analytic light alone. Older files are not read.
-inline constexpr uint32_t kRelitDataVersion = 22;
-inline constexpr uint32_t kRelitDataOldestRead = 22;
+// v23 (round SUBPIX - one emission map): a surface emits its luminance x its emission map (rt_emission_map.h: the texel
+// alone - its colour and its own alpha - under its MESH's lamp-texel code), no longer x the material's colour nor with
+// the vertex alpha in the solid test; the luminance is the flux over pi x that map's mean over the drawn area. Older
+// files are not read.
+inline constexpr uint32_t kRelitDataVersion = 23;
+inline constexpr uint32_t kRelitDataOldestRead = 23;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

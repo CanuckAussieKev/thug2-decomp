@@ -196,8 +196,9 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     constexpr std::size_t kSnowBindings = 2;   // (NOT ORIGINAL - snow: kSnowUniformsBinding, kSnowSkyBinding)
     constexpr std::size_t kPaintBindings = 3;  // (NOT ORIGINAL - paint: kPaintUniformsBinding - kPaintPlaceBinding)
     constexpr std::size_t kWetBindings = 2;    // (NOT ORIGINAL - rain: kWetUniformsBinding, kWetMapBinding)
+    constexpr std::size_t kEmissionBindings = 1; // (NOT ORIGINAL - round SUBPIX: kEmissionMapBinding)
     std::array<VkDescriptorSetLayoutBinding, 2 + kStageCount + 4 + kWaterBindings + kDetailBindings + kSnowBindings +
-                                                 kPaintBindings + kWetBindings>
+                                                 kPaintBindings + kWetBindings + kEmissionBindings>
         bindings{};
     core::at(bindings, 0) = {.binding = kVertexUniformsBinding,
                              .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -236,7 +237,8 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
     constexpr std::size_t kSnowFirstSlot = kDetailFirstSlot + kDetailBindings;
     constexpr std::size_t kPaintFirstSlot = kSnowFirstSlot + kSnowBindings;
     constexpr std::size_t kWetFirstSlot = kPaintFirstSlot + kPaintBindings;
-    constexpr std::size_t kCelSceneSlot = kWetFirstSlot + kWetBindings;
+    constexpr std::size_t kEmissionSlot = kWetFirstSlot + kWetBindings;
+    constexpr std::size_t kCelSceneSlot = kEmissionSlot + kEmissionBindings;
     static_assert(kCelSceneSlot + 1 == bindings.size(), "the scene is the last binding");
     core::at(bindings, kCelBlockSlot) = {.binding = kCelUniformsBinding,
                                            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -308,6 +310,12 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
                                              .descriptorCount = 1,
                                              .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                              .pImmutableSamplers = nullptr};
+    // (NOT ORIGINAL - round SUBPIX) a relit surface's emission map: pushed only for the keys that read it (kSurfaceRelit)
+    core::at(bindings, kEmissionSlot) = {.binding = kEmissionMapBinding,
+                                         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                         .descriptorCount = 1,
+                                         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                         .pImmutableSamplers = nullptr};
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                    .pNext = nullptr,
                                                    .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,

@@ -54,6 +54,7 @@
 #include "engine/gfx/light_store.h"
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_emission_map.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
@@ -243,6 +244,7 @@ struct SceneMesh {
     uint32_t flags = kWorldOpaque; // (round ALBEDO's layer case: the instance's flags)
     render::GpuVertexBuffer* vertices = nullptr;
     render::GpuVertexBuffer* stream = nullptr;
+    render::GpuTexture* emission = nullptr; // (round SUBPIX: its emission map - an untextured surface's, white)
 };
 
 void put_float(std::span<uint8_t> bytes, std::size_t at, float value)
@@ -329,6 +331,12 @@ bool make_mesh(render::Gpu& gpu, const std::vector<Triangle>& triangles, bool em
             return false;
         }
         rt::ray_tracing()->set_light_stream(mesh->id, mesh->stream);
+        // (round SUBPIX) its store's emission read through its emission map (rt_emission_map.h - white: untextured)
+        mesh->emission = rt::emission_map_texture(gpu, rt::emission_map({}, 0));
+        if (mesh->emission == nullptr) {
+            return false;
+        }
+        rt::ray_tracing()->set_emission_map(mesh->id, mesh->emission);
     }
     return true;
 }
@@ -395,6 +403,7 @@ void release_mesh(render::Gpu& gpu, SceneMesh* mesh)
     if (rt::ray_tracing() != nullptr) {
         if (mesh->stream != nullptr) {
             rt::ray_tracing()->set_light_stream(mesh->id, nullptr);
+            rt::ray_tracing()->set_emission_map(mesh->id, nullptr);
         }
         if (mesh->id != 0) {
             rt::ray_tracing()->remove_mesh(mesh->id);
@@ -402,6 +411,10 @@ void release_mesh(render::Gpu& gpu, SceneMesh* mesh)
         if (mesh->material != 0) {
             rt::ray_tracing()->remove_material(mesh->material);
         }
+    }
+    if (mesh->emission != nullptr) {
+        gpu.release_texture(mesh->emission);
+        mesh->emission = nullptr;
     }
     for (render::GpuVertexBuffer* buffer : {mesh->vertices, mesh->stream}) {
         if (buffer != nullptr) {

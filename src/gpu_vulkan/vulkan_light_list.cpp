@@ -78,20 +78,30 @@ float emitter_power(uint instance, uint primitive, out float area)
     vec3 across = cross(to_world * vec4(v.position[1], 1.0) - to_world * vec4(v.position[0], 1.0),
                         to_world * vec4(v.position[2], 1.0) - to_world * vec4(v.position[0], 1.0));
     float sides = emitter_sides(id);
-    vec3 looking = length(across) > 0.0 ? -normalize(across) * EMITTER_FRONT_SIGN : vec3(0.0, -1.0, 0.0);
+    area = 0.5 * length(across);
     const float n = float(TRIANGLE_LATTICE);
+    // (round SUBPIX) each sub-triangle's emission its mean: the emission map read at the level of a sub-triangle's
+    // footprint in its texels (each level the mean of the emission - rt_emission_map.h), so the lattice's mean is the
+    // triangle's whole emission however few its lamp texels. Before, its centroids' texels alone: a triangle whose
+    // lamp texels fell between them measured nothing.
+    float lod = 0.0;
+    uint slot = geometry_record(instance).emission_slot;
+    if (slot != 0u) {
+        vec2 size = vec2(textureSize(sampler2D(material_textures[nonuniformEXT(slot)], material_samplers[0]), 0));
+        vec2 du = v.uv[1] - v.uv[0];
+        vec2 dv = v.uv[2] - v.uv[0];
+        float texels = 0.5 * abs(du.x * dv.y - du.y * dv.x) * size.x * size.y / (n * n);
+        lod = texels > 1.0 ? 0.5 * log2(texels) : 0.0;
+    }
     for (uint i = 0u; i < TRIANGLE_LATTICE; ++i) {
         for (uint j = 0u; i + j < TRIANGLE_LATTICE; ++j) {
             // the upright sub-triangle (i, j) and, but on the last row, the one turned over beside it
             for (uint turned = 0u; turned < (i + j + 1u < TRIANGLE_LATTICE ? 2u : 1u); ++turned) {
                 float c = turned == 0u ? 1.0 / 3.0 : 2.0 / 3.0;
-                HitSurface s;
-                if (hit_surface(instance, primitive, id, vec2((float(i) + c) / n, (float(j) + c) / n), to_world,
-                                looking, s)) {
-                    area = s.area;
-                    if (!s.cut_out && !s.hidden) {
-                        sum += path_luma(max(s.emitted, vec3(0.0)));
-                    }
+                vec3 emitted;
+                if (hit_emission_lod_of(instance, primitive, id, vec2((float(i) + c) / n, (float(j) + c) / n), v, lod,
+                                        emitted)) {
+                    sum += path_luma(max(emitted, vec3(0.0)));
                 }
             }
         }

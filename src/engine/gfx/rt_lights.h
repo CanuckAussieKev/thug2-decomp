@@ -193,9 +193,8 @@ inline constexpr uint32_t kLampTexelFloorSteps = 126U;
 [[nodiscard]] uint8_t lamp_texel_code(float floor_luma, bool solid_only);
 // What a coded test says of a texel (linear colour, its drawn alpha 0 - 1): true for code 0.
 [[nodiscard]] bool lamp_texel_coded(const std::array<float, 3>& linear, float alpha, uint32_t code);
-// The GLSL twin: `bool lamp_texel_shown(vec3 linear, float alpha, uint code)` (the ff shaders' relit surfaces and the
-// ray-traced hit surfaces - one test).
-[[nodiscard]] const std::string& lamp_texel_glsl();
+// (round SUBPIX: the renderers no longer run it on a filtered texel - they read the mesh's emission map, made with it at
+// full resolution: rt_emission_map.h)
 // A point light's falloff core (point_core): this share of its reach (the game's radius).
 inline constexpr float kPointCoreShare = 0.1F;
 // (lighting round A: the lamps' sum is no longer held under a knee - the lamps are lit by their data, the HDR tone map

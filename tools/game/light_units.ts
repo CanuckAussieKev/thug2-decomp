@@ -28,7 +28,7 @@ import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converte
 const USAGE = `usage: node tools/game/light_units.ts census --game <folder> [--json <file>] [--levels a,b]`;
 
 const RELIT_MAGIC = 0x44523254; // "T2RD"
-const RELIT_VERSION = 22;
+const RELIT_VERSION = 23;
 const RELIT_OLDEST = 21; // (relit_data.h kRelitDataOldestRead - the lamps and emitting triangles laid out as v17 had them)
 const METRES_PER_UNIT = 1 / 39.37;
 const LAMP_REACH_LUX = 1.0e-3; // rt_lights.h kLampReachLux
@@ -84,7 +84,7 @@ export function readRelit(bytes: Buffer): RelitHead | null {
     if (bytes.length < 64 || bytes.readUInt32LE(0) !== RELIT_MAGIC) return null;
     u32();
     const version = u32();
-    if (version < RELIT_OLDEST || version > RELIT_VERSION) return null; // (v18 - v20 and v22 changed only the meshes and the units)
+    if (version < RELIT_OLDEST || version > RELIT_VERSION) return null; // (v18 - v20, v22 and v23 changed only the meshes and the units)
     f32(); // sun radius
     const scene = u32();
     at += 8; // content

@@ -156,6 +156,7 @@ add_library(thug2_engine STATIC
     gfx/relit_data.cpp
     gfx/rt_lights.cpp
     gfx/texel_decode.cpp
+    gfx/rt_emission_map.cpp
     gfx/rt_volume_light.cpp
     gfx/grass.cpp
     gfx/snow.cpp

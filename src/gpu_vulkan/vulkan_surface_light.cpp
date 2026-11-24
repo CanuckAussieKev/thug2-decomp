@@ -22,6 +22,7 @@
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_prepared_draw.h"
+#include "gpu_vulkan/vulkan_restir_di.h"
 #include "gpu_vulkan/vulkan_restir_gi.h"
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
@@ -726,9 +727,15 @@ void draw_kept(Backend& state)
     // (Training's far hall: black blotches with burning edges round the hanging lights and their light shafts). Drawn
     // after every surface, against their whole depth, in their own order - the layer is laid over everything, as Ray
     // Reconstruction composes it.
+    // (round SUBPIX) and the listed emitters' splat - their directly seen share the draws leave out (vulkan_restir_di.h
+    // restir_splat_into_layer): laid into the layer first, under the transparencies drawn over it
+    const bool splat = ray_reconstruction_active() && restir_splat_pending(state);
     const bool layered = (ray_reconstruction_active() || own.layer_forced) &&
-                         std::ranges::any_of(kept, [](const KeptDraw& draw) { return transparency(draw.block); }) &&
+                         (splat || std::ranges::any_of(kept, [](const KeptDraw& draw) { return transparency(draw.block); })) &&
                          begin_layer(state);
+    if (layered && splat) {
+        (void)restir_splat_into_layer(state, &own.layer.image);
+    }
     const bool any_recorded = layered || std::ranges::any_of(kept, [&state](const KeptDraw& draw) {
                                   return !prepared_now(state, draw);
                               });

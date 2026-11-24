@@ -141,6 +141,9 @@ struct Entry {
     uint64_t lamps_for = 0;           // ... and the lamps' switches its L was made for (State::lamps_hash)
     uint64_t emission_written = 0;    // (round PX) ... and the lamps_for its light store's emission was written with
     int lamp_texels = -1; // (round FG) its texture's lamp-texel code (rt_record::lamp_texel_code_of; -1: not read yet)
+    // (round SUBPIX) its emission map (rt_record::emission_map_texture - its texture under its code), a reference held
+    // while the entry is, made when its data first gives it emitting vertices (null: it emits nothing)
+    GpuTexture* emission_map = nullptr;
     rt::RelitMesh input;
     rt::RelitVertices light;
     bool analysed = false;   // its light read from the level's data
@@ -768,6 +771,8 @@ void publish_stream(Entry& entry, GpuVertexBuffer* stream)
 {
     if (rt::RayTracing* tracer = rt::ray_tracing(); tracer != nullptr && entry.input.id != 0) {
         tracer->set_light_stream(entry.input.id, stream);
+        // (round SUBPIX) and the emission map its store's emission is read through (rt_emission_map.h)
+        tracer->set_emission_map(entry.input.id, stream != nullptr ? entry.emission_map : nullptr);
     }
 }
 
@@ -781,6 +786,14 @@ void release_stream(Entry& entry)
     }
     entry.written = 0;
     entry.emission_written = 0; // (round PX: its emission is gone with its store - told again when written)
+}
+
+// (round SUBPIX) an entry let go of: its emission map's reference given back
+void forget_entry(Entry& entry)
+{
+    release_stream(entry);
+    rt_record::release_emission_map(entry.emission_map);
+    entry.emission_map = nullptr;
 }
 void restore_all()
 {
@@ -904,6 +917,10 @@ uint64_t switch_lamps(const rt::DayLight& day)
             entry.lamp_texels = rt_record::lamp_texel_code_of(entry.mesh);
         }
         const auto code = static_cast<uint8_t>(textured ? entry.lamp_texels : 0);
+        // (round SUBPIX - one emission map a mesh) the map its store's emission is drawn through, under the mesh's code
+        if (entry.emission_map == nullptr && !mesh.emitting.empty()) {
+            entry.emission_map = rt_record::emission_map_texture(entry.mesh, code);
+        }
         for (rt::RelitVertex& vertex : entry.light) {
             vertex.emit_texels = code;
         }
@@ -1064,7 +1081,7 @@ void list_world(std::span<const WorldMesh> world)
             // place in the data were there) - made again where it stands
             if (const auto kept = st.entries.find(mesh.source);
                 kept != st.entries.end() && (kept->second.object != mesh.object || kept->second.to_world != mesh.to_world)) {
-                release_stream(kept->second);
+                forget_entry(kept->second);
                 std::erase(st.order, mesh.source);
                 st.entries.erase(kept);
             }
@@ -2005,6 +2022,13 @@ GpuVertexBuffer* cel_stream(const VertexBufferData* buffer)
     return found != st.entries.end() && found->second.written != 0 ? found->second.stream : nullptr;
 }
 
+GpuTexture* cel_emission(const VertexBufferData* buffer)
+{
+    const State& st = state();
+    const auto found = st.entries.find(buffer);
+    return found != st.entries.end() && found->second.written != 0 ? found->second.emission_map : nullptr;
+}
+
 void buffer_released(const VertexBufferData* buffer)
 {
     State& st = state();
@@ -2012,7 +2036,7 @@ void buffer_released(const VertexBufferData* buffer)
     if (entry == st.entries.end()) {
         return;
     }
-    release_stream(entry->second);
+    forget_entry(entry->second);
     std::erase_if(st.buffer_of, [buffer](const auto& kept) { return kept.second == buffer; });
     st.entries.erase(entry);
     std::erase(st.order, buffer);
@@ -2039,7 +2063,7 @@ void mesh_released(const MeshRef* mesh)
     st.buffer_of.erase(found);
     const auto entry = st.entries.find(buffer);
     if (entry != st.entries.end() && entry->second.mesh == mesh) {
-        release_stream(entry->second);
+        forget_entry(entry->second);
         st.entries.erase(entry);
         std::erase(st.order, buffer);
     }

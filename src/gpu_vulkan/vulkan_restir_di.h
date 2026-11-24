@@ -53,6 +53,7 @@
 namespace render::vulkan {
 
 struct Backend;
+struct Image;
 
 // (the check's) A run on the frame's scene with its lighting given here, not the game's: the primary surface from camera
 // rays (no depth), the result accumulated per pixel (the full light model on the material below - the reference's
@@ -139,6 +140,13 @@ struct SharedPrimary {
     bool check = false; // (the check's camera rays through the pixels' centres)
 };
 [[nodiscard]] SharedPrimary restir_shared_primary(const Backend& state);
+// (round SUBPIX - emitters smaller than a pixel: engine/gfx/rt_emission_map.h emission_splat_share) Whether this frame's
+// view made the listed emitters' splat (their directly seen share the draws leave out under Ray Reconstruction), and
+// its adding into the view's transparency layer (an R16G16B16A16 image in the general layout, the view's target size: the
+// splat at the view's rectangle, the layer's alpha kept) - once a view, before the transparencies are drawn over it.
+// The caller holds the lock.
+[[nodiscard]] bool restir_splat_pending(const Backend& state);
+bool restir_splat_into_layer(Backend& state, Image* layer);
 void set_restir_shared_primary(bool on);
 
 // (round NOBIAS3) Which surface a pixel's primary is - the albedo row's w: none (no depth there), the camera ray's

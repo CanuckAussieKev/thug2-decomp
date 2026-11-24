@@ -2342,6 +2342,32 @@ evidence") and from the frame's point lights that were on at the bake's time - s
   the relit surfaces' shading (ff_shaders) and the ray-traced hit surface (`store_emission`). The shading's own test
   before (any texel whose brightest channel passed 0.6 - 0.7) spread the lamp's luminance over every pale texel of the
   surface.
+- **One emission map** (round SUBPIX, engine/gfx/rt_emission_map.h; relit data v23): the test runs once, at full
+  resolution: each emitting mesh's first texture becomes an emission map under the mesh's code - level 0 the texel's
+  linear colour where the test passes on it (its colour and its own alpha), 0 elsewhere; every further level the box mean
+  of the one above, so a mip holds the mean emission of its footprint (flux kept at every level, as the emissive mips
+  of shipping engines are made). A surface emits its store's luminance x that map, read by every consumer through it:
+  the draws (ff_shaders' relit branch - kEmissionMapBinding, sampled as stage 0 is, at the raster's mip), the rays
+  (vulkan_rt_scene.cpp `store_emission` - GeometryRecord::emission_slot, at the ray cone's level: ReSTIR GI's and the
+  reflections' filtered hits; level 0 for a point - ReSTIR DI's targets, the path reference), the light list's power
+  (the scan reads each lattice cell's mean) and the bake (rt_record.cpp `emission_texels`: the drawn area the flux is
+  spread over). Before, both renderers tested the filtered texel: a footprint with lamp texels among darker ones emitted
+  nothing - the flux the bake conserves at level 0 was lost at distance and in every cone-filtered hit. Neither the
+  material's colour nor the vertex alpha enters the emission (a texture-space map holds neither; the bake conserves the
+  flux under the same definition).
+- **Emitters smaller than a pixel** (round SUBPIX, rt_emission_map.h `emission_splat_share`): under Ray Reconstruction
+  an emitting triangle drawn over a pixel or two is hit by the raster's one sample in some jitter phases only - a firefly
+  RR drops (round NOBIAS2's probe: 0.43 of a 1-pixel emitter's light kept, 0.02 of one lit one frame in four). Its
+  directly seen light is split by its drawn area: whole at most 2 pixels, none from 8, log-linear between - the draws
+  keep (1 - share) (their fragment's barycentric derivatives give the triangle's drawn area: VK_KHR_fragment_shader_
+  barycentric), and ReSTIR DI's splat pass (vulkan_restir_di.cpp kSplatBody) projects each listed emitting triangle with
+  the view's jittered projection, takes the same share of its flux toward the eye (its mean radiance - the map at its
+  lattice cells' level - x its drawn pixels) where a ray from the eye reaches its centre, and spreads it as a Gaussian of
+  half a pixel round its true place, normalised over the 3 x 3 pixels it covers, into RR's transparency layer every
+  frame (NIGHTSKY's stars: a flux-conserving point the upscaler keeps; the layer is upscaled, not denoised). The layer
+  is made for the view whenever there is a splat; the transparencies are drawn over it. Probe (thug2_vulkan_upscale_check
+  --rr-probe, SPLAT): 1.00 of 1- and 2-pixel emitters' light kept, flat or noisy. Seen-through, light-adding and
+  drawn-apart instances keep their own emission (their draws are the layer's already).
 - **Its strength** (rt_relit.h `relit_lamp_models`, `RelitLampSource::kGameLight`): a light (or its head) the bake can't
   tell takes its fixture's model at full brightness - the kind from its own colour, shape and place (lamp_fixtures.h
   `fixture_of`: sodium / filament / white by its colour temperature, neon or sign when saturated, roofed or not, a
@@ -3304,6 +3330,8 @@ through it: `node tools/game/light_units.ts census --game <folder>`.
 | an emitter's faces (round EMIT) | culled (one-sided) materials draw their front alone, two-sided ones both | every emitting triangle sent from both faces in every ray pass, the light list measuring 2 pi A L: New Orleans' emitting triangles 1.7 x the flux of the lamps they show (2.4 x before NOBIAS's fix) | a one-sided emitter sends from its front alone ((b - a) x (c - a) x rt_scene.h kFrontFaceSign, +1: measured on every test level's one-sided floors - `rt: the world's winding` in the log), a two-sided one (rt::kTwoSided, the material's no-culling flag) from both with the bake's luminance split between them: GLSL emitter_sides / emitter_cos read by hit_surface (every ray hit), the light list's scan (sides x pi A L), ReSTIR DI's light points and the presampled pool / light grid (one-sided marked in the pool's emission sign bit), so the fog's lights too. The bake's drawn area counts the faces (RelitMesh::two_sided). Needs a rebake (v21) |
 | a lamp's flux (round EMIT) | (the bake) a solve held to its kind's flux range; a glow's row of fittings pi L A over its card's core up to its fittings' brightest | New Orleans' sign 51 000 lm (5.97 m^2 - 2 700 cd/m^2 on a kind of at most 1 000), a 39 m glow row 150 000 lm, School's rows 58 000 - 81 000 lm; tiny surfaces holding a whole lamp's flux (School 4 x 10^6, New Orleans 3.3 x 10^6 cd/m^2) | a solve whose flux is over pi x its kind's brightest luminance x its drawn luminous area (an upper bound of the lamp's own) is a failed measurement - its model; a glow row's flux at most its fittings' typical (one fixture's x the count its length holds) and at most its core at its kind's luminance; a surface owns its lamp only when its drawn area can send the flux at a luminance its kind has (else the lamp's analytic light alone) |
 | a lamp surface's luminance (round EMIT2) | (the bake) the surface emits its store's luminance x the colour as drawn (the linear texel) on the texels that emit | L set as though the texel were white: the emitting surfaces sent 0.21 (BO) - 0.66 (AU) of their lamps' flux (round BOUNCE's lumen census) | L = flux / (pi x the drawn area weighted by the drawn colour's mean on the emitting texels, relative to the lamp's colour - relit_bake.cpp emitting_vertices' `emitted`, rt_record::emission_texels; relit data v22): the solved flux sent, the texture's pattern kept; a surface drawing no emitting texel leaves its lamp analytic |
+| a lamp surface's emission at distance (round SUBPIX) | (both renderers) the lamp-texel test on the texel filtered at the raster's mip / the ray cone's level | a footprint holding lamp texels among darker ones emitted nothing: the flux the bake conserves at level 0 lost at distance and in ReSTIR GI's and the reflections' filtered hits | the mesh's emission map (rt_emission_map.h: the test at full resolution, each mip the mean of the emission), read by the draws, the rays, the light list and the bake; relit data v23 |
+| a lamp smaller than a pixel seen directly (round SUBPIX) | (the raster) one jittered sample a pixel | lit in some jitter phases only: Ray Reconstruction drops it as a firefly (0.43 of a 1-pixel emitter's light kept, 0.02 of one lit one frame in four) | its flux splatted into RR's transparency layer every frame as a half-pixel point at its true place, the draws keeping the share the split leaves them (emission_splat_share: whole up to 2 drawn pixels, none from 8): 1.00 kept |
 
 The glowing balls round street lamps were the 2.2 power: a lamp's pre-exposed light in the air (tens to thousands at
 night, the pre-exposure ~6 000) raised to its 2.2th power. In linear radiance the same lamps in Australia's clear night

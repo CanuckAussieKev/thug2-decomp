@@ -178,6 +178,7 @@ struct SourceState {
     Buffer* vertices = nullptr;
     VkDeviceSize offset = 0;
     Buffer* stream = nullptr;
+    Texture* emission = nullptr; // (round SUBPIX) the store's emission map
 };
 
 struct FrameView {
@@ -660,7 +661,20 @@ void set_cel_source_locked(Backend& state, const Gpu::CelSource& source)
     Buffer* const stream = source.stream != nullptr ? object(source.stream) : nullptr;
     const bool known = vertices != nullptr && stream != nullptr && state.buffers.contains(vertices) &&
                        state.buffers.contains(stream);
-    cel().source = known ? SourceState{.vertices = vertices, .offset = source.offset, .stream = stream} : SourceState{};
+    Texture* const emission = source.emission != nullptr ? object(source.emission) : nullptr;
+    cel().source = known ? SourceState{.vertices = vertices,
+                                       .offset = source.offset,
+                                       .stream = stream,
+                                       .emission = emission != nullptr && state.textures.contains(emission) ? emission : nullptr}
+                         : SourceState{};
+}
+
+void cel_forget_texture_locked(const Texture* texture)
+{
+    SourceState& source = cel().source;
+    if (texture == nullptr || source.emission == texture) {
+        source.emission = nullptr;
+    }
 }
 
 void cel_forget_buffer_locked(const Buffer* buffer)
@@ -677,12 +691,12 @@ bool cel_source_named() { return cel().source.vertices != nullptr || cel().sourc
 CelSourceNamed cel_source_now()
 {
     const SourceState& source = cel().source;
-    return {.vertices = source.vertices, .offset = source.offset, .stream = source.stream};
+    return {.vertices = source.vertices, .offset = source.offset, .stream = source.stream, .emission = source.emission};
 }
 
 void cel_source_put(const CelSourceNamed& source)
 {
-    cel().source = {.vertices = source.vertices, .offset = source.offset, .stream = source.stream};
+    cel().source = {.vertices = source.vertices, .offset = source.offset, .stream = source.stream, .emission = source.emission};
 }
 
 Buffer* relit_stream_of(Backend& state, const DrawCall& call)
@@ -695,6 +709,11 @@ Buffer* relit_stream_of(Backend& state, const DrawCall& call)
         return source.stream;
     }
     return nullptr;
+}
+
+Texture* relit_emission_of(Backend& state, const DrawCall& call)
+{
+    return relit_stream_of(state, call) != nullptr ? cel().source.emission : nullptr;
 }
 
 Buffer* relit_colour_stream(Backend& state, const DrawCall& call, const VertexKey& vertex)

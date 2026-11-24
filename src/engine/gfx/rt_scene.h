@@ -409,6 +409,10 @@ public:
     // light a pixel again (the shadows, the occlusion, the bounce, the lamps) read it where they hit the mesh, so each
     // part of its light has one owner. The buffer stays the caller's; it is given again (or null) before it is released.
     virtual void set_light_stream(MeshId mesh, GpuVertexBuffer* stream) { (void)mesh, (void)stream; }
+    // (round SUBPIX) The texture a mesh's light store's emission is multiplied by where a ray hits it - its emission map
+    // (rt_emission_map.h: linear, its levels the mean of the emission, read at the hit's level), or null: the mesh emits
+    // nothing. The texture stays the caller's; it is given again (or null) before it is released.
+    virtual void set_emission_map(MeshId mesh, GpuTexture* map) { (void)mesh, (void)map; }
 };
 
 // The installed backend (null: none - Direct3D 9, or no ray tracing on this device / off in the ini).
