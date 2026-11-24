@@ -16,7 +16,9 @@
 //     disc kRelitSunRadiusDegrees across: a soft edge) that reach the sky, times N.L;
 //   - K: the sky's light - the share of the sky seen over the vertex's hemisphere (cosine-weighted rays that escape);
 //   - B: the light bounced to it - the same rays' hits on the world, each bringing the baked colour where it lands
-//     (that surface's own tint x light: what it shows), averaged over all the rays (a miss brings none);
+//     (that surface's own tint x light) x the albedo of the texel it lands on (round BAKEALB: ProbeResult::albedo, the
+//     renderers' own - so the tints x g are the albedos' tint part, the renderers' texel x tint the albedo), averaged
+//     over all the rays (a miss brings none);
 //   - L: the level's lamps' light - the emitters and point lights the lamps pass shines (rt_lights.h: their colour,
 //     intensity and falloff), each toward the vertex as it faces it, where a shadow ray reaches it (trace_relit_lamps).
 // The bake's light at a vertex is then modelled as E = a S + b K + g B + c L per channel (red, green, blue): a, b, g
@@ -102,7 +104,13 @@ inline constexpr float kRelitMinSunLight = 0.05F;
 inline constexpr float kRelitFloorShare = 0.05F;
 inline constexpr float kRelitConfidence = 0.35F;
 inline constexpr uint32_t kRelitSmoothPasses = 4;
-inline constexpr float kRelitMaxTint = 2.0F;
+// (round BAKEALB) The tint is the part of the albedo the texture doesn't hold - the albedo is texel x tint, the texels'
+// mean albedo about 0.2 - 0.3 - so a white wall drawn with a mid-grey texture has a tint of 3 - 4: the light store's
+// tint word holds it as a byte x kRelitTintPerByte (rt_cel.h word 1), at most kRelitMaxTint. (Was x 128, at most 2:
+// with the bake's bounce leaving the texture out the tints were the albedos themselves; with the texel in, 2 held
+// a quarter of Training's and New Orleans' vertices.)
+inline constexpr float kRelitTintPerByte = 64.0F;
+inline constexpr float kRelitMaxTint = 255.0F / kRelitTintPerByte;
 inline constexpr float kRelitLampLow = 1.2F;
 inline constexpr float kRelitLampHigh = 1.8F;
 // The light the model doesn't explain told across meshes (relit_light_across): the neighbours of other meshes within
@@ -375,6 +383,10 @@ struct RelitParams {
 struct RelitStats {
     std::size_t vertices = 0;
     std::size_t rays = 0;
+    // (round BAKEALB) the bounce rays' hits on the world and the luma of their albedos summed (ProbeResult::albedo):
+    // the mean albedo the bounce met - reported by the bake
+    std::size_t albedo_hits = 0;
+    double albedo_sum = 0.0;
 };
 
 // The vertices' normals (where the mesh gives none: its triangles', area-weighted, turned by `facing` - +1 or -1, the

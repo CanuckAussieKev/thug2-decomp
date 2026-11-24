@@ -19,6 +19,7 @@
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
+#include "engine/gfx/rt_relit.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/water_shader.h"
@@ -26,6 +27,14 @@
 namespace render::vulkan {
 
 namespace {
+
+// (round BAKEALB) The light store's tint word as a GLSL factor: a byte's worth of tint (rt_relit.h kRelitTintPerByte)
+// times 255 - unpackUnorm's 0 - 1 to the tint.
+const std::string& tint_per_unorm()
+{
+    static const std::string made = "(255.0 / " + std::to_string(rt::kRelitTintPerByte) + ")";
+    return made;
+}
 
 constexpr uint8_t kAlphaFlagBit = 1U;
 
@@ -717,7 +726,7 @@ void cel_lighting(std::string& out, const FragmentKey& key)
               "smoothstep(c.outline.w, c.limits.x, cel_bq)) : cel_bake;"});
     if ((key.surface & kSurfaceCelStream) != 0U) {
         add(out, {"    vec3 cel_amb = v_cel_light.rgb;\n    float cel_ndl = v_cel_light.a;\n"
-                  "    vec3 cel_tint = v_cel_tint.rgb * 2.0;\n    vec3 cel_res = v_cel_residual.rgb + v_cel_emit.rgb;\n"
+                  "    vec3 cel_tint = v_cel_tint.rgb;\n    vec3 cel_res = v_cel_residual.rgb + v_cel_emit.rgb;\n"
                   "    float cel_vis = v_cel_tint.a;"});
         if (shadow) {
             add(out, {"    cel_vis = 1.0;\n"
@@ -1010,8 +1019,8 @@ void trail_albedo(std::string& out, const FragmentKey& key, const char* target, 
     const std::string snow_colour = own != nullptr ? std::string("(snow.albedo.rgb / ") + own + ")" : std::string("snow.albedo.rgb");
     if ((key.trails & kTrailSnowTint) != 0U) {
         // (the relit tint the vertex colour carries replaced too: the snow over it, where the vertex has the stream -
-        // word 2's alpha; the stream's tint is x 128 of 255, so x 2)
-        add(out, {indent, target, " = mix(", target, ", v_cel_residual.a > 0.5 ? ", snow_colour, " / max(v_cel_tint.rgb * 2.0, "
+        // word 2's alpha; the stream's tint decoded by the vertex stage)
+        add(out, {indent, target, " = mix(", target, ", v_cel_residual.a > 0.5 ? ", snow_colour, " / max(v_cel_tint.rgb, "
                   "vec3(0.04)) : ", snow_colour, ", snow_amount);"});
     } else if ((key.trails & kTrailSnow) != 0U) {
         add(out, {indent, target, " = mix(", target, ", ", snow_colour, ", snow_amount);"});
@@ -1307,18 +1316,18 @@ void surface_finish(std::string& out, const FragmentKey& key)
     } else if ((key.surface & kSurfaceRelit) != 0U) {
         const bool relief = (key.detail & kDetailRelief) != 0U && (key.surface & kSurfaceMap) != 0U;
         // (round L: v_cel_light / v_cel_residual / v_cel_emit are light in the frame's unit - the store's physical light x
-        // the frame's pre-exposure; the tint is still a byte x 128. The vertex's own emission - a lamp's lens, bulb or
+        // the frame's pre-exposure; the tint decoded by the vertex stage - round BAKEALB. The vertex's own emission - a lamp's lens, bulb or
         // panel at its luminance - added as it is (x the texel's colour: the lamp's texture), on the lamp texels alone for
         // a lamp drawn in a texture: their brightest channel at least rt_lights.h kTexelBright, the bake's own test)
         add(out, {"    const float surface_word = 255.0 / 128.0;\n"
                   "    if (v_cel_residual.a > 0.5) {\n"
-                  "        vec3 tint = v_cel_tint.rgb * surface_word;\n"
+                  "        vec3 tint = v_cel_tint.rgb;\n"
                   "        vec3 lamp_texel = surface_albedo;\n"
                   // (round FG - one lamp-texel test: the bake's, its texture's floor coded in the store's flags - the same
                   // code on every vertex of the mesh, so interpolated it is the code; rt_lights.h lamp_texel_glsl)
                   "        float lamp_lit = lamp_texel_shown(lamp_texel, colour.a, uint(v_cel_emit.a * 255.0 + 0.5)) ? 1.0 "
                   ": 0.0;\n"
-                  "        surface_m.albedo *= tint;\n        surface_m.f0 = mix(surface_m.f0, surface_m.f0 * tint, s.params.x);\n",
+                  "        surface_m.albedo = min(surface_m.albedo * tint, vec3(1.0));\n        surface_m.f0 = mix(surface_m.f0, surface_m.f0 * tint, s.params.x);\n",
                   layer_m_inner,
                   "        vec3 env = v_cel_light.rgb + v_cel_residual.rgb / max(tint, vec3(1.0 / 128.0));\n"
                   "        surface_out = brdf_ambient(surface_m, surface_nv, env * surface_hemi, env * surface_env) * surface_li.b;\n"
@@ -1996,7 +2005,9 @@ std::string vertex_shader_glsl(const VertexKey& key)
     }
     if ((key.surface & kVertexCelStream) != 0U) { // (added by cel shading: the stream handed on)
         // (round L: the light words decoded and x the frame's pre-exposure - the one place the draws apply it)
-        add(out, {"    v_cel_light = vec4(stored_light(a_cel0) * u.light_store.x, a_cel_flags.r);\n    v_cel_tint = a_cel1;\n"
+        // (round BAKEALB: the tint word decoded once - its bytes x rt_relit.h kRelitTintPerByte; the sun's share in alpha)
+        add(out, {"    v_cel_light = vec4(stored_light(a_cel0) * u.light_store.x, a_cel_flags.r);\n    v_cel_tint = vec4(a_cel1.rgb * ",
+                  tint_per_unorm(), ", a_cel1.a);\n"
                   "    v_cel_residual = vec4(stored_light(a_cel2) * u.light_store.x, a_cel_flags.a > 0.75 ? 1.0 : 0.0);\n"
                   "    v_cel_emit = vec4(stored_light(a_cel_emit) * u.light_store.x, a_cel_flags.b);"});
     }

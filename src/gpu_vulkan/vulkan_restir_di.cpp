@@ -19,6 +19,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/format.h"
 #include "engine/gfx/gpu_markers.h"
+#include "engine/gfx/graphics_options.h"
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
@@ -203,8 +204,11 @@ struct RestirBlock {
     std::array<uint32_t, 4> grid_cells{};  // its cells across x, y, z; w its slots a cell (0: no grid - the list alone)
     std::array<uint32_t, 4> shared{};      // (round OM) xy the shared primary surface's address, z 1: written here
     std::array<uint32_t, 4> grid_shift{};  // (round PERF3) xyz the light grid's cells' shift on each axis (light_grid_slot)
+    // (round BAKEALB - ray cones) the raster's sampling of the view's pixels: x its level bias (the upscaler's), y its
+    // anisotropy (1: none) - the traced primary's passes at the raster's mips
+    std::array<float, 4> cone{};
 };
-static_assert(sizeof(RestirBlock) == (2 * 64) + (13 * 16));
+static_assert(sizeof(RestirBlock) == (2 * 64) + (14 * 16));
 
 // --- the shaders -------------------------------------------------------------------------------------------------------
 
@@ -226,6 +230,7 @@ layout(std140, set = 0, binding = 2) uniform RestirBlock {
     uvec4 grid_cells;
     uvec4 surfaces;
     uvec4 grid_shift;
+    vec4 cone;
 } pass;
 struct LightEntry {
     float threshold;
@@ -495,9 +500,17 @@ Surface primary(ivec2 p)
     float t;
     mat4x3 to_world;
     HitSurface h;
-    if (!trace_drawn(eye, dir, reach, expected, instance, primitive, id, bary, t, to_world) ||
-        (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected) ||
-        !hit_surface(instance, primitive, id, bary, to_world, dir, h) || h.hidden) {
+    // (round BAKEALB - ray cones) the pixel's footprint: its neighbours' rays (the check's camera rays: none - the most
+    // detailed levels), sampled as the raster samples the pixel
+    HitCone cone = no_cone();
+#ifndef CHECK
+    cone.origin = eye;
+    cone.dx = world_at(centre + vec2(1.0, 0.0), d) - eye;
+    cone.dy = world_at(centre + vec2(0.0, 1.0), d) - eye;
+    cone.bias = pass.cone.x;
+    cone.most_anisotropy = max(pass.cone.y, 1.0);
+#endif
+    if (!camera_surface(eye, dir, reach, expected, cone, instance, primitive, id, bary, t, to_world, h) || h.hidden) {
 #ifdef CHECK
         return shared_primary(p, no_surface(), false, vec3(0.0), 1.0, PRIMARY_NONE);
 #else
@@ -2751,6 +2764,12 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
                     check ? own.overrides.seed : 0x2545F491U};
     block.tune = {kSpatialRadius, kNormalAgreement, kPlaneShare, 0.0F};
     block.force = {own.overrides.roughness, own.overrides.f0, own.overrides.albedo_scale, check ? 1.0F : 0.0F};
+    // (round BAKEALB - ray cones: the raster's level bias and anisotropy, as vulkan_draws.cpp samples the game's textures)
+    block.cone = {upscale_texture_lod_bias(),
+                  static_cast<float>(std::max(1, graphics_options::device_anisotropy(
+                                                     graphics_options::get_pull().anisotropy, state.sampler_limits.anisotropy,
+                                                     static_cast<uint32_t>(state.sampler_limits.max_anisotropy)))),
+                  0.0F, 0.0F};
     block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),
                        static_cast<uint32_t>(scene.instances_address >> 32U), scene.instances, 0U};
     block.list = {kListCapacity, 0U, 0U, 0U};

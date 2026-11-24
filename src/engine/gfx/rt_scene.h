@@ -284,6 +284,9 @@ struct ProbeRequest {
     // its material's alpha test passes - the ray goes on through its holes - and an object's cut-out not at all (the
     // relit level's rays: its light is the world's); false: every instance is solid wherever it is hit
     bool cutouts = false;
+    // (round BAKEALB) the hit's albedo wanted (ProbeResult::albedo): the relit bounce's rays - what a hit reflects is its
+    // material's albedo x the light it shows
+    bool albedo = false;
 };
 struct ProbeResult {
     bool traced = false;
@@ -296,6 +299,12 @@ struct ProbeResult {
     // (round PT-B) with `cutouts` (the one lighting path's test): the share of light the seen-through surfaces before
     // the hit - or the ray's end - let through (vulkan_rt_scene.h ray_light: the mean of its three channels); 1 without
     float seen_through = 1.0F;
+    // (round BAKEALB) with `albedo` asked: the hit material's albedo at the hit (linear) - the renderers' own definition
+    // (vulkan_rt_scene.h hit_albedo: the passes composed as the game composes them, at the texel the hit lands on),
+    // before the light store's tint: what hit_surface's base_colour is with the tint 1 - where the hit has a store, held so
+    // that it x the store's tint is at most 1 (vulkan_rt_scene.h hit_bounce_albedo: an albedo). A backend that reads no
+    // materials (the checks' box tracers) answers 1 - a surface whose texture is white.
+    std::array<float, 3> albedo{1.0F, 1.0F, 1.0F};
 };
 
 // A backend that traces rays (R2 on): meshes registered as they are made and released, materials likewise, then each

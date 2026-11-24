@@ -1288,7 +1288,8 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
                                                                        {.index = idx, .count = sky_rays, .turn = turn}),
                                      .max_distance = kRelitRayLength,
                                      .cull_mask = kRelitWorldMask,
-                                     .cutouts = true});
+                                     .cutouts = true,
+                                     .albedo = true});
             }
         },
         [&](const VertexRef& ref, std::span<const ProbeResult> answers) {
@@ -1302,7 +1303,11 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
             const double turn =
                 static_cast<double>(hashed(static_cast<uint32_t>((ref.mesh * kMeshSalt) + ref.vertex))) * kHashScale;
             // (round PT-B: each ray's light x what the seen-through surfaces on its way let through - ProbeResult's
-            // seen_through, the one light ray's share)
+            // seen_through, the one light ray's share) (round BAKEALB - one albedo definition: what a hit reflects is
+            // its material's albedo there - the texel the ray lands on, ProbeResult::albedo, the renderers' own - x the
+            // light it shows (colour_at: tint x light); the tint alone, the texture left out, made the fit's g - and
+            // the tints x g, the albedos - the texture's mean too bright, and every renderer's texel x tint as much too
+            // dark)
             float open = 0.0F;
             Rgbf bounce{};
             for (uint32_t idx = 0; idx < ref.count; ++idx) {
@@ -1319,8 +1324,12 @@ void trace_relit_sky(std::span<const RelitMesh> meshes, std::span<const uint8_t>
                     hemisphere_direction(vertex.normal, basis, {.index = idx, .count = ref.count, .turn = turn});
                 const Vec3 point = plus(origin, scaled(direction, answer.distance));
                 const Rgbf there = colour_at(core::at(meshes, found->second), answer.primitive, point);
+                if (stats != nullptr) {
+                    ++stats->albedo_hits;
+                    stats->albedo_sum += static_cast<double>(luma(answer.albedo));
+                }
                 for (std::size_t ch = 0; ch < bounce.size(); ++ch) {
-                    core::at(bounce, ch) += core::at(there, ch) * answer.seen_through;
+                    core::at(bounce, ch) += core::at(there, ch) * core::at(answer.albedo, ch) * answer.seen_through;
                 }
             }
             if (!params.keep_sky) {

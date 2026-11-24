@@ -245,6 +245,9 @@ float as_byte(float value) { return std::round(clamp01(value) * kByteMax) / kByt
 // (round L - the light store's layout, rt_cel.h) A vertex's stream: the ambient and the residual as light - each channel
 // a byte's value doubled, as the twins read them (the 8-bit store's light x 128 of 255) - in RGB9E5 words, the tint and
 // its share a D3DCOLOR, N.L and the stream's flag in the flags word.
+// (round BAKEALB) A tint as the cases give it - a byte's value doubled, as the light - held in the stream's tint word (a byte
+// x rt_relit.h kRelitTintPerByte): the tint the device reads back
+float stream_tint(float value) { return std::round(as_byte(value) * kTwo * rt::kRelitTintPerByte) / rt::kRelitTintPerByte; }
 rt::CelWords cel_words(const Vec3& ambient, float n_dot_l, const Vec3& tint, float share, const Vec3& residual)
 {
     const auto light = [](const Vec3& value) {
@@ -253,7 +256,10 @@ rt::CelWords cel_words(const Vec3& ambient, float n_dot_l, const Vec3& tint, flo
     };
     const auto byte = [](float value) { return static_cast<uint32_t>(std::lround(clamp01(value) * kByteMax)); };
     const uint32_t flags = rt::kCelHasStream | (byte(n_dot_l) << kRedShift);
-    return {light(ambient), word_of(tint, share), light(residual), 0U, 0U, 0U, flags, 0U};
+    const float tint_byte = rt::kRelitTintPerByte / kByteMax; // (word_of's 0 - 1 a byte)
+    const Vec3 stored{stream_tint(core::at(tint, 0)) * tint_byte, stream_tint(core::at(tint, 1)) * tint_byte,
+                      stream_tint(core::at(tint, 2)) * tint_byte};
+    return {light(ambient), word_of(stored, share), light(residual), 0U, 0U, 0U, flags, 0U};
 }
 
 // --- the device's picture ------------------------------------------------------------------------------------------------
@@ -585,7 +591,7 @@ void check_twins(Tally* tally)
     constexpr Vec3 kVertexResidual{0.25F, 0.0F, 0.0F};
     constexpr uint32_t kFull = 255;
     // (lighting round A2: the bounce's coefficient 1 - B is radiance in the light's unit)
-    constexpr uint32_t kTintRed = 192;    // (1.5)
+    constexpr uint32_t kTintRed = 96;     // (1.5 x rt_relit.h kRelitTintPerByte)
     constexpr uint32_t kShareByte = 128;  // (0.5)
     constexpr uint32_t kByteBits = 0xFFU;
     rt::RelitModel model;
@@ -604,7 +610,7 @@ void check_twins(Tally* tally)
     const rt::CelWords words =
         rt::cel_stream_words(model, vertex, {.toward = {0.0F, 1.0F, 0.0F}, .sun = model.sun, .sky = model.sky, .lamps = 1.0F});
     const auto channel = [](uint32_t word, uint32_t shift) { return (word >> shift) & kByteBits; };
-    // (round L: the light words physical light - RGB9E5, read back within its 9 bits -, the tint a byte x 128, N.L and the
+    // (round L: the light words physical light - RGB9E5, read back within its 9 bits -, the tint a byte x 64, N.L and the
     // flag in the flags word)
     const rt::StreamParts parts = rt::stream_parts(words);
     const auto close_to = [](float got, float want) { return std::abs(got - want) <= 0.004F * std::max(want, 0.1F); };
@@ -720,7 +726,7 @@ void check_stream_bands(render::Gpu& gpu, const Scene& scene, uint32_t bands, Ta
             if (std::abs(part - kMid) < kEdgeShare * steps) {
                 continue;
             }
-            const float tint = as_byte(kMid) * kTwo;
+            const float tint = stream_tint(kMid);
             const rt::CelStreamPixel pixel{.ambient = ambient, .n_dot_l = along, .tint = {tint, tint, tint}, .share = 1.0F, .residual = {}};
             const std::array<float, 3> want = rt::cel_world_light(settings, kSun, pixel, 1.0F, {});
             const Vec3& got = picture.at(px, py);
@@ -1240,7 +1246,7 @@ void check_shadows(render::Gpu& gpu, const Scene& scene, Tally* tally)
     const bool traced_draw = vk::cel_counts().shadowed > shadowed_before;
     const float ambient_light = as_byte(kMid * kQuadAmbient) * kTwo;
     const Vec3 ambient{ambient_light, ambient_light, ambient_light};
-    const float tint = as_byte(kMid) * kTwo;
+    const float tint = stream_tint(kMid);
     const rt::CelStreamPixel pixel{.ambient = ambient, .n_dot_l = 1.0F, .tint = {tint, tint, tint}, .share = 0.0F, .residual = {}};
     const std::array<float, 3> lit_colour = rt::cel_world_light(settings, kSun, pixel, 1.0F, {});
     const std::array<float, 3> shadow_colour = rt::cel_world_light(settings, kSun, pixel, 0.0F, {});

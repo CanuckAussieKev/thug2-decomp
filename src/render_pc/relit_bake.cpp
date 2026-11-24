@@ -1525,8 +1525,9 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                     static_cast<double>(luma(own_day.sky_light) > 0.0F ? luma(model.sky) / luma(own_day.sky_light) : 0.0F));
             {
                 // (round bounce unit 2 - a check, never an input) the albedos the unit gives the surfaces (the tints'
-                // luminance: the vertex colour's part, the texture's not in it) against real ones' range - built
-                // surfaces' diffuse albedos are mostly 0.1 - 0.4, fresh snow ~0.9; and the bake's floor in the unit
+                // luminance: the vertex colour's part; round BAKEALB: a surface's albedo is its texel's x this, the bounce
+                // rays' hits' mean texel albedo reported beside it) against real ones' range - built surfaces' diffuse
+                // albedos are mostly 0.1 - 0.4, fresh snow ~0.9; and the bake's floor in the unit
                 std::vector<float> albedos;
                 for (std::size_t mi = 0; mi < meshes.size() && mi < light.size(); ++mi) {
                     const rt::RelitMesh& mesh = core::at(meshes, mi);
@@ -1550,11 +1551,14 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                 constexpr double kMiddle = 0.5;
                 constexpr double kThree = 0.75;
                 constexpr double kHigh = 0.9;
-                get_log("relit bake: the albedos (a check) - %zu vertices: 10%% %.3f, 25%% %.3f, median %.3f, 75%% %.3f, "
-                        "90%% %.3f; the bake's floor %.4f in the unit (taken out of the tints, not lit)",
+                get_log("relit bake: the albedos (a check) - %zu vertices' tints: 10%% %.3f, 25%% %.3f, median %.3f, "
+                        "75%% %.3f, 90%% %.3f (x the texel's albedo: the bounce rays' hits' mean %.3f over %zu hits); the "
+                        "bake's floor %.4f in the unit (taken out of the tints, not lit)",
                         albedos.size(), static_cast<double>(quantile(kLow)), static_cast<double>(quantile(kQuarter)),
                         static_cast<double>(quantile(kMiddle)), static_cast<double>(quantile(kThree)),
-                        static_cast<double>(quantile(kHigh)), static_cast<double>(model.floor_unit));
+                        static_cast<double>(quantile(kHigh)),
+                        stats.albedo_hits > 0 ? stats.albedo_sum / static_cast<double>(stats.albedo_hits) : 0.0,
+                        stats.albedo_hits, static_cast<double>(model.floor_unit));
             }
             model.sun = sunless ? rt::Rgbf{} : own_day.sun_light;
             bake_sky = model.sky;

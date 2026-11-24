@@ -223,7 +223,7 @@ CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, co
     const uint32_t flags = kCelHasStream | (to_byte(n_dot_l, kMaxByte) << kRedShift) |
                            (to_byte(std::clamp(vertex.sky, 0.0F, 1.0F), kMaxByte) << kGreenShift) |
                            static_cast<uint32_t>(vertex.emit_texels); // (round FG: the lamp texels' coded test)
-    return {store_light(parts.indirect), word(vertex.tint, kBytesPerLight, seen), store_light(lamps), store_light(sun),
+    return {store_light(parts.indirect), word(vertex.tint, kRelitTintPerByte, seen), store_light(lamps), store_light(sun),
             store_light(sky),
             // (a lamp drawn in a texture shows its emission on its lamp texels alone - the surface draws mask it; the
             // colour word, with no texels to mask by, leaves it out)
@@ -235,9 +235,9 @@ StreamParts stream_parts(const CelWords& words)
 {
     StreamParts out;
     const auto rgb = [](uint32_t value) {
-        return std::array<float, 3>{static_cast<float>((value >> kRedShift) & kByteMask) / kBytesPerLight,
-                                    static_cast<float>((value >> kGreenShift) & kByteMask) / kBytesPerLight,
-                                    static_cast<float>(value & kByteMask) / kBytesPerLight};
+        return std::array<float, 3>{static_cast<float>((value >> kRedShift) & kByteMask) / kRelitTintPerByte,
+                                    static_cast<float>((value >> kGreenShift) & kByteMask) / kRelitTintPerByte,
+                                    static_cast<float>(value & kByteMask) / kRelitTintPerByte};
     };
     const auto byte_of = [](uint32_t value, int shift) { return static_cast<float>((value >> shift) & kByteMask) / kMaxByte; };
     const uint32_t flags = std::get<kCelFlagsWord>(words);
