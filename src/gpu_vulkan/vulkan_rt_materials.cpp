@@ -101,7 +101,7 @@ struct Material {
     uint mask_mode[3];
     float kind_roughness;
     float kind_roughness_weight;
-    float least_roughness;
+    float albedo_scale;
     uint layer_texture[3];
     uint layer_sampler[3];
     uint layer_mode[3];
@@ -161,6 +161,15 @@ float material_drawn_alpha(uint id, vec2 uv, float vertex_alpha)
 bool material_alpha_passes_at(uint id, vec2 uv)
 {
     return material_alpha_passes(id, material_drawn_alpha(id, uv, 0.5));
+}
+// (round MATALB - one albedo definition) The material's albedo from its composed colour `linear` (decoded): x the
+// calibration toward its kind's measured range (Material::albedo_scale - rt_material_table.h material_albedo_scale), at
+// most 1. Every ray's surface reads its albedo through here, as the draws' surface_finish does with the same factor;
+// the original's vertex colours and the relit store's tint never enter it (the original's light). A lamp's emission
+// takes the colour as drawn, not this.
+vec3 material_albedo(uint id, vec3 linear)
+{
+    return min(linear * material(id).albedo_scale, vec3(1.0));
 }
 bool material_has_surface(uint id)
 {
@@ -307,7 +316,6 @@ void surface_reflection(const rt::Material& material, const Texture* colour, Mat
         record->f0 = found.f0;
         record->kind_roughness = found.kind_roughness;
         record->kind_roughness_weight = found.kind_roughness_weight;
-        record->least_roughness = found.least_roughness;
     }
 }
 
@@ -716,6 +724,7 @@ void MaterialTable::set(rt::MaterialId id, const rt::Material& material)
     if (Texture* const map = texture != nullptr ? surface_map_for(texture) : nullptr; map != nullptr) {
         record.surface_texture = slot_for(map);
         record.f0 = record_f0(material, surface_map_f0(texture));
+        record.albedo_scale = surface_map_albedo_scale(texture); // (round MATALB: the albedo's calibration)
         if (record.surface_texture != 0) {
             core::at(slot_users_, record.surface_texture).push_back(id);
             // (added for the surface reflections) a surface the game gave no shine reflects as its map says it is glossy

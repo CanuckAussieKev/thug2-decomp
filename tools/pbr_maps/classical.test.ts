@@ -112,6 +112,13 @@ test("classes: the skips and the usage rules", () => {
     assert.equal(classify(STATS, BASE).name, "concrete");
     assert.equal(classify({ ...STATS, hue: 30, saturation: 0.5, streaks: 0.8 }, BASE).name, "wood");
     assert.equal(classify({ ...STATS, hue: 300, saturation: 0.6 }, BASE).name, "default");
+    // (round MATALB) water is blue - a bluish grey (New Orleans' street: hue 194, saturation 0.04) is not
+    const blended = { ...BASE, transparent: true };
+    assert.equal(classify({ ...STATS, hue: 200, saturation: 0.3, detail: 0.01 }, blended).name, "water");
+    assert.equal(
+        classify({ ...STATS, hue: 194, saturation: 0.04, meanLuma: 0.58, detail: 0.015 }, blended).name,
+        "concrete",
+    );
 });
 
 test("png: written and read back", () => {

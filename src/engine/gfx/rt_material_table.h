@@ -328,6 +328,24 @@ inline constexpr std::array<MaterialValues, kMaterialKindCount> kMaterialTable{{
     return 0.5F * (values.albedo[0] + values.albedo[1]);
 }
 
+// (round MATALB - a surface's reflectance from its texture and material alone) The factor a texture's colour takes to be
+// its kind's albedo: a texture whose texels' mean albedo `mean` (linear luminance, surface_map_format.h's mean_albedo -
+// tools/pbr_maps measures it) lies within the measured range of its kind (`albedo` above) is the albedo as painted (1);
+// one outside it is brought to the range's nearest end, its texels' spread kept. Base-colour validation against measured
+// ranges as PBR pipelines do it (Lagarde & de Rousiers 2014, "Moving Frostbite to Physically Based Rendering", the
+// albedo range check; Substance's PBR Validate, Unreal's base-colour view) - here applied, not only shown. 1 where the
+// mean isn't known (no map, an older map file) or the kind has no diffuse range (metals, glass, water: their colour is
+// F0 or their own model). The original's vertex colours never enter an albedo: they are the original's light.
+[[nodiscard]] inline float material_albedo_scale(MaterialKind kind, float mean)
+{
+    const std::array<float, 2>& range = material_values(kind).albedo;
+    if (!(mean > 0.0F) || !(std::get<1>(range) > 0.0F)) {
+        return 1.0F;
+    }
+    const float held = mean < std::get<0>(range) ? std::get<0>(range) : (mean > std::get<1>(range) ? std::get<1>(range) : mean);
+    return held / mean;
+}
+
 // (round W2) A kind's colour and transmittance per channel (light_window / foliage: the things with no texture).
 [[nodiscard]] inline const brdf::Rgb& material_colour(MaterialKind kind) { return material_values(kind).colour; }
 [[nodiscard]] inline const brdf::Rgb& material_transmittance(MaterialKind kind)

@@ -162,7 +162,8 @@ void SurfacePack::attach(GpuTexture* texture, uint32_t checksum, std::span<const
                                 .checksum = entry->checksum,
                                 .content_hash = entry->content_hash,
                                 .flags = entry->flags,
-                                .delit = std::ranges::binary_search(delit_, checksum)};
+                                .delit = std::ranges::binary_search(delit_, checksum),
+                                .mean_albedo = smf::mean_albedo_of(entry->mean_albedo)};
     if (maps->attach(texture, info, texels)) {
         ++attached_;
         attached_delit_ += info.delit ? 1U : 0U;

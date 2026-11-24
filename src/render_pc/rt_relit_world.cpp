@@ -1424,7 +1424,7 @@ void rebounce(rt::RayTracing& tracer, const rt::RelitSettings& settings, const r
         for (std::size_t vi = 0; vi < entry.hit_light.size(); ++vi) {
             core::at(entry.hit_light, vi) =
                 vi < entry.light.size() && entry.analysed && core::at(entry.animated, vi) == 0
-                    ? rt::relit_reflected(st.model, core::at(entry.light, vi), lighting)
+                    ? rt::relit_received(st.model, core::at(entry.light, vi), lighting)
                     : rt::colour_light(core::at(entry.originals, vi));
         }
         entry.hits_for = hits_key;

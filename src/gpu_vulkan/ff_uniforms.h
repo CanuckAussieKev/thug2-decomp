@@ -176,7 +176,8 @@ struct SurfaceUniforms {
     Float4 params{};    // x: metalness (0 / 1); y: 1 - the reflections pass traces this surface's environment; z: the
                         // roughness without a map; w: a dielectric's F0
     Float4 sheen{};     // rgb: the sheen's colour (cloth); w: its roughness
-    Float4 spare{};
+    Float4 albedo{};    // (round MATALB) x: the factor the texture's colour takes to be the material's albedo
+                        // (SurfaceDraw::albedo_scale); y, z, w: unused
 };
 
 // (added by cel shading) Binding 8 (vertex and fragment shaders): vulkan_cel.cpp fills it.

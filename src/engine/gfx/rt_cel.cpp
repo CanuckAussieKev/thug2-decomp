@@ -211,23 +211,26 @@ CelWords cel_stream_words(const RelitModel& model, const RelitVertex& vertex, co
     const float length = std::sqrt(dot(lighting.toward, lighting.toward));
     const float n_dot_l = length > 0.0F ? std::max(0.0F, dot(vertex.normal, lighting.toward) / length) : 0.0F;
     const float seen = std::clamp(vertex.sun, 0.0F, 1.0F);
-    // the lamps' light on the surface (tint x L x the lamps on), the direct light's colour and strength, the sky's part
+    // the lamps' light on the surface (L x the lamps on), the direct light's colour and strength, the sky's part
     std::array<float, 3> lamps{};
     std::array<float, 3> sun{};
     std::array<float, 3> sky{};
     for (std::size_t ch = 0; ch < sun.size(); ++ch) {
-        core::at(lamps, ch) = core::at(vertex.tint, ch) * core::at(parts.lamps, ch);
+        core::at(lamps, ch) = core::at(parts.lamps, ch);
         core::at(sun, ch) = core::at(lighting.sun, ch);
         core::at(sky, ch) = core::at(lighting.sky, ch) * vertex.sky;
     }
     const uint32_t flags = kCelHasStream | (to_byte(n_dot_l, kMaxByte) << kRedShift) |
                            (to_byte(std::clamp(vertex.sky, 0.0F, 1.0F), kMaxByte) << kGreenShift) |
                            static_cast<uint32_t>(vertex.emit_texels); // (round FG: the lamp texels' coded test)
-    return {store_light(parts.indirect), word(vertex.tint, kRelitTintPerByte, seen), store_light(lamps), store_light(sun),
+    // (round MATALB) word 1's colour the neutral 1: the albedo is the material's (rt_material_table.h
+    // material_albedo_scale), never the bake's tint - the original's colours over its light model, its art's fill light as
+    // much as any colour
+    return {store_light(parts.indirect), word(kRelitStoreTint, kRelitTintPerByte, seen), store_light(lamps), store_light(sun),
             store_light(sky),
             // (a lamp drawn in a texture shows its emission on its lamp texels alone - the surface draws mask it; the
             // colour word, with no texels to mask by, leaves it out)
-            vertex.emit_texels != 0 ? store_light(relit_reflected(model, vertex, lighting)) : relit_colour(model, vertex, lighting),
+            vertex.emit_texels != 0 ? store_light(relit_received(model, vertex, lighting)) : relit_colour(model, vertex, lighting),
             flags, store_light(vertex.emit)};
 }
 

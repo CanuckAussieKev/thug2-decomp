@@ -107,7 +107,9 @@ export interface Verdict {
 //   metal / glass - a shiny material's (an environment pass on it): grey (saturation < 0.15) is metal, else glass
 //     when transparent, else tile (glazed, painted shiny);
 //   foliage - green hue (70-170 degrees), saturated (> 0.25);
-//   water - blue hue (180-240), smooth (detail < 0.03), transparent use;
+//   water - blue hue (180-240) and tinted (saturation > 0.1: a grey's hue is noise - round MATALB found New
+//     Orleans' street, a bluish grey at 0.04, taken for water: mirror-smooth, its albedo unchecked), smooth (detail <
+//     0.03), transparent use;
 //   wood - orange-brown hue (15-45), saturation 0.25-0.75, streaked (> 0.35);
 //   ground - brown or yellow hue (20-60), saturation 0.15-0.5, grainy (detail > 0.05);
 //   asphalt - grey (saturation < 0.12), dark (luma < 0.32), grainy (detail > 0.035);
@@ -129,7 +131,9 @@ export function classify(stats: Stats, usage: Usage): Verdict {
         return { name: usage.transparent && stats.translucent > 0.1 ? "glass" : "tile" };
     }
     if (green) return { name: "foliage" };
-    if (stats.hue >= 180 && stats.hue <= 240 && stats.detail < 0.03 && usage.transparent) return { name: "water" };
+    if (stats.hue >= 180 && stats.hue <= 240 && stats.saturation > 0.1 && stats.detail < 0.03 && usage.transparent) {
+        return { name: "water" };
+    }
     if (
         stats.hue >= 15 &&
         stats.hue <= 45 &&

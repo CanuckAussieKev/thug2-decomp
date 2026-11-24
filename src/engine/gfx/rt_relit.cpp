@@ -4379,12 +4379,12 @@ Rgbf relit_light(const RelitModel& model, const RelitVertex& vertex, const Relit
     return out;
 }
 
-Rgbf relit_reflected(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
+Rgbf relit_received(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
 {
     const Rgbf en = relit_light(model, vertex, lighting);
     Rgbf out{};
     for (std::size_t ch = 0; ch < out.size(); ++ch) {
-        const float value = core::at(vertex.tint, ch) * core::at(en, ch);
+        const float value = core::at(en, ch); // (round MATALB: no tint - the hit's albedo is the material's)
         core::at(out, ch) = std::isfinite(value) ? std::max(value, 0.0F) : 0.0F;
     }
     return out;
@@ -4392,7 +4392,7 @@ Rgbf relit_reflected(const RelitModel& model, const RelitVertex& vertex, const R
 
 Rgbf relit_shown(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting)
 {
-    Rgbf out = relit_reflected(model, vertex, lighting);
+    Rgbf out = relit_received(model, vertex, lighting);
     for (std::size_t ch = 0; ch < out.size(); ++ch) {
         const float emit = core::at(vertex.emit, ch);
         core::at(out, ch) += std::isfinite(emit) ? std::max(emit, 0.0F) : 0.0F;

@@ -219,7 +219,7 @@ std::string_view cutout_rays_glsl();
 //   bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4x3 object_to_world, vec3 direction,
 //                    out HitSurface s)   - false when the instance isn't live (no vertices to read)
 //   bool hit_surface_at(... the same, HitCone cone, out HitSurface s) - (round BAKEALB) a camera ray's: its base colour
-//                    at the raster's mips (hit_albedo_at with the cone); hit_surface is it with no_cone()
+//                    at the raster's mips (hit_texel_at with the cone); hit_surface is it with no_cone()
 //   bool camera_surface(vec3 eye, vec3 dir, float reach, float expected, HitCone cone, out uint instance, out uint
 //                    primitive, out uint id, out vec2 barycentrics, out float t, out mat4x3 to_world, out HitSurface h) -
 //                    (round BAKEALB - one layer set) a camera ray's surface: trace_drawn's (false when none, or not at
@@ -228,10 +228,9 @@ std::string_view cutout_rays_glsl();
 //   - position: the hit (world); normal: the triangle's, unit, turned toward where the ray came from (-direction);
 //     shading_normal: the mesh's vertex normals blended there (same side) where it has them, else `normal`; area: the
 //     triangle's (world units^2 - a light sample's pdf);
-//   - base_colour: linear - the relit world (HIT_RELIT_WORLD: it has the light store) its texel x its material's colour,
-//     decoded, x the store's tint (relit's albedo); an object (HIT_OBJECT) the texel x the material's colour; the
-//     world without a light store (HIT_BAKED_WORLD: its colours are its bake's light) the texel x the material's colour
-//     alone (no albedo of its own yet - the plan's P10);
+//   - base_colour: linear - the material's albedo (round MATALB, every origin alike): its texel x its material's colour,
+//     decoded, x its calibration toward its kind's measured range (vulkan_rt_materials.h material_albedo); never the
+//     store's tint or the vertex colours (the original's light);
 //   - material: the light model's (rt_brdf.h) - with a surface map, F0 the material table's for the map's kind
 //     (MaterialRecord::f0) and roughness the map's at the hit, the detail kind's where it replaces it; a metal's
 //     (HIT_KIND_METAL: F0 at least kHitMetalF0) F0 its base colour, no diffuse; without a map the table's painted
@@ -252,17 +251,16 @@ std::string_view hit_surface_glsl();
 // material_glsl, scene_geometry_glsl and kDisplayTransferGlsl -
 //   vec4 hit_composed_colour(uint instance, uint primitive, uint id, vec2 barycentrics, vec2 uv, float vertex_alpha) -
 //        the material's passes composed at the hit (material_colour, each layer at its uv set)
-//   vec3 hit_albedo_at(... the same) - that colour decoded (linear): the material's albedo before the light store's
-//        tint - hit_surface's base_colour / tint
 //   struct HitCone { vec3 origin; vec3 dx; vec3 dy; float bias; float most_anisotropy; }; HitCone no_cone() - a camera
 //        ray's footprint (its neighbouring pixels' rays, the raster's level bias and anisotropy); no_cone: none
-//   vec3 hit_albedo_at(... the same, vec3 a, vec3 b, vec3 c, HitCone cone) - with a cone (the triangle's world corners)
-//        each pass at its texture's level for the pixel (ray differentials: the raster's mip); without, the most detailed
+//   vec3 hit_texel_at(... the same, vec3 a, vec3 b, vec3 c, HitCone cone) - that colour decoded (linear) - what a lamp
+//        drawn in it emits by; with a cone (the triangle's world corners) each pass at its texture's level for the pixel
+//        (ray differentials: the raster's mip); without, the most detailed
+//   vec3 hit_albedo_at(... the same) - (round MATALB) the material's albedo: hit_texel_at calibrated (material_albedo) -
+//        hit_surface's base_colour
 //   vec3 hit_albedo(uint instance, uint primitive, uint id, vec2 barycentrics) - the same without a cone, its uv and
 //        vertex alpha read (0 where the instance isn't live)
 //   bool hit_store(...) - the light store at the hit (hit_surface's, below)
-//   vec3 hit_bounce_albedo(uint instance, uint primitive, uint id, vec2 barycentrics) - the ray probe's: hit_albedo, held
-//        where the hit has a store so that it x the store's tint is at most 1 (hit_surface's base colour is)
 std::string_view hit_albedo_glsl();
 inline constexpr float kHitMetalF0 = 0.2F; // (a surface map's F0 at least this: a metal - the reflections' HIT_METAL_F0)
 // The caller holds the backend's lock.

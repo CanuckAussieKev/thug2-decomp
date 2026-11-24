@@ -1,6 +1,7 @@
 // NOT ORIGINAL - surface maps' file (surface_map_format.h).
 #include "formats/surface_map_format.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -57,7 +58,7 @@ bool read_entries(std::span<const uint8_t> file, std::vector<Entry>* entries)
         entry.material_class = material < kClassCount ? static_cast<MaterialClass>(material) : MaterialClass::kDefault;
         entry.generator = static_cast<Generator>(reader.u8());
         entry.flags = reader.u8(); // (added for the characters: 0 in the files made before them)
-        (void)reader.u8();
+        entry.mean_albedo = reader.u8(); // (round MATALB: 0 in the files made before it)
         entry.f0 = reader.f32();
         entry.offset = reader.u32();
         entry.bytes = reader.u32();
@@ -100,7 +101,7 @@ std::vector<uint8_t> write_file(std::span<const Entry> entries, std::span<const 
         writer.u8(static_cast<uint8_t>(entry.material_class));
         writer.u8(static_cast<uint8_t>(entry.generator));
         writer.u8(entry.flags);
-        writer.u8(0);
+        writer.u8(entry.mean_albedo);
         writer.f32(entry.f0);
         writer.u32(static_cast<uint32_t>(offset));
         writer.u32(static_cast<uint32_t>(bytes));
@@ -111,6 +112,22 @@ std::vector<uint8_t> write_file(std::span<const Entry> entries, std::span<const 
         writer.bytes(data.data(), data.size());
     }
     return file;
+}
+
+float mean_albedo_of(uint8_t encoded)
+{
+    if (encoded == 0) {
+        return 0.0F;
+    }
+    const double c = static_cast<double>(encoded) / 255.0;
+    return static_cast<float>(c <= 0.04045 ? c / 12.92 : std::pow((c + 0.055) / 1.055, 2.4));
+}
+
+uint8_t mean_albedo_byte(float linear)
+{
+    const double l = std::clamp(static_cast<double>(linear), 0.0, 1.0);
+    const double c = l <= 0.0031308 ? l * 12.92 : (1.055 * std::pow(l, 1.0 / 2.4)) - 0.055;
+    return static_cast<uint8_t>(std::clamp(std::lround(c * 255.0), 1L, 255L));
 }
 
 const Entry* find(std::span<const Entry> entries, uint32_t checksum, uint64_t content_hash)

@@ -2,7 +2,8 @@
 // (the game reads them; thug2_format_check checks the same sample as pbr_file.test.ts).
 //   header: u32 "T2SM", u32 version 1, u32 count, u32 0
 //   entries (32 bytes): u32 checksum, u64 content hash (FNV-1a 64 of the texture's first level as stored), u16 width,
-//     u16 height, u8 class, u8 generator, u8 flags (FLAG_*), u8 0, f32 F0, u32 offset, u32 bytes
+//     u16 height, u8 class, u8 generator, u8 flags (FLAG_*), u8 mean albedo (round MATALB: the texels' mean linear albedo
+//     sRGB-encoded - meanAlbedoByte; 0 not measured), f32 F0, u32 offset, u32 bytes
 //   texels: RGBA rows top first - normal x (+u), normal y (+v) as 0 - 255 for -1 - 1, roughness, height.
 
 export const MAGIC = 0x4d533254; // "T2SM"
@@ -30,6 +31,7 @@ export interface MapEntry {
     generator: number;
     f0: number;
     flags?: number; // FLAG_* (0 when absent)
+    meanAlbedo?: number; // (round MATALB) the texels' mean albedo, linear 0 - 1 (0 / absent: not measured)
     texels: Uint8Array; // width * height * 4
 }
 
@@ -62,6 +64,20 @@ export function contentHashReference(bytes: Uint8Array): bigint {
     return hash;
 }
 
+// (round MATALB) A linear mean albedo as the entry's byte - sRGB-encoded (the precision where albedos are low), at least
+// 1 when measured (0: not measured); and back (surface_map_format.h mean_albedo_byte / mean_albedo_of).
+export function meanAlbedoByte(linear: number): number {
+    if (!(linear > 0)) return 0;
+    const l = Math.min(1, linear);
+    const c = l <= 0.0031308 ? l * 12.92 : 1.055 * l ** (1 / 2.4) - 0.055;
+    return Math.min(255, Math.max(1, Math.round(c * 255)));
+}
+export function meanAlbedoOf(byte: number): number {
+    if (byte === 0) return 0;
+    const c = byte / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+}
+
 export function writePbr(entries: readonly MapEntry[]): Buffer {
     let size = HEADER_SIZE + entries.length * ENTRY_SIZE;
     for (const e of entries) size += e.texels.length;
@@ -82,6 +98,7 @@ export function writePbr(entries: readonly MapEntry[]): Buffer {
         out.writeUInt8(e.materialClass, at + 16);
         out.writeUInt8(e.generator, at + 17);
         out.writeUInt8(e.flags ?? 0, at + 18);
+        out.writeUInt8(meanAlbedoByte(e.meanAlbedo ?? 0), at + 19);
         out.writeFloatLE(e.f0, at + 20);
         out.writeUInt32LE(offset, at + 24);
         out.writeUInt32LE(e.texels.length, at + 28);
@@ -114,6 +131,7 @@ export function readPbr(data: Uint8Array): MapEntry[] {
             materialClass: view.readUInt8(at + 16),
             generator: view.readUInt8(at + 17),
             flags: view.readUInt8(at + 18),
+            meanAlbedo: meanAlbedoOf(view.readUInt8(at + 19)),
             f0: view.readFloatLE(at + 20),
             texels: new Uint8Array(view.subarray(offset, offset + bytes)),
         });

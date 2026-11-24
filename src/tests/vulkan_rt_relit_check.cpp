@@ -72,15 +72,18 @@ namespace rt = render::rt;
 using rt::Rgbf;
 using rt::Vec3;
 
-// (round L - the light store holds physical light, engine/gfx/light_store.h) The colour a vertex is shown with as the
-// bake's colours are kept: its light (rt::relit_shown) display-referred, 128 the game's white, held to a byte - the old
-// colour word's form, what the checks compare with the bake's bytes.
+// (round L - the light store holds physical light, engine/gfx/light_store.h) The bake's colour as the decomposition
+// explains it: the tint the fit found x the vertex's light (rt::relit_received) + its emission, display-referred, 128 the
+// game's white, held to a byte - the old colour word's form, what the checks compare with the bake's bytes. (Round
+// MATALB: the game draws the material's albedo x the light - the tint is no albedo -, but what these cases check is the
+// decomposition itself: that it tells the bake's light from its colours.)
 uint32_t drawn_colour(const rt::RelitModel& model, const rt::RelitVertex& vertex, const rt::RelitLighting& lighting)
 {
-    const Rgbf light = rt::relit_shown(model, vertex, lighting);
+    const Rgbf received = rt::relit_received(model, vertex, lighting);
     uint32_t out = 0xFF000000U;
     for (std::size_t ch = 0; ch < 3; ++ch) {
-        const float value = std::clamp(rt::display_from_linear(core::at(light, ch)), 0.0F, 255.0F / 128.0F) * 128.0F;
+        const float light = (core::at(vertex.tint, ch) * core::at(received, ch)) + std::max(core::at(vertex.emit, ch), 0.0F);
+        const float value = std::clamp(rt::display_from_linear(light), 0.0F, 255.0F / 128.0F) * 128.0F;
         const auto byte = static_cast<uint32_t>(std::lround(std::min(value, 255.0F)));
         out |= byte << (ch == 0 ? 16U : ch == 1 ? 8U : 0U);
     }
@@ -412,7 +415,7 @@ double hit_distance(const std::array<Double3, 3>& corners, const Ray& ray)
 
 class CpuTracer final : public rt::RayTracing {
 public:
-    explicit CpuTracer(std::span<const rt::RelitMesh> meshes) : meshes_(meshes) {}
+    explicit CpuTracer(std::span<const rt::RelitMesh> meshes, float albedo = 1.0F) : meshes_(meshes), albedo_(albedo) {}
     [[nodiscard]] bool available() const override { return true; }
     void add_mesh(rt::MeshId mesh, const rt::Geometry& geometry) override { (void)mesh, (void)geometry; }
     void remove_mesh(rt::MeshId mesh) override { (void)mesh; }
@@ -430,6 +433,9 @@ private:
     [[nodiscard]] rt::ProbeResult trace(const rt::ProbeRequest& ray) const
     {
         rt::ProbeResult out{.traced = true};
+        if (ray.albedo) {
+            out.albedo = {albedo_, albedo_, albedo_}; // (round MATALB: every surface's material albedo the tracer's)
+        }
         const Double3 origin = widened(ray.origin);
         const Double3 direction = widened(unit(ray.direction));
         double best = ray.max_distance;
@@ -455,6 +461,7 @@ private:
     }
 
     std::span<const rt::RelitMesh> meshes_;
+    float albedo_ = 1.0F;
 };
 
 // The bake made on the processor: colours = tint x (a S + b K + g B) + lamp, iterated (B reads the colours). The
@@ -857,9 +864,10 @@ void check_unit(const Scene& scene, const rt::RelitModel& model, const std::vect
 // turned in), on the processor's tracer:
 //   - the white furnace: every surface shows the same radiance R - the sky's share K is 0 and the bounce B is R exactly
 //     (the estimator keeps energy: nothing made, nothing lost);
-//   - the albedo-weighted bounce: every surface of albedo rho lit by E0 of its own (the lamps' term), its colour
-//     rho (E0 + B) and B traced again from those colours kRelitBouncePasses times - the series rho E0 (1 + rho + ... +
-//     rho^n) to a byte; what the passes leave out of the infinite series (rho^(n+1) of the whole) reported.
+//   - the albedo-weighted bounce: every surface of albedo rho (round MATALB: its material's - the tracer's hit albedo, not
+//     a tint) lit by E0 of its own (the lamps' term), its colour rho (E0 + B) and B traced again from those colours
+//     kRelitBouncePasses times - the series rho E0 (1 + rho + ... + rho^n) to a byte; what the passes leave out of the
+//     infinite series (rho^(n+1) of the whole) reported.
 void check_furnace(Tally* tally)
 {
     constexpr float kSide = 400.0F;
@@ -941,12 +949,12 @@ void check_furnace(Tally* tally)
                               "vertices, its sky %.3f",
                               static_cast<double>(kRadiance), static_cast<double>(worst), used,
                               static_cast<double>(most_sky)));
-    // the albedo-weighted bounce, pass by pass as the game makes them
+    // the albedo-weighted bounce, pass by pass as the game makes them - each hit's albedo the material's (the tracer's)
+    CpuTracer grey(meshes, kAlbedo);
     rt::RelitModel model;
     model.valid = true;
     model.bounce = {1.0F, 1.0F, 1.0F};
     for (rt::RelitVertex& vertex : light.front()) {
-        vertex.tint = {kAlbedo, kAlbedo, kAlbedo};
         vertex.lamp = {kOwnLight, kOwnLight, kOwnLight};
         vertex.bounce = {};
     }
@@ -957,9 +965,9 @@ void check_furnace(Tally* tally)
         // (round L: the bounce's hits bring back the light each vertex reflects - physical, no 8-bit colour)
         meshes.front().light.assign(meshes.front().positions.size(), Rgbf{});
         for (std::size_t vi = 0; vi < meshes.front().light.size() && vi < light.front().size(); ++vi) {
-            core::at(meshes.front().light, vi) = rt::relit_reflected(model, core::at(light.front(), vi), own);
+            core::at(meshes.front().light, vi) = rt::relit_received(model, core::at(light.front(), vi), own);
         }
-        rt::trace_relit_sky(meshes, {}, again, cpu, &light, &stats);
+        rt::trace_relit_sky(meshes, {}, again, grey, &light, &stats);
     }
     float expected = 0.0F;
     float power = 1.0F;
@@ -973,7 +981,7 @@ void check_furnace(Tally* tally)
     for (std::size_t vi = 0; vi < light.front().size(); ++vi) {
         const rt::RelitVertex& vertex = core::at(light.front(), vi);
         if (vertex.used && inner(vi)) {
-            shown.push_back(luma(rt::relit_shown(model, vertex, own)));
+            shown.push_back(kAlbedo * luma(rt::relit_shown(model, vertex, own))); // (the radiance: albedo x light)
         }
     }
     float middle_shown = 0.0F;
@@ -1138,12 +1146,18 @@ void check_moved(const Scene& scene, const rt::RelitModel& model, rt::RayTracing
     rt::RelitStats sky_stats;
     const auto bounce_start = std::chrono::steady_clock::now();
     for (uint32_t pass = 0; pass < rt::kRelitBouncePasses; ++pass) {
-        // (round L: the hits bring back the light each vertex reflects - physical)
+        // (round L: the hits bring back the light each vertex reflects - physical; round MATALB: the light it receives x
+        // the hit's material albedo - this level has no textures, its surfaces' colours are its known tints and the
+        // device's material white, so the albedo is put on the light here: what the game's hit albedo does)
         for (std::size_t mesh = 0; mesh < relit_meshes.size(); ++mesh) {
             rt::RelitMesh& hit = core::at(relit_meshes, mesh);
             hit.light.assign(hit.positions.size(), Rgbf{});
             for (std::size_t vertex = 0; vertex < core::at(*light, mesh).size() && vertex < hit.light.size(); ++vertex) {
-                core::at(hit.light, vertex) = rt::relit_reflected(model, core::at(core::at(*light, mesh), vertex), lighting);
+                const rt::RelitVertex& lit = core::at(core::at(*light, mesh), vertex);
+                const Rgbf received = rt::relit_received(model, lit, lighting);
+                core::at(hit.light, vertex) = {std::get<0>(lit.tint) * std::get<0>(received),
+                                               std::get<1>(lit.tint) * std::get<1>(received),
+                                               std::get<2>(lit.tint) * std::get<2>(received)};
             }
         }
         rt::trace_relit_sky(relit_meshes, {}, scene.params, backend, light, &sky_stats);
@@ -1432,13 +1446,13 @@ void check_data_bounce(Tally* tally)
     own.bounce = {};
     rt::relit_vertex_from_data(stored, false, &own);
     const rt::RelitModel model;
-    const float shown = luma(rt::relit_reflected(model, clock, night));
-    const float with_bake = luma(rt::relit_reflected(model, own, night));
+    const float shown = luma(rt::relit_received(model, clock, night));
+    const float with_bake = luma(rt::relit_received(model, own, night));
     Rgbf own_light{};
     for (std::size_t ch = 0; ch < own_light.size(); ++ch) {
-        core::at(own_light, ch) = core::at(stored.tint, ch) * ((core::at(night.sun, ch) * stored.sun_baked) +
-                                                               (core::at(night.sky, ch) * stored.sky) +
-                                                               core::at(stored.lamp, ch));
+        // (round MATALB: the light alone - no tint)
+        core::at(own_light, ch) = (core::at(night.sun, ch) * stored.sun_baked) + (core::at(night.sky, ch) * stored.sky) +
+                                  core::at(stored.lamp, ch);
     }
     const float expected = luma(own_light); // (the night's own lights: the moon, the sky, the lamps)
     tally->check(clock.bounce == rt::Rgbf{} && own.bounce == stored.bounce && clock.sun == stored.sun_baked &&

@@ -55,6 +55,9 @@ struct SurfaceDraw {
     rt::MaterialKind kind = rt::MaterialKind::kPainted;
     bool strands_u = false;
     bool traced = false;
+    // (round MATALB) the factor its texture's colour takes to be its kind's albedo (rt_material_table.h
+    // material_albedo_scale: the map's mean albedo held in the kind's measured range; 1 without a map)
+    float albedo_scale = 1.0F;
     // (added by the detail materials - rt_detail / rt_delight, vulkan_detail.h) the key's detail bits, the kind's detail
     // texture (kDetailMaterial) and the block
     uint8_t detail = 0;
@@ -80,9 +83,13 @@ struct SurfaceGloss {
     float f0 = 0.0F;
     float kind_roughness = 0.0F;
     float kind_roughness_weight = 0.0F;
-    float least_roughness = 0.0F;
 };
 [[nodiscard]] bool surface_map_gloss(const Texture* colour, SurfaceGloss* out);
+// (round MATALB) The factor `colour`'s composed colour takes to be its material's albedo: its map's mean albedo held in its
+// kind's measured range (rt_material_table.h material_albedo_scale - the kind as surface_draw takes it, the detail
+// library's where it has one); 1 without a map used. The rays' material record and the draws' SurfaceUniforms::albedo
+// read the same.
+[[nodiscard]] float surface_map_albedo_scale(const Texture* colour);
 // `colour` is being destroyed: its map taken out of the table, for the caller to release (null: none).
 [[nodiscard]] Texture* take_surface_map(const Texture* colour);
 // The maps attached since the device was made (the log; checks).

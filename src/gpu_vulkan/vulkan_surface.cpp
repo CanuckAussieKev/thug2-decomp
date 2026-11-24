@@ -59,6 +59,7 @@ struct MapEntry {
     float relief_depth = 0.0F; // (added by surface relief) the map's k (relief_depth_of_map)
     uint8_t flags = 0;         // (added for the characters) surface_map_format::kFlag*
     bool delit = false;        // (added for the de-lit texture sets) MapInfo::delit: no draw-time de-lighting
+    float mean_albedo = 0.0F;  // (round MATALB) MapInfo::mean_albedo (0: not measured)
 };
 
 // (added for the characters) Whether a map is used: a character model's only with rt_characters on.
@@ -259,7 +260,8 @@ public:
                      .content_hash = info.content_hash,
                      .relief_depth = relief_depth,
                      .flags = info.flags,
-                     .delit = info.delit};
+                     .delit = info.delit,
+                     .mean_albedo = info.mean_albedo};
         }
         ensure_detail_library(); // (added by the detail materials: the library read the first time it is wanted)
         if (replaced != nullptr) {
@@ -345,6 +347,7 @@ SurfaceDraw surface_draw(const GpuStateBlock& block, const ShaderKey& key)
             draw.map = found->second.map;
             draw.kind = rt::kind_of_map_class(found->second.material_class);
             draw.strands_u = (found->second.flags & surface_map_format::kFlagStrandsU) != 0U;
+            draw.albedo_scale = rt::material_albedo_scale(draw.kind, found->second.mean_albedo); // (round MATALB)
             draw.flags = static_cast<uint8_t>(kSurfaceLighting | kSurfaceMap | (lit && state.settings.objects ? kSurfaceLit : 0));
             if ((found->second.flags & surface_map_format::kFlagModel) != 0U) {
                 // (added for the characters) no detail layer or relief - skin, cloth or hair shading where lit by lights
@@ -359,6 +362,7 @@ SurfaceDraw surface_draw(const GpuStateBlock& block, const ShaderKey& key)
             const DetailDraw& detail = detail_of(found->second); // (added by the detail materials)
             if (detail.kind != 0) {
                 draw.kind = rt::kind_of_detail(detail.kind); // (the library's kind: the terrain's evidence beside the class's)
+                draw.albedo_scale = rt::material_albedo_scale(draw.kind, found->second.mean_albedo);
             }
             if (detail.flags != 0) {
                 draw.detail = detail.flags;
@@ -419,6 +423,8 @@ void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& ver
                         std::get<0>(f0)};
     uniforms->sheen = {std::get<0>(material.sheen), std::get<1>(material.sheen), std::get<2>(material.sheen),
                        material.sheen_roughness};
+    // (round MATALB) the texture's colour to its kind's albedo (rt_material_table.h material_albedo_scale; 1: as painted)
+    uniforms->albedo = {draw.albedo_scale, 0.0F, 0.0F, 0.0F};
     (void)settings;
 }
 
@@ -466,6 +472,25 @@ bool surface_map_gloss(const Texture* colour, SurfaceGloss* out)
     out->gloss = 1.0F;
     out->f0 = std::get<0>(rt::material_f0(kind));
     return true;
+}
+
+float surface_map_albedo_scale(const Texture* colour)
+{
+    SurfaceState& state = surface_state();
+    const std::scoped_lock lock(state.mutex);
+    const auto found = state.maps.find(colour);
+    if (!state.settings.on || found == state.maps.end() || !map_used(found->second, state.settings)) {
+        return 1.0F;
+    }
+    // (the kind as surface_draw takes it: the detail library's where it lists the texture - not a character model's)
+    rt::MaterialKind kind = rt::kind_of_map_class(found->second.material_class);
+    if ((found->second.flags & surface_map_format::kFlagModel) == 0U) {
+        const DetailDraw& detail = detail_of(found->second);
+        if (detail.kind != 0) {
+            kind = rt::kind_of_detail(detail.kind);
+        }
+    }
+    return rt::material_albedo_scale(kind, found->second.mean_albedo);
 }
 
 Texture* take_surface_map(const Texture* colour)
