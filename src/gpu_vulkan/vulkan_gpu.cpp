@@ -545,8 +545,13 @@ long lock_buffer(Backend& state, Buffer* buffer, const std::array<uint32_t, 2>& 
             return kInvalid;
         }
         const DeviceBuffer& memory = core::at(buffer->versions, buffer->current).memory;
-        // NOT ORIGINAL - round V: draws kept for the view's shading that read this memory keep its content first
-        surface_light_buffer_rewritten(state, memory.buffer, memory.bytes, nullptr, memory.mapped);
+        // NOT ORIGINAL - round V: draws kept for the view's shading that read this memory keep its content first.
+        // (round FRONT) Not for a lock that promises to leave what is drawn from alone (Direct3D 9's NOOVERWRITE - the
+        // dynamic buffer's appends: the particles kept since round FRONT wrote one each, and every one copied the whole
+        // buffer - the render's time 10 -> 31 - 38 ms a loop at NO)
+        if ((flags & gpu_value::kLockNoOverwrite) == 0) {
+            surface_light_buffer_rewritten(state, memory.buffer, memory.bytes, nullptr, memory.mapped);
+        }
         const std::span<uint8_t> whole(static_cast<uint8_t*>(memory.mapped), static_cast<std::size_t>(memory.bytes));
         *data = whole.subspan(offset).data();
     } else {
