@@ -28,6 +28,7 @@
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_material_table.h"
+#include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/ff_key.h"
@@ -255,7 +256,7 @@ struct WorldLight {
     vec3 emit;      // (round L) its own emission (a lamp's lit surface: radiance, not x the tint)
 };
 const WorldLight NO_WORLD_LIGHT = WorldLight(vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), vec3(0.0), 0.0, vec3(0.0));
-const float LIGHT_PER_UNORM = 255.0 / 128.0;
+const float LIGHT_PER_UNORM = 255.0 / TINT_PER_BYTE; // (the tint word: rt_relit.h kRelitTintPerByte)
 bool hit_world_light(uint instance, uint primitive, vec2 barycentrics, out WorldLight w)
 {
     GeometryRecord g = geometry_record(instance);
@@ -437,6 +438,7 @@ struct PackedHit {
     std::array<float, 2> barycentrics{};
     uint32_t flags = 0; // 1: hit, 2: front face
     float seen_through = 1.0F; // (round PT-B: rt::ProbeResult::seen_through)
+    std::array<float, 4> albedo{1.0F, 1.0F, 1.0F, 0.0F}; // (round BAKEALB: rt::ProbeResult::albedo - rgb)
 };
 constexpr uint32_t kProbeHitFlag = 1;
 constexpr uint32_t kProbeFrontFlag = 2;
@@ -445,8 +447,10 @@ constexpr uint32_t kProbeFrontFlag = 2;
 // before it: probe_source)
 constexpr const char* kProbeShader = R"(
 layout(local_size_x = 64) in;
-struct Ray { vec4 origin_t_min; vec4 direction_t_max; uvec4 cull_mask; }; // (cull_mask.y: 1 - the cut-outs by alpha)
-struct Hit { float t; uint instance; uint custom_index; uint primitive; vec2 barycentrics; uint flags; uint pad; };
+// (cull_mask.y: 1 - the cut-outs by alpha, 2 - the hit's albedo wanted)
+struct Ray { vec4 origin_t_min; vec4 direction_t_max; uvec4 cull_mask; };
+struct Hit { float t; uint instance; uint custom_index; uint primitive; vec2 barycentrics; uint flags; uint pad;
+             vec4 albedo; };
 const uint PROBE_OBJECT_FLAG = 32u; // (rt::kObject)
 const uint PROBE_APART_FLAG = 512u; // (round PG: rt::kDrawnApart)
 layout(std430, set = 0, binding = 1) readonly buffer Rays { Ray rays[]; };
@@ -485,6 +489,7 @@ void main()
     hit.barycentrics = vec2(0.0);
     hit.flags = 0;
     hit.pad = 0;
+    hit.albedo = vec4(1.0, 1.0, 1.0, 0.0);
     if (rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT) {
         hit.t = rayQueryGetIntersectionTEXT(query, true);
         hit.instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
@@ -492,6 +497,10 @@ void main()
         hit.primitive = rayQueryGetIntersectionPrimitiveIndexEXT(query, true);
         hit.barycentrics = rayQueryGetIntersectionBarycentricsEXT(query, true);
         hit.flags = 1u | (rayQueryGetIntersectionFrontFaceEXT(query, true) ? 2u : 0u);
+        // (round BAKEALB) the hit's albedo - the renderers' definition (hit_albedo), what the hit reflects
+        if ((ray.cull_mask.y & 2u) != 0u) {
+            hit.albedo = vec4(hit_albedo(hit.instance, hit.primitive, hit.custom_index, hit.barycentrics), 0.0);
+        }
     }
     // (round PT-B) with the cut-outs - the one lighting path's test - the light the seen-through surfaces before the hit
     // (or the ray's end) let through: ray_light's share (the mean of its three channels)
@@ -1075,6 +1084,8 @@ std::string probe_source()
     source += "#define THUG2_GEOMETRY_SET 0\n#define THUG2_GEOMETRY_BINDING 3\n";
     source += scene_geometry_glsl();
     source += cutout_rays_glsl();
+    source += rt::kDisplayTransferGlsl;
+    source += hit_albedo_glsl(); // (round BAKEALB: the hit's albedo - the relit bounce's rays)
     source += kProbeShader;
     return source;
 }
@@ -2344,7 +2355,7 @@ bool make_probe_buffers(Backend& state, std::span<const TracedRay> rays, DeviceB
                                                 std::get<2>(ray.origin), ray.t_min},
                                .direction_t_max = {std::get<0>(ray.direction), std::get<1>(ray.direction),
                                                    std::get<2>(ray.direction), ray.t_max},
-                               .cull_mask = {ray.cull_mask, ray.cutouts ? 1U : 0U, 0, 0}};
+                               .cull_mask = {ray.cull_mask, (ray.cutouts ? 1U : 0U) | (ray.albedo ? 2U : 0U), 0, 0}};
     }
     std::memcpy(ray_buffer->mapped, packed.data(), ray_bytes);
     state.memory.flush(*ray_buffer, 0, ray_bytes);
@@ -2447,7 +2458,8 @@ void read_hits(Backend& state, const DeviceBuffer& hit_buffer, std::size_t count
                          .primitive = each.primitive,
                          .barycentrics = each.barycentrics,
                          .front_face = (each.flags & kProbeFrontFlag) != 0,
-                         .seen_through = each.seen_through});
+                         .seen_through = each.seen_through,
+                         .albedo = {std::get<0>(each.albedo), std::get<1>(each.albedo), std::get<2>(each.albedo)}});
     }
 }
 
@@ -2465,7 +2477,8 @@ TracedRay traced_of(const rt::ProbeRequest& ray)
             .t_min = 0.0F,
             .t_max = length > 0.0F ? ray.max_distance : 0.0F,
             .cull_mask = ray.cull_mask & rt::kAllMasks,
-            .cutouts = ray.cutouts};
+            .cutouts = ray.cutouts,
+            .albedo = ray.albedo};
 }
 
 // A hit as the probe's answer (`meshes`: the traced TLAS's instances' meshes).
@@ -2476,6 +2489,7 @@ rt::ProbeResult result_of(const TracedHit& hit, std::span<const rt::MeshId> mesh
     result.hit = hit.hit;
     result.seen_through = hit.seen_through;
     if (hit.hit) {
+        result.albedo = hit.albedo;
         result.distance = hit.t;
         result.instance = hit.instance;
         result.material = hit.custom_index;
@@ -2626,7 +2640,10 @@ std::string_view scene_geometry_glsl()
     // (round L) the light store's decode (engine/gfx/light_store.h) after the extensions and the bindings' defines
     static const std::string made = [] {
         const std::size_t at = kGeometryGlsl.find("struct GeometryRecord {");
-        return std::string(kGeometryGlsl.substr(0, at)) + rt::kLightStoreGlsl + std::string(kGeometryGlsl.substr(at));
+        // (round BAKEALB) and the tint word's scale (rt_relit.h kRelitTintPerByte)
+        return std::string(kGeometryGlsl.substr(0, at)) + rt::kLightStoreGlsl +
+               "const float TINT_PER_BYTE = " + std::to_string(rt::kRelitTintPerByte) + ";\n" +
+               std::string(kGeometryGlsl.substr(at));
     }();
     return made;
 }
@@ -3146,6 +3163,124 @@ float ray_light_share_leaving(uint mask, vec3 origin, vec3 face, vec3 direction,
     return made;
 }
 
+std::string_view hit_albedo_glsl()
+{
+    static const std::string made = R"(
+// (round BIAS) The surface's colour at a hit as the frame's shading has it: its passes composed as the game composes
+// them (vulkan_rt_materials.h material_colour), each layer at its own texture coordinate set. Every ray's base colour and
+// emission read it - one definition of the surface with the frame.
+vec4 hit_composed_colour(uint instance, uint primitive, uint id, vec2 barycentrics, vec2 uv, float vertex_alpha)
+{
+    Material m = material(id);
+    vec2 layer_uv[3];
+    for (uint k = 0u; k < 3u; ++k) {
+        layer_uv[k] = (m.layer_mode[k] & 255u) != 0u ? hit_uv_set(instance, primitive, barycentrics, (m.layer_mode[k] >> 8) & 15u)
+                                                     : uv;
+    }
+    return material_colour(id, uv, layer_uv, vertex_alpha);
+}
+// (round BAKEALB - ray cones) A camera ray's footprint: its neighbouring pixels' rays (from `origin`, along dx / dy) and
+// the raster's sampling of the same pixel - its level bias (the upscaler's) and anisotropy. most_anisotropy 0: none (the
+// most detailed level - a path's later rays, the bake's).
+struct HitCone {
+    vec3 origin;
+    vec3 dx;
+    vec3 dy;
+    float bias;
+    float most_anisotropy;
+};
+HitCone no_cone()
+{
+    HitCone c;
+    c.origin = vec3(0.0);
+    c.dx = vec3(0.0);
+    c.dy = vec3(0.0);
+    c.bias = 0.0;
+    c.most_anisotropy = 0.0;
+    return c;
+}
+// Where a ray from `origin` along `dir` meets the plane of the triangle a, b, c: its barycentrics there (outside the
+// triangle too - the coordinates are linear across its plane); false when it runs along the plane.
+bool plane_barycentrics(vec3 origin, vec3 dir, vec3 a, vec3 b, vec3 c, out vec2 bary)
+{
+    bary = vec2(0.0);
+    vec3 e1 = b - a;
+    vec3 e2 = c - a;
+    vec3 n = cross(e1, e2);
+    float facing = dot(dir, n);
+    if (abs(facing) < 1e-12) {
+        return false;
+    }
+    vec3 p = origin + dir * (dot(a - origin, n) / facing);
+    vec3 q = p - a;
+    float d11 = dot(e1, e1);
+    float d12 = dot(e1, e2);
+    float d22 = dot(e2, e2);
+    float det = d11 * d22 - d12 * d12;
+    if (abs(det) < 1e-20) {
+        return false;
+    }
+    float q1 = dot(q, e1);
+    float q2 = dot(q, e2);
+    bary = vec2((d22 * q1 - d12 * q2) / det, (d11 * q2 - d12 * q1) / det);
+    return true;
+}
+// The level texture `slot` (read with uv set `set`) is sampled at for the cone's pixel - the raster's mip there (ray
+// differentials: the neighbouring pixels' rays met on the triangle's plane, their coordinates' change).
+float hit_cone_level(uint instance, uint primitive, uint slot, uint set, vec2 barycentrics, vec3 a, vec3 b, vec3 c,
+                     HitCone cone)
+{
+    vec2 bx;
+    vec2 by;
+    if (!plane_barycentrics(cone.origin, cone.dx, a, b, c, bx) || !plane_barycentrics(cone.origin, cone.dy, a, b, c, by)) {
+        return 0.0;
+    }
+    vec2 uv = hit_uv_set(instance, primitive, barycentrics, set);
+    return max(texture_level(slot, hit_uv_set(instance, primitive, bx, set) - uv, hit_uv_set(instance, primitive, by, set) - uv,
+                             cone.bias, cone.most_anisotropy), 0.0);
+}
+// (round BAKEALB - one albedo definition) The material's albedo at a hit, linear, before the light store's tint: its
+// composed colour decoded. hit_surface's base_colour is this x the store's tint; the relit bake's bounce rays (the ray
+// probe's hit albedo) read it too - what a hit reflects of the light it shows. With a cone (a camera ray's: the triangle's
+// world corners a, b, c) each pass at its texture's level for the pixel - the raster's mips, so the rays' primary and the
+// raster's albedo are one; without, every pass at its most detailed level.
+vec3 hit_albedo_at(uint instance, uint primitive, uint id, vec2 barycentrics, vec2 uv, float vertex_alpha, vec3 a,
+                   vec3 b, vec3 c, HitCone cone)
+{
+    if (!(cone.most_anisotropy > 0.0)) {
+        return linear_from_display(clamp(hit_composed_colour(instance, primitive, id, barycentrics, uv, vertex_alpha).rgb,
+                                         0.0, 1.0));
+    }
+    Material m = material(id);
+    vec2 layer_uv[3];
+    float layer_lod[3];
+    for (uint k = 0u; k < 3u; ++k) {
+        layer_uv[k] = uv;
+        layer_lod[k] = 0.0;
+        if ((m.layer_mode[k] & 255u) != 0u) {
+            uint set = (m.layer_mode[k] >> 8) & 15u;
+            layer_uv[k] = hit_uv_set(instance, primitive, barycentrics, set);
+            layer_lod[k] = hit_cone_level(instance, primitive, m.layer_texture[k], set, barycentrics, a, b, c, cone);
+        }
+    }
+    vec4 first = material_texel_lod(id, uv, hit_cone_level(instance, primitive, m.texture_slot, m.uv_set, barycentrics,
+                                                            a, b, c, cone));
+    return linear_from_display(clamp(material_colour_from_lod(id, first, layer_uv, layer_lod, vertex_alpha).rgb, 0.0, 1.0));
+}
+vec3 hit_albedo(uint instance, uint primitive, uint id, vec2 barycentrics)
+{
+    HitVertices v;
+    if (!hit_vertices(instance, primitive, v)) {
+        return vec3(0.0);
+    }
+    vec2 uv = hit_uv_set(instance, primitive, barycentrics, material(id).uv_set);
+    return hit_albedo_at(instance, primitive, id, barycentrics, uv, hit_colour(v, barycentrics).a, vec3(0.0), vec3(0.0),
+                         vec3(0.0), no_cone());
+}
+)";
+    return made;
+}
+
 std::string_view hit_surface_glsl()
 {
     // (path tracing, stage 1 - P1: one hit surface; vulkan_rt_scene.h) The painted surface's values and the metal's
@@ -3157,6 +3292,7 @@ std::string_view hit_surface_glsl()
                            std::to_string(rt::material_values(rt::MaterialKind::kPainted).roughness) +
                            ";\nconst float HIT_SURFACE_METAL_F0 = " + std::to_string(kHitMetalF0) + ";\n";
         text += rt::lamp_texel_glsl(); // (round FG: the bake's lamp-texel test - store_emission)
+        text += hit_albedo_glsl();     // (round BAKEALB: the albedo, the relit bake's bounce rays' too)
         text += R"(
 const uint HIT_RELIT_WORLD = 0u;
 const uint HIT_BAKED_WORLD = 1u;
@@ -3218,19 +3354,7 @@ vec3 store_emission(vec3 emit, vec3 linear, float alpha, uint texels)
 {
     return lamp_texel_shown(linear, alpha, texels) ? emit * linear : vec3(0.0);
 }
-// (round BIAS) The surface's colour at a hit as the frame's shading has it: its passes composed as the game composes
-// them (vulkan_rt_materials.h material_colour), each layer at its own texture coordinate set. Every ray's base colour and
-// emission read it - one definition of the surface with the frame.
-vec4 hit_composed_colour(uint instance, uint primitive, uint id, vec2 barycentrics, vec2 uv, float vertex_alpha)
-{
-    Material m = material(id);
-    vec2 layer_uv[3];
-    for (uint k = 0u; k < 3u; ++k) {
-        layer_uv[k] = (m.layer_mode[k] & 255u) != 0u ? hit_uv_set(instance, primitive, barycentrics, (m.layer_mode[k] >> 8) & 15u)
-                                                     : uv;
-    }
-    return material_colour(id, uv, layer_uv, vertex_alpha);
-}// (round PT4b) The light a triangle of the world sends at a point (hit_surface's `emitted` alone - no normals, no
+// (round PT4b) The light a triangle of the world sends at a point (hit_surface's `emitted` alone - no normals, no
 // material: ReSTIR DI's target evaluates it at every candidate); false where nothing is there (a cut-out texel, a hidden
 // mesh). (Round P10) An object's from its store as a world mesh's: an object drawn with its own colours is relit where it
 // stands (its tint and emission taken apart by the bake); one without a store sends nothing.
@@ -3294,8 +3418,8 @@ bool hit_emission(uint instance, uint primitive, uint id, vec2 barycentrics, out
     }
     return hit_emission_of(instance, primitive, id, barycentrics, v, emitted);
 }
-bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4x3 object_to_world, vec3 direction,
-                 out HitSurface s)
+bool hit_surface_at(uint instance, uint primitive, uint id, vec2 barycentrics, mat4x3 object_to_world, vec3 direction,
+                    HitCone cone, out HitSurface s)
 {
     s.position = vec3(0.0);
     s.normal = -direction;
@@ -3338,11 +3462,10 @@ bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4
     }
     Material surface = material(id);
     vec2 uv = hit_uv_set(instance, primitive, barycentrics, surface.uv_set);
-    vec4 texel = hit_composed_colour(instance, primitive, id, barycentrics, uv, hit_colour(v, barycentrics).a);
+    vec3 linear = hit_albedo_at(instance, primitive, id, barycentrics, uv, hit_colour(v, barycentrics).a, a, b, c, cone);
     // (stage 3: the alpha the game draws and tests - material_drawn_alpha -, not x the pass's fixed alpha)
     s.alpha = material_drawn_alpha(id, uv, hit_colour(v, barycentrics).a);
     s.cut_out = !material_alpha_passes(id, s.alpha);
-    vec3 linear = linear_from_display(clamp(texel.rgb, 0.0, 1.0));
     GeometryRecord record = geometry_record(instance);
     bool object = (record.instance_flags & HIT_INSTANCE_OBJECT) != 0u;
     vec3 tint;
@@ -3375,6 +3498,11 @@ bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4
         s.material = brdf_material(s.base_colour, vec3(surface.f0), r);
     }
     return true;
+}
+bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4x3 object_to_world, vec3 direction,
+                 out HitSurface s)
+{
+    return hit_surface_at(instance, primitive, id, barycentrics, object_to_world, direction, no_cone(), s);
 }
 
 )";

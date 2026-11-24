@@ -97,7 +97,8 @@ void set_cel_world(const CelWorld& world);
 // the global unit, physical - NOT pre-exposed (the draws and the ray-traced passes multiply by the frame's pre-exposure
 // where they read it: a pre-exposure change rewrites nothing); the tint and the flags are D3DCOLORs (A8R8G8B8):
 //   0: the sky's and bounce's light (light);
-//   1: the tint - the surface's colour (rgb, x 128, at most 2), the vertex's share of the sun's rays (a, x 255): the
+//   1: the tint - the surface's colour (rgb, x rt_relit.h kRelitTintPerByte: 64, at most ~4 - the albedo is texel x
+//      tint), the vertex's share of the sun's rays (a, x 255): the
 //      visibility its colour was written with (D3DCOLOR);
 //   2: the lamps' light on it (tint x L x the lamps on - light);
 //   3: the direct light's colour and strength the colour was written with (light: the lighting state's sun per N.L);

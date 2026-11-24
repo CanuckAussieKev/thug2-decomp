@@ -85,8 +85,11 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // with smoothing on was "made from other meshes" for a game with it off (and the other way round): Boston's 546
 // smoothed meshes not found, the level back to the original's lighting. A v17 file is still read (no original keys:
 // its meshes found by their content alone - kRelitDataOldestRead).
-inline constexpr uint32_t kRelitDataVersion = 18;
-inline constexpr uint32_t kRelitDataOldestRead = 17;
+// v19 (round BAKEALB - one albedo definition): the bounce B each hit's light x the albedo of the texel it lands on (the
+// renderers' texel x tint, not the tint alone) - the fit's g, so every tint, in another unit: a v18 file's tints are
+// the texture's mean too dark under every renderer. Older files are not read.
+inline constexpr uint32_t kRelitDataVersion = 19;
+inline constexpr uint32_t kRelitDataOldestRead = 19;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

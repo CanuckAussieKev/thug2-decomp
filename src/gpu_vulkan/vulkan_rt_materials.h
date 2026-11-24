@@ -158,6 +158,11 @@ void surface_reflection(const rt::Material& material, const Texture* colour, Mat
 //   (round PERF2) material_colour_from(uint id, vec4 first, ...) / material_drawn_alpha_from(uint id, vec4 first, float
 //                                                      vertex_alpha) - the same from the first pass's texel already read
 //                                                      ((layer_mode[k] >> 8) & 15); vertex_alpha as material_drawn_alpha's
+//   (round BAKEALB) material_colour_from_lod(uint id, vec4 first, vec2 layer_uv[3], float layer_lod[3], float
+//                                                      vertex_alpha) - the same with each layer at its own level
+//   (round BAKEALB) float texture_level(uint slot, vec2 duv_dx, vec2 duv_dy, float bias, float most_anisotropy) - the
+//                                                      level a sampler picks from the coordinates' change across a pixel
+//                                                      (Vulkan's rule: anisotropy up to most_anisotropy, then the bias)
 // The UVs are the caller's: the material says which set (uv_set) its texture uses.
 std::string_view material_glsl();
 

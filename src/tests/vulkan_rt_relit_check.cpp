@@ -2311,7 +2311,7 @@ void check_data_file(const Scene& scene, const rt::RelitModel& model, const std:
         std::string old_sun = bytes;
         std::memcpy(&old_sun.at(kSunRadiusAt), &kOldSunRadius, sizeof(float));
         std::string old_version = bytes;
-        const uint32_t before = rt::kRelitDataOldestRead - 1; // (round LV: v17 is still read - no original keys)
+        const uint32_t before = rt::kRelitDataOldestRead - 1; // (the newest version no longer read)
         std::memcpy(&old_version.at(kVersionAt), &before, sizeof(uint32_t));
         rt::RelitLevelData stale;
         std::string sun_why;

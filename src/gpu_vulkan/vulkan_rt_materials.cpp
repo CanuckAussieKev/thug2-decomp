@@ -194,7 +194,9 @@ float material_mask_alpha(uint id, uint k, vec2 uv, float lod)
 const uint MATERIAL_LAYER_TEXTURE_ALPHA = 4096u;
 // (round PERF2) ... from the first pass's texel already read (material_texel_lod at the point's uv, lod 0) - a caller
 // that has it (its drawn alpha's) doesn't sample the texture twice
-vec4 material_colour_from(uint id, vec4 first, vec2 layer_uv[3], float vertex_alpha)
+// (round BAKEALB - ray cones) each layer at its own level (layer_lod[k]: its texture's level for the footprint - the
+// raster's mip; 0: the most detailed)
+vec4 material_colour_from_lod(uint id, vec4 first, vec2 layer_uv[3], float layer_lod[3], float vertex_alpha)
 {
     Material m = material(id);
     // (an environment-mapped first pass is a painted reflection - the reflections pass's light -, no albedo: ff_shaders.cpp
@@ -208,7 +210,7 @@ vec4 material_colour_from(uint id, vec4 first, vec2 layer_uv[3], float vertex_al
         }
         uint chosen = min(m.layer_sampler[k], 31u);
         vec4 t = textureLod(sampler2D(material_textures[nonuniformEXT(m.layer_texture[k])],
-                                      material_samplers[nonuniformEXT(chosen)]), layer_uv[k], 0.0);
+                                      material_samplers[nonuniformEXT(chosen)]), layer_uv[k], layer_lod[k]);
         vec3 l = t.rgb * m.layer_colour[k].rgb;
         float a = (m.layer_mode[k] & MATERIAL_LAYER_TEXTURE_ALPHA) != 0u ? t.a : 2.0 * vertex_alpha * t.a;
         if (mode == 5u) {
@@ -233,6 +235,27 @@ vec4 material_colour_from(uint id, vec4 first, vec2 layer_uv[3], float vertex_al
         }
     }
     return vec4(clamp(r0, vec3(0.0), vec3(1.0)), first.a * m.colour.a);
+}
+vec4 material_colour_from(uint id, vec4 first, vec2 layer_uv[3], float vertex_alpha)
+{
+    float level_zero[3] = float[3](0.0, 0.0, 0.0);
+    return material_colour_from_lod(id, first, layer_uv, level_zero, vertex_alpha);
+}
+// (round BAKEALB - ray cones) The level a sampler picks for texture `slot` from the texture coordinates' change across a
+// pixel (duv_dx, duv_dy - the screen's derivatives, or a ray cone's): the Vulkan rule - rho the texels the footprint's
+// axes span, eta their ratio up to `most_anisotropy` (1: isotropic), lambda = log2(rho_max / eta) + bias.
+float texture_level(uint slot, vec2 duv_dx, vec2 duv_dy, float bias, float most_anisotropy)
+{
+    vec2 size = vec2(textureSize(sampler2D(material_textures[nonuniformEXT(slot)], material_samplers[0]), 0));
+    float rho_x = length(duv_dx * size);
+    float rho_y = length(duv_dy * size);
+    float rho_max = max(rho_x, rho_y);
+    float rho_min = min(rho_x, rho_y);
+    if (!(rho_max > 0.0)) {
+        return 0.0;
+    }
+    float eta = rho_min > 0.0 ? min(rho_max / rho_min, max(most_anisotropy, 1.0)) : max(most_anisotropy, 1.0);
+    return log2(rho_max / eta) + bias;
 }
 vec4 material_colour(uint id, vec2 uv, vec2 layer_uv[3], float vertex_alpha)
 {

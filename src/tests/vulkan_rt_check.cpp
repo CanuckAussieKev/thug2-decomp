@@ -40,6 +40,7 @@
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_apart.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_poses.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_surface_class.h"
@@ -1561,10 +1562,13 @@ void check_drawn_apart(render::Gpu& gpu, Tally* tally, uint64_t* frame)
     constexpr uint32_t kBlendAdd = 1;
     constexpr float kHalfRef = 0.5F;
     constexpr float kVertexAlpha = 128.0F / 255.0F;
+    // (round BAKEALB) the cut-out's colour: the albedo a probe that asks for it reads at the hit (the texture white)
+    constexpr std::array<float, 3> kCutoutColour{0.5F, 0.25F, 0.75F};
     rt::Material cutout;
     cutout.texture = texture;
     cutout.flags = rt::kAlphaTested;
     cutout.alpha_ref = kHalfRef;
+    cutout.colour = {kCutoutColour[0], kCutoutColour[1], kCutoutColour[2], 1.0F};
     rt::Material smoke;
     smoke.texture = texture;
     smoke.blend = kBlendAlpha;
@@ -1637,7 +1641,9 @@ void check_drawn_apart(render::Gpu& gpu, Tally* tally, uint64_t* frame)
             apart_ray(kAt[2] + shift, 0.0F, kMiddle, kMiddle, kMaskAddsLight, false), // 7 ... a path's ray meets it
             apart_ray(kAt[0] + shift, kApartQuad * 2.0F, kMiddle, kMiddle, kMaskApart, true), // 8 the second quad
             apart_ray(kAt[0] + (moved ? 0.0F : kMoved), 0.0F, kMiddle, kMiddle, kMaskApart, true), // 9 the other frame's
+            apart_ray(kAt[0] + shift, 0.0F, kMiddle, kMiddle, kMaskApart, true),     // 10 as 0, its albedo asked
         };
+        rays.back().albedo = true;
         std::vector<TracedHit> hits;
         const bool traced = made && trace(rays, &hits);
         const auto hit = [&](std::size_t i) { return traced && core::at(hits, i).hit; };
@@ -1660,6 +1666,22 @@ void check_drawn_apart(render::Gpu& gpu, Tally* tally, uint64_t* frame)
                      text::format("drawn apart, %s: the triangles are this frame's (the extra quad %s, the other "
                                   "frame's place %s)",
                                   when, hit(8) ? "met" : "not met", hit(9) ? "met" : "empty"));
+        // (round BAKEALB - one albedo definition) the probe's hit albedo: the material's composed colour decoded (the
+        // renderers' hit_albedo - texel white x the colour, to the display's gamma); not asked: 1
+        float albedo_error = traced && hit(10) ? 0.0F : 1.0F;
+        for (std::size_t ch = 0; ch < 3; ++ch) {
+            const float expected = rt::linear_from_display(core::at(kCutoutColour, ch));
+            albedo_error = std::max({albedo_error, traced ? std::abs(core::at(core::at(hits, 10).albedo, ch) - expected) : 1.0F,
+                                     traced ? std::abs(core::at(core::at(hits, 0).albedo, ch) - 1.0F) : 1.0F});
+        }
+        tally->check(albedo_error < 2e-3F,
+                     text::format("drawn apart, %s: a probe asking for the hit's albedo reads the material's (%.4f %.4f "
+                                  "%.4f, expected %.4f %.4f %.4f); one not asking 1",
+                                  when, traced ? core::at(hits, 10).albedo[0] : -1.0F,
+                                  traced ? core::at(hits, 10).albedo[1] : -1.0F,
+                                  traced ? core::at(hits, 10).albedo[2] : -1.0F,
+                                  rt::linear_from_display(kCutoutColour[0]), rt::linear_from_display(kCutoutColour[1]),
+                                  rt::linear_from_display(kCutoutColour[2])));
     }
     const render::vulkan::SceneStats before_release = render::vulkan::scene_stats();
     store.release_all(gpu, backend);

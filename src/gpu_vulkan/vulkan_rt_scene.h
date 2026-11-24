@@ -216,6 +216,8 @@ std::string_view cutout_rays_glsl();
 //                       uint kind; float alpha; bool cut_out; vec3 emitted; uint origin; float area; bool hidden; };
 //   bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4x3 object_to_world, vec3 direction,
 //                    out HitSurface s)   - false when the instance isn't live (no vertices to read)
+//   bool hit_surface_at(... the same, HitCone cone, out HitSurface s) - (round BAKEALB) a camera ray's: its base colour
+//                    at the raster's mips (hit_albedo_at with the cone); hit_surface is it with no_cone()
 //   - position: the hit (world); normal: the triangle's, unit, turned toward where the ray came from (-direction);
 //     shading_normal: the mesh's vertex normals blended there (same side) where it has them, else `normal`; area: the
 //     triangle's (world units^2 - a light sample's pdf);
@@ -239,6 +241,19 @@ std::string_view cutout_rays_glsl();
 //     (round PERF2) the same with the triangle's corners already read (hit_vertices): the texel read once
 // How a ray meets a blended surface (hit_blend) is cutout_rays_glsl's: it goes before this.
 std::string_view hit_surface_glsl();
+// (round BAKEALB - one albedo definition) hit_surface_glsl's first part, alone (the ray probe's: no BRDF): after
+// material_glsl, scene_geometry_glsl and kDisplayTransferGlsl -
+//   vec4 hit_composed_colour(uint instance, uint primitive, uint id, vec2 barycentrics, vec2 uv, float vertex_alpha) -
+//        the material's passes composed at the hit (material_colour, each layer at its uv set)
+//   vec3 hit_albedo_at(... the same) - that colour decoded (linear): the material's albedo before the light store's
+//        tint - hit_surface's base_colour / tint
+//   struct HitCone { vec3 origin; vec3 dx; vec3 dy; float bias; float most_anisotropy; }; HitCone no_cone() - a camera
+//        ray's footprint (its neighbouring pixels' rays, the raster's level bias and anisotropy); no_cone: none
+//   vec3 hit_albedo_at(... the same, vec3 a, vec3 b, vec3 c, HitCone cone) - with a cone (the triangle's world corners)
+//        each pass at its texture's level for the pixel (ray differentials: the raster's mip); without, the most detailed
+//   vec3 hit_albedo(uint instance, uint primitive, uint id, vec2 barycentrics) - the same without a cone, its uv and
+//        vertex alpha read (0 where the instance isn't live)
+std::string_view hit_albedo_glsl();
 inline constexpr float kHitMetalF0 = 0.2F; // (a surface map's F0 at least this: a metal - the reflections' HIT_METAL_F0)
 // The caller holds the backend's lock.
 SceneView current_scene(const Backend& state);
@@ -269,6 +284,7 @@ struct TracedRay {
     float t_max = 0.0F;
     uint32_t cull_mask = kMaskEverything; // the instances it can hit (their masks: above)
     bool cutouts = false;                 // (added by lighting round 4) the cut-outs by their alpha
+    bool albedo = false;                  // (round BAKEALB) the hit's albedo wanted (TracedHit::albedo)
 };
 struct TracedHit {
     bool hit = false;
@@ -279,6 +295,7 @@ struct TracedHit {
     std::array<float, 2> barycentrics{};
     bool front_face = false;
     float seen_through = 1.0F; // (round PT-B) a ray with the cut-outs: rt::ProbeResult::seen_through
+    std::array<float, 3> albedo{1.0F, 1.0F, 1.0F}; // (round BAKEALB) with `albedo` asked: rt::ProbeResult::albedo
 };
 enum class TraceResult : uint8_t { kTraced, kNoRayTracing, kNoScene, kFailed };
 TraceResult trace_rays_now(std::span<const TracedRay> rays, std::vector<TracedHit>* hits);
