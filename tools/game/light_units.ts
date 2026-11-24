@@ -5,7 +5,7 @@
 //
 //   node tools/game/light_units.ts census --game <folder> [--json <file>] [--levels BO,BA,...]
 //     <folder>: a game install (the main one is only read). The lamps and emitting triangles come from the relit data
-//     (thug2-decomp-relit/<scene>.relit - engine/gfx/relit_data.cpp's layout, version 18), the fog from the level
+//     (thug2-decomp-relit/<scene>.relit - engine/gfx/relit_data.cpp's layout, version 21), the fog from the level
 //     structures and the time of day's states in the decompiled scripts (Data/scripts/game/Levels.ns,
 //     Data/scripts/engine/tod_manager.ns), where the install has them.
 //
@@ -28,8 +28,8 @@ import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converte
 const USAGE = `usage: node tools/game/light_units.ts census --game <folder> [--json <file>] [--levels a,b]`;
 
 const RELIT_MAGIC = 0x44523254; // "T2RD"
-const RELIT_VERSION = 18;
-const RELIT_OLDEST = 17; // (v17: the lamps as v18 has them)
+const RELIT_VERSION = 21;
+const RELIT_OLDEST = 21; // (relit_data.h kRelitDataOldestRead - the lamps and emitting triangles laid out as v17 had them)
 const METRES_PER_UNIT = 1 / 39.37;
 const LAMP_REACH_LUX = 1.0e-3; // rt_lights.h kLampReachLux
 const KOSCHMIEDER = 3.912; // rt_sky.h kKoschmieder
@@ -84,7 +84,7 @@ export function readRelit(bytes: Buffer): RelitHead | null {
     if (bytes.length < 64 || bytes.readUInt32LE(0) !== RELIT_MAGIC) return null;
     u32();
     const version = u32();
-    if (version < RELIT_OLDEST || version > RELIT_VERSION) return null; // (v18 changed only the meshes)
+    if (version < RELIT_OLDEST || version > RELIT_VERSION) return null; // (v18 - v20 changed only the meshes and the units)
     f32(); // sun radius
     const scene = u32();
     at += 8; // content

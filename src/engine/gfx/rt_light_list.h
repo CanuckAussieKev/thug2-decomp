@@ -24,7 +24,8 @@
 //     the integral of its luminance over the sphere;
 //   local - their flux:
 //   - emitting triangles (the light store's emission x the lamp texels - vulkan_rt_scene.h hit_surface's `emitted`,
-//     the same function): a two-sided Lambertian emitter of mean radiance L over area A sends 2 pi A L
+//     the same function): a Lambertian emitter of mean radiance L over area A sends pi A L from each face it emits from
+//     (round EMIT: a one-sided surface its front alone, a two-sided one both - pi A L or 2 pi A L)
 //     (triangle_power; the device's scan measures L at the centroids of kTriangleLattice^2 equal sub-triangles);
 //   - analytic lamps (rt_lights.h's lamp model, those without a surface of their own) and the frame record's point
 //     lights where the level has no solved lamps: flux from their photometry (lamp_power).
@@ -93,8 +94,9 @@ inline constexpr uint32_t kTriangleLattice = 8;
 [[nodiscard]] double disc_power(const Rgb& light);
 // The sky of luminance integral `integral` (over the sphere, solid angle): that (per unit of cross-section).
 [[nodiscard]] double sky_power(double integral);
-// A two-sided emitting triangle of mean luminance `radiance` and `area`.
-[[nodiscard]] double triangle_power(double radiance, double area);
+// An emitting triangle of mean luminance `radiance` and `area` sending from `sides` faces (round EMIT: 1 - the face a
+// one-sided surface is drawn with - or 2 - a two-sided one; GLSL emitter_sides).
+[[nodiscard]] double triangle_power(double radiance, double area, double sides);
 // A lamp of rt_lights.h's model (its colour x intensity): its intensity toward a direction is pi x its light per N.L x d^2
 // far away - a point pi I core^2 every way (flux 4 pi^2 I core^2); a panel (a two-sided disc of radiance I, radius core)
 // pi I core^2 |cos| (2 pi^2 I core^2); a line (a tube of length 2 h) pi I core h sin of the angle to its axis

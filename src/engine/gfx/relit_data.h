@@ -91,8 +91,12 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // v20 (round MATALB - a surface's reflectance from its texture and material alone): the bake's bounce B each hit's light
 // x the material's albedo - its texture calibrated to its kind's measured range (the probe's hit albedo), the tint no
 // albedo - so the fit's g, the lamps' solved light and the data's bounce in another unit. Older files are not read.
-inline constexpr uint32_t kRelitDataVersion = 20;
-inline constexpr uint32_t kRelitDataOldestRead = 20;
+// v21 (round EMIT - an emitter's faces): a lamp's surface sends its flux from the faces the game draws (a one-sided
+// surface its front, a two-sided one both - RelitMesh::two_sided): its luminance the flux over pi x its drawn area x
+// its faces (a two-sided card's half v20's); a solve whose flux is more than its kind's brightest luminance over its
+// luminous area sends is the model's; a glow's row of fittings its fittings' typical flux. Older files are not read.
+inline constexpr uint32_t kRelitDataVersion = 21;
+inline constexpr uint32_t kRelitDataOldestRead = 21;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

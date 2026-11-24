@@ -53,7 +53,8 @@ uint listed_slot(uint instance, uint primitive)
 // The emitters' scan: one invocation a triangle of the frame's instances (flattened by the instances' first triangles,
 // membership[0 .. instances]). A triangle of an instance with a light store (the world's, and since round P10 an object
 // drawn with its own colours, relit where it stands) - (round BIAS) whatever its class for rays -, whose light store emits
-// at a corner (not hidden, not animated), is listed with its power: 2 pi x its area x its emission's mean luminance at the
+// at a corner (not hidden, not animated), is listed with its power: (round EMIT) its faces' count (emitter_sides: 1 or
+// 2) x pi x its area x its emission's mean luminance - seen from its front - at the
 // centroids of its TRIANGLE_LATTICE^2 equal sub-triangles (hit_surface's `emitted`: the store's emit x the texel x the
 // lamp texels). (Round PT4b) Every such triangle is listed: one whose few lamp texels fall between those points (Boston:
 // 109 of 332) measured nothing and was left out - its lamp's light lost, for its lamp is its surface's (rt_path.h
@@ -69,6 +70,15 @@ float emitter_power(uint instance, uint primitive, out float area)
     mat4x3 to_world = instance_transform(instance);
     float sum = 0.0;
     area = 0.0;
+    // (round EMIT) looked at from the face it sends its light from (a one-sided emitter's front - emitter_sides)
+    HitVertices v;
+    if (!hit_vertices(instance, primitive, v)) {
+        return 0.0;
+    }
+    vec3 across = cross(to_world * vec4(v.position[1], 1.0) - to_world * vec4(v.position[0], 1.0),
+                        to_world * vec4(v.position[2], 1.0) - to_world * vec4(v.position[0], 1.0));
+    float sides = emitter_sides(id);
+    vec3 looking = length(across) > 0.0 ? -normalize(across) * EMITTER_FRONT_SIGN : vec3(0.0, -1.0, 0.0);
     const float n = float(TRIANGLE_LATTICE);
     for (uint i = 0u; i < TRIANGLE_LATTICE; ++i) {
         for (uint j = 0u; i + j < TRIANGLE_LATTICE; ++j) {
@@ -77,7 +87,7 @@ float emitter_power(uint instance, uint primitive, out float area)
                 float c = turned == 0u ? 1.0 / 3.0 : 2.0 / 3.0;
                 HitSurface s;
                 if (hit_surface(instance, primitive, id, vec2((float(i) + c) / n, (float(j) + c) / n), to_world,
-                                vec3(0.0, -1.0, 0.0), s)) {
+                                looking, s)) {
                     area = s.area;
                     if (!s.cut_out && !s.hidden) {
                         sum += path_luma(max(s.emitted, vec3(0.0)));
@@ -86,7 +96,7 @@ float emitter_power(uint instance, uint primitive, out float area)
             }
         }
     }
-    return 2.0 * PATH_PI * area * sum / (n * n);
+    return sides * PATH_PI * area * sum / (n * n);
 }
 void main()
 {
@@ -137,7 +147,8 @@ void main()
     }
     atomicAdd(emitter_spare, 1u);
     if (!(power > 0.0)) {
-        power = 2.0 * PATH_PI * area * path_luma(corners); // (no lamp texel at its points: the most it can send)
+        power = emitter_sides(instance_material(instance)) * PATH_PI * area * path_luma(corners); // (no lamp texel at its
+        // points: the most it can send)
     }
     if (!(power > 0.0) || isinf(power)) {
         return;
@@ -772,9 +783,10 @@ struct LightPick {
     vec3 emitted;
     float pdf;     // (0: no light here)
     uint lamp;     // (a lamp's record; LIGHT_PICK_TRIANGLE: a triangle's point)
+    float sides;   // (round EMIT - a triangle's: emitter_sides; n its front, (b - a) x (c - a) x EMITTER_FRONT_SIGN)
 };
 const uint LIGHT_PICK_TRIANGLE = 0xFFFFFFFFu;
-LightPick no_light_pick() { return LightPick(vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), 0.0, LIGHT_PICK_TRIANGLE); }
+LightPick no_light_pick() { return LightPick(vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), 0.0, LIGHT_PICK_TRIANGLE, 2.0); }
 LightPick light_pick_at(uint e, uint count, vec2 uv)
 {
     LightPick p = no_light_pick();
@@ -805,7 +817,8 @@ LightPick light_pick_at(uint e, uint count, vec2 uv)
             return p;
         }
         p.y = a * bc.x + b * bc.y + c * bc.z;
-        p.n = across / twice;
+        p.n = across / twice * EMITTER_FRONT_SIGN;
+        p.sides = emitter_sides(instance_material(listed.x));
         p.emitted = emitted;
         p.pdf = entry.pdf / (0.5 * twice);
         return p;
@@ -831,7 +844,7 @@ bool light_seen_from(LightPick p, vec3 at, out LocalLight l)
             return false;
         }
         vec3 dir = to / d;
-        float cos_there = abs(dot(p.n, dir));
+        float cos_there = emitter_cos(p.sides, p.n * EMITTER_FRONT_SIGN, -dir); // (round EMIT: a one-sided one's front)
         if (!(cos_there > 0.0)) {
             return false;
         }
@@ -892,7 +905,11 @@ void light_pool_write(uint slot, LightPick p)
     bool lamp = p.lamp != LIGHT_PICK_TRIANGLE;
     light_pool[2u * slot] = lamp ? uvec4(p.lamp, 0u, 0u, floatBitsToUint(-p.pdf))
                                  : uvec4(floatBitsToUint(p.y), floatBitsToUint(p.pdf));
-    light_pool[2u * slot + 1u] = uvec4(floatBitsToUint(p.emitted), packSnorm2x16(light_pool_oct(p.n)));
+    // (round EMIT) a one-sided triangle's point: the sign bit of its emission's red word set (the emission is never
+    // negative - light_pick_at's max), its front in the normal
+    uvec3 emitted = floatBitsToUint(max(p.emitted, vec3(0.0)));
+    emitted.x |= !lamp && p.sides < 1.5 ? 0x80000000u : 0u;
+    light_pool[2u * slot + 1u] = uvec4(emitted, packSnorm2x16(light_pool_oct(p.n)));
 }
 #else
 // A pick from its two words (the pool's, or - round DO - the light grid's: the same layout)
@@ -900,10 +917,11 @@ LightPick light_pick_words(uvec4 w0, uvec4 w1)
 {
     float pdf = uintBitsToFloat(w0.w);
     if (pdf < 0.0) {
-        return LightPick(vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), -pdf, w0.x);
+        return LightPick(vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), -pdf, w0.x, 2.0);
     }
-    return LightPick(uintBitsToFloat(w0.xyz), light_pool_unoct(unpackSnorm2x16(w1.w)), uintBitsToFloat(w1.xyz), pdf,
-                     LIGHT_PICK_TRIANGLE);
+    return LightPick(uintBitsToFloat(w0.xyz), light_pool_unoct(unpackSnorm2x16(w1.w)),
+                     uintBitsToFloat(w1.xyz & uvec3(0x7FFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu)), pdf, LIGHT_PICK_TRIANGLE,
+                     (w1.x & 0x80000000u) != 0u ? 1.0 : 2.0);
 }
 LightPick light_pool_read(uint slot) { return light_pick_words(light_pool[2u * slot], light_pool[2u * slot + 1u]); }
 #endif

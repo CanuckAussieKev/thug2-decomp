@@ -61,6 +61,9 @@ uint32_t decode_first_level(GpuTexture* texture, texel::Image* out);
 // decoded once - and, for a blended surface, its texels drawn solid alone. A mesh with no texture to read: the floor at
 // the most (no lamp texels; the bake found none there either).
 [[nodiscard]] uint8_t lamp_texel_code_of(const MeshRef* mesh);
+// (round EMIT) Whether a material is a light card (rt_lights.h light_card: an additive first pass whose texture doesn't
+// move - a halo, light cone, pool or starburst the artists drew round a lamp).
+[[nodiscard]] bool light_card_material(const MaterialRef* material);
 
 // draw_world, before anything is drawn: the record cleared and filled - instances (meshes and materials registered,
 // changed ones reported) and lights.

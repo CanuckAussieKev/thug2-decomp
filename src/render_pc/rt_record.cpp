@@ -664,6 +664,9 @@ rt::Material material_of(const MaterialRef* material)
     if ((core::at(material->pass_flags(), 0) & kPassTextureAlpha) != 0U) {
         out.flags |= rt::kTextureAlpha; // (path tracing, stage 3: a blended surface's coverage - its texel's alpha alone)
     }
+    if (material->two_sided() != 0U) {
+        out.flags |= rt::kTwoSided; // (round EMIT: drawn without culling - pc_material.cpp - an emitter's both faces)
+    }
     // (round PT-B - rt_surface_class.h) a blended surface's texels' least alpha (untextured: 1; not known: 0)
     if ((out.flags & rt::kTransparent) != 0U) {
         const rt::RayTracing* rt = rt::ray_tracing();
@@ -1123,11 +1126,17 @@ public:
         }
         return geometry_.index_count / 3;
     }
-    // The triangle's three vertex indices, or false (degenerate, or outside the vertices).
+    // The triangle's three vertex indices, or false (degenerate, or outside the vertices). (round EMIT) A strip's odd
+    // triangles turned back round, as the ray tracing's lists number them (vulkan_rt_scene.cpp) and the relit meshes do:
+    // every triangle wound as the game draws it, so (b - a) x (c - a) points out of the same face of each. Before, every
+    // other triangle of a strip was wound the other way here - the world's winding (world_facing: floors up) a coin toss
+    // over strips (New Orleans' came out -1), and the floor test of the lamp-texel candidates passed half a floor's
+    // triangles.
     bool corners(uint32_t triangle, std::array<uint32_t, 3>* out) const
     {
         const uint32_t first = geometry_.strip ? triangle : triangle * 3;
-        *out = {index(first), index(first + 1), index(first + 2)};
+        const bool odd = geometry_.strip && (triangle & 1U) != 0;
+        *out = {index(odd ? first + 1 : first), index(odd ? first : first + 1), index(first + 2)};
         const uint32_t limit =
             std::min(geometry_.vertex_count, static_cast<uint32_t>(vertices_.size() / geometry_.vertex_stride));
         const auto [one, two, three] = *out;
@@ -1720,12 +1729,21 @@ float median_luma()
 
 // (lighting round A2) The world's winding: +1 when its triangles' (b - a) x (c - a) points out of their front, -1 when
 // into it - the sign that turns most of its upward-facing area up (floors outnumber ceilings: rt_relit.h relit_facing's
-// rule, over the same meshes the samples read).
+// rule, over the same meshes the samples read). (round EMIT) Over the surfaces drawn one-sided alone (culled - only
+// their front is ever seen, so a floor among them faces up out of its front; a two-sided floor may be wound either way):
+// every triangle wound as drawn (MeshTriangles::corners). Reported, both kinds' measures.
 float world_facing()
 {
     constexpr float kUpNormal = 0.7F;
-    double signed_area = 0.0;
-    for (const MeshTriangles& mesh : sampled_meshes(false)) {
+    std::array<double, 2> signed_area{}; // (one-sided, two-sided)
+    std::array<double, 2> area{};
+    for (const MeshRef* drawn : state().world) {
+        std::vector<MeshTriangles> read;
+        if (!mesh_triangles(drawn, false, false, &read)) {
+            continue;
+        }
+        const std::size_t sides = drawn->material() != nullptr && drawn->material()->two_sided() != 0U ? 1 : 0;
+        const MeshTriangles& mesh = read.front();
         for (uint32_t t = 0; t < mesh.count(); ++t) {
             std::array<uint32_t, 3> corner{};
             if (!mesh.corners(t, &corner)) {
@@ -1736,11 +1754,18 @@ float world_facing()
             const rt::Vec3 normal = rt::cross(rt::minus(mesh.position(two), a), rt::minus(mesh.position(three), a));
             const float length = std::sqrt(rt::dot(normal, normal));
             if (length > 0.0F && std::abs(rt::y_of(normal)) >= kUpNormal * length) {
-                signed_area += rt::y_of(normal) > 0.0F ? length : -length;
+                core::at(signed_area, sides) += rt::y_of(normal) > 0.0F ? length : -length;
+                core::at(area, sides) += length;
             }
         }
     }
-    return signed_area < 0.0 ? -1.0F : 1.0F;
+    const double told = std::get<0>(area) > 0.0 ? std::get<0>(signed_area) : std::get<1>(signed_area);
+    get_log("rt: the world's winding - one-sided surfaces' level area %.3g, %.1f %% of it up out of the front; two-sided "
+            "%.3g, %.1f %% up (the winding %+d)",
+            std::get<0>(area), std::get<0>(area) > 0.0 ? 50.0 * (1.0 + (std::get<0>(signed_area) / std::get<0>(area))) : 0.0,
+            std::get<1>(area), std::get<1>(area) > 0.0 ? 50.0 * (1.0 + (std::get<1>(signed_area) / std::get<1>(area))) : 0.0,
+            told < 0.0 ? -1 : 1);
+    return told < 0.0 ? -1.0F : 1.0F;
 }
 
 // A decoded texel's luminance, linear (its bytes display-referred: rt_display.h).
@@ -2660,6 +2685,8 @@ std::string world_census()
     }
     return out;
 }
+
+bool light_card_material(const MaterialRef* material) { return material != nullptr && glow_card(material); }
 
 uint8_t lamp_texel_code_of(const MeshRef* mesh)
 {

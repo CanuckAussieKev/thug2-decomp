@@ -416,6 +416,11 @@ void MeshRef::render()
     if (engine_parts().suppress_draw() || beyond_clip_distance(this)) {
         return;
     }
+    // Not original (round EMIT): a light card isn't drawn in a relit view - the lamp's light, the camera's bloom and the
+    // air's scattering are its halo (rt_relit_world.h light_card_hidden). Original behaviour: drawn.
+    if (rt_relit_world::light_card_hidden(this)) {
+        return;
+    }
     // Not original - the outlines' mask (render_pc/outline_draw.h): the mesh in a flat colour, without fog or its
     // material. Original behaviour: always drawn with them.
     const bool flat = outline_draw::flat_on();

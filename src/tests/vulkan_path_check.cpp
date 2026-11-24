@@ -272,7 +272,9 @@ bool make_mesh(render::Gpu& gpu, const std::vector<Triangle>& triangles, bool em
     mesh->material = rt::next_material_id();
     rt::Material surface;
     surface.colour = {1.0F, 1.0F, 1.0F, 1.0F};
-    surface.flags = rt::kOpaque;
+    // (round EMIT) an emitting mesh two-sided - its light from both faces, as every emitter sent before the round (the
+    // scenes are wound without the game's convention: the disc's front faces up); the one-sided rule has its own cases
+    surface.flags = rt::kOpaque | (emitting ? rt::kTwoSided : 0U);
     rt::ray_tracing()->set_material(mesh->material, surface);
     if (emitting) {
         rt::CelWords words = rt::kCelNoStream;
@@ -689,7 +691,7 @@ TwinLights twin_lights(const TwinSetup& setup)
     for (const std::size_t index : setup.emitters) {
         core::at(out.entry_of, index) = lights::kFirstTriangleEntry + static_cast<uint32_t>(set.triangle_powers.size());
         set.triangle_powers.push_back(
-            static_cast<float>(lights::triangle_power(kDiscRadiance, triangle_area(core::at(setup.scene, index)))));
+            static_cast<float>(lights::triangle_power(kDiscRadiance, triangle_area(core::at(setup.scene, index)), 1.0)));
     }
     out.list = lights::build_light_list(set, lights::LightWeights::kPower);
     return out;
@@ -1235,6 +1237,38 @@ void check_device(render::Gpu& gpu, Tally* tally)
             tally->check(false, "the object's disc made");
         }
         release_mesh(gpu, &object_disc);
+        // (round EMIT - an emitter's faces) the disc drawn one-sided: wound with its front up, away from the floor
+        // (rt::kFrontFaceSign - the disc as made), it sends nothing down; turned over, its front facing the floor, it
+        // sends the floor what the two-sided disc does (its luminance from the one face)
+        constexpr uint32_t kOneSidedSeed = 0xE3171000U;
+        for (const bool facing : {false, true}) {
+            std::vector<Triangle> one_sided = disc_triangles();
+            if (facing) {
+                for (Triangle& tri : one_sided) {
+                    std::swap(std::get<1>(tri.corners), std::get<2>(tri.corners));
+                }
+            }
+            SceneMesh disc;
+            if (!make_mesh(gpu, one_sided, true, &disc)) {
+                tally->check(false, "the one-sided disc made");
+                continue;
+            }
+            rt::Material surface;
+            surface.colour = {1.0F, 1.0F, 1.0F, 1.0F};
+            surface.flags = rt::kOpaque;
+            rt::ray_tracing()->set_material(disc.material, surface);
+            const std::array<SceneMesh, 2> with_disc{meshes.front(), disc};
+            // (their own seeds: the later cases' sequences as before the round)
+            const Measured lit = run_batches(gpu, targets, with_disc, eye, overrides, 2, kOneSidedSeed + (facing ? 1U : 0U),
+                                             &read);
+            not_finite += lit.not_finite;
+            tally->check(read && (facing ? within(lit.mean, lit.sigma, got.mean, got.sigma) : lit.mean < 0.01 * got.mean),
+                         text::format("the disc one-sided, its front %s: the floor's direct light %.5f +- %.5f (%s; "
+                                      "two-sided %.5f)",
+                                      facing ? "facing the floor" : "up", lit.mean, lit.sigma,
+                                      facing ? "its front sends: as two-sided" : "its back sends none", got.mean));
+            release_mesh(gpu, &disc);
+        }
     }
 
     // 3. the strategies, every bounce
