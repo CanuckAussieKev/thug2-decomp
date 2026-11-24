@@ -5674,6 +5674,21 @@ through the tone curve at that EV. `pt off` ends it.
   reaches - its difference from the whole is the further bounces' share). The light list's log
   line gives the owned lamps' model flux beside the listed triangles' measured power. `rt probe` prints the light store's
   terms in the unit (%g), each nearby vertex's light as drawn and its lamp links (lamp, weight, share of L).
+- **The realtime copy before the camera's exposure is set by hand** (round BOUNCE). The run's EV100 (given, or the
+  meter's) is set as the camera's exposure only once the realtime frame has been copied, and a run started again by a
+  lighting change keeps its copy. Before, the exposure was set when the run started and the copy taken a frame or more
+  later: the frame's pre-exposure had already jumped to the hand-set EV, while Ray Reconstruction's history (it doesn't
+  rescale its history to a new pre-exposure) still held the frames before it - the copy divided by the new pre-exposure.
+  With an EV100 far from the meter's the whole-scene ratio was wrong by up to 2 x: Boston's bank at night (metered EV100
+  2.82) 0.515 of the reference with `pt ref 256 0.89`, 0.968 metered - the same reference; after the change 0.960 with
+  0.89. The rounds MATALB and EMIT measured with EV100 0.89 at every spot: their "bounce light half the reference's"
+  (BO, BA at night) and "Australia's pool 1.11 x" were this, not the light.
+- **The procedure** (`tools/game/scene_bias.ts`, round BOUNCE): NO's street, BO p1, BA's fountain, AU's lamp pool and
+  Training (the user's spot) at noon and at night - the level loaded at its time of day, the skater teleported, the
+  camera held, `console measure on`, 500 frames, `pt ref 256` at the meter's EV100; the log's mean-luma ratio and a
+  trimmed one (pixels over 20 x the reference's 99th percentile left out of both). `scene_bias.ts terms <spot>` takes a
+  spot apart term by term (each debug view's 8 frames averaged, the references' `direct`, `bounces 2`, `nee`, `bsdf`,
+  `only emit bounces 0`...); `terms-analyse` prints the table.
 - What the reference showed by night in Boston (relit data v14, full moon, EV100 fixed): the frame 3.6 - 29 x the
   reference, varying from one load to the next. Two causes on the realtime side: (1) the meshes met after the
   lighting's cut (the night state's) kept the bake's afternoon bounce B (~0.1 in the unit), and the bounce passes
@@ -5956,7 +5971,7 @@ traced sky K and bounce B) and of the occlusion and reflections passes. The shad
     0.972 -> 0.981) - the rest of those frames' gap to the reference is not missing bounces.
 - Check: thug2_vulkan_restir_gi_check - the reference's indirect light (round MB: its image of every bounce less its
   one-bounce image of the disc, the emitters and the lamps) within 2 % on a still scene (glossy; smooth within 3 %), a camera swapped
-  between two views, a red wall's bleeding (red and green within 2 %), a room lit through a window in its roof (every
+  between two views, a red wall's bleeding (red and green within 2 %), (round BOUNCE) the same wall behind a row of posts (the temporal history's samples often unseen from the pixel: within 3 % - dropping such a sample stays; keeping it, as ReSTIR DI does, measured +13.5 %), a room lit through a window in its roof (every
   bounce within 3 %; without the cache under -10 %; the camera circling - within 3 %, each frame's mean steady), a white
   floor under an even sky (energy), no NaN.
 

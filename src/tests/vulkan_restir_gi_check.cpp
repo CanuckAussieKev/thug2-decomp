@@ -12,6 +12,8 @@
 //   - a room lit only through a window in its roof (the sun's patch on its floor, the sky through it): within 3 % of the
 //     reference's every bounce (round MB: the radiance cache's further bounces - without it under -10 %); the camera
 //     circling in it: within 3 %, each frame's mean as steady as a still camera's (under 2 x + 1 %);
+//   - (round BOUNCE) the red wall behind a row of posts (the temporal history's samples often unseen from the pixel):
+//     the floor's indirect light within 3 % of the reference's;
 //   - energy: a white floor under an even sky (a furnace's half: nothing to bounce off) - the reference's within 2 %
 //     and the sky's radiance within 3 % (the light model's albedo with its multiple-scattering compensation: 1);
 //   - (round CW) a layer painted on that floor (alpha-blended, 0.8 units over it): the paint is the pixel's surface - the
@@ -95,6 +97,11 @@ constexpr float kDiscRadiance = 4.0F;
 constexpr double kWallZ = 260.0;
 constexpr double kWallHalf = 400.0;
 constexpr double kWallHeight = 160.0;
+constexpr int kPosts = 15;             // (round BOUNCE) the posts' row
+constexpr double kPostsHalf = 350.0;
+constexpr double kPostsZ = 170.0;
+constexpr double kPostHalf = 8.0;
+constexpr double kPostHeight = 140.0;
 constexpr double kRoomHalf = 400.0;
 constexpr double kRoomHeight = 300.0;
 constexpr double kWindowHalf = 120.0;
@@ -245,6 +252,28 @@ std::vector<Triangle> room_triangles()
     quad(&out, {-r, h, w}, {r, h, w}, {r, h, r}, {-r, h, r});
     quad(&out, {-r, h, -w}, {-w, h, -w}, {-w, h, w}, {-r, h, w});
     quad(&out, {w, h, -w}, {r, h, -w}, {r, h, w}, {w, h, w});
+    return out;
+}
+
+// (round BOUNCE) A row of posts on the floor between the disc's patch and the wall: each pixel's neighbours see other
+// parts of the wall and the disc past the posts - the temporal reuse's history (a neighbour's in its block: permutation)
+// often holds a sample this pixel doesn't see.
+std::vector<Triangle> posts_triangles()
+{
+    std::vector<Triangle> out;
+    for (int i = 0; i < kPosts; ++i) {
+        const double x = -kPostsHalf + (2.0 * kPostsHalf * i / (kPosts - 1));
+        const double a = x - kPostHalf;
+        const double b = x + kPostHalf;
+        const double n = kPostsZ - kPostHalf;
+        const double f = kPostsZ + kPostHalf;
+        const double h = kPostHeight;
+        quad(&out, {a, 0.0, n}, {b, 0.0, n}, {b, h, n}, {a, h, n});
+        quad(&out, {a, 0.0, f}, {b, 0.0, f}, {b, h, f}, {a, h, f});
+        quad(&out, {a, 0.0, n}, {a, 0.0, f}, {a, h, f}, {a, h, n});
+        quad(&out, {b, 0.0, n}, {b, 0.0, f}, {b, h, f}, {b, h, n});
+        quad(&out, {a, h, n}, {b, h, n}, {b, h, f}, {a, h, f});
+    }
     return out;
 }
 
@@ -1370,6 +1399,42 @@ void check_device(render::Gpu& gpu, Tally* tally)
                                       got[0] / std::max(got[1], 1e-12), want[0] / std::max(want[1], 1e-12)));
         }
         for (SceneMesh& mesh : red) {
+            release_mesh(gpu, &mesh);
+        }
+    }
+
+    // 3b. (round BOUNCE) the red wall behind a row of posts: the temporal reuse's history often holds a sample the pixel
+    // doesn't see. Each pixel's candidates are the surfaces its own rays met (seen by construction), so Z counts a
+    // reservoir only where a ray finds the sample seen; a history sample unseen from here is dropped (its W 0, its M
+    // kept). Keeping it instead (RTXDI's discardInvisibleSamples off - right for ReSTIR DI, whose candidates are drawn
+    // on the lights whatever is in the way) measured +13.5 % here and raised Boston's bank by +10 % of the indirect
+    // light: the reservoirs then hold samples their pixels' rays could never have made, and the Z of the spatial reuse
+    // undercounts them. The drop stays; this case keeps it so.
+    text::print("the red wall behind a row of posts (the history's samples often unseen from the pixel):\n");
+    {
+        std::array<SceneMesh, 4> posts{};
+        const bool built = make_mesh(gpu, floor_triangles(), false, &posts.at(0)) &&
+                           make_mesh(gpu, disc_triangles(), true, &posts.at(1)) &&
+                           make_mesh(gpu, wall_triangles(), false, &posts.at(2), kRed) &&
+                           make_mesh(gpu, posts_triangles(), false, &posts.at(3));
+        tally->check(built, "the posts' scene made");
+        if (built) {
+            const std::span<const SceneMesh> scene(posts);
+            const Region floor = floor_region(kEyeA);
+            Lighting grey = lit;
+            grey.sky = {0.3F, 0.3F, 0.3F};
+            grey.sun_light = {1.0F, 1.0F, 1.0F};
+            RunPlan unbiased = plan;
+            unbiased.boiling_filter = false; // (RTXDI's boiling filter is a bias of its own - off: the estimate alone)
+            const Answer r = reference_gi(gpu, targets, scene, kEyeA, grey, floor, kReferenceBatches, &read);
+            const Answer g = restir_gi(gpu, targets, scene, grey, unbiased, floor, &read);
+            not_finite += r.not_finite + g.not_finite;
+            tally->check(read && agrees(g.mean, r.mean, kLooseAgreement),
+                         text::format("the floor's indirect light among the posts %.5f +- %.5f, the reference's %.5f "
+                                      "(%+.2f %%; within 3 %%)",
+                                      g.mean, g.sigma, r.mean, percent(g.mean, r.mean)));
+        }
+        for (SceneMesh& mesh : posts) {
             release_mesh(gpu, &mesh);
         }
     }

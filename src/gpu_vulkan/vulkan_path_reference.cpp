@@ -816,6 +816,7 @@ struct PathState {
     uint32_t wanted = 0;
     float ev100 = 0.0F;
     bool manual_set = false;
+    bool manual_wanted = false; // (round BOUNCE) the run's exposure set by hand once its realtime frame is copied
     bool realtime_taken = false;
     float realtime_exposure = 1.0F; // the frame's pre-exposure the realtime copy holds
     bool saved = false;
@@ -1294,6 +1295,7 @@ void stop_run(PathState& own)
         set_manual_ev100(false, 0.0F);
         own.manual_set = false;
     }
+    own.manual_wanted = false;
     own.running = false;
 }
 
@@ -1927,7 +1929,11 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
         own.saved = false;
         own.saved_stem.clear();
         own.name = checking ? std::string() : request.name;
-        own.realtime_taken = false;
+        // (round BOUNCE) the realtime copy is kept while only the lighting restarts the run (the view and the camera's
+        // exposure as they were): taken again it would be a frame drawn after the hand-set exposure's jump (below)
+        if (asked_again || moved) {
+            own.realtime_taken = false;
+        }
     }
     std::string error;
     if (!ensure_pipelines(state, own.sky_source, own.cloud_map, &error)) {
@@ -2007,8 +2013,12 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
                 ev = camera_ev100(0.0F); // (no meter read yet: the camera's fixed day)
             }
             own.ev100 = ev;
-            set_manual_ev100(true, ev);
-            own.manual_set = true;
+            // (round BOUNCE) the camera's exposure is set by hand only once the realtime frame is copied (below): the
+            // realtime picture's history (Ray Reconstruction's - it doesn't rescale its history to a new pre-exposure)
+            // took several frames to follow the jump, so a copy taken after it held the old frames' light over the new
+            // pre-exposure - Boston's bank at night 0.52 of the reference with EV100 0.89 given, 0.97 metered (the same
+            // reference), every forced-EV whole-scene number of rounds MATALB and EMIT
+            own.manual_wanted = true;
             get_log("pt: reference started - %ux%u, %u samples a pixel, EV100 %.2f; sun %.4g %.4g %.4g per N.L toward "
                     "(%.3f, %.3f, %.3f), radius %.3f degrees%s; sky %s; %u lamps sampled analytically (%u point "
                     "lights), %u "
@@ -2110,6 +2120,10 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
         Memory::transition(commands, colour, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         own.realtime_taken = true;
         own.realtime_exposure = rt::frame_pre_exposure();
+    }
+    if (!checking && own.manual_wanted && own.realtime_taken && !own.manual_set) {
+        set_manual_ev100(true, own.ev100);
+        own.manual_set = true;
     }
     const bool gather = own.phase == ListPhase::kGather;
     if (fresh) {
