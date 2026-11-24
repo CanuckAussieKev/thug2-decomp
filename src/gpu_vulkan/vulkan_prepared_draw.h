@@ -37,6 +37,9 @@ struct SurfaceDescriptors {
     bool has_detail_map = false;
     VkDescriptorBufferInfo detail_block{};
     VkDescriptorImageInfo detail_map{};
+    // (round SUBPIX) a relit draw's emission map (kEmissionMapBinding: the mesh's - rt_emission_map.h -, or blank)
+    bool has_emission = false;
+    VkDescriptorImageInfo emission{};
 };
 
 // A draw's dynamic states (set when they differ from the stream's).
@@ -54,7 +57,7 @@ struct DrawDynamics {
 
 // The images a prepared draw samples that a later emission must find in the layout its descriptors name (the stages'
 // textures, the surface map, the detail texture; null: none, or a texture destroyed since - surface_light_forget_image).
-inline constexpr std::size_t kPreparedImages = kStageCount + 2;
+inline constexpr std::size_t kPreparedImages = kStageCount + 3; // (round SUBPIX: + the emission map)
 
 struct PreparedDraw {
     PipelineKey key{};

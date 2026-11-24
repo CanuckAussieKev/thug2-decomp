@@ -165,6 +165,9 @@ bool settled(std::array<float, 3>* sun, uint64_t* lighting);
 // (added by cel shading - engine/gfx/rt_cel.h) The cel stream of a buffer the mode has relit (its words a vertex,
 // vertex for vertex - the light stream the ray-traced passes read too); null: none - the draws band its vertex colour.
 [[nodiscard]] GpuVertexBuffer* cel_stream(const VertexBufferData* buffer);
+// (round SUBPIX) The emission map the buffer's store's emission is drawn through (rt_record::emission_map_texture), with
+// its cel stream; null: none (it emits nothing).
+[[nodiscard]] GpuTexture* cel_emission(const VertexBufferData* buffer);
 // (the console's `rt probe`) The relit world's vertices within `radius` of `point`: their count and mean baked and
 // relit brightness, and the nearest few's parts (sun, sky, bounce, tint, residual) and colours.
 [[nodiscard]] std::string describe_near(const std::array<float, 3>& point, float radius);

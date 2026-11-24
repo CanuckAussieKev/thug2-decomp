@@ -108,6 +108,7 @@ struct GeometryRecord {
     uint triangles;
     uint vertices;
     uint light_vertices;
+    uint emission_slot;
 };
 layout(set = THUG2_GEOMETRY_SET, binding = THUG2_GEOMETRY_BINDING, scalar) readonly buffer GeometryRecords {
     GeometryRecord geometry_records[];
@@ -124,7 +125,7 @@ GeometryRecord geometry_record(uint instance)
 {
     if (instance >= uint(geometry_records.length())) {
         return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, uvec2(0u), uvec2(0u), 0.0, 0u,
-                              0u, 0u);
+                              0u, 0u, 0u);
     }
     return geometry_records[instance];
 }
@@ -534,6 +535,7 @@ public:
     bool probe_ready(uint64_t ticket, std::vector<rt::ProbeResult>* results) override;
     void probe_forget(uint64_t ticket) override;
     void set_light_stream(rt::MeshId mesh, GpuVertexBuffer* stream) override;
+    void set_emission_map(rt::MeshId mesh, GpuTexture* map) override; // (round SUBPIX)
 };
 
 // (added for the relit mode's moving light) Rays recorded into a frame's work (probe_later), answered once the device
@@ -556,6 +558,7 @@ struct Scene {
     std::unordered_map<rt::MaterialId, float> alpha_refs; // each material's alpha reference (0..1), from set_material
     std::unordered_set<rt::MaterialId> reflective;        // (R5's reflections) the materials with a reflectivity
     std::unordered_map<rt::MeshId, GpuVertexBuffer*> light_streams; // (the light energy audit) set_light_stream's
+    std::unordered_map<rt::MeshId, GpuTexture*> emission_maps;      // (round SUBPIX) set_emission_map's
     std::vector<VkAccelerationStructureInstanceKHR> instance_scratch; // (round PG: write_instances' - reused)
     std::vector<GeometryRecord> row_scratch;
     // (round CPU) write_instances' rows a mesh, made again each frame (`made` its frame) - the map's entries kept from
@@ -1704,6 +1707,10 @@ GeometryRecord geometry_record_of(Backend& state, const Scene& made, const rt::I
             row.light_vertices = static_cast<uint32_t>(light_version.memory.bytes / rt::kCelStreamBytes);
             row.flags |= kGeometryLight;
             row.light_exposure = rt::frame_pre_exposure(); // (round L: the store's physical light x it where it is read)
+            // (round SUBPIX) the emission map its store's emission is read through (its slot taken when it was given)
+            if (const auto map = made.emission_maps.find(given.mesh); map != made.emission_maps.end()) {
+                row.emission_slot = state.materials.slot_of(map->second);
+            }
         }
     }
     return row;
@@ -2141,6 +2148,7 @@ void VulkanRayTracing::remove_mesh(rt::MeshId mesh)
     forget_mesh(state, made, &found->second);
     made.meshes.erase(found);
     made.light_streams.erase(mesh);
+    made.emission_maps.erase(mesh);
 }
 
 void VulkanRayTracing::set_light_stream(rt::MeshId mesh, GpuVertexBuffer* stream)
@@ -2155,6 +2163,24 @@ void VulkanRayTracing::set_light_stream(rt::MeshId mesh, GpuVertexBuffer* stream
         made.light_streams.erase(mesh);
     } else {
         made.light_streams[mesh] = stream;
+    }
+}
+
+void VulkanRayTracing::set_emission_map(rt::MeshId mesh, GpuTexture* map)
+{
+    Backend& state = backend();
+    const std::scoped_lock lock(state.mutex);
+    Scene& made = scene();
+    if (!made.installed || mesh == 0) {
+        return;
+    }
+    if (map == nullptr) {
+        made.emission_maps.erase(mesh);
+        return;
+    }
+    // (its slot taken now - written into the table's set before the frame that reads it)
+    if (state.materials.texture_slot(map) != 0) {
+        made.emission_maps[mesh] = map;
     }
 }
 
@@ -3352,7 +3378,6 @@ std::string_view hit_surface_glsl()
                            std::to_string(rt::material_values(rt::MaterialKind::kPainted).roughness) +
                            ";\nconst float HIT_SURFACE_METAL_F0 = " + std::to_string(kHitMetalF0) +
                            ";\nconst float EMITTER_FRONT_SIGN = " + std::to_string(rt::kFrontFaceSign) + ";\n";
-        text += rt::lamp_texel_glsl(); // (round FG: the bake's lamp-texel test - store_emission)
         text += hit_albedo_glsl();     // (round BAKEALB: the albedo, the relit bake's bounce rays' too)
         text += R"(
 const uint HIT_RELIT_WORLD = 0u;
@@ -3375,12 +3400,21 @@ struct HitSurface {
     float area;
     bool hidden;
 };
-// (round PT4b) The light a surface's store sends at a point: its emission x the texel (linear) - on the lamp texels alone
-// when the store says its lamp is drawn in a texture. hit_surface's `emitted` and hit_emission's: one emission. (Round FG)
-// the lamp texels by the bake's own test (lamp_texel_shown - rt_lights.h lamp_texel_glsl), `alpha` the drawn alpha.
-vec3 store_emission(vec3 emit, vec3 linear, float alpha, uint texels)
+// (round PT4b) The light a surface's store sends at a point: its emission x (round SUBPIX - one emission map) the mesh's
+// emission map at `uv`, level `lod` (engine/gfx/rt_emission_map.h: the lamp texels' linear colour, each level the mean
+// of the emission - a cone-filtered hit sends the footprint's mean, the flux kept), with the material's sampler (its
+// addressing). hit_surface's `emitted` and hit_emission's: one emission - the draws' (ff_shaders.cpp's relit branch) and
+// the bake's (rt_record.cpp emission_texels) through the same map. Before, the lamp-texel test ran on the texel filtered
+// at the cone's level: a footprint with lamp texels among darker ones sent nothing. No map: no emission.
+vec3 store_emission(uint instance, uint id, vec3 emit, vec2 uv, float lod)
 {
-    return lamp_texel_shown(linear, alpha, texels) ? emit * linear : vec3(0.0);
+    uint slot = geometry_record(instance).emission_slot;
+    if (slot == 0u) {
+        return vec3(0.0);
+    }
+    uint chosen = min(material(id).sampler_index, 31u);
+    return emit * textureLod(sampler2D(material_textures[nonuniformEXT(slot)], material_samplers[nonuniformEXT(chosen)]), uv,
+                             lod).rgb;
 }
 // (round EMIT - an emitter's faces) The faces an emitting triangle of material `id` sends its light from: both (2) when
 // the game draws it two-sided (MATERIAL_TWO_SIDED), else the one face the game draws (1 - its front: (b - a) x (c - a)
@@ -3416,7 +3450,9 @@ vec2 hit_uv_of(HitVertices v, vec2 barycentrics)
     }
     return uv;
 }
-bool hit_emission_of(uint instance, uint primitive, uint id, vec2 barycentrics, HitVertices v, out vec3 emitted)
+// (round SUBPIX) ... with the emission map read at `lod` (the light list's emitter power: a sub-triangle's mean)
+bool hit_emission_lod_of(uint instance, uint primitive, uint id, vec2 barycentrics, HitVertices v, float lod,
+                         out vec3 emitted)
 {
     emitted = vec3(0.0);
     Material surface = material(id);
@@ -3442,17 +3478,13 @@ bool hit_emission_of(uint instance, uint primitive, uint id, vec2 barycentrics, 
     if (!(max(emit.r, max(emit.g, emit.b)) > 0.0)) {
         return true; // (store_emission: emit x anything - none)
     }
-    Material m = material(id);
-    vec2 layer_uv[3];
-    for (uint k = 0u; k < 3u; ++k) {
-        uint layer_set = (m.layer_mode[k] >> 8) & 15u;
-        layer_uv[k] = (m.layer_mode[k] & 255u) == 0u ? uv
-                      : (layer_set == 0u || layer_set >= sets ? hit_uv_of(v, barycentrics)
-                                                              : hit_uv_set(instance, primitive, barycentrics, layer_set));
-    }
-    vec4 texel = material_colour_from(id, first, layer_uv, vertex_alpha);
-    emitted = store_emission(emit, linear_from_display(clamp(texel.rgb, 0.0, 1.0)), drawn_alpha, texels);
+    emitted = store_emission(instance, id, emit, uv, lod);
     return true;
+}
+// (round SUBPIX) a point's emission: the map's level 0 (a point on the triangle, as ReSTIR DI samples it)
+bool hit_emission_of(uint instance, uint primitive, uint id, vec2 barycentrics, HitVertices v, out vec3 emitted)
+{
+    return hit_emission_lod_of(instance, primitive, id, barycentrics, v, 0.0, emitted);
 }
 bool hit_emission(uint instance, uint primitive, uint id, vec2 barycentrics, out vec3 emitted)
 {
@@ -3508,6 +3540,7 @@ bool hit_surface_at(uint instance, uint primitive, uint id, vec2 barycentrics, m
     Material surface = material(id);
     vec2 uv = hit_uv_set(instance, primitive, barycentrics, surface.uv_set);
     vec3 linear = hit_texel_at(instance, primitive, id, barycentrics, uv, hit_colour(v, barycentrics).a, a, b, c, cone);
+
     vec3 albedo = material_albedo(id, linear); // (round MATALB: hit_albedo_at's - the composed colour calibrated)
     // (stage 3: the alpha the game draws and tests - material_drawn_alpha -, not x the pass's fixed alpha)
     s.alpha = material_drawn_alpha(id, uv, hit_colour(v, barycentrics).a);
@@ -3527,7 +3560,12 @@ bool hit_surface_at(uint instance, uint primitive, uint id, vec2 barycentrics, m
         // (round MATALB: the albedo the material's alone - the store's tint, the original's colours over the bake's light
         // model, is the original's light, not the surface's; an albedo at most 1 - material_albedo)
         s.base_colour = albedo;
-        s.emitted = store_emission(emit, linear, s.alpha, texels);
+        // (round SUBPIX) the emission map read at the colour texture's level for the cone (the same size: the same level)
+        s.emitted = max(emit.r, max(emit.g, emit.b)) > 0.0
+                        ? store_emission(instance, id, emit, uv,
+                                         hit_cone_level(instance, primitive, surface.texture_slot, surface.uv_set,
+                                                        barycentrics, a, b, c, cone))
+                        : vec3(0.0);
         // (round EMIT) a ray that meets a one-sided emitter from behind sees none of its light (emitter_sides)
         if (emitter_sides(id) < 1.5 && !(emitter_cos(1.0, across, -direction) > 0.0)) {
             s.emitted = vec3(0.0);

@@ -49,6 +49,9 @@ void set_cel_source_locked(Backend& state, const Gpu::CelSource& source);
 // never outlive a buffer it names (a level's meshes freed at its unload while the source still named one, the next
 // level's first draw read the freed buffer's versions - Barcelona's crash, 2026-11-17).
 void cel_forget_buffer_locked(const Buffer* buffer);
+// (round SUBPIX) A texture being destroyed (vulkan_gpu.cpp destroy_texture): the source no longer names it as its emission
+// map.
+void cel_forget_texture_locked(const Texture* texture);
 // Whether the source names a buffer now (the check's).
 [[nodiscard]] bool cel_source_named();
 // (round V - vulkan_surface_light.h) The source named now, kept with a draw kept for the view's shading and named again
@@ -57,6 +60,7 @@ struct CelSourceNamed {
     Buffer* vertices = nullptr;
     VkDeviceSize offset = 0;
     Buffer* stream = nullptr;
+    Texture* emission = nullptr; // (round SUBPIX)
 };
 [[nodiscard]] CelSourceNamed cel_source_now();
 void cel_source_put(const CelSourceNamed& source);
@@ -64,6 +68,8 @@ void cel_source_put(const CelSourceNamed& source);
 // stream for this draw: the named source's when the draw's vertices are its buffer at its offset and the frame's world is
 // relit; null otherwise (render_pc names the source while cel shading or the snow is on).
 [[nodiscard]] Buffer* relit_stream_of(Backend& state, const DrawCall& call);
+// (round SUBPIX) The emission map named with that stream (Gpu::CelSource::emission - rt_emission_map.h); null: none.
+[[nodiscard]] Texture* relit_emission_of(Backend& state, const DrawCall& call);
 // (lighting round A) The relit light store a draw reads its colour from (rt_cel.h kCelColourWord - VertexKey::surface's
 // kVertexRelitColour): the relit world's stream for its vertices, for an unlit 3D draw with vertex colours on a device
 // with the attribute's location; null: the draw keeps its vertex colour.

@@ -41,6 +41,7 @@
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_upscale.h"
+#include "engine/gfx/rt_emission_map.h"
 #include "platform/frame_profile.h"
 #include "platform/run_log.h"
 
@@ -52,6 +53,7 @@ constexpr uint64_t kReportPipeline = 0x52450001U;
 constexpr uint64_t kReportBuffers = 0x52450002U;
 constexpr uint64_t kReportFirst = 0x52450003U;
 constexpr uint64_t kReportList = 0x52450004U;
+constexpr uint64_t kReportSplat = 0x52450005U; // (round SUBPIX)
 
 // The bindings of set 0 (pushed); set 1 the material table.
 constexpr uint32_t kBindingScene = 0;
@@ -78,7 +80,9 @@ constexpr uint32_t kBindingCells = 20;
 constexpr uint32_t kBindingSpecularOut = 21; // (round BR)
 constexpr uint32_t kBindingLightPool = 22;   // (round PF) the presampled pool (vulkan_light_list.h kLightPoolSize)
 constexpr uint32_t kBindingGridPicks = 23;   // (round DO) the light grid's picks (vulkan_light_list.h kLightGridPicks)
-constexpr uint32_t kBindingCount = 24;
+constexpr uint32_t kBindingSplat = 24;       // (round SUBPIX) the emitters' splat: 4 words a pixel (rgb float bits)
+constexpr uint32_t kBindingLayer = 25;       // (round SUBPIX) Ray Reconstruction's transparency layer (rgba16f)
+constexpr uint32_t kBindingCount = 26;
 constexpr uint32_t kMaterialSet = 1;
 
 constexpr uint32_t kGroupSide = 8;
@@ -1454,6 +1458,177 @@ void main()
 // (round PF) The presampled pool's pass (one invocation a slot): a pick of the local group by power and a uniform point
 // on a triangle - local_light_at's - kept for the passes that resample many candidates (vulkan_light_list.h
 // light_pool_read).
+constexpr const char* kSplatBody = R"(
+// (round SUBPIX - emitters smaller than a pixel: engine/gfx/rt_emission_map.h emission_splat_share) PASS_SPLAT: one
+// invocation a listed emitting triangle. Its share of the directly seen emission (by its drawn area in the view's pixels,
+// its corners projected with the view's jittered projection - the raster's own) is splatted: its flux toward the camera -
+// its mean radiance (the emission map at the level of its lattice cells, ten points - the light list's scan's) x its
+// drawn area, in pixels - spread over the pixel footprint round its projected centre with a Gaussian of half a pixel
+// (each pixel's share of it, normalised over the 3 x 3 pixels it covers: the whole flux lands), where a ray from the eye
+// reaches its centre (the camera's solid surfaces and cut-outs block it; see-through ones are the transparency layer's
+// own, drawn over it after). The draws keep the rest (ff_shaders.cpp emission_kept). The stars' technique (round NIGHTSKY):
+// a point Ray Reconstruction keeps - every frame at its true place, its energy conserved.
+// PASS_SPLAT_ADD: the splat added into Ray Reconstruction's transparency layer (alpha kept: it covers nothing).
+#ifdef PASS_SPLAT
+layout(local_size_x = 64) in;
+layout(std430, set = 0, binding = 24) buffer Splat { uint splat[]; };
+const uint SPLAT_SURFACES = 7u;     // (an instance the camera's rays see as a surface: the world, objects, cut-outs ...)
+const uint SPLAT_NOT_DRAWN = 200u;  // (... not a seen-through, light-adding or drawn-apart one - kMaskNoShadow,
+                                    // kMaskAddsLight, kMaskDrawnApart: their draws keep their emission)
+void splat_add(ivec2 p, vec3 v)
+{
+    if (p.x < 0 || p.y < 0 || p.x >= pass.rect.z || p.y >= pass.rect.w) {
+        return;
+    }
+    uint at = (uint(p.y) * uint(pass.rect.z) + uint(p.x)) * 4u;
+    for (uint c = 0u; c < 3u; ++c) {
+        float add = v[c];
+        if (!(add > 0.0)) {
+            continue;
+        }
+        uint old = splat[at + c];
+        for (uint tries = 0u; tries < 64u; ++tries) {
+            uint was = atomicCompSwap(splat[at + c], old, floatBitsToUint(uintBitsToFloat(old) + add));
+            if (was == old) {
+                break;
+            }
+            old = was;
+        }
+    }
+}
+void main()
+{
+    uint e = gl_GlobalInvocationID.x;
+    if (e >= min(emitter_count, LIST_CAPACITY)) {
+        return;
+    }
+    uvec4 entry = emitter_entries[e];
+    uint instance = entry.x;
+    uint primitive = entry.y;
+    if (instance >= LIST_INSTANCES) {
+        return;
+    }
+    ListInstanceWords iw = ListInstanceWords(LIST_INSTANCE_ADDRESS);
+    uint mask = floatBitsToUint(iw.words[instance * 16u + 12u]) >> 24;
+    if ((mask & SPLAT_SURFACES) == 0u || (mask & SPLAT_NOT_DRAWN) != 0u) {
+        return;
+    }
+    HitVertices v;
+    if (!hit_vertices(instance, primitive, v)) {
+        return;
+    }
+    uint id = instance_material(instance);
+    mat4x3 to_world = instance_transform(instance);
+    vec3 a = to_world * vec4(v.position[0], 1.0);
+    vec3 b = to_world * vec4(v.position[1], 1.0);
+    vec3 c = to_world * vec4(v.position[2], 1.0);
+    mat4 to_pixel = inverse(pass.to_world);
+    vec4 qa = to_pixel * vec4(a, 1.0);
+    vec4 qb = to_pixel * vec4(b, 1.0);
+    vec4 qc = to_pixel * vec4(c, 1.0);
+    if (!(qa.w > 0.0) || !(qb.w > 0.0) || !(qc.w > 0.0)) {
+        return; // (a corner behind the eye: no small triangle)
+    }
+    vec2 pa = qa.xy / qa.w;
+    vec2 pb = qb.xy / qb.w;
+    vec2 pc = qc.xy / qc.w;
+    vec2 e1 = pb - pa;
+    vec2 e2 = pc - pa;
+    float drawn = 0.5 * abs(e1.x * e2.y - e1.y * e2.x);
+    float share = emission_splat_share(drawn);
+    if (!(share > 0.0)) {
+        return;
+    }
+    vec3 centre = (a + b + c) * (1.0 / 3.0);
+    vec4 qm = to_pixel * vec4(centre, 1.0);
+    vec2 at = qm.xy / qm.w - vec2(pass.rect.xy);
+    float depth = qm.z / qm.w;
+    if (!(depth >= 0.0 && depth <= 1.0) || at.x < -1.0 || at.y < -1.0 || at.x > float(pass.rect.z) + 1.0 ||
+        at.y > float(pass.rect.w) + 1.0) {
+        return;
+    }
+    vec3 to_eye = pass.eye.xyz - centre;
+    float distance = length(to_eye);
+    if (!(distance > 0.0)) {
+        return;
+    }
+    vec3 dir = to_eye / distance;
+    // (a one-sided emitter seen from behind sends nothing - emitter_sides)
+    if (emitter_sides(id) < 1.5 && !(emitter_cos(1.0, cross(b - a, c - a), dir) > 0.0)) {
+        return;
+    }
+    // (the eye sees its centre: the camera's surfaces and cut-outs before it)
+    float reach = distance - ray_offset(centre);
+    if (reach > 0.0 && ray_blocked(LIGHT_RAYS, pass.eye.xyz, -dir, reach)) {
+        return;
+    }
+    // its mean radiance: the lattice's points, the emission map at a cell's level (the scan's - vulkan_light_list.cpp)
+    const float n = float(TRIANGLE_LATTICE);
+    float lod = 0.0;
+    uint slot = geometry_record(instance).emission_slot;
+    if (slot == 0u) {
+        return;
+    }
+    vec2 size = vec2(textureSize(sampler2D(material_textures[nonuniformEXT(slot)], material_samplers[0]), 0));
+    vec2 du = v.uv[1] - v.uv[0];
+    vec2 dv = v.uv[2] - v.uv[0];
+    float texels = 0.5 * abs(du.x * dv.y - du.y * dv.x) * size.x * size.y / (n * n);
+    lod = texels > 1.0 ? 0.5 * log2(texels) : 0.0;
+    vec3 sum = vec3(0.0);
+    for (uint i = 0u; i < TRIANGLE_LATTICE; ++i) {
+        for (uint j = 0u; i + j < TRIANGLE_LATTICE; ++j) {
+            for (uint turned = 0u; turned < (i + j + 1u < TRIANGLE_LATTICE ? 2u : 1u); ++turned) {
+                float k = turned == 0u ? 1.0 / 3.0 : 2.0 / 3.0;
+                vec3 emitted;
+                if (hit_emission_lod_of(instance, primitive, id, vec2((float(i) + k) / n, (float(j) + k) / n), v, lod,
+                                        emitted)) {
+                    sum += max(emitted, vec3(0.0));
+                }
+            }
+        }
+    }
+    // (in the frame's unit; its flux toward the eye: the radiance x the solid angle - its drawn pixels)
+    vec3 flux = sum / (n * n) * pass.eye.w * drawn * share;
+    if (!(max(flux.r, max(flux.g, flux.b)) > 0.0) || any(isinf(flux)) || any(isnan(flux))) {
+        return;
+    }
+    // spread over the pixels round its place: a Gaussian of half a pixel, each pixel's share by its centre, normalised
+    // over the 3 x 3 (the whole flux lands - the stars' point, round NIGHTSKY)
+    ivec2 middle = ivec2(floor(at));
+    float weights[9];
+    float total = 0.0;
+    for (int k = 0; k < 9; ++k) {
+        vec2 d = vec2(middle + ivec2(k % 3 - 1, k / 3 - 1)) + 0.5 - at;
+        weights[k] = exp(-dot(d, d) * 2.0); // (sigma 0.5: exp(-r^2 / (2 sigma^2)))
+        total += weights[k];
+    }
+    for (int k = 0; k < 9; ++k) {
+        splat_add(middle + ivec2(k % 3 - 1, k / 3 - 1), min(flux * (weights[k] / total), vec3(65504.0)));
+    }
+}
+#endif
+#ifdef PASS_SPLAT_ADD
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(std430, set = 0, binding = 24) readonly buffer Splat { uint splat[]; };
+layout(set = 0, binding = 25, rgba16f) uniform image2D u_layer;
+void main()
+{
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    if (p.x >= pass.rect.z || p.y >= pass.rect.w) {
+        return;
+    }
+    uint at = (uint(p.y) * uint(pass.rect.z) + uint(p.x)) * 4u;
+    vec3 v = vec3(uintBitsToFloat(splat[at]), uintBitsToFloat(splat[at + 1u]), uintBitsToFloat(splat[at + 2u]));
+    if (!(max(v.r, max(v.g, v.b)) > 0.0)) {
+        return;
+    }
+    ivec2 q = p + pass.rect.xy;
+    vec4 layer = imageLoad(u_layer, q);
+    imageStore(u_layer, q, vec4(min(layer.rgb + v, vec3(65504.0)), layer.a));
+}
+#endif
+)";
+
 constexpr const char* kPoolBody = R"(
 layout(local_size_x = 64) in;
 void main()
@@ -1470,7 +1645,7 @@ void main()
 }
 )";
 
-enum class Shader : uint8_t { kScan, kPrimary, kTemporal, kSpatial, kBounds, kCells, kPool };
+enum class Shader : uint8_t { kScan, kPrimary, kTemporal, kSpatial, kBounds, kCells, kPool, kSplat, kSplatAdd };
 
 std::string shader_source(Shader which, bool check)
 {
@@ -1494,6 +1669,8 @@ std::string shader_source(Shader which, bool check)
     case Shader::kSpatial: source += "#define PASS_SPATIAL\n"; break;
     case Shader::kBounds: source += "#define PASS_BOUNDS\n"; break;
     case Shader::kCells: source += "#define PASS_CELLS\n"; break;
+    case Shader::kSplat: source += "#define PASS_SPLAT\n"; break; // (round SUBPIX)
+    case Shader::kSplatAdd: source += "#define PASS_SPLAT_ADD\n"; break;
     case Shader::kScan: break;
     case Shader::kPool: break;
     }
@@ -1524,6 +1701,12 @@ std::string shader_source(Shader which, bool check)
         source += kPoolBody;
     } else if (which == Shader::kScan) {
         source += emitter_scan_glsl();
+    } else if (which == Shader::kSplat || which == Shader::kSplatAdd) {
+        // (round SUBPIX) the camera's light rays' mask (kRestirBody's LIGHT_RAYS) and the split's share
+        source += "const uint LIGHT_RAYS = 15u;\nfloat ray_offset(vec3 p) { return 0.02 + 2.0e-5 * max(abs(p.x), max(abs(p.y), "
+                  "abs(p.z))); }\n";
+        source += rt::emission_splat_glsl();
+        source += kSplatBody;
     } else if (which == Shader::kBounds || which == Shader::kCells) {
         if (which == Shader::kCells) {
             // (round DO) the grid's picks for the list's other readers (vulkan_light_list.h kLightGridPicks) - the pool's
@@ -1688,6 +1871,14 @@ struct RestirState {
     VkPipeline bounds_pass = VK_NULL_HANDLE; // (round PT4c) the light grid's
     VkPipeline cells_pass = VK_NULL_HANDLE;
     VkPipeline pool_pass = VK_NULL_HANDLE; // (round PF) the presampled pool's
+    // (round SUBPIX) the emitters' splat: its passes, its buffer (4 words a pixel of the view) and what it was made for -
+    // the submission, the view's rectangle and its block (the layer's pass reads them)
+    VkPipeline splat_pass = VK_NULL_HANDLE;
+    VkPipeline splat_add_pass = VK_NULL_HANDLE;
+    DeviceBuffer splat;
+    uint64_t splat_serial = 0;
+    std::array<int32_t, 4> splat_rect{};
+    RingSpan splat_block{};
     DeviceBuffer light_pool;
     uint64_t pool_serial = 0;    // the submission its picks were last made in
     uint64_t pool_table = 0;     // ... from this table
@@ -1844,7 +2035,7 @@ bool ensure_scan(Backend& state, std::string* error)
             } else if (binding == kBindingBlock) {
                 type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
             } else if (binding == kBindingDepth || binding == kBindingLampsOut || binding == kBindingLampsOnOut ||
-                       binding == kBindingSpecularOut) {
+                       binding == kBindingSpecularOut || binding == kBindingLayer) {
                 type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
             }
             core::at(bindings, binding) = {.binding = binding,
@@ -1894,7 +2085,8 @@ bool ensure_pipelines(Backend& state, bool check, std::string* error)
     if (!ensure_scan(state, error)) {
         return false;
     }
-    for (auto [pipeline, which] : {std::pair{&own.bounds_pass, Shader::kBounds}, std::pair{&own.cells_pass, Shader::kCells}}) {
+    for (auto [pipeline, which] : {std::pair{&own.bounds_pass, Shader::kBounds}, std::pair{&own.cells_pass, Shader::kCells},
+                                   std::pair{&own.splat_pass, Shader::kSplat}, std::pair{&own.splat_add_pass, Shader::kSplatAdd}}) {
         if (*pipeline == VK_NULL_HANDLE) {
             *pipeline = make_compute(device, own.layout, shader_source(which, false), error);
             if (*pipeline == VK_NULL_HANDLE) {
@@ -2723,6 +2915,11 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     made = made && ensure_buffer(state, &own.shared, pixels * kSharedSurfaceBytes,
                                  storage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, BufferPlace::kDevice);
     const bool sharing = shared_primary_on() && made;
+    // (round SUBPIX) the emitters' splat - Ray Reconstruction's view, its draws splitting their small emitters (the
+    // fragment barycentrics: ff_shaders.cpp emission_kept), the list in use
+    const bool splatting = made && !check && inputs != nullptr && ray_reconstruction_active() &&
+                           state.context.fragment_barycentrics_enabled() && own.list_now >= 0 && !own.triangle_powers.empty() &&
+                           ensure_buffer(state, &own.splat, pixels * 4 * sizeof(uint32_t), storage, BufferPlace::kDevice);
     if (!made) {
         if (first_report(state, kReportBuffers)) {
             get_log("restir: the reservoirs (%ux%u) couldn't be made - the lamps pass lights the lamps", width, height);
@@ -2832,6 +3029,9 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     if (counting) {
         vkCmdFillBuffer(commands, own.counters.buffer, 4 * sizeof(uint32_t), kDiCounts * sizeof(uint32_t), 0);
     }
+    if (splatting) {
+        vkCmdFillBuffer(commands, own.splat.buffer, 0, VK_WHOLE_SIZE, 0); // (round SUBPIX)
+    }
     barrier(commands,
             VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_HOST_BIT,
@@ -2902,6 +3102,10 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         writes.push_back(one);
     };
     add(kBindingScene, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, nullptr, nullptr, &scene_info);
+    const VkDescriptorBufferInfo splat_info = whole(own.splat);
+    if (splatting) {
+        add(kBindingSplat, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &splat_info, nullptr, nullptr); // (round SUBPIX)
+    }
     for (std::size_t k = 0; k < buffers.size(); ++k) {
         add(core::at(kBufferBindings, k),
             core::at(kBufferBindings, k) == kBindingBlock ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
@@ -2964,6 +3168,28 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT);
     }
+    own.splat_serial = 0;
+    if (splatting) {
+        // (round SUBPIX) the listed emitters' small share splatted (kSplatBody); added into the transparency layer when the
+        // view's transparencies are drawn (restir_splat_into_layer)
+        const FrameStep step(state.frames, commands, gpu_markers::section::kDiSpatial);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.splat_pass);
+        vkCmdDispatch(commands, (static_cast<uint32_t>(own.triangle_powers.size()) + kScanGroup - 1) / kScanGroup, 1, 1);
+        barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
+        own.splat_serial = state.frames.serial();
+        own.splat_rect = block.rect;
+        own.splat_block = *block_span;
+        if (first_report(state, kReportSplat)) {
+            get_log("restir: the listed emitters drawn over a few pixels or fewer splatted into Ray Reconstruction's "
+                    "transparency layer (%zu listed; whole up to %.0f drawn pixels, none from %.0f)",
+                    own.triangle_powers.size(), static_cast<double>(rt::kSplatWholeAtMost),
+                    static_cast<double>(rt::kSplatNoneAtLeast));
+        }
+    } else if (!check && inputs != nullptr && ray_reconstruction_active() && !state.context.fragment_barycentrics_enabled() &&
+               first_report(state, kReportSplat)) {
+        get_log("restir: no fragment barycentrics on this device - small emitters are not splatted");
+    }
     if (timed) {
         vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, own.timing.pool, (slot * 2) + 1);
         core::at(own.timing.pending, slot) = state.frames.serial();
@@ -3007,6 +3233,55 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
     return true;
 }
 
+bool restir_splat_pending(const Backend& state)
+{
+    const RestirState& own = restir_state();
+    return own.splat_serial != 0 && own.splat_serial == state.frames.serial() && own.splat_add_pass != VK_NULL_HANDLE;
+}
+
+bool restir_splat_into_layer(Backend& state, Image* layer)
+{
+    RestirState& own = restir_state();
+    if (!restir_splat_pending(state) || layer == nullptr || layer->format != VK_FORMAT_R16G16B16A16_SFLOAT) {
+        return false;
+    }
+    VkCommandBuffer commands = outside_pass(state);
+    Memory::transition(commands, layer, VK_IMAGE_LAYOUT_GENERAL);
+    const VkDescriptorBufferInfo block{.buffer = own.splat_block.buffer, .offset = own.splat_block.offset, .range = sizeof(RestirBlock)};
+    const VkDescriptorBufferInfo splat{.buffer = own.splat.buffer, .offset = 0, .range = VK_WHOLE_SIZE};
+    const VkDescriptorImageInfo image{.sampler = VK_NULL_HANDLE, .imageView = layer->view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+    std::array<VkWriteDescriptorSet, 3> writes{};
+    for (VkWriteDescriptorSet& write : writes) {
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.descriptorCount = 1;
+    }
+    std::get<0>(writes).dstBinding = kBindingBlock;
+    std::get<0>(writes).descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    std::get<0>(writes).pBufferInfo = &block;
+    std::get<1>(writes).dstBinding = kBindingSplat;
+    std::get<1>(writes).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    std::get<1>(writes).pBufferInfo = &splat;
+    std::get<2>(writes).dstBinding = kBindingLayer;
+    std::get<2>(writes).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    std::get<2>(writes).pImageInfo = &image;
+    barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.splat_add_pass);
+    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0, static_cast<uint32_t>(writes.size()),
+                              writes.data());
+    const auto width = static_cast<uint32_t>(std::get<2>(own.splat_rect));
+    const auto height = static_cast<uint32_t>(std::get<3>(own.splat_rect));
+    vkCmdDispatch(commands, (width + kGroupSide - 1) / kGroupSide, (height + kGroupSide - 1) / kGroupSide, 1);
+    barrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT);
+    state.bound = BoundState{};
+    layer->used = state.frames.serial();
+    own.splat_serial = 0; // (added once)
+    return true;
+}
+
 SharedPrimary restir_shared_primary(const Backend& state)
 {
     const SharedPrimary& shared = restir_state().shared_view;
@@ -3031,7 +3306,7 @@ void release_restir_di(Backend& state)
             }
         }
     }
-    for (VkPipeline pipeline : {own.scan, own.bounds_pass, own.cells_pass, own.pool_pass}) {
+    for (VkPipeline pipeline : {own.scan, own.bounds_pass, own.cells_pass, own.pool_pass, own.splat_pass, own.splat_add_pass}) {
         if (pipeline != VK_NULL_HANDLE) {
             vkDestroyPipeline(device, pipeline, nullptr);
         }
@@ -3049,7 +3324,7 @@ void release_restir_di(Backend& state)
                                  &core::at(own.slots, 1),
                                  &own.read_back, &own.lights, &own.lamps, &own.reservoirs_a, &own.reservoirs_b,
                                  &core::at(own.at, 0), &core::at(own.at, 1), &core::at(own.more, 0), &core::at(own.more, 1),
-                                 &own.sums, &own.counters, &own.bounds, &own.cells, &own.grid_picks, &own.light_pool, &own.shared, &own.timing.counts}) {
+                                 &own.sums, &own.counters, &own.bounds, &own.cells, &own.grid_picks, &own.light_pool, &own.shared, &own.timing.counts, &own.splat}) {
         state.memory.destroy_buffer(buffer);
     }
     const RestirOverrides overrides = own.overrides;

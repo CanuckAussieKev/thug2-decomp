@@ -24,7 +24,10 @@
 //     layer of the drawn size: its square shown at its place and not again at its drawn coordinates; one of the
 //     output's size isn't given. (Round NOBIAS2) --rr-probe also: emitters 1 - 2 px wide, lit in every frame or one in
 //     four (smaller than a pixel under the jitter), given in the colour, in the transparency layer or with the
-//     bias-current-colour hint - what Ray Reconstruction keeps of small bright lights seen directly.
+//     bias-current-colour hint - what Ray Reconstruction keeps of small bright lights seen directly. (Round SUBPIX) And
+//     SPLAT: the emitters as the game now gives a lamp smaller than a few pixels (vulkan_restir_di.cpp's splat pass) -
+//     their flux in the transparency layer every frame, a Gaussian of half a pixel round their place in the jittered
+//     frame, the floor under them in the colour.
 //   thug2_vulkan_upscale_check [--device N] [--display N] [--no-validation] [--dlss] [--rr-probe] [--quality ...]
 //                              [--save <folder>] (the round trip's pictures as .ppm)
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan or no upscaler for it.
@@ -1182,7 +1185,10 @@ struct RrScene {
     float layer_light = 0.0F;
     bool layer_whole = false;
     // (round NOBIAS2) where the emitters' light is given: 0 in the colour, 1 in the transparency layer (alpha 0: added
-    // over the surface, not denoised), 2 in the colour with the bias-current-colour hint at 0.9 on them
+    // over the surface, not denoised), 2 in the colour with the bias-current-colour hint at 0.9 on them; (round SUBPIX)
+    // 3 splatted - the emitter's flux (its value x its area) in the layer, a Gaussian of half a pixel round its centre
+    // where the frame's jitter puts it, normalised over the 3 x 3 pixels round it (the splat pass's), every frame; the
+    // floor's light under it in the colour
     uint32_t route = 0;
     // (round NOBIAS2) an emitter smaller than a pixel under the jitter: lit one frame in `sparse` at `sparse` x its value
     // (the same light on average); the output then the mean of the last `sparse` frames
@@ -1297,11 +1303,48 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
     std::size_t count_in = 0;
     float scale = 1.0F;
     uint32_t made_frames = 0;
+    std::array<float, 2> jitter_now{}; // (round SUBPIX: the frame's jitter, for the splat's place)
     const auto make_colour = [&]() {
         const bool lit_now = (made_frames++ % scene.sparse) == 0;
+        if (scene.route == 3) {
+            std::ranges::fill(layer, 0.0F);
+            for (const auto& corner : emitters) {
+                // (a sample offset by the jitter sees the scene moved the other way: its place in this frame's pixels)
+                const double cx = static_cast<double>(corner[0]) + half_patch - static_cast<double>(jitter_now[0]);
+                const double cy = static_cast<double>(corner[1]) + half_patch - static_cast<double>(jitter_now[1]);
+                const double flux = static_cast<double>(scene.emitter * scale) * static_cast<double>(scene.patch * scene.patch);
+                const auto mx = static_cast<int64_t>(std::floor(cx));
+                const auto my = static_cast<int64_t>(std::floor(cy));
+                std::array<double, 9> weights{};
+                double total = 0.0;
+                for (std::size_t k = 0; k < 9; ++k) {
+                    const double dx = static_cast<double>(mx + (static_cast<int64_t>(k % 3) - 1)) + 0.5 - cx;
+                    const double dy = static_cast<double>(my + (static_cast<int64_t>(k / 3) - 1)) + 0.5 - cy;
+                    core::at(weights, k) = std::exp(-2.0 * ((dx * dx) + (dy * dy)));
+                    total += core::at(weights, k);
+                }
+                for (std::size_t k = 0; k < 9; ++k) {
+                    const int64_t x = mx + (static_cast<int64_t>(k % 3) - 1);
+                    const int64_t y = my + (static_cast<int64_t>(k / 3) - 1);
+                    if (x < 0 || y < 0 || x >= static_cast<int64_t>(width) || y >= static_cast<int64_t>(height)) {
+                        continue;
+                    }
+                    const std::size_t at = ((static_cast<std::size_t>(y) * layer_width) + static_cast<std::size_t>(x)) * 4;
+                    for (std::size_t channel = 0; channel < 3; ++channel) {
+                        core::at(layer, at + channel) += static_cast<float>(flux * core::at(weights, k) / total);
+                    }
+                }
+            }
+        }
         for (std::size_t index = 0; index < pixels; ++index) {
             float value = core::at(lit, index) * scale;
-            if (core::at(emitting, index) != 0) {
+            if (scene.route == 3 && core::at(emitting, index) != 0) {
+                // (the floor's own light under the splatted emitter)
+                const auto x = static_cast<uint32_t>(index % width);
+                const auto y = static_cast<uint32_t>(index / width);
+                value = ((((x / kRrChecker) + (y / kRrChecker)) % 2U) == 0U ? kRrAlbedoDark : kRrAlbedoLight) * scene.level * scale;
+            }
+            if (core::at(emitting, index) != 0 && scene.route != 3) {
                 value = lit_now ? value * static_cast<float>(scene.sparse) : 0.0F;
             }
             if (scene.noisy && core::at(emitting, index) == 0) {
@@ -1380,10 +1423,13 @@ RrResult rr_floor(render::vulkan::Backend& state, const RrScene& scene)
                 scale *= scene.drift;
                 make_colour();
                 ok = rr_fill(state, &images.colour, colour);
-            } else if ((scene.noisy || scene.sparse > 1) && frame_index > 0) {
+            } else if ((scene.noisy || scene.sparse > 1 || scene.route == 3) && frame_index > 0) {
+                if (scene.route == 3) {
+                    jitter_now = render::vulkan::upscale_jitter(static_cast<uint32_t>(frame_index) % phases, phases);
+                }
                 make_colour();
                 ok = rr_fill(state, &images.colour, colour);
-                if (scene.route == 1) {
+                if (scene.route == 1 || scene.route == 3) {
                     ok = ok && rr_fill(state, &images.layer, layer);
                 }
             }
@@ -1507,7 +1553,7 @@ void probe_reconstruction(render::vulkan::Backend& state)
         RrScene scene;
     };
     const float old_grey = kRrCameraGrey * std::exp2(-2.8F);
-    const std::array<Probe, 42> probes{{
+    const std::array<Probe, 46> probes{{
         {"flat 0.18, pre-exposure x 1.01 a frame", {.level = kRrCameraGrey, .drift = 1.01F}},
         {"flat 0.18, pre-exposure x 1/1.01 a frame", {.level = kRrCameraGrey, .drift = 1.0F / 1.01F}},
         {"noisy 0.18, pre-exposure x 1.01 a frame", {.level = kRrCameraGrey, .noisy = true, .drift = 1.01F}},
@@ -1555,12 +1601,23 @@ void probe_reconstruction(render::vulkan::Backend& state)
         {"flat 0.18, 40 2 px emitters 100 REACTIVE", {.level = kRrCameraGrey, .emitter = 100.0F, .patch = 2, .spots = 40, .route = 2}},
         {"flat 0.18, 40 1 px emitters 100 REACTIVE", {.level = kRrCameraGrey, .emitter = 100.0F, .patch = 1, .spots = 40, .route = 2}},
         {"noisy 0.05, 40 2 px emitters 100 1 in 4 REACTIVE", {.level = 0.05F, .emitter = 100.0F, .patch = 2, .spots = 40, .noisy = true, .route = 2, .sparse = 4}},
+        // (round SUBPIX) as the splat pass gives them (vulkan_restir_di.cpp): what Ray Reconstruction keeps
+        {"flat 0.18, 40 1 px emitters 100 SPLAT", {.level = kRrCameraGrey, .emitter = 100.0F, .patch = 1, .spots = 40, .route = 3}},
+        {"flat 0.18, 40 2 px emitters 100 SPLAT", {.level = kRrCameraGrey, .emitter = 100.0F, .patch = 2, .spots = 40, .route = 3}},
+        {"noisy 0.05, 40 1 px emitters 100 SPLAT", {.level = 0.05F, .emitter = 100.0F, .patch = 1, .spots = 40, .noisy = true, .route = 3}},
+        {"noisy 0.05, 40 2 px emitters 100 SPLAT", {.level = 0.05F, .emitter = 100.0F, .patch = 2, .spots = 40, .noisy = true, .route = 3}},
     }};
     for (const Probe& probe : probes) {
         const RrResult result = rr_floor(state, probe.scene);
-        text::print("  probe %-52s floor in %.5f out %.5f: out / in %.3f; frame %.3f, near the emitters %.3f%s\n", probe.name,
-                    result.floor_in, result.floor_out, rr_kept(result), rr_ratio(result.frame_out, result.frame_in),
-                    rr_ratio(result.near_out, result.near_in), result.finite ? "" : " (NOT FINITE)");
+        // (round SUBPIX) the emitters' own light kept: the frame's light over the floor's, out / in (a splat's spread
+        // reaches past the 1 px emitters' near window)
+        const double emitters_in = result.frame_in - result.floor_in;
+        text::print("  probe %-52s floor in %.5f out %.5f: out / in %.3f; frame %.3f, near the emitters %.3f, the emitters' "
+                    "light %.3f%s\n",
+                    probe.name, result.floor_in, result.floor_out, rr_kept(result), rr_ratio(result.frame_out, result.frame_in),
+                    rr_ratio(result.near_out, result.near_in),
+                    emitters_in > 1e-9 ? (result.frame_out - result.floor_out) / emitters_in : 0.0,
+                    result.finite ? "" : " (NOT FINITE)");
     }
 }
 

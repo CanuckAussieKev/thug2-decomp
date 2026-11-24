@@ -56,6 +56,9 @@ constexpr uint32_t kPaintPlaceBinding = 21;    // ... and the painted places alo
 // draws; after the paint's)
 constexpr uint32_t kWetUniformsBinding = 22; // WetUniforms (vulkan_rain.cpp)
 constexpr uint32_t kWetMapBinding = 23;      // the precipitation occlusion map (RG32UI - vulkan_precip.h)
+// (NOT ORIGINAL - round SUBPIX) a relit surface's emission map (engine/gfx/rt_emission_map.h - its light store's emission is
+// drawn through it, sampled as stage 0's texture is): read only by keys with kSurfaceRelit (pushed only for their draws)
+constexpr uint32_t kEmissionMapBinding = 24;
 // (NOT ORIGINAL - round V, per-surface lighting: vulkan_surface_light.h) the surface's light inputs, made per pixel of
 // the view after its prepass: read only by keys with FragmentKey::light's kLightInputs / kLightShare / kLightFront.
 // (Round FL) They are the view's, the same for every draw: descriptor set 1 (kLightInputsSet), one set a view bound once

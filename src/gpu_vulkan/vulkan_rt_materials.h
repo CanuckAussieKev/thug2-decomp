@@ -213,6 +213,9 @@ public:
 
     [[nodiscard]] VkDescriptorSetLayout layout() const { return layout_; }
     [[nodiscard]] VkDescriptorSet descriptor_set() const { return current_.set; }
+    // (round SUBPIX) A texture's slot, taken when it has none - a mesh's emission map (vulkan_rt_scene.cpp's geometry rows
+    // name it: GeometryRecord::emission_slot); 0 when every slot is used or the table isn't made.
+    [[nodiscard]] uint32_t texture_slot(GpuTexture* texture);
 
     // For the checks.
     [[nodiscard]] uint32_t texture_slots() const { return slot_count_; }

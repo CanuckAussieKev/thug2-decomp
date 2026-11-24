@@ -2342,6 +2342,32 @@ evidence") and from the frame's point lights that were on at the bake's time - s
   the relit surfaces' shading (ff_shaders) and the ray-traced hit surface (`store_emission`). The shading's own test
   before (any texel whose brightest channel passed 0.6 - 0.7) spread the lamp's luminance over every pale texel of the
   surface.
+- **One emission map** (round SUBPIX, engine/gfx/rt_emission_map.h; relit data v23): the test runs once, at full
+  resolution: each emitting mesh's first texture becomes an emission map under the mesh's code - level 0 the texel's
+  linear colour where the test passes on it (its colour and its own alpha), 0 elsewhere; every further level the box mean
+  of the one above, so a mip holds the mean emission of its footprint (flux kept at every level, as the emissive mips
+  of shipping engines are made). A surface emits its store's luminance x that map, read by every consumer through it:
+  the draws (ff_shaders' relit branch - kEmissionMapBinding, sampled as stage 0 is, at the raster's mip), the rays
+  (vulkan_rt_scene.cpp `store_emission` - GeometryRecord::emission_slot, at the ray cone's level: ReSTIR GI's and the
+  reflections' filtered hits; level 0 for a point - ReSTIR DI's targets, the path reference), the light list's power
+  (the scan reads each lattice cell's mean) and the bake (rt_record.cpp `emission_texels`: the drawn area the flux is
+  spread over). Before, both renderers tested the filtered texel: a footprint with lamp texels among darker ones emitted
+  nothing - the flux the bake conserves at level 0 was lost at distance and in every cone-filtered hit. Neither the
+  material's colour nor the vertex alpha enters the emission (a texture-space map holds neither; the bake conserves the
+  flux under the same definition).
+- **Emitters smaller than a pixel** (round SUBPIX, rt_emission_map.h `emission_splat_share`): under Ray Reconstruction
+  an emitting triangle drawn over a pixel or two is hit by the raster's one sample in some jitter phases only - a firefly
+  RR drops (round NOBIAS2's probe: 0.43 of a 1-pixel emitter's light kept, 0.02 of one lit one frame in four). Its
+  directly seen light is split by its drawn area: whole at most 2 pixels, none from 8, log-linear between - the draws
+  keep (1 - share) (their fragment's barycentric derivatives give the triangle's drawn area: VK_KHR_fragment_shader_
+  barycentric), and ReSTIR DI's splat pass (vulkan_restir_di.cpp kSplatBody) projects each listed emitting triangle with
+  the view's jittered projection, takes the same share of its flux toward the eye (its mean radiance - the map at its
+  lattice cells' level - x its drawn pixels) where a ray from the eye reaches its centre, and spreads it as a Gaussian of
+  half a pixel round its true place, normalised over the 3 x 3 pixels it covers, into RR's transparency layer every
+  frame (NIGHTSKY's stars: a flux-conserving point the upscaler keeps; the layer is upscaled, not denoised). The layer
+  is made for the view whenever there is a splat; the transparencies are drawn over it. Probe (thug2_vulkan_upscale_check
+  --rr-probe, SPLAT): 1.00 of 1- and 2-pixel emitters' light kept, flat or noisy. Seen-through, light-adding and
+  drawn-apart instances keep their own emission (their draws are the layer's already).
 - **Its strength** (rt_relit.h `relit_lamp_models`, `RelitLampSource::kGameLight`): a light (or its head) the bake can't
   tell takes its fixture's model at full brightness - the kind from its own colour, shape and place (lamp_fixtures.h
   `fixture_of`: sodium / filament / white by its colour temperature, neon or sign when saturated, roofed or not, a

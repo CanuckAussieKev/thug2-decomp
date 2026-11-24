@@ -37,6 +37,8 @@
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_display.h"
+#include "engine/gfx/rt_emission_map.h"
+#include "engine/gfx/relit_data.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/rt_apart.h"
@@ -155,6 +157,13 @@ struct State {
     // level - every mesh with a lamp drawn in a texture decoded its texture again when the lamps first switched on (BO
     // at dusk: a 1 - 2 s stall of the main loop)
     std::unordered_map<const void*, float> lamp_medians;
+    // (round SUBPIX) the emission maps made (emission_map_texture): one a texture and code, shared by the meshes that
+    // hold a reference (their texture, their code - the key - and how many hold it)
+    struct EmissionMap {
+        GpuTexture* map = nullptr;
+        uint32_t users = 0;
+    };
+    std::map<std::pair<const void*, uint32_t>, EmissionMap> emission_maps;
     std::unordered_set<const VertexBufferData*> written; // since the last record
     // (round PT-B) each vertex buffer's least vertex alpha (least_vertex_alpha), read when first asked after the buffer
     // was last written (its colours too)
@@ -2713,6 +2722,51 @@ uint8_t lamp_texel_code_of(const MeshRef* mesh)
     return rt::lamp_texel_code(rt::kTexelOverTexture * found->second, solid_only);
 }
 
+GpuTexture* emission_map_texture(const MeshRef* mesh, uint32_t code)
+{
+    const MaterialRef* material = mesh != nullptr ? mesh->material() : nullptr;
+    const TextureImage* texture = material != nullptr ? core::at(material->textures(), 0) : nullptr;
+    GpuTexture* const colour = texture != nullptr ? texture->texture : nullptr;
+    State& st = state();
+    const auto [found, made] = st.emission_maps.try_emplace({colour, code & 0xFFU});
+    State::EmissionMap& entry = found->second;
+    if (made) {
+        texel::Image image;
+        if (colour != nullptr) {
+            decode_first_level(colour, &image);
+        }
+        // (a texture that can't be read draws as the white of an untextured surface - the bake reads it so too)
+        entry.map = rt::emission_map_texture(gpu(), rt::emission_map(image, code & 0xFFU));
+        if (entry.map != nullptr) {
+            get_log("rt: emission map %ux%u (code %u)%s", image.empty() ? 1U : image.width, image.empty() ? 1U : image.height,
+                    code & 0xFFU, image.empty() ? " - no texture read: white" : "");
+        }
+    }
+    if (entry.map == nullptr) {
+        st.emission_maps.erase(found);
+        return nullptr;
+    }
+    ++entry.users;
+    return entry.map;
+}
+
+void release_emission_map(GpuTexture* map)
+{
+    if (map == nullptr) {
+        return;
+    }
+    State& st = state();
+    for (auto at = st.emission_maps.begin(); at != st.emission_maps.end(); ++at) {
+        if (at->second.map == map) {
+            if (--at->second.users == 0) {
+                gpu().release_texture(map);
+                st.emission_maps.erase(at);
+            }
+            return;
+        }
+    }
+}
+
 std::vector<std::array<float, 3>> emission_texels(std::span<const EmissionTexelQuery> queries)
 {
     std::vector<std::array<float, 3>> out(queries.size(), std::array<float, 3>{1.0F, 1.0F, 1.0F});
@@ -2724,7 +2778,6 @@ std::vector<std::array<float, 3>> emission_texels(std::span<const EmissionTexelQ
     struct Read {
         bool ok = false;
         std::vector<MeshTriangles> triangles;
-        std::array<float, 4> pass{1.0F, 1.0F, 1.0F, 1.0F};
         const TextureLook* look = nullptr;
         uint8_t code = 0;
     };
@@ -2732,7 +2785,6 @@ std::vector<std::array<float, 3>> emission_texels(std::span<const EmissionTexelQ
     std::unordered_map<const void*, TextureLook> looks;
     // (the points of a grid inside the triangle, off its edges - lamp_texels' kind, finer: kSide x (kSide + 1) / 2)
     constexpr uint32_t kSide = 8;
-    constexpr float kByte = 1.0F / 255.0F;
     for (std::size_t qi = 0; qi < queries.size(); ++qi) {
         const EmissionTexelQuery& query = core::at(queries, qi);
         const auto mesh_at = by_id.find(query.mesh);
@@ -2747,7 +2799,6 @@ std::vector<std::array<float, 3>> emission_texels(std::span<const EmissionTexelQ
             const auto entry = material != nullptr ? st.materials.find(material) : st.materials.end();
             read.ok = entry != st.materials.end() && mesh_triangles(mesh, false, true, &read.triangles);
             if (read.ok) {
-                read.pass = entry->second.material.colour;
                 const TextureLook& look = texture_look(material, &looks);
                 read.look = look.image.empty() ? nullptr : &look;
                 read.code = lamp_texel_code_of(mesh);
@@ -2779,22 +2830,12 @@ std::vector<std::array<float, 3>> emission_texels(std::span<const EmissionTexelQ
                     texel = read.look->image.at(u, v);
                 }
                 ++samples;
-                // (the colour as drawn: the texel x the material's colour - ff_shaders.cpp surface_texel, the rays'
-                // hit_texel_at -, linear; its alpha the drawn alpha the lamp-texel test reads)
-                std::array<float, 3> linear{};
+                // (round SUBPIX - one emission definition) the emission map's level 0 at the point (rt_emission_map.h
+                // emission_texel: the texel alone, its colour and its own alpha, under the mesh's code) - what the draws
+                // and the rays read, filtered, through the same map
+                const std::array<float, 3> emitted = rt::emission_texel(texel, code);
                 for (std::size_t k = 0; k < 3; ++k) {
-                    core::at(linear, k) = rt::linear_from_display(
-                        std::clamp(static_cast<float>(core::at(texel, k)) * kByte * core::at(read.pass, k), 0.0F, 1.0F));
-                }
-                // (the drawn alpha: the texel's x the vertex's, doubled - the game's pixel programs' 2 x v0.a x t0.a)
-                const float vertex_alpha = (a * tris.alpha(std::get<0>(query.corner))) +
-                                           (b * tris.alpha(std::get<1>(query.corner))) +
-                                           (c * tris.alpha(std::get<2>(query.corner)));
-                const float alpha = std::clamp(static_cast<float>(std::get<3>(texel)) * kByte * vertex_alpha, 0.0F, 1.0F);
-                if (rt::lamp_texel_coded(linear, alpha, code)) {
-                    for (std::size_t k = 0; k < 3; ++k) {
-                        core::at(sum, k) += static_cast<double>(core::at(linear, k));
-                    }
+                    core::at(sum, k) += static_cast<double>(core::at(emitted, k));
                 }
             }
         }

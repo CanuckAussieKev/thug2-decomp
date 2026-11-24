@@ -134,6 +134,7 @@ struct BoundState {
     VkDescriptorBufferInfo surface_block{};
     VkDescriptorBufferInfo pushed_surface_block{};
     VkDescriptorImageInfo pushed_surface_map{};
+    VkDescriptorImageInfo pushed_emission{}; // (round SUBPIX: a relit draw's emission map)
     bool surface_kept = false;
     bool surface_pushed = false;
     // (NOT ORIGINAL - round V; round FL: a set of its own) the view's light inputs' descriptor set bound (set 1)

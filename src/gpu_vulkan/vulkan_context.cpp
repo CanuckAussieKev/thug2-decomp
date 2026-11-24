@@ -570,6 +570,9 @@ bool Context::create_device()
     queries.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
     VkPhysicalDeviceOpacityMicromapFeaturesEXT micromaps{};
     micromaps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT;
+    VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentrics{};
+    barycentrics.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR;
+    fragment_barycentrics_ = false;
     ray_tracing_ = false;
     opacity_micromaps_ = false;
     opacity_micromap_levels_ = 0;
@@ -597,6 +600,14 @@ bool Context::create_device()
                 micromaps.micromap = VK_TRUE;
                 queries.pNext = &micromaps;
                 opacity_micromaps_ = true;
+            }
+            // (round SUBPIX: the draws' emitters split by their drawn area - rt_emission_map.h emission_splat_share)
+            if (fragment_barycentrics_offered(physical_device_)) {
+                extensions.push_back(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
+                barycentrics.fragmentShaderBarycentric = VK_TRUE;
+                barycentrics.pNext = queries.pNext;
+                queries.pNext = &barycentrics;
+                fragment_barycentrics_ = true;
             }
             // (ray-traced shadows trace each sample of a multisampled target: vulkan_rt_shadows.h)
             enabled_features_.sampleRateShading = offered.sampleRateShading;
@@ -1068,6 +1079,21 @@ VkResult Context::queue_present(uint32_t image)
 VkImage Context::swapchain_image(uint32_t image) const { return core::at(images_, image); }
 
 VkSemaphore Context::present_semaphore(uint32_t image) const { return core::at(presented_, image); }
+
+// NOT ORIGINAL - (round SUBPIX) VK_KHR_fragment_shader_barycentric and its feature offered.
+bool fragment_barycentrics_offered(VkPhysicalDevice device)
+{
+    if (!has_extension(device_extensions(device), VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME)) {
+        return false;
+    }
+    VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR features{};
+    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR;
+    VkPhysicalDeviceFeatures2 asked{};
+    asked.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    asked.pNext = &features;
+    vkGetPhysicalDeviceFeatures2(device, &asked);
+    return features.fragmentShaderBarycentric != VK_FALSE;
+}
 
 // NOT ORIGINAL - (round OM) VK_EXT_opacity_micromap and its micromap feature offered, with 4-state micromaps of at least
 // level 2 (16 micro-triangles: a word a triangle - vulkan_rt_micromaps.h); `levels` the finest level offered.

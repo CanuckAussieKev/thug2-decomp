@@ -64,6 +64,8 @@
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_display.h"
+#include "engine/gfx/rt_emission_map.h"
+#include "engine/gfx/texel_decode.h"
 #include "engine/gfx/rt_light_list.h"
 #include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_lights.h"
@@ -552,6 +554,61 @@ void check_sources(Tally* tally)
                                   "%zu taken beyond the floor's step; a pale facade's stone and mortar dark, its lamp's "
                                   "white lit; a blended lamp's solid texels alone",
                                   tried, refused, over));
+    }
+    {
+        // (round SUBPIX - one emission map) a panel of lamp dots - one lamp texel in 64 on a dark texture: its emission
+        // map's every level holds level 0's mean (the flux kept at any distance), the 8 x 8 level a dot's whole emission
+        // spread over each texel; the old rule - the lamp-texel test on the texel filtered to that level - emitted nothing
+        // there. A blended surface's map: only the solid dots.
+        constexpr uint32_t kSide = 64;
+        constexpr uint32_t kEvery = 8;
+        render::texel::Image panel;
+        panel.width = kSide;
+        panel.height = kSide;
+        for (uint32_t y = 0; y < kSide; ++y) {
+            for (uint32_t x = 0; x < kSide; ++x) {
+                const bool dot = x % kEvery == 3 && y % kEvery == 5;
+                const auto alpha = static_cast<uint8_t>(dot && x % (2 * kEvery) == 3 ? 255 : (dot ? 40 : 255));
+                panel.texels.push_back(dot ? std::array<uint8_t, 4>{255, 250, 240, alpha} : std::array<uint8_t, 4>{40, 40, 40, 255});
+            }
+        }
+        const float median = static_cast<float>(rt::linear_from_display(40.0 / 255.0));
+        const uint8_t code = rt::lamp_texel_code(rt::kTexelOverTexture * median, false);
+        const std::vector<rt::EmissionLevel> map = rt::emission_map(panel, code);
+        const std::array<float, 3> mean = rt::emission_mean(map.front());
+        double worst = 0.0;
+        for (const rt::EmissionLevel& level : map) {
+            const std::array<float, 3> at = rt::emission_mean(level);
+            for (std::size_t k = 0; k < 3; ++k) {
+                worst = std::max(worst, std::abs(static_cast<double>(at[k]) / static_cast<double>(mean[k]) - 1.0));
+            }
+        }
+        const rt::EmissionLevel& eight = core::at(map, 3);
+        double spread = 0.0;
+        for (const std::array<float, 3>& texel : eight.texels) {
+            spread = std::max(spread, std::abs(static_cast<double>(texel[1]) / static_cast<double>(mean[1]) - 1.0));
+        }
+        // the old rule at that level: the texels' display-referred mean (a mip of the game's texture) tested
+        const float filtered = (63.0F * (40.0F / 255.0F) + (250.0F / 255.0F)) / 64.0F;
+        const float lin = static_cast<float>(rt::linear_from_display(static_cast<double>(filtered)));
+        const bool old_lit = rt::lamp_texel_coded({lin, lin, lin}, 1.0F, code);
+        const std::array<float, 3> solid =
+            rt::emission_mean(rt::emission_map(panel, rt::lamp_texel_code(rt::kTexelOverTexture * median, true)).front());
+        const float dot_green = static_cast<float>(rt::linear_from_display(250.0 / 255.0));
+        tally->check(map.size() == 7 && eight.width == kSide / kEvery && worst < 1e-5 && spread < 1e-5 && !old_lit &&
+                         std::abs((mean[1] * static_cast<float>(kEvery * kEvery)) - dot_green) < 1e-4F &&
+                         std::abs((solid[1] / mean[1]) - 0.5F) < 1e-4F,
+                     text::format("an emission map keeps its flux at every level: %zu levels, each one's mean within %.2g of "
+                                  "level 0's (%.5f), the 8 x 8 level's texels within %.2g of it - the old rule (the test on "
+                                  "the filtered texel) there: %s; a blended surface's map %.3f of it (its solid dots)",
+                                  map.size(), worst, static_cast<double>(mean[1]), spread, old_lit ? "lit" : "nothing",
+                                  static_cast<double>(solid[1] / mean[1])));
+        // (round SUBPIX) the split of a small emitter's directly seen light between the splat and the draws: whole at
+        // most two pixels, none from eight, log-linear between (half at four), never above 1 or below 0
+        tally->check(rt::emission_splat_share(0.01F) == 1.0F && rt::emission_splat_share(rt::kSplatWholeAtMost) == 1.0F &&
+                         std::abs(rt::emission_splat_share(4.0F) - 0.5F) < 1e-6F &&
+                         rt::emission_splat_share(rt::kSplatNoneAtLeast) == 0.0F && rt::emission_splat_share(1e6F) == 0.0F,
+                     "a small emitter's splatted share: whole up to 2 drawn pixels, half at 4, none from 8");
     }
     const float reach = 400.0F;
     const float core = rt::point_core(reach);

@@ -65,16 +65,21 @@ uint32_t decode_first_level(GpuTexture* texture, texel::Image* out);
 // the most (no lamp texels; the bake found none there either).
 [[nodiscard]] uint8_t lamp_texel_code_of(const MeshRef* mesh);
 // (round EMIT2 - an emitter's flux conserved) What a light store's emission is multiplied by over a triangle of a mesh,
-// averaged over the triangle: the colour as drawn (the texel x the material's colour, linear - ff_shaders.cpp
-// surface_texel, the rays' store_emission) where the renderers let it emit - its mesh's lamp-texel code
-// (lamp_texel_code_of) when `lamp_texels`, every texel otherwise -, 0 elsewhere. {1, 1, 1} for a mesh not registered or
-// unreadable (the emission as the store gives it).
+// averaged over the triangle: (round SUBPIX) its emission map's level 0 (engine/gfx/rt_emission_map.h emission_texel -
+// the texel's linear colour where the lamp-texel test lets it emit: its mesh's code (lamp_texel_code_of) when
+// `lamp_texels` - the mesh's lamps drawn in its texture -, every texel otherwise), what the draws and the rays read
+// filtered through the same map. {1, 1, 1} for a mesh not registered or unreadable (the emission as the store gives it).
 struct EmissionTexelQuery {
     uint32_t mesh = 0; // (rt::MeshId)
     std::array<uint32_t, 3> corner{};
     bool lamp_texels = false;
 };
 [[nodiscard]] std::vector<std::array<float, 3>> emission_texels(std::span<const EmissionTexelQuery> queries);
+// (round SUBPIX) The emission map of `mesh`'s first texture under `code` (engine/gfx/rt_emission_map.h) as a texture of
+// the Gpu's - linear halves, every level of the chain -, made once per texture and code and shared: a reference the
+// caller gives back with release_emission_map. Null when it can't be made.
+[[nodiscard]] GpuTexture* emission_map_texture(const MeshRef* mesh, uint32_t code);
+void release_emission_map(GpuTexture* map);
 // (round EMIT) Whether a material is a light card (rt_lights.h light_card: an additive first pass whose texture doesn't
 // move - a halo, light cone, pool or starburst the artists drew round a lamp).
 [[nodiscard]] bool light_card_material(const MaterialRef* material);

@@ -662,10 +662,13 @@ public:
     // NOT ORIGINAL - cel shading (added by rt_cel; engine/gfx/rt_cel.h): the draws from `vertices` at `offset` read the
     // relit world's decomposition from `stream` too (rt_cel.h's three words a vertex, vertex for vertex; null: none).
     // Direct3D 9 ignores it.
+    // (round SUBPIX) `emission`: the texture the store's emission is drawn through - the mesh's emission map
+    // (rt_emission_map.h), sampled where its first stage's texture is; null: the draws emit nothing.
     struct CelSource {
         GpuVertexBuffer* vertices = nullptr;
         uint32_t offset = 0;
         GpuVertexBuffer* stream = nullptr;
+        GpuTexture* emission = nullptr;
     };
     virtual void set_cel_source(const CelSource& source) { (void)source; }
     // NOT ORIGINAL - (round LS) how many pipelines the backend has made so far: a frame that made none drew only from

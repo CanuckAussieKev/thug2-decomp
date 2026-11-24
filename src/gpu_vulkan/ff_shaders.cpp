@@ -18,6 +18,7 @@
 #include "engine/gfx/rain.h"
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_display.h"
+#include "engine/gfx/rt_emission_map.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_relit.h"
 #include "gpu_vulkan/ff_key.h"
@@ -1216,7 +1217,7 @@ std::string decal_layer_onto(std::string_view material, std::string_view indent)
 
 // (round M - the per-pixel lighting's comment has the model) After the program: `colour` (its albedo under white
 // light, display-referred) lit - linear light in a linear frame, else encoded for the display.
-void surface_finish(std::string& out, const FragmentKey& key)
+void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
 {
     // (round ALBEDO) the game's colour on the geometry (pass_tint_of: the time of day's sector colour, an object's light
     // where it stands) - the original's light on it, never the albedo: it scales the light the original gave the surface
@@ -1225,7 +1226,7 @@ void surface_finish(std::string& out, const FragmentKey& key)
     add(out, {"    vec3 surface_tint_light = linear_from_display(pass_tint_of(0));"});
     // (round MATALB - one albedo definition: rt_material_table.h material_albedo_scale) the albedo is the texture's colour
     // x the material's, calibrated to its kind's measured range (s.albedo.x), at most 1 - never the original's vertex
-    // colours nor the relit store's tint (the original's light); surface_texel the colour as drawn (a lamp's emission)
+    // colours nor the relit store's tint (the original's light); surface_texel the colour as drawn
     add(out, {"    vec3 surface_texel = linear_from_display(clamp(colour.rgb, 0.0, 1.0));\n"
               "    vec3 surface_albedo = min(surface_texel * s.albedo.x, vec3(1.0));\n"
               "    float surface_nv = max(dot(surface_n, surface_v), 1.0e-4);\n"
@@ -1323,13 +1324,17 @@ void surface_finish(std::string& out, const FragmentKey& key)
         // the frame's pre-exposure; round MATALB: the store's tint not read - the albedo is the material's. The vertex's own emission - a lamp's lens, bulb or
         // panel at its luminance - added as it is (x the texel's colour: the lamp's texture), on the lamp texels alone for
         // a lamp drawn in a texture: their brightest channel at least rt_lights.h kTexelBright, the bake's own test)
+        // (round SUBPIX - one emission map) the store's emission drawn through the mesh's emission map (engine/gfx/
+        // rt_emission_map.h: its lamp texels' linear colour, each level the mean of the emission - flux kept at every
+        // mip), sampled where stage 0's texture is and as it is (its sampler, the raster's level). Before, the lamp-texel
+        // test ran on the filtered texel: a footprint holding lamp texels among darker ones emitted nothing.
+        const std::string emission_at =
+            relief ? std::string("textureGrad(emission_map, relief_uv, relief_dx, relief_dy).rgb")
+                   : (has_stage(sampled, 0) ? "texture(emission_map, " + coord_of(key, 0) + ").rgb"
+                                            : std::string("textureLod(emission_map, vec2(0.5), 0.0).rgb"));
         add(out, {"    const float surface_word = 255.0 / 128.0;\n"
                   "    if (v_cel_residual.a > 0.5) {\n"
-                  "        vec3 lamp_texel = surface_texel;\n"
-                  // (round FG - one lamp-texel test: the bake's, its texture's floor coded in the store's flags - the same
-                  // code on every vertex of the mesh, so interpolated it is the code; rt_lights.h lamp_texel_glsl)
-                  "        float lamp_lit = lamp_texel_shown(lamp_texel, colour.a, uint(v_cel_emit.a * 255.0 + 0.5)) ? 1.0 "
-                  ": 0.0;\n",
+                  "        vec3 surface_emission = ", emission_at, " * emission_kept;\n",
                   layer_m_inner,
                   // (round MATALB: the store's light alone - the material's albedo is surface_m's, no tint on it)
                   "        vec3 env = v_cel_light.rgb + v_cel_residual.rgb;\n"
@@ -1338,7 +1343,7 @@ void surface_finish(std::string& out, const FragmentKey& key)
                   "            surface_out += brdf_direct(surface_m, surface_n, surface_v, s.sun.xyz, s.sun_light.rgb * "
                   "light_seen(surface_li, v_cel_tint.a)",
                   relief ? " * relief_shadow" : "", ");\n        }\n"
-                  "        surface_out += v_cel_emit.rgb * lamp_texel * lamp_lit;\n"
+                  "        surface_out += v_cel_emit.rgb * surface_emission;\n"
                   "        surface_out += brdf_ambient(surface_m, surface_nv, surface_lamps, vec3(0.0));\n"
                   "    } else {\n",
                   layer_m_inner,
@@ -1374,6 +1379,15 @@ void surface_finish(std::string& out, const FragmentKey& key)
     add(out, {"    colour.rgb = frame_linear() ? surface_out : clamp(display_from_linear(surface_out), 0.0, 1.0);"});
 }
 
+// (NOT ORIGINAL - round SUBPIX) Whether a relit draw keeps only its emitters' share the splat doesn't take
+// (rt_emission_map.h emission_splat_share): lit per pixel with the inputs while Ray Reconstruction denoises the view
+// (kLightGuides) - the view whose transparency layer the light list's small emitters are splatted into.
+bool emission_splat_key(const FragmentKey& key)
+{
+    return (key.surface & kSurfaceRelit) != 0U && (key.surface & (kSurfaceCel | kSurfaceCelHull)) == 0U &&
+           (key.light & kLightInputs) != 0U && (key.light & kLightGuides) != 0U && (key.light & kLightDepthOnly) == 0U;
+}
+
 // Whether the key's colour leaves surface_finish as light already (not clamped, not decoded again): a surface lit per
 // pixel, not in bands, not the hull, not water (water's shading takes display colours: it gets the encoded result).
 bool surface_light_out(const FragmentKey& key)
@@ -1402,7 +1416,21 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
     // colours. (The water's, snow's and paint's blocks below may call them.)
     out += rt::kDisplayTransferGlsl;
     if ((key.surface & kSurfaceRelit) != 0U) {
-        out += rt::lamp_texel_glsl(); // (NOT ORIGINAL - round FG: the bake's lamp-texel test, a relit surface's emission)
+        // (NOT ORIGINAL - round SUBPIX) a relit surface's emission map (vulkan_draws.cpp pushes the mesh's, or blank)
+        add(out, {"layout(set = 0, binding = ", num(kEmissionMapBinding), ") uniform sampler2D emission_map;"});
+        // (round SUBPIX) the share of its emission the draw keeps (rt_emission_map.h emission_splat_share: under Ray
+        // Reconstruction a triangle drawn over a few pixels or fewer is splatted into its transparency layer - the
+        // light list's emitters, vulkan_restir_di.cpp's splat pass); its drawn area in the view's pixels from the
+        // screen derivatives of its barycentrics (affine in the screen: exact for the whole triangle, helpers too)
+        add(out, {"float emission_kept = 1.0;"});
+        if (emission_splat_key(key)) {
+            out += rt::emission_splat_glsl();
+            add(out, {"float emission_drawn_pixels()\n{\n"
+                      "    vec2 bx = dFdxFine(gl_BaryCoordNoPerspEXT.yz);\n"
+                      "    vec2 by = dFdyFine(gl_BaryCoordNoPerspEXT.yz);\n"
+                      "    float d = abs(bx.x * by.y - bx.y * by.x);\n"
+                      "    return d > 0.0 ? 0.5 / d : 1.0e30;\n}"});
+        }
     }
     // (NOT ORIGINAL - round ALBEDO) the factor the game put on pass `p`'s colour (Gpu::takes_pass_tint: a geometry's
     // or an instance's colour - the original's light on it), 1 where it put none
@@ -1924,7 +1952,7 @@ void fragment_program(std::string& out, const FragmentKey& key, uint32_t sampled
     }
     add(out, {"    vec4 colour = r0;"});
     if ((key.surface & kSurfaceLighting) != 0U && (key.surface & (kSurfaceCel | kSurfaceCelHull)) == 0U) {
-        surface_finish(out, key); // (round M: the light model)
+        surface_finish(out, key, sampled); // (round M: the light model)
     }
     if ((key.surface & kSurfaceCelHull) != 0U) {
         add(out, {"    colour.rgb = cel_ink(clamp(colour.rgb, 0.0, 1.0));"}); // (added by cel shading: the outline)
@@ -2041,8 +2069,15 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     if (traced) {
         out += "#extension GL_EXT_ray_query : require\n";
     }
+    if (emission_splat_key(key)) {
+        out += "#extension GL_EXT_fragment_shader_barycentric : require\n"; // (round SUBPIX)
+    }
     fragment_declarations(out, key, sampled);
     add(out, {"void main()\n{"});
+    if (emission_splat_key(key)) {
+        // (round SUBPIX: before any branch - its derivatives)
+        add(out, {"    emission_kept = 1.0 - emission_splat_share(emission_drawn_pixels());"});
+    }
     if ((key.light & (kLightInputs | kLightShare)) != 0U) {
         add(out, {"    light_find();"}); // (NOT ORIGINAL - round V / DB: before any branch - its derivatives)
         if (layer_write(key)) {

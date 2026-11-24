@@ -123,8 +123,11 @@ struct GeometryRecord {
     uint32_t triangles = 0;
     uint32_t vertices = 0;
     uint32_t light_vertices = 0;
+    // (round SUBPIX) the material table's slot of the mesh's emission map (rt::RayTracing::set_emission_map - engine/gfx/
+    // rt_emission_map.h), what its light store's emission is multiplied by (0: none - it emits nothing)
+    uint32_t emission_slot = 0;
 };
-inline constexpr std::size_t kGeometryRecordBytes = 84;
+inline constexpr std::size_t kGeometryRecordBytes = 88;
 static_assert(sizeof(GeometryRecord) == kGeometryRecordBytes);
 inline constexpr uint32_t kGeometryLive = 1U << 0;    // its mesh is built (else every other field is 0)
 inline constexpr uint32_t kGeometryIndex32 = 1U << 1; // 32-bit indices (else 16-bit)

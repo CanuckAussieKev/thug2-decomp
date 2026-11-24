@@ -508,6 +508,12 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
         }
         const rt::RelitMesh& mesh = core::at(meshes, mi);
         const auto& own_triangles = core::at(own, mi);
+        // (round SUBPIX - one emission map a mesh) the store carries the mesh's lamp-texel code when any of its marks is a
+        // lamp drawn in its texture (rt_relit_world.cpp: the code the mesh's emission map is made with) - every triangle
+        // of the mesh is read through that map
+        const bool textured = std::ranges::any_of(mesh_marks, [&](const auto& mark) {
+            return mark.second < lamps.size() && core::at(lamps, mark.second).kind == rt::EmitterKind::kTextured;
+        });
         for (const auto& [x, y, z] : mesh.triangles) {
             if (x >= mesh.positions.size() || y >= mesh.positions.size() || z >= mesh.positions.size()) {
                 continue;
@@ -515,13 +521,11 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
             std::array<uint32_t, 3> lamp_at{rt::kNoEmitter, rt::kNoEmitter, rt::kNoEmitter};
             std::size_t k = 0;
             bool any = false;
-            bool textured = false; // (a corner's lamp drawn in the texture: the store carries the mesh's lamp-texel code)
             for (const uint32_t vertex : {x, y, z}) {
                 const auto mark = mesh_marks.find(vertex);
                 const uint32_t lamp = mark != mesh_marks.end() ? mark->second : rt::kNoEmitter;
                 core::at(lamp_at, k++) = lamp;
                 any = any || lamp < lamps.size();
-                textured = textured || (lamp < lamps.size() && core::at(lamps, lamp).kind == rt::EmitterKind::kTextured);
             }
             if (!any) {
                 continue;

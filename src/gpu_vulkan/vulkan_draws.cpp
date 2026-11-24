@@ -485,7 +485,8 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
     const SurfaceInputDescriptors none;
     const SurfaceInputDescriptors& light = light_inputs ? draw.light : none;
     const bool same_surface = !surface.on || (bound.surface_pushed && same_buffer_info(bound.pushed_surface_block, surface.block) &&
-                                              (!surface.has_map || same_image_info(bound.pushed_surface_map, surface.map)));
+                                              (!surface.has_map || same_image_info(bound.pushed_surface_map, surface.map)) &&
+                                              (!surface.has_emission || same_image_info(bound.pushed_emission, surface.emission)));
     // (NOT ORIGINAL - round V; round FL: the view's light inputs are a descriptor set of their own - set 1, bound once
     // for the view's draws)
     if (light.on && light.set != VK_NULL_HANDLE && bound.light_set != light.set) {
@@ -505,7 +506,9 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
     constexpr std::size_t kSnowWrites = 3;   // (NOT ORIGINAL - snow's: kSnowUniformsBinding, kSnowSkyBinding, the map)
     constexpr std::size_t kPaintWrites = 3;  // (NOT ORIGINAL - paint's: kPaintUniformsBinding - kPaintPlaceBinding)
     constexpr std::size_t kWetWrites = 2;    // (NOT ORIGINAL - rain's: kWetUniformsBinding, kWetMapBinding)
-    std::array<VkWriteDescriptorSet, 2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites + kWetWrites>
+    constexpr std::size_t kEmissionWrites = 1; // (NOT ORIGINAL - round SUBPIX: kEmissionMapBinding)
+    std::array<VkWriteDescriptorSet,
+               2 + kStageCount + 4 + kWaterWrites + kDetailWrites + kSnowWrites + kPaintWrites + kWetWrites + kEmissionWrites>
         writes{};
     for (VkWriteDescriptorSet& write : writes) {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -534,6 +537,12 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
             map.dstBinding = kSurfaceMapBinding;
             map.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             map.pImageInfo = &surface.map;
+        }
+        if (surface.has_emission) { // (NOT ORIGINAL - round SUBPIX: a relit draw's emission map)
+            VkWriteDescriptorSet& emission = core::at(writes, count++);
+            emission.dstBinding = kEmissionMapBinding;
+            emission.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            emission.pImageInfo = &surface.emission;
         }
     }
     // (added by cel shading) its block, and the scene for the ray queries; a cel draw's descriptors are always pushed
@@ -635,6 +644,7 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
     bound.surface_pushed = surface.on;
     bound.pushed_surface_block = surface.block;
     bound.pushed_surface_map = surface.map;
+    bound.pushed_emission = surface.emission;
 }
 
 // (NOT ORIGINAL - rt_pbr) The draw's SurfaceUniforms into the ring (the vertex block's lights as just filled).
@@ -698,6 +708,7 @@ struct SurfaceSource {
     uint8_t detail = 0;
     const Image* detail_image = nullptr;
     VkSampler detail_sampler = VK_NULL_HANDLE;
+    const Image* emission_image = nullptr; // (round SUBPIX) a relit draw's emission map (null: the blank texture)
 };
 
 // (NOT ORIGINAL - rt_detail / rt_delight) A draw's DetailUniforms into the ring and its texture; nothing without the bits.
@@ -735,6 +746,13 @@ bool surface_descriptors_for(Backend& state, const GpuStateBlock& block, const S
         const Image& shown = source.image != nullptr ? *source.image : state.blank;
         out->has_map = true;
         out->map = {.sampler = source.sampler, .imageView = shown.view, .imageLayout = shown.layout};
+    }
+    // (round SUBPIX) a relit draw's emission map, sampled with stage 0's sampler (its addressing, filter and level bias:
+    // where the colour's texel is read). A relit mesh without one emits nothing (its store's emission is 0 there).
+    if ((source.flags & kSurfaceRelit) != 0U) {
+        const Image& shown = source.emission_image != nullptr ? *source.emission_image : state.blank;
+        out->has_emission = true;
+        out->emission = {.sampler = source.sampler, .imageView = shown.view, .imageLayout = shown.layout};
     }
     if (!set_detail_descriptors(state, source, out)) { // (added by the detail materials)
         return false;
@@ -1407,6 +1425,9 @@ Prepared prepare_draw(Backend& state, const GpuStateBlock& block, const DrawCall
     }
     const std::array<Image*, kStageCount> images = sampled_images(state, block, sampled_stages(shaders.fragment));
     Image* const surface_image = (shaders.fragment.surface & kSurfaceMap) != 0U ? image_to_sample(state, surface.map) : nullptr;
+    // (round SUBPIX) a relit draw's emission map (the cel source's, with the store - rt_emission_map.h)
+    Image* const emission_image =
+        (shaders.fragment.surface & kSurfaceRelit) != 0U ? image_to_sample(state, relit_emission_of(state, call)) : nullptr;
     // (added by the detail materials) the kind's detail texture, sampled repeating, trilinear and anisotropic
     Image* const detail_image =
         (shaders.fragment.detail & kDetailMaterial) != 0U ? image_to_sample(state, surface.detail_map) : nullptr;
@@ -1447,7 +1468,7 @@ Prepared prepare_draw(Backend& state, const GpuStateBlock& block, const DrawCall
     if (!surface_descriptors_for(state, block, {.surface = surface, .flags = shaders.fragment.surface, .image = surface_image,
                                                 .sampler = core::at(out->images, 0).sampler,
                                                 .detail = shaders.fragment.detail, .detail_image = detail_image,
-                                                .detail_sampler = detail_sampler},
+                                                .detail_sampler = detail_sampler, .emission_image = emission_image},
                                  &out->surface)) {
         return Prepared::kRingFull;
     }
@@ -1470,6 +1491,7 @@ Prepared prepare_draw(Backend& state, const GpuStateBlock& block, const DrawCall
     }
     core::at(out->sampled, kStageCount) = surface_image;
     core::at(out->sampled, kStageCount + 1) = detail_image;
+    core::at(out->sampled, kStageCount + 2) = emission_image;
     for (Image* image : out->sampled) {
         if (image != nullptr) {
             image->used = serial;

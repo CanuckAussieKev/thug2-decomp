@@ -167,6 +167,8 @@ inline constexpr std::array<const char*, 3> kRayTracingExtensions{VK_KHR_ACCELER
 bool ray_tracing_offered(VkPhysicalDevice device);
 // NOT ORIGINAL - (round OM) VK_EXT_opacity_micromap offered with 4-state micromaps of level 2 or finer (`levels`: the finest).
 bool opacity_micromaps_offered(VkPhysicalDevice device, uint32_t* levels);
+// NOT ORIGINAL - (round SUBPIX) VK_KHR_fragment_shader_barycentric offered with its feature.
+bool fragment_barycentrics_offered(VkPhysicalDevice device);
 
 // What the context chooses for its swapchain, for another window's (the UI's own windows: vulkan_ui_windows.cpp): the
 // surface's format (8-bit BGRA without sRGB conversion when offered), its size (the surface's, or the window's
@@ -224,6 +226,9 @@ public:
     // NOT ORIGINAL - (round OM) VK_EXT_opacity_micromap enabled (with ray tracing; ContextOptions::opacity_micromaps) and
     // the finest 4-state subdivision level it takes (maxOpacity4StateSubdivisionLevel)
     [[nodiscard]] bool opacity_micromaps_enabled() const { return opacity_micromaps_; }
+    // NOT ORIGINAL - (round SUBPIX) the fragment shaders' barycentrics enabled (with ray tracing, where offered): what the
+    // draws' emitters smaller than a few pixels are told by (rt_emission_map.h emission_splat_share)
+    [[nodiscard]] bool fragment_barycentrics_enabled() const { return fragment_barycentrics_; }
     [[nodiscard]] uint32_t opacity_micromap_levels() const { return opacity_micromap_levels_; }
 
     // Clears the next swapchain image to `colour` (linear RGBA) and presents it.
@@ -321,6 +326,7 @@ private:
     bool ray_tracing_ = false;
     bool opacity_micromaps_wanted_ = true; // (NOT ORIGINAL - round OM)
     bool opacity_micromaps_ = false;
+    bool fragment_barycentrics_ = false; // (NOT ORIGINAL - round SUBPIX)
     bool pipeline_statistics_ = false;
     uint32_t opacity_micromap_levels_ = 0;
     ContextAdditions* additions_ = nullptr; // (NOT ORIGINAL - ContextOptions::additions)

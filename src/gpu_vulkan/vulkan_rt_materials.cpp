@@ -916,6 +916,13 @@ uint32_t MaterialTable::slots_in_use() const
     return static_cast<uint32_t>(slots_.size());
 }
 
+uint32_t MaterialTable::texture_slot(GpuTexture* texture)
+{
+    const std::scoped_lock lock(mutex_);
+    Texture* const found = texture != nullptr ? object(texture) : nullptr;
+    return layout_ != VK_NULL_HANDLE && found != nullptr ? slot_for(found) : 0;
+}
+
 uint32_t MaterialTable::slot_of(GpuTexture* texture) const
 {
     const std::scoped_lock lock(mutex_);
