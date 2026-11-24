@@ -441,9 +441,11 @@ vec3 hit_albedo(uint id, uint instance, uint primitive, vec2 barycentrics, mat4x
         }
     }
     vec2 uv = hit_uv(v, barycentrics);
-    // (round F) the game's display-referred colours decoded: an albedo in linear light, as the frame's inputs are
-    return linear_from_display(min((material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) * material(id).colour).rgb,
-                                   vec3(1.0)));
+    // (round F) the game's display-referred colours decoded: an albedo in linear light, as the frame's inputs are; (round
+    // MATALB) calibrated as every ray's albedo is (material_albedo)
+    return material_albedo(id, linear_from_display(min((material_texel_lod(id, uv, level_for(id, v, a, b, c, width)) *
+                                                        material(id).colour).rgb,
+                                                       vec3(1.0))));
 }
 
 // The sun's light that reaches `origin` (cut-outs by alpha; round PT-B: the seen-through surfaces by their share -
@@ -498,8 +500,9 @@ vec3 incoming(vec3 origin, vec3 direction, float travelled, uint mask)
         vec3 point = origin + direction * t;
         light += sun * facing * sun_seen(point + n * start_offset(travelled + t));
     }
-    // (lighting round A2: the store's tint and light are linear - only the texel, in albedo, decoded)
-    return (relit ? albedo * (hit.tint * light + hit.lamps) : albedo * light) * through;
+    // (lighting round A2: the store's light is linear - only the texel, in albedo, decoded; round MATALB: no tint - the
+    // albedo is the material's)
+    return (relit ? albedo * (light + hit.lamps) : albedo * light) * through;
 }
 
 // The pixel's own albedo (a 1 when found, else 0).

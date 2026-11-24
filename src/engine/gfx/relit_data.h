@@ -88,8 +88,11 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // v19 (round BAKEALB - one albedo definition): the bounce B each hit's light x the albedo of the texel it lands on (the
 // renderers' texel x tint, not the tint alone) - the fit's g, so every tint, in another unit: a v18 file's tints are
 // the texture's mean too dark under every renderer. Older files are not read.
-inline constexpr uint32_t kRelitDataVersion = 19;
-inline constexpr uint32_t kRelitDataOldestRead = 19;
+// v20 (round MATALB - a surface's reflectance from its texture and material alone): the bake's bounce B each hit's light
+// x the material's albedo - its texture calibrated to its kind's measured range (the probe's hit albedo), the tint no
+// albedo - so the fit's g, the lamps' solved light and the data's bounce in another unit. Older files are not read.
+inline constexpr uint32_t kRelitDataVersion = 20;
+inline constexpr uint32_t kRelitDataOldestRead = 20;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

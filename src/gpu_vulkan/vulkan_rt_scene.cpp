@@ -242,21 +242,19 @@ vec4 hit_colour(HitVertices v, vec2 barycentrics)
 }
 // (added by the light energy audit) The relit world's light store (engine/gfx/rt_cel.h: eight words a vertex - round L:
 // its light words RGB9E5, physical light in the global unit, x the frame's pre-exposure here - the record's
-// light_exposure, one value a frame) blended at a hit - what a hit's surface is (its tint: the albedo, x the texture) and
-// how it is lit, in the frame's unit.
+// light_exposure, one value a frame) blended at a hit - how a hit's surface is lit, in the frame's unit (round MATALB: its
+// albedo is its material's - material_albedo -, the store holds light alone).
 struct WorldLight {
     vec3 ambient;   // the sky's and the bounce's light
     float n_dot_l;
-    vec3 tint;      // the surface's colour (none of the bake's light in it)
     float seen;     // the sun's visibility the colour was written with
-    vec3 lamps;     // the lamps' light on it (tint x L x the lamps on - relit's per-vertex share)
+    vec3 lamps;     // the lamps' light on it (L x the lamps on - relit's per-vertex share)
     vec3 sun;       // the direct light's colour and strength
     vec3 sky;       // the sky's part of `ambient`
     float sky_share; // the vertex's K
     vec3 emit;      // (round L) its own emission (a lamp's lit surface: radiance, not x the tint)
 };
-const WorldLight NO_WORLD_LIGHT = WorldLight(vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), vec3(0.0), 0.0, vec3(0.0));
-const float LIGHT_PER_UNORM = 255.0 / TINT_PER_BYTE; // (the tint word: rt_relit.h kRelitTintPerByte)
+const WorldLight NO_WORLD_LIGHT = WorldLight(vec3(0.0), 0.0, 0.0, vec3(0.0), vec3(0.0), vec3(0.0), 0.0, vec3(0.0));
 bool hit_world_light(uint instance, uint primitive, vec2 barycentrics, out WorldLight w)
 {
     GeometryRecord g = geometry_record(instance);
@@ -277,7 +275,6 @@ bool hit_world_light(uint instance, uint primitive, vec2 barycentrics, out World
         float e = s * g.light_exposure;
         w.ambient += stored_light(geometry_word(g.light_address, at)) * e;
         w.n_dot_l += flags.r * s;
-        w.tint += w1.rgb * (s * LIGHT_PER_UNORM);
         w.seen += w1.a * s;
         w.lamps += stored_light(geometry_word(g.light_address, at + 8u)) * e;
         w.sun += stored_light(geometry_word(g.light_address, at + 12u)) * e;
@@ -289,7 +286,7 @@ bool hit_world_light(uint instance, uint primitive, vec2 barycentrics, out World
 }
 vec3 world_light_with(WorldLight w, float seen, vec3 sky)
 {
-    return w.tint * (max(w.ambient - w.sky, vec3(0.0)) + sky + w.sun * (w.n_dot_l * seen)) + w.lamps + w.emit;
+    return max(w.ambient - w.sky, vec3(0.0)) + sky + w.sun * (w.n_dot_l * seen) + w.lamps + w.emit;
 }
 // (the objects' shadows) The lights an object is lit by (rt::ObjectLight, three floats a part in its order).
 struct ObjectLight {
@@ -499,7 +496,7 @@ void main()
         hit.flags = 1u | (rayQueryGetIntersectionFrontFaceEXT(query, true) ? 2u : 0u);
         // (round BAKEALB) the hit's albedo - the renderers' definition (hit_albedo), what the hit reflects
         if ((ray.cull_mask.y & 2u) != 0u) {
-            hit.albedo = vec4(hit_bounce_albedo(hit.instance, hit.primitive, hit.custom_index, hit.barycentrics), 0.0);
+            hit.albedo = vec4(hit_albedo(hit.instance, hit.primitive, hit.custom_index, hit.barycentrics), 0.0);
         }
     }
     // (round PT-B) with the cut-outs - the one lighting path's test - the light the seen-through surfaces before the hit
@@ -2640,10 +2637,7 @@ std::string_view scene_geometry_glsl()
     // (round L) the light store's decode (engine/gfx/light_store.h) after the extensions and the bindings' defines
     static const std::string made = [] {
         const std::size_t at = kGeometryGlsl.find("struct GeometryRecord {");
-        // (round BAKEALB) and the tint word's scale (rt_relit.h kRelitTintPerByte)
-        return std::string(kGeometryGlsl.substr(0, at)) + rt::kLightStoreGlsl +
-               "const float TINT_PER_BYTE = " + std::to_string(rt::kRelitTintPerByte) + ";\n" +
-               std::string(kGeometryGlsl.substr(at));
+        return std::string(kGeometryGlsl.substr(0, at)) + rt::kLightStoreGlsl + std::string(kGeometryGlsl.substr(at));
     }();
     return made;
 }
@@ -3267,13 +3261,12 @@ float hit_cone_level(uint instance, uint primitive, uint slot, uint set, vec2 ba
     return max(texture_level(slot, hit_uv_set(instance, primitive, bx, set) - uv, hit_uv_set(instance, primitive, by, set) - uv,
                              cone.bias, cone.most_anisotropy), 0.0);
 }
-// (round BAKEALB - one albedo definition) The material's albedo at a hit, linear, before the light store's tint: its
-// composed colour decoded. hit_surface's base_colour is this x the store's tint; the relit bake's bounce rays (the ray
-// probe's hit albedo) read it too - what a hit reflects of the light it shows. With a cone (a camera ray's: the triangle's
-// world corners a, b, c) each pass at its texture's level for the pixel - the raster's mips, so the rays' primary and the
-// raster's albedo are one; without, every pass at its most detailed level.
-vec3 hit_albedo_at(uint instance, uint primitive, uint id, vec2 barycentrics, vec2 uv, float vertex_alpha, vec3 a,
-                   vec3 b, vec3 c, HitCone cone)
+// (round BAKEALB) The material's composed colour at a hit, decoded (linear): what a lamp drawn in it emits by, and - x its
+// calibration, hit_albedo_at - its albedo. With a cone (a camera ray's: the triangle's world corners a, b, c) each pass at
+// its texture's level for the pixel - the raster's mips, so the rays' primary and the raster's albedo are one; without,
+// every pass at its most detailed level.
+vec3 hit_texel_at(uint instance, uint primitive, uint id, vec2 barycentrics, vec2 uv, float vertex_alpha, vec3 a,
+                  vec3 b, vec3 c, HitCone cone)
 {
     if (!(cone.most_anisotropy > 0.0)) {
         return linear_from_display(clamp(hit_composed_colour(instance, primitive, id, barycentrics, uv, vertex_alpha).rgb,
@@ -3295,15 +3288,22 @@ vec3 hit_albedo_at(uint instance, uint primitive, uint id, vec2 barycentrics, ve
                                                             a, b, c, cone));
     return linear_from_display(clamp(material_colour_from_lod(id, first, layer_uv, layer_lod, vertex_alpha).rgb, 0.0, 1.0));
 }
-// The light store at the hit, as stored (the global unit - not x the frame's pre-exposure): the tint, the emission,
+// (round BAKEALB, round MATALB - one albedo definition) The material's albedo at a hit: its composed colour calibrated
+// (material_albedo - the material table's measured range for its kind), never the light store's tint. hit_surface's
+// base_colour; the relit bake's bounce rays (the ray probe's hit albedo) read it too - what a hit reflects of the light
+// it receives.
+vec3 hit_albedo_at(uint instance, uint primitive, uint id, vec2 barycentrics, vec2 uv, float vertex_alpha, vec3 a,
+                   vec3 b, vec3 c, HitCone cone)
+{
+    return material_albedo(id, hit_texel_at(instance, primitive, id, barycentrics, uv, vertex_alpha, a, b, c, cone));
+}
+// The light store at the hit, as stored (the global unit - not x the frame's pre-exposure): the emission,
 // the lamp-texel code when the emission is a lamp drawn in a texture (word 6's blue - rt_lights.h lamp_texel_code; 0:
 // the whole surface emits), whether the mesh is hidden (word 6's alpha 128). False: no store there (none, or an animated
 // vertex).
-bool hit_store(uint instance, uint primitive, vec2 barycentrics, out vec3 tint, out vec3 emit, out uint texels,
-               out bool hidden)
+bool hit_store(uint instance, uint primitive, vec2 barycentrics, out vec3 emit, out uint texels, out bool hidden)
 {
     GeometryRecord g = geometry_record(instance);
-    tint = vec3(0.0);
     emit = vec3(0.0);
     texels = 0u;
     hidden = false;
@@ -3323,7 +3323,6 @@ bool hit_store(uint instance, uint primitive, vec2 barycentrics, out vec3 tint, 
             hidden = true;
         }
         texels = max(texels, flag_word & 255u); // (B, G, R, A in memory: blue the low byte)
-        tint += unpackUnorm4x8(geometry_word(g.light_address, at + 4u)).zyx * (weights[k] * LIGHT_PER_UNORM);
         emit += stored_light(geometry_word(g.light_address, at + 28u)) * weights[k];
     }
     return true;
@@ -3337,21 +3336,6 @@ vec3 hit_albedo(uint instance, uint primitive, uint id, vec2 barycentrics)
     vec2 uv = hit_uv_set(instance, primitive, barycentrics, material(id).uv_set);
     return hit_albedo_at(instance, primitive, id, barycentrics, uv, hit_colour(v, barycentrics).a, vec3(0.0), vec3(0.0),
                          vec3(0.0), no_cone());
-}
-// (round BAKEALB) What the relit bounce's rays take at a hit: the albedo's part beside the store's tint - hit_albedo,
-// where the hit has a store held so that texel x tint (hit_surface's base colour) is at most 1, as every renderer holds
-// it; without a store (the bake's own rays: the tints not made yet) hit_albedo
-vec3 hit_bounce_albedo(uint instance, uint primitive, uint id, vec2 barycentrics)
-{
-    vec3 albedo = hit_albedo(instance, primitive, id, barycentrics);
-    vec3 tint;
-    vec3 emit;
-    uint texels;
-    bool hidden;
-    if (hit_store(instance, primitive, barycentrics, tint, emit, texels, hidden)) {
-        albedo = min(albedo * tint, vec3(1.0)) / max(tint, vec3(1.0e-6));
-    }
-    return albedo;
 }
 )";
     return made;
@@ -3427,11 +3411,10 @@ bool hit_emission_of(uint instance, uint primitive, uint id, vec2 barycentrics, 
     if (!material_alpha_passes(id, drawn_alpha)) {
         return false;
     }
-    vec3 tint;
     vec3 emit;
     uint texels;
     bool hidden;
-    if (!hit_store(instance, primitive, barycentrics, tint, emit, texels, hidden)) {
+    if (!hit_store(instance, primitive, barycentrics, emit, texels, hidden)) {
         return true;
     }
     if (hidden) {
@@ -3505,30 +3488,30 @@ bool hit_surface_at(uint instance, uint primitive, uint id, vec2 barycentrics, m
     }
     Material surface = material(id);
     vec2 uv = hit_uv_set(instance, primitive, barycentrics, surface.uv_set);
-    vec3 linear = hit_albedo_at(instance, primitive, id, barycentrics, uv, hit_colour(v, barycentrics).a, a, b, c, cone);
+    vec3 linear = hit_texel_at(instance, primitive, id, barycentrics, uv, hit_colour(v, barycentrics).a, a, b, c, cone);
+    vec3 albedo = material_albedo(id, linear); // (round MATALB: hit_albedo_at's - the composed colour calibrated)
     // (stage 3: the alpha the game draws and tests - material_drawn_alpha -, not x the pass's fixed alpha)
     s.alpha = material_drawn_alpha(id, uv, hit_colour(v, barycentrics).a);
     s.cut_out = !material_alpha_passes(id, s.alpha);
     GeometryRecord record = geometry_record(instance);
     bool object = (record.instance_flags & HIT_INSTANCE_OBJECT) != 0u;
-    vec3 tint;
     vec3 emit;
     uint texels;
     bool hidden;
     // (round P10 - objects relit) one surface whoever drew it: a store (the world's meshes and the objects drawn with their
-    // own colours, taken apart by the bake) gives the tint and the emission; anything else its texel alone (round ALBEDO:
+    // own colours, taken apart by the bake) gives the emission; the albedo is the material's either way (round ALBEDO:
     // one albedo definition - an object the game lights has its texel too, never x its vertex colour: 0.5, the game's
     // neutral under its doubled light, made it 0.22 of its texture; ff_shaders.cpp surface_finish likewise)
-    if (hit_store(instance, primitive, barycentrics, tint, emit, texels, hidden)) {
+    if (hit_store(instance, primitive, barycentrics, emit, texels, hidden)) {
         s.origin = HIT_RELIT_WORLD;
         s.hidden = hidden;
-        // (round BAKEALB) an albedo is at most 1 - the tint (up to ~4: rt_relit.h kRelitMaxTint) on a bright texel would
-        // make light (a path's bounces grew without bound: New Orleans' reference 10^11 x its median); the raster's the same
-        s.base_colour = min(linear * tint, vec3(1.0));
+        // (round MATALB: the albedo the material's alone - the store's tint, the original's colours over the bake's light
+        // model, is the original's light, not the surface's; an albedo at most 1 - material_albedo)
+        s.base_colour = albedo;
         s.emitted = store_emission(emit, linear, s.alpha, texels);
     } else {
         s.origin = object ? HIT_OBJECT : HIT_BAKED_WORLD;
-        s.base_colour = linear;
+        s.base_colour = albedo;
     }
     if (!material_has_surface(id) || surface.f0 <= 0.0) {
         s.material = brdf_material(s.base_colour, vec3(HIT_SURFACE_F0), HIT_SURFACE_ROUGHNESS);

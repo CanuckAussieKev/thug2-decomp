@@ -2814,7 +2814,7 @@ six 8-bit words of pre-exposed light x 128: a lamp's head held at 2 (about 1.8 c
   (`day_scales`) divides the published state's pre-exposure out; `vertex_lamps` and the bulbs' emission no longer carry it;
   the lighting's hash no longer holds it - **a pre-exposure change writes nothing** (rt_relit_check: the same words at
   P 1, 4096 and 65 536).
-- **The bounce's hits are physical light** (`RelitMesh::light`, `relit_reflected`): tint x light, no 8 bits, no hold at 2,
+- **The bounce's hits are physical light** (`RelitMesh::light`, `relit_received`): tint x light, no 8 bits, no hold at 2,
   and without the emission (a lamp's own light is the lamps' L - counted once).
 - ~~The pre-exposure is held under the brightest emission~~ (round L's `kFrameLightMost`, **retired in round RX**). Held
   there, the frame sat under the display's range whenever the camera wanted more than the emitters allowed (BO's night
@@ -4093,7 +4093,7 @@ light face-on (the frame's unit).
 - **One albedo definition** (round ALBEDO): every pass - the raster's surfaces and Ray Reconstruction's albedo guide,
   every ray's `hit_surface` (ReSTIR DI / GI, `pt ref`, the light list, the front layer, the reflections) - takes a
   surface's albedo as its texture's reflectance: the texel x the material's own pass colours (0.5 leaves the texture
-  as it is), the layers composed as the game composes them, x the relit store's tint. Never x the game's colour on the
+  as it is), the layers composed as the game composes them, (round MATALB: not x the relit store's tint - below). Never x the game's colour on the
   geometry - a sector's time-of-day colour or an object's light where it stands (`Gpu::takes_pass_tint`: the Vulkan
   device gets the material's own colours and that tint apart; a surface lit per pixel takes the tint as light where
   its light is the original's own - the vertex's, the draw's lights -, the other draws scale the colours as the
@@ -4105,6 +4105,24 @@ light face-on (the frame's unit).
   held to 1 in every pass. A camera ray's surface (`camera_surface`: ReSTIR's shared primary) samples each pass at the
   raster's mip (ray differentials from the neighbouring pixels, the upscaler's level bias, the anisotropy) and lays the
   blended world layer lying on it over its material as the raster's DBuffer does.
+- **A surface's reflectance from its texture and material alone** (round MATALB, after BAKEALB): the albedo is the
+  texel x the material's colour, calibrated to its kind's measured reflectance - never the relit store's tint. The tint
+  is the original's vertex colours over the bake's light model; one fitted unit a level can't tell a surface's colour
+  from the art's local fill light in it (BAKEALB's tints put New Orleans' brick at 0.61 - 0.67 and Training's concrete
+  floor at 0.085), and a census of the test levels' vertex colours (`tools/pbr_maps/albedo_census.ts`) found no colour
+  in them that light doesn't explain as well. So: the light store's tint word holds 1 (rt_relit.h `kRelitStoreTint`; the
+  bake still makes the tint and the data keeps it, reported), its lamps' word is L alone, and the relit bounce's hits
+  bring the light they receive x the hit's material albedo (`relit_received` x the ray probe's `hit_albedo`). The
+  calibration (rt_material_table.h `material_albedo_scale`): the texture's texels' mean albedo (linear luminance of its
+  opaque texels - `tools/pbr_maps` measures it, the .pbr entry's byte 19, sRGB-encoded; 0 not measured) inside its
+  kind's measured range (the table's `albedo`: LBNL, Oke 1987 ...) is the albedo as painted; outside, the texture is
+  brought to the range's nearest end, its texels' spread kept - the base-colour validation PBR pipelines do (Lagarde &
+  de Rousiers 2014's albedo range check; Substance's PBR Validate), applied. The kind is the surface map's class (the
+  detail library's where it lists the texture); metals, glass and water have no diffuse range (as painted). One factor
+  a material, read in one place by each side: the draws' `SurfaceUniforms::albedo` (surface_finish's `surface_albedo`)
+  and the rays' `MaterialRecord::albedo_scale` (`material_albedo` - hit_surface, the probe, the reflections, the
+  classic lamps and effects passes). A lamp's emission takes the colour as drawn. The relit bake reads the maps
+  (`rt_pbr` on in its settings) so its bounce's albedo is the game's. Relit data v20.
 - **Retired**: rt_pbr_specular, rt_pbr_normal_strength, rt_relief_strength, rt_detail_strength, rt_characters_skin /
   _cloth / _hair ("Set by the material now"); the bake relit by luma thresholds (kRtPbrAmbientShare, kRtPbrShade*,
   kRtPbrDetail*, kRtPbrSkyDetail, kRtPbrGameSun); the hue-found skin texels; the relief's per-kind weight and shadow
@@ -5621,7 +5639,7 @@ camera as it stood (another camera or scene starts it again), shows their mean i
 through the tone curve at that EV. `pt off` ends it.
 
 - One hit surface for every ray (vulkan_rt_scene.h `hit_surface_glsl`): position, triangle and shading normals, base
-  colour (the store's texel x tint - the relit world's and, round P10, the relit objects'; an object the game lights its texel x its vertex colour, its paint; else the texel), the light model's material, alpha and cut-out, and the light
+  colour (round MATALB: the material's albedo - its texel x its colour, calibrated to its kind's measured range - for every surface alike), the light model's material, alpha and cut-out, and the light
   store's emission in the global unit.
 - A path: camera rays jittered in the pixel; at each hit next-event estimation to one light of the run's light list
   (below); the BSDF sampled (GGX visible normals + cosine Lambert); MIS by the power heuristic, a BSDF ray that meets a

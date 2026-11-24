@@ -1622,7 +1622,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
             }
         }
         if (model.valid) {
-            // the bounce of the relit light at the level's own time (the hits' colours the relit ones: tint x light),
+            // the bounce of the relit light at the level's own time (the hits' light the relit one, x their albedo),
             // not the bake's colours - nothing of the bake's light is kept
             const auto bounced = std::chrono::steady_clock::now();
             // (round A3) the lamps on at the level's own time, each by its own switch - L with them, for the bounce
@@ -1636,7 +1636,7 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
                 // (round L: the light each vertex reflects, physical - no 8-bit colour between)
                 mesh.light.assign(mesh.positions.size(), rt::Rgbf{});
                 for (std::size_t vi = 0; vi < mesh.light.size() && vi < lit.size(); ++vi) {
-                    core::at(mesh.light, vi) = rt::relit_reflected(model, core::at(lit, vi), own);
+                    core::at(mesh.light, vi) = rt::relit_received(model, core::at(lit, vi), own);
                 }
             }
             rt::RelitParams again = params;
@@ -1907,9 +1907,11 @@ config::IniValues overrides()
 {
     // (the level's bake in the buffers: no relit mode, no lighting pass to turn it on, the level's own time; ray tracing
     // for the rays; nothing the bake doesn't need - the geometry settings left as the user has them)
-    const std::array<std::pair<const char*, const char*>, 17> kGraphics{{
+    // (round MATALB: the surface maps read - rt_pbr - for the albedo's calibration: the bounce's hits' albedo the game's)
+    const std::array<std::pair<const char*, const char*>, 18> kGraphics{{
         {"renderer", "vulkan"},
         {"ray_tracing", "1"},
+        {"rt_pbr", "1"},
         {"rt_relit", "0"},
         {"rt_shadows", "0"},
         {"rt_ao", "0"},

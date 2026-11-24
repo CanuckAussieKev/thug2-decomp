@@ -97,13 +97,13 @@ void set_cel_world(const CelWorld& world);
 // the global unit, physical - NOT pre-exposed (the draws and the ray-traced passes multiply by the frame's pre-exposure
 // where they read it: a pre-exposure change rewrites nothing); the tint and the flags are D3DCOLORs (A8R8G8B8):
 //   0: the sky's and bounce's light (light);
-//   1: the tint - the surface's colour (rgb, x rt_relit.h kRelitTintPerByte: 64, at most ~4 - the albedo is texel x
-//      tint), the vertex's share of the sun's rays (a, x 255): the
+//   1: rgb the neutral 1 (round MATALB - rt_relit.h kRelitStoreTint: the albedo is the material's, the bake's tint
+//      none of it; x kRelitTintPerByte, the byte 64), the vertex's share of the sun's rays (a, x 255): the
 //      visibility its colour was written with (D3DCOLOR);
-//   2: the lamps' light on it (tint x L x the lamps on - light);
+//   2: the lamps' light on it (L x the lamps on - light);
 //   3: the direct light's colour and strength the colour was written with (light: the lighting state's sun per N.L);
 //   4: the sky's part of word 0's light (light - the rest is the bounce);
-//   5: the light the world is drawn with - tint x (word 0 + word 3 x N.L x word 1's a) + word 2 + word 7 (light: rt_relit.h
+//   5: the light the world is drawn with - word 0 + word 3 x N.L x word 1's a + word 2 + word 7 (light: rt_relit.h
 //      relit_colour; kRelitColourLocation);
 //   6: the flags (D3DCOLOR): N.L toward the sun (red, x 255), the vertex's sky share K (green, x 255), in blue not 0: its
 //      emission is a lamp drawn in a texture (shown on the lamp texels alone - word 5 leaves it out; round FG: the byte is

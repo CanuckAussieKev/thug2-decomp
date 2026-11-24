@@ -8,6 +8,8 @@ import {
     FLAG_STRANDS_U,
     HEADER_SIZE,
     type MapEntry,
+    meanAlbedoByte,
+    meanAlbedoOf,
     readPbr,
     writePbr,
 } from "./pbr_file.ts";
@@ -85,4 +87,17 @@ test("the file: an entry's flags (the characters' model and strand bits) read ba
     assert.equal(back[0]!.flags, FLAG_MODEL | FLAG_STRANDS_U);
     assert.equal(back[1]!.flags, 0);
     assert.equal(file[HEADER_SIZE + 18], 3);
+});
+
+test("the file: an entry's mean albedo (round MATALB) as its sRGB-encoded byte - format_check_surface.cpp's", () => {
+    assert.equal(meanAlbedoByte(0.25), 137);
+    assert.equal(meanAlbedoByte(0), 0);
+    assert.equal(meanAlbedoByte(1e-6), 1);
+    assert.equal(meanAlbedoByte(1), 255);
+    assert.ok(Math.abs(meanAlbedoOf(137) - 0.25) < 0.002);
+    const file = writePbr([{ ...SAMPLE[0]!, meanAlbedo: 0.25 }, SAMPLE[1]!]);
+    assert.equal(file[HEADER_SIZE + 19], 137);
+    const back = readPbr(file);
+    assert.ok(Math.abs(back[0]!.meanAlbedo! - 0.25) < 0.002);
+    assert.equal(back[1]!.meanAlbedo, 0);
 });

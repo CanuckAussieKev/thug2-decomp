@@ -212,7 +212,7 @@ const uint OBJECT_FLAG = 32u; // (rt::kObject: the skater, peds, vehicles)
 
 // The pixel's surface: a ray from the camera finds its triangle (kept where it ends at the depth's point); its albedo -
 // its material's texel at the hit's texture coordinates x the material's colour, at most 1 (the vertex colours, the
-// level's baked light, left out) - in rgb, 1 in a when found; `object` whether it is an object's.
+// level's baked light, left out), decoded and calibrated (round MATALB: material_albedo) - in rgb, 1 in a when found; `object` whether it is an object's.
 // (added by the light energy audit) `relit`: the pixel is the relit world's, `world` its light's parts there.
 vec4 surface_albedo(vec3 here, float distance, float footprint, out bool object, out bool relit, out WorldLight world)
 {
@@ -240,7 +240,7 @@ vec4 surface_albedo(vec3 here, float distance, float footprint, out bool object,
                                        rayQueryGetIntersectionBarycentricsEXT(query, true), world);
     HitVertices v;
     if (!hit_vertices(instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true), v)) {
-        return vec4(min(material(id).colour.rgb, vec3(1.0)), 1.0);
+        return vec4(material_albedo(id, linear_from_display(min(material(id).colour.rgb, vec3(1.0)))), 1.0);
     }
     mat4x3 to_world = rayQueryGetIntersectionObjectToWorldEXT(query, true);
     vec3 a = to_world * vec4(v.position[0], 1.0);
@@ -248,7 +248,8 @@ vec4 surface_albedo(vec3 here, float distance, float footprint, out bool object,
     vec3 c = to_world * vec4(v.position[2], 1.0);
     vec2 uv = hit_uv(v, rayQueryGetIntersectionBarycentricsEXT(query, true));
     vec3 albedo = (material_texel_lod(id, uv, level_for(id, v, a, b, c, footprint)) * material(id).colour).rgb;
-    return vec4(min(albedo, vec3(1.0)), 1.0);
+    // (round MATALB: the material's albedo - calibrated, material_albedo - in linear light)
+    return vec4(material_albedo(id, linear_from_display(min(albedo, vec3(1.0)))), 1.0);
 }
 
 // The hue of a material's texture: its mean (four texels of its smallest level), the brightest channel 1; white for
@@ -376,7 +377,8 @@ void main()
     vec3 lamps = u_lights.params.x * lit;
     // (round F: the frame is linear light) the surface's display-referred colours decoded - its albedo in linear light
     // (lighting round A2: the store's tint is a linear albedo factor - only the texel is decoded)
-    vec3 surface = relit ? linear_from_display(albedo.rgb) * world.tint : linear_from_display(albedo.rgb);
+    // (round MATALB: surface_albedo's is the material's albedo already - linear, calibrated; no tint)
+    vec3 surface = albedo.rgb;
     vec3 added = surface * lamps;
     if (any(isnan(added)) || any(isinf(added)) || any(isnan(lamps)) || any(isinf(lamps))) {
         discard;

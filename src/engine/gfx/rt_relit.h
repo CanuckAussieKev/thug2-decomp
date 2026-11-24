@@ -45,9 +45,11 @@
 //     the sun's visibility from the rays.
 // Where E is small next to the level's median the tint is taken from its neighbours too (their tints averaged over the
 // mesh's edges, in logarithms, weighted by their confidence, smoothed kRelitSmoothPasses times). Tints are clamped to
-// kRelitMaxTint (1: the texture as painted - the surface's albedo is the texture's colour x the tint).
+// kRelitMaxTint. (Round MATALB: the tint is reported and kept, never an albedo - the albedo is the material's, texture x
+// its kind's calibration (rt_material_table.h material_albedo_scale); the tint carried the art's fill light with any
+// colour, and one fitted unit a level could not tell them apart - kRelitStoreTint.)
 //
-// A vertex relit: tint x (a' S N.L + b' K + g B' + L x the lamps on), a', b' the model's sun and sky at the light now
+// A vertex relit: albedo x (a' S N.L + b' K + g B' + L x the lamps on) - round MATALB: the albedo the material's, a', b' the model's sun and sky at the light now
 // (the lighting state's: rt_daylight.h - the atmosphere's light over the level's own), S traced again toward the light
 // now, B' the bounce of the relit light (hit colours: the relit ones), L the lamps' light (the same lamps the lamps pass
 // shines, in the same units) while the lamps are on and the pass doesn't light them itself.
@@ -111,6 +113,13 @@ inline constexpr uint32_t kRelitSmoothPasses = 4;
 // a quarter of Training's and New Orleans' vertices.)
 inline constexpr float kRelitTintPerByte = 64.0F;
 inline constexpr float kRelitMaxTint = 255.0F / kRelitTintPerByte;
+// (round MATALB - a surface's reflectance from its texture and material alone) The light store's tint word holds 1: no
+// renderer takes the bake's tint as albedo any more (the albedo is the material's - rt_material_table.h
+// material_albedo_scale). The tint is the original's colours over the bake's light model - its art's fill light (TR's
+// dark room under bright vertex colours: tints at the word's top), not only colour - and the census of the test levels'
+// vertex colours (tools/pbr_maps/albedo_census.ts) found no colour in them that light doesn't explain as well. The
+// bake still makes it (its fit's evidence, reported); the data keeps it.
+inline constexpr Rgbf kRelitStoreTint{1.0F, 1.0F, 1.0F};
 inline constexpr float kRelitLampLow = 1.2F;
 inline constexpr float kRelitLampHigh = 1.8F;
 // The light the model doesn't explain told across meshes (relit_light_across): the neighbours of other meshes within
@@ -172,7 +181,7 @@ struct RelitMesh {
     std::vector<Vec3> positions;
     std::vector<Vec3> normals;     // one per vertex, or empty: made from the triangles (area-weighted)
     std::vector<uint32_t> colours; // the baked colours, A8R8G8B8 (128: 1)
-    // (round L) the light each vertex shows (linear, the global unit - tint x light + its emission; relit_shown) for the
+    // (round L) the light each vertex shows (linear, the global unit - light + its emission; relit_shown) for the
     // bounce's rays: what a ray hitting it brings back in place of the colours; empty: the colours'. Physical, not
     // pre-exposed and not 8 bits: a night's light is 10^-7 of the unit.
     std::vector<Rgbf> light;
@@ -805,10 +814,12 @@ struct RelitParts {
     Rgbf lamps{};
 };
 [[nodiscard]] RelitParts relit_parts(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);
-// (round L) The light a vertex reflects (linear, the global unit, physical): its tint x its light - what the bounce's rays
-// bring back from it (its emission is a lamp's: that light is the lamps' L already - counted once). And the light it
-// shows: that + its own emission.
-[[nodiscard]] Rgbf relit_reflected(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);
+// (round L) The light a vertex receives (linear, the global unit, physical) - what the bounce's rays bring back from it x
+// the albedo of the texel they land on (ProbeResult::albedo: round MATALB - the material's, never the tint: the bake's
+// tint is the original's colours over its light model, the art's fill light as much as any colour, so not the surface's)
+// (its emission is a lamp's: that light is the lamps' L already - counted once). And the light it shows: that + its own
+// emission.
+[[nodiscard]] Rgbf relit_received(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);
 [[nodiscard]] Rgbf relit_shown(const RelitModel& model, const RelitVertex& vertex, const RelitLighting& lighting);
 // The light the world draws a vertex with, as the light store's word (engine/gfx/light_store.h: RGB9E5, physical) - the
 // light stream's colour word (rt_cel.h), which the draws read in place of the vertex colour (x the frame's pre-exposure).

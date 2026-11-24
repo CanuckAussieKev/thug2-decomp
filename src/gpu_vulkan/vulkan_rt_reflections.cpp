@@ -301,11 +301,11 @@ BrdfMaterial hit_material(uint id, HitVertices v, vec2 barycentrics, vec3 albedo
 // (round O - one light for everything, the audit's M8 / D1) The light a reflection ray's hit shows, as the surface's own
 // pixels show it, through round M's light model (engine/gfx/rt_brdf.h brdf_direct / brdf_ambient): `texel` its
 // texture's colour x its material's (display-referred), `point` / `n` where and which way it faces, `v` toward the
-// ray's start, `travelled` the path to it. Its material: the albedo the texel decoded (x the store's tint on the relit
-// world), F0 and roughness its material's (hit_material - round M's material table).
+// ray's start, `travelled` the path to it. Its material: the albedo the texel decoded and calibrated (round MATALB:
+// material_albedo - no tint), F0 and roughness its material's (hit_material - round M's material table).
 //  - the relit world: the light store at the hit - the sky and the bounce (word 0: its every-direction light, as the
 //    ambient's diffuse and specular light), the sun's light x its visibility traced here, the lamps the store lights
-//    per vertex (tint x L, as lit) and those the lamps pass lights per pixel (hit_lamps) - the lighting now, never the
+//    per vertex (L x the albedo) and those the lamps pass lights per pixel (hit_lamps) - the lighting now, never the
 //    bake's (at night a reflection shows the night);
 //  - an object lit by the one light (render_pc/pc_lights.h - its record linear): its probe's light at the normal and its
 //    key - the sun - x the visibility traced here, the lamps as above;
@@ -317,16 +317,18 @@ vec3 hit_light(uint id, uint instance, uint primitive, vec2 barycentrics, HitVer
     float nv = max(dot(n, to_eye), 1.0e-4);
     WorldLight w;
     if (!object && hit_world_light(instance, primitive, barycentrics, w)) {
-        BrdfMaterial m = hit_material(id, v, barycentrics, linear_from_display(texel) * w.tint);
+        // (round MATALB: the material's albedo - material_albedo, no tint; a lamp's emission by the colour as drawn)
+        vec3 albedo = material_albedo(id, linear_from_display(texel));
+        BrdfMaterial m = hit_material(id, v, barycentrics, albedo);
         float seen = w.n_dot_l > 0.0 ? sun_seen(point, n, travelled) : 0.0;
         vec3 sun = pass.sun.w > 0.0 ? brdf_direct(m, n, to_eye, pass.sun.xyz, w.sun * seen) : vec3(0.0);
         // (round L: + the surface's own emission - a lamp's lens or bulb seen in a reflection at its luminance)
-        return brdf_ambient(m, nv, w.ambient, w.ambient) + sun + linear_from_display(texel) * (w.lamps + w.emit) +
+        return brdf_ambient(m, nv, w.ambient, w.ambient) + sun + albedo * w.lamps + linear_from_display(texel) * w.emit +
                hit_lamps(m, point, n, to_eye);
     }
     ObjectLight l;
     if (object && hit_object_light(instance, l) && l.linear) {
-        BrdfMaterial m = hit_material(id, v, barycentrics, linear_from_display(texel));
+        BrdfMaterial m = hit_material(id, v, barycentrics, material_albedo(id, linear_from_display(texel)));
         vec3 around = object_light_with(l, n, 0.0); // (the probe's light at the normal: no key)
         float key_length = length(l.key_direction);
         vec3 toward = key_length > 1.0e-6 ? -l.key_direction / key_length : vec3(0.0, 1.0, 0.0);

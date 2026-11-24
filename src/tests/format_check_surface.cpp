@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -139,6 +140,26 @@ void check_round_trip()
               model_read.front().flags == (smf::kFlagModel | smf::kFlagStrandsU) &&
               core::at(std::span<const uint8_t>(model_file), kFlagsByte) == (smf::kFlagModel | smf::kFlagStrandsU),
           "read back: a character model's class and flags");
+    // (round MATALB) the mean albedo byte (19): the TypeScript writer's sRGB-encoded byte read back and decoded - 0.25
+    // linear is byte 137 (pbr_file.test.ts's meanAlbedoByte); 0 is "not measured"; a measured mean never 0
+    const std::array<smf::Entry, 1> measured{{{.checksum = kSampleChecksum,
+                                               .content_hash = kSampleContent,
+                                               .width = 1,
+                                               .height = 1,
+                                               .material_class = smf::MaterialClass::kConcrete,
+                                               .mean_albedo = smf::mean_albedo_byte(0.25F),
+                                               .f0 = kSampleF0}}};
+    const std::vector<uint8_t> measured_file = smf::write_file(measured, one);
+    std::vector<smf::Entry> measured_read;
+    constexpr std::size_t kMeanByte = smf::kHeaderSize + 19;
+    constexpr uint8_t kQuarterByte = 137;
+    check(smf::read_entries(measured_file, &measured_read) && measured_read.size() == 1 &&
+              measured_read.front().mean_albedo == kQuarterByte &&
+              core::at(std::span<const uint8_t>(measured_file), kMeanByte) == kQuarterByte &&
+              std::abs(smf::mean_albedo_of(kQuarterByte) - 0.25F) < 0.002F && smf::mean_albedo_of(0) == 0.0F &&
+              smf::mean_albedo_byte(1.0e-6F) == 1 && smf::mean_albedo_byte(1.0F) == 255,
+          text::format("read back: the mean albedo byte (0.25 as %u, decoded %.4f; 0 not measured)",
+                       unsigned{smf::mean_albedo_byte(0.25F)}, static_cast<double>(smf::mean_albedo_of(kQuarterByte))));
 }
 
 void check_refused()

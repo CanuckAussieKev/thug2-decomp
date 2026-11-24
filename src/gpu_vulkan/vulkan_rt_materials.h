@@ -89,9 +89,10 @@ struct MaterialRecord {
     // how far it replaces the surface map's (0: the map's alone) - as the per-pixel lighting takes them
     float kind_roughness = 0.0F;
     float kind_roughness_weight = 0.0F;
-    // (added for the surface reflections' floor) the roughness the surface's reflection never goes under (its kind's:
-    // stone, paint and wood are never mirrors whatever their maps say)
-    float least_roughness = 0.0F;
+    // (round MATALB - in the place of the retired least roughness) the factor the composed colour takes to be the
+    // material's albedo: its texture's surface map's mean albedo held in its kind's measured range (vulkan_surface.h
+    // surface_map_albedo_scale, rt_material_table.h material_albedo_scale; 1: as painted - no map)
+    float albedo_scale = 1.0F;
     // (round BIAS) rt::Material::layers: each later pass composed over the first - its texture slot (0: white), sampler
     // index, mode word (its blend mode in bits 0 - 7, its coordinate set in 8 - 11, kLayerTextureAlpha; 0: none) and its
     // colour (doubled) with its fixed alpha
@@ -129,7 +130,7 @@ void surface_reflection(const rt::Material& material, const Texture* colour, Mat
 //                     vec4 colour; float reflectivity; uint environment_pass;
 //                     uint reflection_class; uint reflection_mask; uint surface_slot; float f0;
 //                     uint mask_texture[3]; uint mask_sampler[3]; uint mask_mode[3];
-//                     float kind_roughness; float kind_roughness_weight; float least_roughness;
+//                     float kind_roughness; float kind_roughness_weight; float albedo_scale;
 //                     uint layer_texture[3]; uint layer_sampler[3]; uint layer_mode[3]; vec4 layer_colour[3]; };
 //   const uint MATERIAL_ALPHA_TESTED = 2u, MATERIAL_TRANSPARENT = 64u;   (rt::InstanceFlag's values)
 //   Material material(uint id)                       - the record (id: rt::MaterialId; 0: untextured white)
@@ -144,6 +145,8 @@ void surface_reflection(const rt::Material& material, const Texture* colour, Mat
 //                                                      pass's fixed alpha, kept out of it by the game)
 //   bool material_alpha_passes_at(uint id, vec2 uv)  - the same for material_drawn_alpha(id, uv, 0.5) (the vertex alpha
 //                                                      the game's vertices usually hold, 128)
+//   vec3 material_albedo(uint id, vec3 linear)       - (round MATALB) its albedo from its composed colour (decoded): x
+//                                                      albedo_scale, at most 1 - every ray's surface albedo
 //   (rt_pbr) bool material_has_surface(uint id)      - whether its texture has a surface map
 //   vec4 material_surface_lod(uint id, vec2 uv, float lod) - the map's texel through the material's sampler: normal
 //                                                      x, y (0 - 1 for -1 - 1), roughness, height; (0.5, 0.5, 1, 0.5)

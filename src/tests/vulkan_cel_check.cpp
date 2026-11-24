@@ -591,7 +591,9 @@ void check_twins(Tally* tally)
     constexpr Vec3 kVertexResidual{0.25F, 0.0F, 0.0F};
     constexpr uint32_t kFull = 255;
     // (lighting round A2: the bounce's coefficient 1 - B is radiance in the light's unit)
-    constexpr uint32_t kTintRed = 96;     // (1.5 x rt_relit.h kRelitTintPerByte)
+    // (round MATALB: the store's tint word the neutral 1 whatever the bake's tint - rt_relit.h kRelitStoreTint x
+    // kRelitTintPerByte; the lamps' word L alone, not x the tint)
+    constexpr uint32_t kTintRed = 64;
     constexpr uint32_t kShareByte = 128;  // (0.5)
     constexpr uint32_t kByteBits = 0xFFU;
     rt::RelitModel model;
@@ -606,7 +608,7 @@ void check_twins(Tally* tally)
     vertex.sky = kVertexSky;
     vertex.bounce = kVertexBounce;
     vertex.tint = kVertexTint;
-    vertex.lamp = kVertexResidual; // (lighting round A: the lamps' light L - word 2 holds it on the surface, x the tint)
+    vertex.lamp = kVertexResidual; // (lighting round A: the lamps' light L - word 2 holds it on the surface)
     const rt::CelWords words =
         rt::cel_stream_words(model, vertex, {.toward = {0.0F, 1.0F, 0.0F}, .sun = model.sun, .sky = model.sky, .lamps = 1.0F});
     const auto channel = [](uint32_t word, uint32_t shift) { return (word >> shift) & kByteBits; };
@@ -618,7 +620,7 @@ void check_twins(Tally* tally)
                           close_to(std::get<0>(parts.ambient), 0.4F) && close_to(std::get<2>(parts.ambient), 0.45F) &&
                           channel(std::get<1>(words), kRedShift) == kTintRed &&
                           channel(std::get<1>(words), kAlphaShift) == kShareByte &&
-                          close_to(std::get<0>(parts.lamps), 0.375F) && parts.n_dot_l == 1.0F && parts.valid &&
+                          close_to(std::get<0>(parts.lamps), 0.25F) && parts.n_dot_l == 1.0F && parts.valid &&
                           channel(std::get<rt::kCelFlagsWord>(words), kAlphaShift) == kFull;
     vertex.used = false;
     const bool unused = rt::cel_stream_words(model, vertex, {}) == rt::kCelNoStream;

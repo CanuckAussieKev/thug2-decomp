@@ -35,6 +35,9 @@ struct MapInfo {
     // light already taken out (the texture set serving its dictionary lists it de-lit): [Graphics] rt_delight leaves it
     // alone
     bool delit = false;
+    // (added by round MATALB) the texture's texels' mean albedo, linear (surface_map_format.h mean_albedo_of; 0: not
+    // measured) - what its kind's measured range calibrates (rt_material_table.h material_albedo_scale)
+    float mean_albedo = 0.0F;
 };
 
 class SurfaceMaps {

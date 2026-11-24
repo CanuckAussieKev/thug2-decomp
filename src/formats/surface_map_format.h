@@ -18,7 +18,8 @@
 //       is used only for the texels it was made from (a texture replaced later - an upscaled one, a mod's - keeps none)
 //   u16 width, u16 height (the map's; any size - the texture's or not)
 //   u8 material class (MaterialClass), u8 generator (Generator), u8 flags (kFlag*; 0 before the characters' maps),
-//   u8 reserved (0)
+//   u8 (round MATALB) the texture's texels' mean albedo - the linear luminance of its opaque texels, sRGB-encoded as a
+//      byte (mean_albedo_of); 0: not measured (the files made before it - the byte was reserved, 0)
 //   f32 F0: the reflectance at normal incidence (0 - 1) the class gives
 //   u32 the texels' offset from the file's start, u32 their size (width x height x 4)
 // and the texels: rows top first (the texture's v growing downward, as its own rows), 4 bytes each -
@@ -79,6 +80,7 @@ struct Entry {
     MaterialClass material_class = MaterialClass::kDefault;
     Generator generator = Generator::kClassical;
     uint8_t flags = 0; // (added for the characters) kFlag*
+    uint8_t mean_albedo = 0; // (round MATALB) the texels' mean albedo, sRGB-encoded (0: not measured) - mean_albedo_of
     float f0 = 0.0F;
     uint32_t offset = 0;
     uint32_t bytes = 0;
@@ -94,6 +96,12 @@ struct Entry {
 // The file made from entries and their texels (tests and tools; the generator writes the same bytes from TypeScript).
 // `texels` holds each entry's texels in order; offsets are filled in.
 [[nodiscard]] std::vector<uint8_t> write_file(std::span<const Entry> entries, std::span<const std::vector<uint8_t>> texels);
+
+// (round MATALB) An entry's mean albedo byte as the linear albedo it encodes (the sRGB transfer function decoded); 0 for
+// 0 - not measured.
+[[nodiscard]] float mean_albedo_of(uint8_t encoded);
+// ... and a linear mean albedo (0 - 1) as the byte (at least 1: a measured mean is never "not measured").
+[[nodiscard]] uint8_t mean_albedo_byte(float linear);
 
 // The texture's map in `entries` (by checksum and content hash), or null.
 [[nodiscard]] const Entry* find(std::span<const Entry> entries, uint32_t checksum, uint64_t content_hash);

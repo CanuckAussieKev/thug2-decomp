@@ -1003,6 +1003,35 @@ void check_surface(render::Gpu& gpu, MaterialTable& table, Tally* tally)
                   tally);
         surface_probe.shutdown();
     }
+    // (round MATALB) the albedo's calibration in the record: a concrete texture (class 2) whose texels' mean albedo is
+    // under concrete's measured range brought to its low end (0.25 / 0.1), one inside it as painted, one not measured
+    // (an older map file: mean 0) as painted; the metal above (no diffuse range) as painted
+    const float metal_scale = record.albedo_scale;
+    const auto calibrated = [&](float mean, uint32_t seed) {
+        MadeTexture texture = make_texture(gpu, {.size = kSmall, .seed = Seed{seed}});
+        const bool fixed = render::surface::surface_maps()->attach(
+            texture.texture, {.width = kSmall, .height = kSmall, .material_class = 2, .f0 = 0.04F, .mean_albedo = mean},
+            map);
+        const rt::MaterialId id = rt::next_material_id();
+        table.set(id, point_material(texture.texture));
+        const float scale = fixed ? table.record(id).albedo_scale : -1.0F;
+        table.remove(id);
+        release(gpu, &texture);
+        return scale;
+    };
+    const float dark = calibrated(0.1F, kReleasedSeed + 1);
+    const float inside = calibrated(0.3F, kReleasedSeed + 2);
+    const float unknown = calibrated(0.0F, kReleasedSeed + 3);
+    const auto& concrete = render::rt::material_values(render::rt::kind_of_map_class(2)).albedo;
+    tally->check(std::abs(dark - (std::get<0>(concrete) / 0.1F)) < 1e-5F && inside == 1.0F && unknown == 1.0F &&
+                     metal_scale == 1.0F && table.record(without).albedo_scale == 1.0F &&
+                     render::rt::material_albedo_scale(render::rt::kind_of_map_class(2), 0.9F) ==
+                         std::get<1>(concrete) / 0.9F,
+                 text::format("the albedo's calibration (round MATALB): concrete's mean 0.1 x %.3f (to %.2f), 0.3 x %.3f, "
+                              "not measured x %.3f, a metal x %.3f, no map x %.3f",
+                              static_cast<double>(dark), static_cast<double>(std::get<0>(concrete)),
+                              static_cast<double>(inside), static_cast<double>(unknown), static_cast<double>(metal_scale),
+                              static_cast<double>(table.record(without).albedo_scale)));
     release(gpu, &colour);
     tally->check(table.record(with).surface_texture == 0, "the texture released: its map's slot cleared");
     table.remove(with);

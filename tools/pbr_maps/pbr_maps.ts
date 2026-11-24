@@ -371,6 +371,30 @@ export function statsOf(image: Rgba): Stats {
     };
 }
 
+const LINEAR = Float64Array.from({ length: 256 }, (_, i) => {
+    const c = i / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+});
+// (round MATALB) The texels' mean albedo: the linear luminance (Rec. 709) of the texels the game draws opaque (alpha at
+// least half of opaque - statsOf's doubled-alpha rule), sRGB decoded - what the engine calibrates against the texture's
+// kind's measured range (src/engine/gfx/rt_material_table.h material_albedo_scale). 0 when none is opaque.
+export function meanAlbedo(image: Rgba): number {
+    let alphaMax = 0;
+    for (let i = 3; i < image.data.length; i += 4) alphaMax = Math.max(alphaMax, image.data[i]!);
+    const opaque = alphaMax >= 200 ? 255 : 128;
+    let sum = 0;
+    let n = 0;
+    for (let i = 0; i < image.data.length; i += 4) {
+        if (image.data[i + 3]! < 0.5 * opaque) continue;
+        sum +=
+            0.2126 * LINEAR[image.data[i]!]! +
+            0.7152 * LINEAR[image.data[i + 1]!]! +
+            0.0722 * LINEAR[image.data[i + 2]!]!;
+        n++;
+    }
+    return n ? sum / n : 0;
+}
+
 // A side-by-side picture: texture | normals | roughness | height | lit flat | lit with the normals (light from the
 // upper left, 45 degrees up), each scaled (nearest) to `size` texels tall.
 export function sideBySide(
@@ -508,6 +532,7 @@ export function make(game: string, options: MakeOptions): MakeResult {
                 materialClass: CLASS[name],
                 generator: fromModel ? GENERATOR_CHORD : GENERATOR_CLASSICAL,
                 f0: rule.f0,
+                meanAlbedo: meanAlbedo(original), // (round MATALB: the texture as drawn - not its de-lit copy)
                 flags: model
                     ? FLAG_MODEL |
                       (name === "hair" && strandsAlongU(image) ? FLAG_STRANDS_U : 0) |

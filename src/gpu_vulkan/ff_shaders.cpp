@@ -625,7 +625,7 @@ constexpr const char* kSurfaceBlock = R"(layout(set = 0, binding = 6, std140) un
     vec4 scatter;
     vec4 params;
     vec4 sheen;
-    vec4 spare;
+    vec4 albedo;
 } s;
 // (NOT ORIGINAL - round O) the lit paths' colour: with the one light (v_surface_base.w -1) linear light summed on the
 // surface's colour and encoded once; else Direct3D's sum, held to 0 - 1
@@ -1223,7 +1223,11 @@ void surface_finish(std::string& out, const FragmentKey& key)
     // itself (the vertex's, the draw's own lights); the light this renderer makes (the store's, the lamps', the rays')
     // doesn't take it. Linear: the display's power law makes the colour's factor the light's.
     add(out, {"    vec3 surface_tint_light = linear_from_display(pass_tint_of(0));"});
-    add(out, {"    vec3 surface_albedo = linear_from_display(clamp(colour.rgb, 0.0, 1.0));\n"
+    // (round MATALB - one albedo definition: rt_material_table.h material_albedo_scale) the albedo is the texture's colour
+    // x the material's, calibrated to its kind's measured range (s.albedo.x), at most 1 - never the original's vertex
+    // colours nor the relit store's tint (the original's light); surface_texel the colour as drawn (a lamp's emission)
+    add(out, {"    vec3 surface_texel = linear_from_display(clamp(colour.rgb, 0.0, 1.0));\n"
+              "    vec3 surface_albedo = min(surface_texel * s.albedo.x, vec3(1.0));\n"
               "    float surface_nv = max(dot(surface_n, surface_v), 1.0e-4);\n"
               "    float surface_hemi = 0.5 + 0.5 * dot(surface_n, surface_geo);\n"
               "    vec3 surface_out = vec3(0.0);"});
@@ -1316,20 +1320,19 @@ void surface_finish(std::string& out, const FragmentKey& key)
     } else if ((key.surface & kSurfaceRelit) != 0U) {
         const bool relief = (key.detail & kDetailRelief) != 0U && (key.surface & kSurfaceMap) != 0U;
         // (round L: v_cel_light / v_cel_residual / v_cel_emit are light in the frame's unit - the store's physical light x
-        // the frame's pre-exposure; the tint decoded by the vertex stage - round BAKEALB. The vertex's own emission - a lamp's lens, bulb or
+        // the frame's pre-exposure; round MATALB: the store's tint not read - the albedo is the material's. The vertex's own emission - a lamp's lens, bulb or
         // panel at its luminance - added as it is (x the texel's colour: the lamp's texture), on the lamp texels alone for
         // a lamp drawn in a texture: their brightest channel at least rt_lights.h kTexelBright, the bake's own test)
         add(out, {"    const float surface_word = 255.0 / 128.0;\n"
                   "    if (v_cel_residual.a > 0.5) {\n"
-                  "        vec3 tint = v_cel_tint.rgb;\n"
-                  "        vec3 lamp_texel = surface_albedo;\n"
+                  "        vec3 lamp_texel = surface_texel;\n"
                   // (round FG - one lamp-texel test: the bake's, its texture's floor coded in the store's flags - the same
                   // code on every vertex of the mesh, so interpolated it is the code; rt_lights.h lamp_texel_glsl)
                   "        float lamp_lit = lamp_texel_shown(lamp_texel, colour.a, uint(v_cel_emit.a * 255.0 + 0.5)) ? 1.0 "
-                  ": 0.0;\n"
-                  "        surface_m.albedo = min(surface_m.albedo * tint, vec3(1.0));\n        surface_m.f0 = mix(surface_m.f0, surface_m.f0 * tint, s.params.x);\n",
+                  ": 0.0;\n",
                   layer_m_inner,
-                  "        vec3 env = v_cel_light.rgb + v_cel_residual.rgb / max(tint, vec3(1.0 / 128.0));\n"
+                  // (round MATALB: the store's light alone - the material's albedo is surface_m's, no tint on it)
+                  "        vec3 env = v_cel_light.rgb + v_cel_residual.rgb;\n"
                   "        surface_out = brdf_ambient(surface_m, surface_nv, env * surface_hemi, env * surface_env) * surface_li.b;\n"
                   "        if (s.sun.w > 0.5 && dot(surface_geo, s.sun.xyz) > 0.0) {\n"
                   "            surface_out += brdf_direct(surface_m, surface_n, surface_v, s.sun.xyz, s.sun_light.rgb * "
