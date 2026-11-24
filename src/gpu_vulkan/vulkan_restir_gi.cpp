@@ -599,9 +599,9 @@ Surface primary(ivec2 p)
     float t;
     mat4x3 to_world;
     HitSurface h;
-    if (!trace_drawn(eye, dir, reach, expected, instance, primitive, id, bary, t, to_world) ||
-        (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected) ||
-        !hit_surface(instance, primitive, id, bary, to_world, dir, h) || h.hidden) {
+    // (round BAKEALB: the camera ray's surface as DI's shared primary makes it, its layer laid on - without DI's cone: this
+    // pass's own primary is the fallback when DI's isn't shared)
+    if (!camera_surface(eye, dir, reach, expected, no_cone(), instance, primitive, id, bary, t, to_world, h) || h.hidden) {
 #ifdef CHECK
         return no_surface();
 #else

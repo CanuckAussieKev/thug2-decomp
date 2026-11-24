@@ -193,6 +193,8 @@ std::string_view scene_geometry_glsl();
 // (round CW) The surface the per-surface lighting's prepass keeps at a pixel (vulkan_surface_light.h):
 //   bool drawn_kept(uint instance, uint primitive, uint id, vec2 barycentrics) - an opaque / cut-out one by its alpha
 //        test, a blended one (HIT_COVERAGE / HIT_GLASS) at least half opaque, never a filter or an added one
+//   bool trace_drawn_layered(... the same, out bool layered, out layer_instance, layer_primitive, layer_id,
+//        layer_barycentrics, layer_world) - (round BAKEALB) and the blended world layer lying on the surface it found
 //   bool trace_drawn(vec3 origin, vec3 dir, float reach, float expected, out instance, primitive, id, barycentrics, t,
 //        to_world) - the nearest such surface along a camera ray, every drawn instance (RAY_DRAWN 0x87) asked; (round
 //        DECAL) a blended world one lying on the solid surface behind it (within RAY_LAYER_LIFT - ff_key.h kLayerLift -
@@ -218,6 +220,11 @@ std::string_view cutout_rays_glsl();
 //                    out HitSurface s)   - false when the instance isn't live (no vertices to read)
 //   bool hit_surface_at(... the same, HitCone cone, out HitSurface s) - (round BAKEALB) a camera ray's: its base colour
 //                    at the raster's mips (hit_albedo_at with the cone); hit_surface is it with no_cone()
+//   bool camera_surface(vec3 eye, vec3 dir, float reach, float expected, HitCone cone, out uint instance, out uint
+//                    primitive, out uint id, out vec2 barycentrics, out float t, out mat4x3 to_world, out HitSurface h) -
+//                    (round BAKEALB - one layer set) a camera ray's surface: trace_drawn's (false when none, or not at
+//                    `expected` - its depth), its passes at the cone's levels, the blended world layer lying on it
+//                    (trace_drawn_layered) laid over its material by the layer's drawn alpha - the raster's DBuffer rule
 //   - position: the hit (world); normal: the triangle's, unit, turned toward where the ray came from (-direction);
 //     shading_normal: the mesh's vertex normals blended there (same side) where it has them, else `normal`; area: the
 //     triangle's (world units^2 - a light sample's pdf);

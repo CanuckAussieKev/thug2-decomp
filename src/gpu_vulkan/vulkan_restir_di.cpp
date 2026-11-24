@@ -510,9 +510,7 @@ Surface primary(ivec2 p)
     cone.bias = pass.cone.x;
     cone.most_anisotropy = max(pass.cone.y, 1.0);
 #endif
-    if (!trace_drawn(eye, dir, reach, expected, instance, primitive, id, bary, t, to_world) ||
-        (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected) ||
-        !hit_surface_at(instance, primitive, id, bary, to_world, dir, cone, h) || h.hidden) {
+    if (!camera_surface(eye, dir, reach, expected, cone, instance, primitive, id, bary, t, to_world, h) || h.hidden) {
 #ifdef CHECK
         return shared_primary(p, no_surface(), false, vec3(0.0), 1.0, PRIMARY_NONE);
 #else

@@ -2927,9 +2927,19 @@ float layer_gap(uint instance, uint primitive, mat4x3 to_world, vec3 dir, float 
 // surface's material layer - the raster lays it there (vulkan_surface_light.h, the game's overlays: no depth of theirs
 // kept) - unless the pixel's depth (`expected`, the distance the prepass's depth gives; negative: none known) is its own:
 // a blended layer that writes depth (a road's painted crosswalk) the prepass kept.
-bool trace_drawn(vec3 origin, vec3 dir, float reach, float expected, out uint instance, out uint primitive, out uint id,
-                 out vec2 barycentrics, out float t, out mat4x3 to_world)
+// (round BAKEALB - one layer set) ... and the blended world layer lying on the surface it found (`layered`: its hit) -
+// the overlay the raster lays into the surface's material (the DBuffer's layer, round DECAL)
+bool trace_drawn_layered(vec3 origin, vec3 dir, float reach, float expected, out uint instance, out uint primitive,
+                         out uint id, out vec2 barycentrics, out float t, out mat4x3 to_world, out bool layered,
+                         out uint layer_instance, out uint layer_primitive, out uint layer_id, out vec2 layer_barycentrics,
+                         out mat4x3 layer_world)
 {
+    layered = false;
+    layer_instance = 0u;
+    layer_primitive = 0u;
+    layer_id = 0u;
+    layer_barycentrics = vec2(0.0);
+    layer_world = mat4x3(1.0);
     rayQueryEXT query;
     rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, RAY_DRAWN, origin, 0.0, dir, reach);
     bool blended = false; // (the nearest blended candidate the test keeps)
@@ -3005,6 +3015,12 @@ bool trace_drawn(vec3 origin, vec3 dir, float reach, float expected, out uint in
             to_world = blended_world;
             return true;
         }
+        layered = true;
+        layer_instance = blended_instance;
+        layer_primitive = blended_primitive;
+        layer_id = blended_id;
+        layer_barycentrics = blended_bary;
+        layer_world = blended_world;
     }
     if (!solid) {
         return false;
@@ -3016,6 +3032,18 @@ bool trace_drawn(vec3 origin, vec3 dir, float reach, float expected, out uint in
     t = solid_t;
     to_world = rayQueryGetIntersectionObjectToWorldEXT(query, true);
     return true;
+}
+bool trace_drawn(vec3 origin, vec3 dir, float reach, float expected, out uint instance, out uint primitive, out uint id,
+                 out vec2 barycentrics, out float t, out mat4x3 to_world)
+{
+    bool layered;
+    uint li;
+    uint lp;
+    uint lid;
+    vec2 lb;
+    mat4x3 lw;
+    return trace_drawn_layered(origin, dir, reach, expected, instance, primitive, id, barycentrics, t, to_world, layered, li,
+                               lp, lid, lb, lw);
 }
 
 // (round PT-B - the one light through the seen-through surfaces) The light that gets through the seen-through instances
@@ -3503,6 +3531,37 @@ bool hit_surface(uint instance, uint primitive, uint id, vec2 barycentrics, mat4
                  out HitSurface s)
 {
     return hit_surface_at(instance, primitive, id, barycentrics, object_to_world, direction, no_cone(), s);
+}
+// (round BAKEALB - one layer set) A camera ray's surface: trace_drawn's (its `expected` depth), its passes at the cone's
+// levels, and the blended world layer lying on it (a painted line, a grime card - trace_drawn_layered) laid over its
+// material by the layer's drawn alpha - albedo, F0 and roughness, the DBuffer's blend the raster lays it with (round
+// DECAL: kLightLayerWrite), so the rays' primary and the raster's albedo hold the same layer. The scatter's own marks
+// (vulkan_scatter.h decals) are the raster's alone: they aren't in the scene the rays trace.
+bool camera_surface(vec3 eye, vec3 dir, float reach, float expected, HitCone cone, out uint instance, out uint primitive,
+                    out uint id, out vec2 barycentrics, out float t, out mat4x3 to_world, out HitSurface h)
+{
+    bool layered;
+    uint li;
+    uint lp;
+    uint lid;
+    vec2 lb;
+    mat4x3 lw;
+    h.hidden = true;
+    if (!trace_drawn_layered(eye, dir, reach, expected, instance, primitive, id, barycentrics, t, to_world, layered, li, lp,
+                             lid, lb, lw) ||
+        (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected) ||
+        !hit_surface_at(instance, primitive, id, barycentrics, to_world, dir, cone, h)) {
+        return false;
+    }
+    HitSurface layer;
+    if (layered && !h.hidden && hit_surface_at(li, lp, lid, lb, lw, dir, cone, layer) && !layer.hidden && !layer.cut_out) {
+        float a = clamp(layer.alpha, 0.0, 1.0);
+        h.base_colour = mix(h.base_colour, layer.base_colour, a);
+        h.material.albedo = mix(h.material.albedo, layer.material.albedo, a);
+        h.material.f0 = mix(h.material.f0, layer.material.f0, a);
+        h.material.roughness = mix(h.material.roughness, layer.material.roughness, a);
+    }
+    return true;
 }
 
 )";
