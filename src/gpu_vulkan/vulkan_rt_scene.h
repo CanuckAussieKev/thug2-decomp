@@ -260,6 +260,9 @@ std::string_view hit_surface_glsl();
 //        each pass at its texture's level for the pixel (ray differentials: the raster's mip); without, the most detailed
 //   vec3 hit_albedo(uint instance, uint primitive, uint id, vec2 barycentrics) - the same without a cone, its uv and
 //        vertex alpha read (0 where the instance isn't live)
+//   bool hit_store(...) - the light store at the hit (hit_surface's, below)
+//   vec3 hit_bounce_albedo(uint instance, uint primitive, uint id, vec2 barycentrics) - the ray probe's: hit_albedo, held
+//        where the hit has a store so that it x the store's tint is at most 1 (hit_surface's base colour is)
 std::string_view hit_albedo_glsl();
 inline constexpr float kHitMetalF0 = 0.2F; // (a surface map's F0 at least this: a metal - the reflections' HIT_METAL_F0)
 // The caller holds the backend's lock.

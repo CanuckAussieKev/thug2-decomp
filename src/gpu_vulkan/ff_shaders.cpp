@@ -1327,7 +1327,7 @@ void surface_finish(std::string& out, const FragmentKey& key)
                   // code on every vertex of the mesh, so interpolated it is the code; rt_lights.h lamp_texel_glsl)
                   "        float lamp_lit = lamp_texel_shown(lamp_texel, colour.a, uint(v_cel_emit.a * 255.0 + 0.5)) ? 1.0 "
                   ": 0.0;\n"
-                  "        surface_m.albedo *= tint;\n        surface_m.f0 = mix(surface_m.f0, surface_m.f0 * tint, s.params.x);\n",
+                  "        surface_m.albedo = min(surface_m.albedo * tint, vec3(1.0));\n        surface_m.f0 = mix(surface_m.f0, surface_m.f0 * tint, s.params.x);\n",
                   layer_m_inner,
                   "        vec3 env = v_cel_light.rgb + v_cel_residual.rgb / max(tint, vec3(1.0 / 128.0));\n"
                   "        surface_out = brdf_ambient(surface_m, surface_nv, env * surface_hemi, env * surface_env) * surface_li.b;\n"

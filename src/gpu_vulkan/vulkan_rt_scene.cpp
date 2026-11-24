@@ -499,7 +499,7 @@ void main()
         hit.flags = 1u | (rayQueryGetIntersectionFrontFaceEXT(query, true) ? 2u : 0u);
         // (round BAKEALB) the hit's albedo - the renderers' definition (hit_albedo), what the hit reflects
         if ((ray.cull_mask.y & 2u) != 0u) {
-            hit.albedo = vec4(hit_albedo(hit.instance, hit.primitive, hit.custom_index, hit.barycentrics), 0.0);
+            hit.albedo = vec4(hit_bounce_albedo(hit.instance, hit.primitive, hit.custom_index, hit.barycentrics), 0.0);
         }
     }
     // (round PT-B) with the cut-outs - the one lighting path's test - the light the seen-through surfaces before the hit
@@ -3295,6 +3295,39 @@ vec3 hit_albedo_at(uint instance, uint primitive, uint id, vec2 barycentrics, ve
                                                             a, b, c, cone));
     return linear_from_display(clamp(material_colour_from_lod(id, first, layer_uv, layer_lod, vertex_alpha).rgb, 0.0, 1.0));
 }
+// The light store at the hit, as stored (the global unit - not x the frame's pre-exposure): the tint, the emission,
+// the lamp-texel code when the emission is a lamp drawn in a texture (word 6's blue - rt_lights.h lamp_texel_code; 0:
+// the whole surface emits), whether the mesh is hidden (word 6's alpha 128). False: no store there (none, or an animated
+// vertex).
+bool hit_store(uint instance, uint primitive, vec2 barycentrics, out vec3 tint, out vec3 emit, out uint texels,
+               out bool hidden)
+{
+    GeometryRecord g = geometry_record(instance);
+    tint = vec3(0.0);
+    emit = vec3(0.0);
+    texels = 0u;
+    hidden = false;
+    uvec3 corners;
+    if (!geometry_triangle(g, primitive, corners) || !geometry_light_corners(g, corners)) {
+        return false;
+    }
+    float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
+    for (uint k = 0u; k < 3u; ++k) {
+        uint at = corners[k] * 32u; // (rt_cel.h kCelStreamBytes)
+        uint flag_word = geometry_word(g.light_address, at + 24u);
+        vec4 flags = unpackUnorm4x8(flag_word).zyxw;
+        if (flags.a < 0.25) {
+            return false; // (an animated vertex: the game's colour, no store)
+        }
+        if (flags.a < 0.75) {
+            hidden = true;
+        }
+        texels = max(texels, flag_word & 255u); // (B, G, R, A in memory: blue the low byte)
+        tint += unpackUnorm4x8(geometry_word(g.light_address, at + 4u)).zyx * (weights[k] * LIGHT_PER_UNORM);
+        emit += stored_light(geometry_word(g.light_address, at + 28u)) * weights[k];
+    }
+    return true;
+}
 vec3 hit_albedo(uint instance, uint primitive, uint id, vec2 barycentrics)
 {
     HitVertices v;
@@ -3304,6 +3337,21 @@ vec3 hit_albedo(uint instance, uint primitive, uint id, vec2 barycentrics)
     vec2 uv = hit_uv_set(instance, primitive, barycentrics, material(id).uv_set);
     return hit_albedo_at(instance, primitive, id, barycentrics, uv, hit_colour(v, barycentrics).a, vec3(0.0), vec3(0.0),
                          vec3(0.0), no_cone());
+}
+// (round BAKEALB) What the relit bounce's rays take at a hit: the albedo's part beside the store's tint - hit_albedo,
+// where the hit has a store held so that texel x tint (hit_surface's base colour) is at most 1, as every renderer holds
+// it; without a store (the bake's own rays: the tints not made yet) hit_albedo
+vec3 hit_bounce_albedo(uint instance, uint primitive, uint id, vec2 barycentrics)
+{
+    vec3 albedo = hit_albedo(instance, primitive, id, barycentrics);
+    vec3 tint;
+    vec3 emit;
+    uint texels;
+    bool hidden;
+    if (hit_store(instance, primitive, barycentrics, tint, emit, texels, hidden)) {
+        albedo = min(albedo * tint, vec3(1.0)) / max(tint, vec3(1.0e-6));
+    }
+    return albedo;
 }
 )";
     return made;
@@ -3342,39 +3390,6 @@ struct HitSurface {
     float area;
     bool hidden;
 };
-// The light store at the hit, as stored (the global unit - not x the frame's pre-exposure): the tint, the emission,
-// the lamp-texel code when the emission is a lamp drawn in a texture (word 6's blue - rt_lights.h lamp_texel_code; 0:
-// the whole surface emits), whether the mesh is hidden (word 6's alpha 128). False: no store there (none, or an animated
-// vertex).
-bool hit_store(uint instance, uint primitive, vec2 barycentrics, out vec3 tint, out vec3 emit, out uint texels,
-               out bool hidden)
-{
-    GeometryRecord g = geometry_record(instance);
-    tint = vec3(0.0);
-    emit = vec3(0.0);
-    texels = 0u;
-    hidden = false;
-    uvec3 corners;
-    if (!geometry_triangle(g, primitive, corners) || !geometry_light_corners(g, corners)) {
-        return false;
-    }
-    float weights[3] = float[3](1.0 - barycentrics.x - barycentrics.y, barycentrics.x, barycentrics.y);
-    for (uint k = 0u; k < 3u; ++k) {
-        uint at = corners[k] * 32u; // (rt_cel.h kCelStreamBytes)
-        uint flag_word = geometry_word(g.light_address, at + 24u);
-        vec4 flags = unpackUnorm4x8(flag_word).zyxw;
-        if (flags.a < 0.25) {
-            return false; // (an animated vertex: the game's colour, no store)
-        }
-        if (flags.a < 0.75) {
-            hidden = true;
-        }
-        texels = max(texels, flag_word & 255u); // (B, G, R, A in memory: blue the low byte)
-        tint += unpackUnorm4x8(geometry_word(g.light_address, at + 4u)).zyx * (weights[k] * LIGHT_PER_UNORM);
-        emit += stored_light(geometry_word(g.light_address, at + 28u)) * weights[k];
-    }
-    return true;
-}
 // (round PT4b) The light a surface's store sends at a point: its emission x the texel (linear) - on the lamp texels alone
 // when the store says its lamp is drawn in a texture. hit_surface's `emitted` and hit_emission's: one emission. (Round FG)
 // the lamp texels by the bake's own test (lamp_texel_shown - rt_lights.h lamp_texel_glsl), `alpha` the drawn alpha.
@@ -3507,7 +3522,9 @@ bool hit_surface_at(uint instance, uint primitive, uint id, vec2 barycentrics, m
     if (hit_store(instance, primitive, barycentrics, tint, emit, texels, hidden)) {
         s.origin = HIT_RELIT_WORLD;
         s.hidden = hidden;
-        s.base_colour = linear * tint;
+        // (round BAKEALB) an albedo is at most 1 - the tint (up to ~4: rt_relit.h kRelitMaxTint) on a bright texel would
+        // make light (a path's bounces grew without bound: New Orleans' reference 10^11 x its median); the raster's the same
+        s.base_colour = min(linear * tint, vec3(1.0));
         s.emitted = store_emission(emit, linear, s.alpha, texels);
     } else {
         s.origin = object ? HIT_OBJECT : HIT_BAKED_WORLD;

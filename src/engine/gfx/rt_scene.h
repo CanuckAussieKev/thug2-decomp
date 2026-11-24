@@ -301,7 +301,8 @@ struct ProbeResult {
     float seen_through = 1.0F;
     // (round BAKEALB) with `albedo` asked: the hit material's albedo at the hit (linear) - the renderers' own definition
     // (vulkan_rt_scene.h hit_albedo: the passes composed as the game composes them, at the texel the hit lands on),
-    // before the light store's tint: what hit_surface's base_colour is with the tint 1. A backend that reads no
+    // before the light store's tint: what hit_surface's base_colour is with the tint 1 - where the hit has a store, held so
+    // that it x the store's tint is at most 1 (vulkan_rt_scene.h hit_bounce_albedo: an albedo). A backend that reads no
     // materials (the checks' box tracers) answers 1 - a surface whose texture is white.
     std::array<float, 3> albedo{1.0F, 1.0F, 1.0F};
 };
