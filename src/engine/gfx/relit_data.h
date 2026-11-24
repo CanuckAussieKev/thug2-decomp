@@ -95,8 +95,12 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // surface its front, a two-sided one both - RelitMesh::two_sided): its luminance the flux over pi x its drawn area x
 // its faces (a two-sided card's half v20's); a solve whose flux is more than its kind's brightest luminance over its
 // luminous area sends is the model's; a glow's row of fittings its fittings' typical flux. Older files are not read.
-inline constexpr uint32_t kRelitDataVersion = 21;
-inline constexpr uint32_t kRelitDataOldestRead = 21;
+// v22 (round EMIT2 - an emitter's flux conserved): a lamp's surface emits its luminance x the colour as drawn on the
+// texels that emit, so its luminance is its flux over pi x that colour's mean over its drawn area (relit_bake.cpp
+// emitting_vertices' `emitted`) - 1.5 - 5 x v21's on textured lamps -, its pattern kept; a lamp whose surface draws no
+// emitting texel keeps its analytic light alone. Older files are not read.
+inline constexpr uint32_t kRelitDataVersion = 22;
+inline constexpr uint32_t kRelitDataOldestRead = 22;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

@@ -72,9 +72,14 @@ test("a log shows its level started - not the main menu's world baked under its 
     assert.equal(startedLevel("start level: load_thps3_ap (free skate)\n", "thps3_ap"), true);
     assert.equal(startedLevel("relit bake: level a94aa09c (BO) - relit: 201 meshes\n", "BO"), false);
     assert.equal(startedLevel("start level: Load_BOX (free skate)\n", "BO"), false);
+    // (the front end's own world: no level started, the menu's level asked for - start_level.cpp)
+    const menu = "start level: MainMenu is the front end's own level - up already, the menu stays (batch run)\n";
+    assert.equal(startedLevel(menu.replace("MainMenu", "Load_MainMenu"), "MainMenu"), true);
+    assert.equal(startedLevel(menu.replace("MainMenu", "Load_MainMenu"), "BO"), false);
+    assert.equal(parseBakeLog(menu).failure, null);
 });
 
-test("the levels chosen: all installed, or by name with or without Load_", () => {
+test("the levels chosen: all installed and the front end's world, or by name with or without Load_", () => {
     const levels = [
         { load: "BO", name: "Boston", game: "THUG2", installed: true },
         { load: "TR", name: "Training", game: "THUG2", installed: true },
@@ -83,12 +88,12 @@ test("the levels chosen: all installed, or by name with or without Load_", () =>
     ];
     assert.deepEqual(
         chooseLevels(levels, "all").chosen.map((l) => l.load),
-        ["BO", "TR", "nj"],
+        ["BO", "TR", "nj", "MainMenu"],
     );
-    const some = chooseLevels(levels, "load_bo,NJ,Default,xx");
+    const some = chooseLevels(levels, "load_bo,NJ,Default,xx,mainmenu");
     assert.deepEqual(
         some.chosen.map((l) => l.load),
-        ["BO", "nj"],
+        ["BO", "nj", "MainMenu"],
     );
     assert.deepEqual(some.unknown, ["Default", "xx"]);
 });

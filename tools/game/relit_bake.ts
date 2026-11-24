@@ -20,7 +20,7 @@
 // --game: the game folder (the install root or its Game folder; default C:\Games\THUG2) - thug2-decomp.exe and its DLLs
 // in it, built with the Vulkan renderer (ray tracing: a ray tracing GPU and the 64-bit game). --levels: the levels' load
 // scripts without Load_ (BO, TR, foun...; default all: every installed level - THUG2's own, the overlay's and the
-// ported ones, edit_level.ts --list's). --skip-built: a level whose data is there already is left as it is (its data
+// ported ones, edit_level.ts --list's - and MainMenu, the front end's own world). --skip-built: a level whose data is there already is left as it is (its data
 // made from the meshes the game makes now is the game's own check: an out-of-date file is reported in the game).
 // --minutes: a level's bake given up after this long (the game closed). One game at a time; refused while a game runs
 // from the folder (the user may be playing) - it never closes a game it didn't start. Nothing here goes online.
@@ -61,7 +61,7 @@ Make every level's relit data (thug2-decomp.exe -relit-bake <level>, one level a
 options:
   -h, --help       show this help message and exit
   --game GAME      the game folder (default C:\\Games\\THUG2): the install root or its Game folder
-  --levels LEVELS  all (default), or load scripts without Load_, comma-separated (BO,TR,foun)
+  --levels LEVELS  all (default), or load scripts without Load_, comma-separated (BO,TR,foun; MainMenu: the front end's world)
   --skip-built     leave a level whose data file is there already
   --minutes N      give a level's bake up after N minutes (default 20)
   --list           only list the levels it would bake
@@ -255,9 +255,17 @@ export function parseBakeLog(log: string): BakeResult {
     return out;
 }
 
-// The levels to bake: every installed one, or those named (with or without Load_, any case); unknown names reported.
+// The front end's own world (round EMIT2): the main menu is a level of its own - Load_MainMenu, the skate module's level in
+// the front end, its world levels\mainmenu (scene a94aa09c) - that no level select starts (edit_level.ts leaves it out).
+// `-relit-bake MainMenu` bakes it where it is: the game starts no level (src/game/front_end/start_level.cpp - "start
+// level: Load_MainMenu is the front end's own level") and checks its world as any level's (its load script running, its
+// scene the one Levels.qb's level structure names - src/render_pc/relit_bake.cpp step).
+export const FRONT_END: Level = { load: "MainMenu", name: "the front end's world", game: "THUG2", installed: true };
+
+// The levels to bake: every installed one and the front end's world, or those named (with or without Load_, any case);
+// unknown names reported.
 export function chooseLevels(levels: readonly Level[], wanted: string): { chosen: Level[]; unknown: string[] } {
-    const installed = levels.filter((l) => l.installed);
+    const installed = [...levels.filter((l) => l.installed), FRONT_END];
     if (wanted === "all") return { chosen: installed, unknown: [] };
     const chosen: Level[] = [];
     const unknown: string[] = [];
@@ -275,11 +283,11 @@ export function chooseLevels(levels: readonly Level[], wanted: string): { chosen
 }
 
 // Whether a run's log shows its level started (src/game/front_end/start_level.cpp "start level: Load_<level> (free
-// skate)"): a log without it baked whatever world was up - the main menu's, in builds before the bake checked its level -
-// and its data isn't the level's.
+// skate)", or for the front end's world "start level: Load_MainMenu is the front end's own level"): a log without it baked
+// whatever world was up - the main menu's, in builds before the bake checked its level - and its data isn't the level's.
 export function startedLevel(log: string, level: string): boolean {
     const name = level.replace(/^load_/i, "").toLowerCase();
-    for (const match of log.matchAll(/start level: Load_(\S+) \(free skate/gi)) {
+    for (const match of log.matchAll(/start level: Load_(\S+) (?:\(free skate|is the front end's own level)/gi)) {
         if (match[1]!.toLowerCase() === name) return true;
     }
     return false;

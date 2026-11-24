@@ -2713,6 +2713,94 @@ uint8_t lamp_texel_code_of(const MeshRef* mesh)
     return rt::lamp_texel_code(rt::kTexelOverTexture * found->second, solid_only);
 }
 
+std::vector<std::array<float, 3>> emission_texels(std::span<const EmissionTexelQuery> queries)
+{
+    std::vector<std::array<float, 3>> out(queries.size(), std::array<float, 3>{1.0F, 1.0F, 1.0F});
+    State& st = state();
+    std::unordered_map<rt::MeshId, const MeshRef*> by_id;
+    for (const auto& [mesh, entry] : st.meshes) {
+        by_id.emplace(entry.id, mesh);
+    }
+    struct Read {
+        bool ok = false;
+        std::vector<MeshTriangles> triangles;
+        std::array<float, 4> pass{1.0F, 1.0F, 1.0F, 1.0F};
+        const TextureLook* look = nullptr;
+        uint8_t code = 0;
+    };
+    std::unordered_map<const MeshRef*, Read> reads;
+    std::unordered_map<const void*, TextureLook> looks;
+    // (the points of a grid inside the triangle, off its edges - lamp_texels' kind, finer: kSide x (kSide + 1) / 2)
+    constexpr uint32_t kSide = 8;
+    constexpr float kByte = 1.0F / 255.0F;
+    for (std::size_t qi = 0; qi < queries.size(); ++qi) {
+        const EmissionTexelQuery& query = core::at(queries, qi);
+        const auto mesh_at = by_id.find(query.mesh);
+        if (mesh_at == by_id.end()) {
+            continue;
+        }
+        const MeshRef* mesh = mesh_at->second;
+        const auto [slot, made] = reads.try_emplace(mesh);
+        Read& read = slot->second;
+        if (made) {
+            const MaterialRef* material = mesh->material();
+            const auto entry = material != nullptr ? st.materials.find(material) : st.materials.end();
+            read.ok = entry != st.materials.end() && mesh_triangles(mesh, false, true, &read.triangles);
+            if (read.ok) {
+                read.pass = entry->second.material.colour;
+                const TextureLook& look = texture_look(material, &looks);
+                read.look = look.image.empty() ? nullptr : &look;
+                read.code = lamp_texel_code_of(mesh);
+            }
+        }
+        if (!read.ok) {
+            continue;
+        }
+        const MeshTriangles& tris = read.triangles.front();
+        std::array<std::array<float, 2>, 3> uvs{};
+        bool have_uvs = read.look != nullptr;
+        for (std::size_t k = 0; k < 3 && have_uvs; ++k) {
+            have_uvs = tris.uv(core::at(query.corner, k), &core::at(uvs, k));
+        }
+        const uint32_t code = query.lamp_texels ? read.code : 0U;
+        std::array<double, 3> sum{};
+        uint32_t samples = 0;
+        for (uint32_t i = 0; i < kSide; ++i) {
+            for (uint32_t j = 0; i + j < kSide; ++j) {
+                std::array<uint8_t, 4> texel{255, 255, 255, 255}; // (no texture: the material's colour alone, as drawn)
+                if (have_uvs) {
+                    const float b = (static_cast<float>(i) + (1.0F / 3.0F)) / static_cast<float>(kSide);
+                    const float c = (static_cast<float>(j) + (1.0F / 3.0F)) / static_cast<float>(kSide);
+                    const float a = 1.0F - b - c;
+                    const float u = (a * std::get<0>(std::get<0>(uvs))) + (b * std::get<0>(std::get<1>(uvs))) +
+                                    (c * std::get<0>(std::get<2>(uvs)));
+                    const float v = (a * std::get<1>(std::get<0>(uvs))) + (b * std::get<1>(std::get<1>(uvs))) +
+                                    (c * std::get<1>(std::get<2>(uvs)));
+                    texel = read.look->image.at(u, v);
+                }
+                ++samples;
+                // (the colour as drawn: the texel x the material's colour - ff_shaders.cpp surface_texel, the rays'
+                // hit_texel_at -, linear; its alpha the drawn alpha the lamp-texel test reads)
+                std::array<float, 3> linear{};
+                for (std::size_t k = 0; k < 3; ++k) {
+                    core::at(linear, k) = rt::linear_from_display(
+                        std::clamp(static_cast<float>(core::at(texel, k)) * kByte * core::at(read.pass, k), 0.0F, 1.0F));
+                }
+                const float alpha = std::clamp(static_cast<float>(std::get<3>(texel)) * kByte * std::get<3>(read.pass), 0.0F, 1.0F);
+                if (rt::lamp_texel_coded(linear, alpha, code)) {
+                    for (std::size_t k = 0; k < 3; ++k) {
+                        core::at(sum, k) += static_cast<double>(core::at(linear, k));
+                    }
+                }
+            }
+        }
+        for (std::size_t k = 0; k < 3; ++k) {
+            core::at(core::at(out, qi), k) = static_cast<float>(core::at(sum, k) / static_cast<double>(samples));
+        }
+    }
+    return out;
+}
+
 std::string describe_screen_point(float across, float down)
 {
     rt::RayTracing* rt = backend();
