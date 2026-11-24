@@ -24,8 +24,11 @@
 // begin_frame comes at the first viewport's world camera, before the world is drawn: the record's instances and lights
 // are complete then, its cameras those of the viewports drawn so far (the others' are added as they are drawn; the
 // record stays unchanged otherwise until the next frame).
+#include <array>
 #include <cstdint>
+#include <span>
 #include <string>
+#include <vector>
 
 namespace render {
 
@@ -61,6 +64,17 @@ uint32_t decode_first_level(GpuTexture* texture, texel::Image* out);
 // decoded once - and, for a blended surface, its texels drawn solid alone. A mesh with no texture to read: the floor at
 // the most (no lamp texels; the bake found none there either).
 [[nodiscard]] uint8_t lamp_texel_code_of(const MeshRef* mesh);
+// (round EMIT2 - an emitter's flux conserved) What a light store's emission is multiplied by over a triangle of a mesh,
+// averaged over the triangle: the colour as drawn (the texel x the material's colour, linear - ff_shaders.cpp
+// surface_texel, the rays' store_emission) where the renderers let it emit - its mesh's lamp-texel code
+// (lamp_texel_code_of) when `lamp_texels`, every texel otherwise -, 0 elsewhere. {1, 1, 1} for a mesh not registered or
+// unreadable (the emission as the store gives it).
+struct EmissionTexelQuery {
+    uint32_t mesh = 0; // (rt::MeshId)
+    std::array<uint32_t, 3> corner{};
+    bool lamp_texels = false;
+};
+[[nodiscard]] std::vector<std::array<float, 3>> emission_texels(std::span<const EmissionTexelQuery> queries);
 // (round EMIT) Whether a material is a light card (rt_lights.h light_card: an additive first pass whose texture doesn't
 // move - a halo, light cone, pool or starburst the artists drew round a lamp).
 [[nodiscard]] bool light_card_material(const MaterialRef* material);

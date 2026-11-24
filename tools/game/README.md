@@ -500,7 +500,9 @@ Changing a setting never changes the game's simulation (its physics run exactly 
 each level's relit data (docs/design/vulkan.md "Relit: the bake taken apart, offline"): one batch run of the game per
 level, `thug2-decomp.exe -relit-bake <level>` - straight into the level, muted, windowed and behind the user's windows,
 its own settings over the ini (the ini isn't changed) - which writes `thug2-decomp-relit\<scene>.relit` beside the exe
-and closes. Every installed level by default (edit_level.ts --list's: THUG2's own, the overlay's, the ported ones).
+and closes. Every installed level by default (edit_level.ts --list's: THUG2's own, the overlay's, the ported ones) and
+`MainMenu`, the front end's own world (Load_MainMenu, levels\mainmenu): for it the game starts no level - the menu's world
+is up already - and the bake checks it as any level's (its load script running, its scene the one Levels.qb names).
 Refused while a game runs from the folder; a level's run given up (its game closed) after --minutes. Writes
 `thug2-decomp-relit\bake-report.txt` (a line a level: its scene, verdict - relit / no sun / no sunlight found -, meshes,
 vertices, lamps, the model's sun and lamps' c) and each level's log in `thug2-decomp-relit\logs\`. The game bakes only

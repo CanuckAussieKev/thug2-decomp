@@ -261,8 +261,10 @@ uint64_t triangle_key(uint32_t x, uint32_t y, uint32_t z)
 std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt::RelitMesh> meshes,
                                                               std::span<const rt::RelitLamp> lamps,
                                                               const std::unordered_map<rt::MeshId, std::size_t>& mesh_of,
-                                                              std::vector<double>* drawn, std::vector<double>* shown)
+                                                              std::vector<double>* drawn, std::vector<double>* shown,
+                                                              std::vector<double>* emitted)
 {
+    emitted->assign(lamps.size(), 0.0);
     std::vector<std::vector<rt::RelitEmitting>> out(meshes.size());
     drawn->assign(lamps.size(), 0.0);
     shown->assign(lamps.size(), 0.0);
@@ -482,14 +484,29 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
     // lit share x the share of its corners that show L (the blend of the corners' emission). (Round EMIT) x the faces it
     // shows it from: a one-sided surface its front alone, a two-sided one both (RelitMesh::two_sided - the renderers'
     // emitter_sides) - so the lamp's flux is split between a card's two faces, not doubled.
+    // (round EMIT2 - flux conserved) and the area each lamp's marks send it from as the renderers draw it: a surface emits
+    // its store's luminance x the colour as drawn (the linear texel) on the texels they let emit (hit_surface_glsl
+    // store_emission, ff_shaders.cpp's relit branch) - `emitted`, each triangle's area x the mean of that over it
+    // (rt_record::emission_texels) relative to the lamp's own colour (luma(light x texel) / luma(light): lumens, the
+    // pattern's colour counted), x its faces. drawn_luminances sets L from it, so the surface sends the lamp's flux with
+    // its texture's pattern kept. Before, L was set as though the texel were white: the emitting surfaces sent 0.2 - 0.66
+    // of their lamps' flux (round BOUNCE's lumen census - the texel's own colour).
     constexpr double kSquareMetresPerUnit = (1.0 / 39.37) * (1.0 / 39.37);
+    struct Shown {
+        std::size_t mesh = 0;
+        std::array<uint32_t, 3> triangle{};
+        std::array<uint32_t, 3> lamp_at{};
+        double area = 0.0;  // (m^2, one face)
+        double share = 1.0; // (its lit share - the bake's own measure of its luminous part)
+    };
+    std::vector<Shown> shown_triangles;
+    std::vector<rt_record::EmissionTexelQuery> queries;
     for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
         const auto& mesh_marks = core::at(marked, mi);
         if (mesh_marks.empty()) {
             continue;
         }
         const rt::RelitMesh& mesh = core::at(meshes, mi);
-        const double sides = mesh.two_sided ? 2.0 : 1.0;
         const auto& own_triangles = core::at(own, mi);
         for (const auto& [x, y, z] : mesh.triangles) {
             if (x >= mesh.positions.size() || y >= mesh.positions.size() || z >= mesh.positions.size()) {
@@ -497,22 +514,70 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
             }
             std::array<uint32_t, 3> lamp_at{rt::kNoEmitter, rt::kNoEmitter, rt::kNoEmitter};
             std::size_t k = 0;
+            bool any = false;
+            bool textured = false; // (a corner's lamp drawn in the texture: the store carries the mesh's lamp-texel code)
             for (const uint32_t vertex : {x, y, z}) {
                 const auto mark = mesh_marks.find(vertex);
-                core::at(lamp_at, k++) = mark != mesh_marks.end() ? mark->second : rt::kNoEmitter;
+                const uint32_t lamp = mark != mesh_marks.end() ? mark->second : rt::kNoEmitter;
+                core::at(lamp_at, k++) = lamp;
+                any = any || lamp < lamps.size();
+                textured = textured || (lamp < lamps.size() && core::at(lamps, lamp).kind == rt::EmitterKind::kTextured);
+            }
+            if (!any) {
+                continue;
             }
             const rt::Vec3 n = rt::cross(rt::minus(core::at(mesh.positions, y), core::at(mesh.positions, x)),
                                          rt::minus(core::at(mesh.positions, z), core::at(mesh.positions, x)));
             const double area = 0.5 * std::sqrt(static_cast<double>(rt::dot(n, n))) * kSquareMetresPerUnit;
             const auto in_own = own_triangles.find(triangle_key(x, y, z));
             const double share = in_own != own_triangles.end() ? static_cast<double>(in_own->second.second) : 1.0;
-            for (std::size_t c = 0; c < 3; ++c) {
-                const uint32_t lamp = core::at(lamp_at, c);
-                if (lamp < drawn->size()) {
-                    core::at(*drawn, lamp) += sides * area * share / 3.0;
-                    core::at(*shown, lamp) += area * share / 3.0;
-                }
+            shown_triangles.push_back({.mesh = mi, .triangle = {x, y, z}, .lamp_at = lamp_at, .area = area, .share = share});
+            queries.push_back({.mesh = mesh.id, .corner = {x, y, z}, .lamp_texels = textured});
+        }
+    }
+    const std::vector<std::array<float, 3>> texels = rt_record::emission_texels(queries);
+    // (round EMIT2) a bake mesh is one content: every world mesh of that content draws its store - its marks emit from
+    // each copy (`mesh_of`: the world's meshes by content). The drawn and emitted areas count every copy, so the lamp's
+    // flux is split over all the surfaces that send it, not sent once per copy (Training's and Barcelona's emitting
+    // triangles sent 1.4 x their lamps' flux with one copy counted).
+    std::vector<double> copies(meshes.size(), 0.0);
+    for (const auto& [id, mi] : mesh_of) {
+        if (mi < copies.size()) {
+            core::at(copies, mi) += 1.0;
+        }
+    }
+    std::size_t copied = 0;
+    double most_copies = 0.0;
+    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+        if (!core::at(marked, mi).empty() && core::at(copies, mi) > 1.0) {
+            ++copied;
+            most_copies = std::max(most_copies, core::at(copies, mi));
+        }
+    }
+    get_log("relit bake: emitting meshes drawn more than once (their store's emission sent by each copy) - %zu, at most "
+            "%.0f copies",
+            copied, most_copies);
+    emitted->assign(lamps.size(), 0.0);
+    for (std::size_t si = 0; si < shown_triangles.size(); ++si) {
+        const Shown& one = core::at(shown_triangles, si);
+        // (the faces it sends from x its copies)
+        const double sides = (core::at(meshes, one.mesh).two_sided ? 2.0 : 1.0) * std::max(core::at(copies, one.mesh), 1.0);
+        const std::array<float, 3>& texel = core::at(texels, si);
+        for (std::size_t c = 0; c < 3; ++c) {
+            const uint32_t lamp = core::at(one.lamp_at, c);
+            if (lamp >= drawn->size()) {
+                continue;
             }
+            core::at(*drawn, lamp) += sides * one.area * one.share / 3.0;
+            core::at(*shown, lamp) += one.area * one.share / 3.0;
+            const rt::Rgbf& colour = core::at(lamps, lamp).light;
+            const double y = static_cast<double>(luma(colour));
+            const double seen = y > 0.0 ? static_cast<double>(luma(rt::Rgbf{std::get<0>(colour) * std::get<0>(texel),
+                                                                            std::get<1>(colour) * std::get<1>(texel),
+                                                                            std::get<2>(colour) * std::get<2>(texel)})) /
+                                              y
+                                        : 0.0;
+            core::at(*emitted, lamp) += sides * one.area * seen / 3.0;
         }
     }
     for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
@@ -539,19 +604,27 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
 // mostly shared with other surfaces, so the few triangles left would show the whole flux - School's line at 4 x 10^6
 // cd/m^2, New Orleans' brightest triangle 3.3 x 10^6 after round NOBIAS (a sub-pixel firefly no fixture reaches). Such a
 // lamp keeps its analytic light alone (its marks dropped: data_emitters' `surfaced` follows them - one owner).
+// (round EMIT2 - flux conserved) L is the flux over pi x `emitted` - the drawn area weighted by the colour as drawn on
+// the texels that emit (emitting_vertices) -, so the surface sends the lamp's flux in its texture's pattern. A lamp whose
+// surface draws no emitting texel (every texel under its lamp-texel floor) can't send it: its analytic light alone, as
+// one shown under half. Reported: the lamps' mean drawn texel (emitted / drawn) - what the luminance was divided by.
 inline constexpr double kLeastShownShare = 0.5;
 std::vector<uint8_t> drawn_luminances(std::span<rt::RelitLamp> lamps, std::span<const double> drawn,
-                                      std::span<const double> shown)
+                                      std::span<const double> shown, std::span<const double> emitted)
 {
     constexpr double kPiD = 3.14159265358979323846;
     double before = 0.0;
+    double white = 0.0; // (what the surfaces sent with L set as though the texel were white - before round EMIT2)
     double after = 0.0;
     std::size_t lamps_drawn = 0;
     std::size_t too_small = 0;
+    std::size_t no_texel = 0;
+    std::vector<double> means;
     std::vector<uint8_t> dropped(lamps.size(), 0);
-    for (std::size_t li = 0; li < lamps.size() && li < drawn.size() && li < shown.size(); ++li) {
+    for (std::size_t li = 0; li < lamps.size() && li < drawn.size() && li < shown.size() && li < emitted.size(); ++li) {
         rt::RelitLamp& lamp = core::at(lamps, li);
         const double area = core::at(drawn, li);
+        const double sending = core::at(emitted, li);
         if (!(area > 0.0) || !(lamp.lumens > 0.0F) || !(luma(lamp.light) > 0.0F)) {
             continue;
         }
@@ -561,15 +634,38 @@ std::vector<uint8_t> drawn_luminances(std::span<rt::RelitLamp> lamps, std::span<
             ++too_small;
             continue;
         }
-        before += kPiD * static_cast<double>(lamp.luminance) * area;
-        lamp.luminance = static_cast<float>(static_cast<double>(lamp.lumens) / (kPiD * area));
+        if (!(sending > 0.0)) {
+            core::at(dropped, li) = 1;
+            ++no_texel;
+            continue;
+        }
+        before += kPiD * static_cast<double>(lamp.luminance) * sending;
+        white += static_cast<double>(lamp.lumens) * sending / area;
+        lamp.luminance = static_cast<float>(static_cast<double>(lamp.lumens) / (kPiD * sending));
         after += static_cast<double>(lamp.lumens);
+        means.push_back(sending / area);
         ++lamps_drawn;
     }
+    const auto quantile = [&means](double at) {
+        if (means.empty()) {
+            return 0.0;
+        }
+        const auto it = means.begin() + static_cast<std::ptrdiff_t>(static_cast<double>(means.size() - 1) * at);
+        std::ranges::nth_element(means, it);
+        return *it;
+    };
+    constexpr double kLow = 0.1;
+    constexpr double kMiddle = 0.5;
+    constexpr double kHigh = 0.9;
+    const double low = quantile(kLow);
+    const double middle = quantile(kMiddle);
+    const double high = quantile(kHigh);
     get_log("relit bake: lamps' surfaces at their flux - %zu lamps shown by their surfaces, %.0f lm from them (at the "
-            "luminance their area or kind gave: %.0f lm, x %.2f); %zu lamps' own surfaces shown under half (their "
-            "analytic light alone)",
-            lamps_drawn, after, before, after > 0.0 ? before / after : 0.0, too_small);
+            "luminance their area or kind gave: %.0f lm, x %.2f; with L as though the texel were white: %.0f lm, x %.2f); "
+            "their mean drawn texel (L divided by it) 10%% %.3f, median %.3f, 90%% %.3f; %zu lamps' own surfaces shown "
+            "under half, %zu with no texel that emits (their analytic light alone)",
+            lamps_drawn, after, before, after > 0.0 ? before / after : 0.0, white, after > 0.0 ? white / after : 0.0, low,
+            middle, high, too_small, no_texel);
     return dropped;
 }
 // (round P10, the bake's report) An emitter kind's name.
@@ -1619,9 +1715,10 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
         }
         std::vector<double> drawn_areas;
         std::vector<double> shown_areas;
+        std::vector<double> emitted_areas;
         std::vector<std::vector<rt::RelitEmitting>> emitting =
-            emitting_vertices(meshes, lamps, mesh_of, &drawn_areas, &shown_areas);
-        const std::vector<uint8_t> dropped = drawn_luminances(lamps, drawn_areas, shown_areas);
+            emitting_vertices(meshes, lamps, mesh_of, &drawn_areas, &shown_areas, &emitted_areas);
+        const std::vector<uint8_t> dropped = drawn_luminances(lamps, drawn_areas, shown_areas, emitted_areas);
         for (std::vector<rt::RelitEmitting>& marks : emitting) {
             std::erase_if(marks, [&dropped](const rt::RelitEmitting& mark) {
                 return mark.lamp < dropped.size() && core::at(dropped, mark.lamp) != 0;

@@ -22,6 +22,7 @@
 #include "engine/ext/extension.h"
 #include "game/front_end/menu_pad_event.h"
 #include "game/rider/test_view.h"
+#include "game/skate/skate_module.h"
 #include "engine/gfx/screen.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
@@ -121,6 +122,18 @@ script::Struct* level_info_of(uint32_t load)
         }
     }
     return nullptr;
+}
+
+// NOT ORIGINAL - whether the level asked for is the one the front end runs itself: its load script (Load_<name>) the skate
+// module's level now, in the front end (no career level) - Load_MainMenu, the menu's own world.
+bool requested_is_front_end()
+{
+    std::string level = get_requested();
+    if (_strnicmp(level.c_str(), "load_", kLoadPrefixLength) != 0) {
+        level = "Load_" + level;
+    }
+    const modules::Skate* skate = modules::Skate::sole();
+    return skate != nullptr && render::current_level() == 0 && skate->level() == name_hash(level.c_str());
 }
 
 // What read_in and read_in_load run once the level is known: the level select's SKATE NOW with that level chosen
@@ -375,6 +388,13 @@ void tick_frame(modules::FrontEnd* front_end)
         return;
     }
     start_level_state().done_ = true;
+    if (platform::batch_run() && requested_is_front_end()) {
+        // (NOT ORIGINAL - the relit bake of the front end's own world: render_pc/relit_bake.h) the level asked for is the
+        // one the front end runs itself (its skate module's level - Load_MainMenu): up already, nothing to start; the
+        // bake checks its world as any level's (its load script running, its scene the one its level structure names)
+        get_log("start level: %s is the front end's own level - up already, the menu stays (batch run)", get_requested());
+        return;
+    }
     const bool loaded = read_in(get_requested(), nullptr);
     started_load().started_ = loaded;
     if (!loaded && platform::batch_run()) {
