@@ -2768,10 +2768,10 @@ std::vector<std::array<float, 3>> emission_texels(std::span<const EmissionTexelQ
         for (uint32_t i = 0; i < kSide; ++i) {
             for (uint32_t j = 0; i + j < kSide; ++j) {
                 std::array<uint8_t, 4> texel{255, 255, 255, 255}; // (no texture: the material's colour alone, as drawn)
+                const float b = (static_cast<float>(i) + (1.0F / 3.0F)) / static_cast<float>(kSide);
+                const float c = (static_cast<float>(j) + (1.0F / 3.0F)) / static_cast<float>(kSide);
+                const float a = 1.0F - b - c;
                 if (have_uvs) {
-                    const float b = (static_cast<float>(i) + (1.0F / 3.0F)) / static_cast<float>(kSide);
-                    const float c = (static_cast<float>(j) + (1.0F / 3.0F)) / static_cast<float>(kSide);
-                    const float a = 1.0F - b - c;
                     const float u = (a * std::get<0>(std::get<0>(uvs))) + (b * std::get<0>(std::get<1>(uvs))) +
                                     (c * std::get<0>(std::get<2>(uvs)));
                     const float v = (a * std::get<1>(std::get<0>(uvs))) + (b * std::get<1>(std::get<1>(uvs))) +
@@ -2786,7 +2786,11 @@ std::vector<std::array<float, 3>> emission_texels(std::span<const EmissionTexelQ
                     core::at(linear, k) = rt::linear_from_display(
                         std::clamp(static_cast<float>(core::at(texel, k)) * kByte * core::at(read.pass, k), 0.0F, 1.0F));
                 }
-                const float alpha = std::clamp(static_cast<float>(std::get<3>(texel)) * kByte * std::get<3>(read.pass), 0.0F, 1.0F);
+                // (the drawn alpha: the texel's x the vertex's, doubled - the game's pixel programs' 2 x v0.a x t0.a)
+                const float vertex_alpha = (a * tris.alpha(std::get<0>(query.corner))) +
+                                           (b * tris.alpha(std::get<1>(query.corner))) +
+                                           (c * tris.alpha(std::get<2>(query.corner)));
+                const float alpha = std::clamp(static_cast<float>(std::get<3>(texel)) * kByte * vertex_alpha, 0.0F, 1.0F);
                 if (rt::lamp_texel_coded(linear, alpha, code)) {
                     for (std::size_t k = 0; k < 3; ++k) {
                         core::at(sum, k) += static_cast<double>(core::at(linear, k));

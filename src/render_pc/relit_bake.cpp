@@ -536,10 +536,32 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
         }
     }
     const std::vector<std::array<float, 3>> texels = rt_record::emission_texels(queries);
+    // (round EMIT2) a bake mesh is one content: every world mesh of that content draws its store - its marks emit from
+    // each copy (`mesh_of`: the world's meshes by content). The drawn and emitted areas count every copy, so the lamp's
+    // flux is split over all the surfaces that send it, not sent once per copy (Training's and Barcelona's emitting
+    // triangles sent 1.4 x their lamps' flux with one copy counted).
+    std::vector<double> copies(meshes.size(), 0.0);
+    for (const auto& [id, mi] : mesh_of) {
+        if (mi < copies.size()) {
+            core::at(copies, mi) += 1.0;
+        }
+    }
+    std::size_t copied = 0;
+    double most_copies = 0.0;
+    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+        if (!core::at(marked, mi).empty() && core::at(copies, mi) > 1.0) {
+            ++copied;
+            most_copies = std::max(most_copies, core::at(copies, mi));
+        }
+    }
+    get_log("relit bake: emitting meshes drawn more than once (their store's emission sent by each copy) - %zu, at most "
+            "%.0f copies",
+            copied, most_copies);
     emitted->assign(lamps.size(), 0.0);
     for (std::size_t si = 0; si < shown_triangles.size(); ++si) {
         const Shown& one = core::at(shown_triangles, si);
-        const double sides = core::at(meshes, one.mesh).two_sided ? 2.0 : 1.0;
+        // (the faces it sends from x its copies)
+        const double sides = (core::at(meshes, one.mesh).two_sided ? 2.0 : 1.0) * std::max(core::at(copies, one.mesh), 1.0);
         const std::array<float, 3>& texel = core::at(texels, si);
         for (std::size_t c = 0; c < 3; ++c) {
             const uint32_t lamp = core::at(one.lamp_at, c);
