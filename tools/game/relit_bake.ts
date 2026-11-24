@@ -283,15 +283,19 @@ export function chooseLevels(levels: readonly Level[], wanted: string): { chosen
 }
 
 // Whether a run's log shows its level started (src/game/front_end/start_level.cpp "start level: Load_<level> (free
-// skate)", or for the front end's world "start level: Load_MainMenu is the front end's own level"): a log without it baked
-// whatever world was up - the main menu's, in builds before the bake checked its level - and its data isn't the level's.
+// skate)", or the bake's own "relit bake: Load_<level> is up" - its load script running, its world's scene checked: the
+// front end's world, baked before the menu's start-level step runs, has only that): a log without either baked whatever
+// world was up - the main menu's, in builds before the bake checked its level - and its data isn't the level's.
 export function startedLevel(log: string, level: string): boolean {
     const name = level.replace(/^load_/i, "").toLowerCase();
-    for (const match of log.matchAll(/start level: Load_(\S+) (?:\(free skate|is the front end's own level)/gi)) {
-        if (match[1]!.toLowerCase() === name) return true;
+    for (const match of log.matchAll(
+        /(?:start level: Load_(\S+) (?:\(free skate|is the front end's own level)|relit bake: Load_(\S+) is up)/gi,
+    )) {
+        if ((match[1] ?? match[2])!.toLowerCase() === name) return true;
     }
     return false;
 }
+
 
 // Whether a run made its level's data: the file written and the game ended with 0 (any other end - an exit code of a
 // failed batch run, a crash, killed - is a failure, whatever its log says).

@@ -77,6 +77,10 @@ test("a log shows its level started - not the main menu's world baked under its 
     assert.equal(startedLevel(menu.replace("MainMenu", "Load_MainMenu"), "MainMenu"), true);
     assert.equal(startedLevel(menu.replace("MainMenu", "Load_MainMenu"), "BO"), false);
     assert.equal(parseBakeLog(menu).failure, null);
+    // (the front end's world is up from the first frames: baked before the menu's start-level step - the bake's line)
+    const up = "relit bake: Load_MainMenu is up (0 s) - its world (scene a94aa09c) baked once it has held for 90 frames\n";
+    assert.equal(startedLevel(up, "MainMenu"), true);
+    assert.equal(startedLevel(up, "BO"), false);
 });
 
 test("the levels chosen: all installed and the front end's world, or by name with or without Load_", () => {
