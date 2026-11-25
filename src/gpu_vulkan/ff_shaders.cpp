@@ -1396,6 +1396,21 @@ bool share_front(const FragmentKey& key)
            key.surface == 0 && key.water == 0U;
 }
 
+// (NOT ORIGINAL - round POOL: one water material with the rays and the path tracer) Whether a water key's program makes
+// its albedo under the game's neutral light: a program whose colour ends x v0.rgb (the fixed programs that modulate by
+// the vertex colour, the material's passes - ps_material's last mul_x2 r0, v0) is run with v0 0.5 - the albedo, the
+// texel x the material's colour, as the rays' material_colour_from_lod has it (x the pass colour doubled) - and the
+// game's colour made from it x 2 v0 (the same value: the program is linear in v0.rgb). The water's body is lit by the
+// front layer on that albedo (water_shader.cpp). The stages, a program whose colour is its alpha, an unlit twin: the
+// texel's colour (water_shade's fallback).
+bool water_albedo_program(const FragmentKey& key)
+{
+    const PixelProgram p = key.program;
+    return key.water != 0U && key.surface == 0 && key.unlit == 0 &&
+           (p == PixelProgram::kTextureVertexX4 || p == PixelProgram::kTextureConstantAlpha ||
+            p == PixelProgram::kVertexFactor || p == PixelProgram::kMaterial);
+}
+
 // (NOT ORIGINAL - round SUBPIX) Whether a relit draw keeps only its emitters' share the splat doesn't take
 // (rt_emission_map.h emission_splat_share): lit per pixel with the inputs while Ray Reconstruction denoises the view
 // (kLightGuides) - the view whose transparency layer the light list's small emitters are splatted into.
@@ -1769,8 +1784,9 @@ void ps_common(std::string& out, const FragmentKey& key, uint32_t textures)
 {
     add(out, {"    vec4 v0 = ",
               key.surface != 0   ? "surface_v0"
-              : share_front(key) ? "vec4(0.5, 0.5, 0.5, v_diffuse.a)" // (round FRONT: the material's colour)
-                                 : "v_diffuse",
+              : share_front(key) || water_albedo_program(key)
+                  ? "vec4(0.5, 0.5, 0.5, v_diffuse.a)" // (round FRONT: the material's colour; round POOL: the water's)
+                  : "v_diffuse",
               ";\n    vec4 v1 = v_specular;\n    vec4 r0 = vec4(0.0);\n    vec4 r1 = vec4(0.0);"});
     if (key.unlit != 0) {
         // The unlit twin (render_pc/view_mode.cpp): each whole v0 operand is c7 = 0.5 there. The game's shaders read v0
@@ -2110,12 +2126,18 @@ std::string fragment_shader_glsl(const FragmentKey& key)
         }
     }
     fragment_program(out, key, sampled);
+    const bool water = key.water != 0U; // (NOT ORIGINAL - rt_water, water_shader.h)
+    if (water_albedo_program(key)) {
+        // (round POOL) the program's colour under the neutral light is the albedo; the game's colour x 2 v0 of it
+        add(out, {"    vec3 water_albedo = clamp(colour.rgb, 0.0, 1.0);\n    colour.rgb *= 2.0 * v_diffuse.rgb;"});
+    } else if (water) {
+        add(out, {"    vec3 water_albedo = clamp(t0.rgb, 0.0, 1.0);"});
+    }
     // (round M: a surface lit per pixel leaves the program as light - its alpha alone clamped)
     add(out, {surface_light_out(key) ? "    colour.a = clamp(colour.a, 0.0, 1.0);" : "    colour = clamp(colour, 0.0, 1.0);"});
-    const bool water = key.water != 0U; // (NOT ORIGINAL - rt_water, water_shader.h)
     if (water) {
         add(out, {"    float water_alpha = colour.a;\n    colour = water_shade(colour, t0, ", coord_of(key, 0),
-                  ", water_alpha);"});
+                  ", water_alpha, water_albedo);"});
     }
     if (!surface_light_out(key)) {
         fragment_linear_output(out);

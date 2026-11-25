@@ -726,7 +726,10 @@ void MaterialTable::set(rt::MaterialId id, const rt::Material& material)
     if (Texture* const map = texture != nullptr ? surface_map_for(texture) : nullptr; map != nullptr) {
         record.surface_texture = slot_for(map);
         record.f0 = record_f0(material, surface_map_f0(texture));
-        record.albedo_scale = surface_map_albedo_scale(texture); // (round MATALB: the albedo's calibration)
+        // (round MATALB: the albedo's calibration; round POOL - water's body colour is its own model, as rt_material_table.h
+        // material_albedo_scale says: its texture as drawn, the raster's water body's - water_shader.cpp)
+        record.albedo_scale =
+            material.reflection_class == rt::kReflectWater ? 1.0F : surface_map_albedo_scale(texture);
         if (record.surface_texture != 0) {
             core::at(slot_users_, record.surface_texture).push_back(id);
             // (added for the surface reflections) a surface the game gave no shine reflects as its map says it is glossy

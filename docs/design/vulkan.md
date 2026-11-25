@@ -3286,6 +3286,19 @@ covers, its light the lamp model's; drawn with its albedo (the program's under v
 layer's light; and the same drawn into the transparency layer (forced) - 0 pixels off; with the mark read from the passes'
 flag again, 3 101 of 6 470 off.
 
+**Round POOL: one water material in the raster, the rays and the path tracer.** The path tracer meets the game's water as
+an interface (round LW): Fresnel's share mirrored, the rest into it - the sheet's drawn alpha (2 x the vertex alpha x the
+texel's) its own colour, a diffuse surface of the material's albedo, the remainder through to what is behind. The water
+shader now does the same: `cover` is the drawn alpha of a blended sheet (1 for an opaque one), the body its albedo - the
+program run under the game's neutral light (v0 0.5: the texel x the material's colour, ff_shaders.cpp
+`water_albedo_program`; the game's colour made from it x 2 v0) - lit by the front layer, mixed over the copy behind the
+water by that coverage; the rays take water's albedo as drawn (no kind calibration: water has no diffuse range). The
+front layer holds a water surface however close it lies over its bed (a ray at the layer's depth asks the material
+table's class: water - the 1 % rule that keeps overlays to their walls left a shallow pool's near half without its
+layer, its mirror falling back to the captured sky), and the water's match with the layer is the draws' rule (depths,
+light_front_find). Barcelona's pool: the reference shows a bright blue floor through thin water (the sheets' coverage
+0.1 - 0.26); the raster's floor there gets almost no light (open: its light inputs under the sheets).
+
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
 Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3

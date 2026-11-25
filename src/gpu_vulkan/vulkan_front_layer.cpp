@@ -178,23 +178,46 @@ vec3 before_world_at(vec2 pixel, float depth)
     vec4 w = pass.prev_to_world * vec4(pixel, depth, 1.0);
     return w.xyz / w.w;
 }
-// Whether pixel q has a front layer, and its depth.
-bool in_front(ivec2 q, out float z)
+// Whether pixel q has a front layer, and its depth. `water`: (round POOL) the layer is water's there - a see-through
+// surface in front of the opaque one however close (a shallow pool over its bed is water, not an overlay on the bed).
+bool in_front(ivec2 q, out float z, bool water)
 {
     q = clamp(q, pass.rect.xy, pass.rect.xy + pass.rect.zw - 1);
     z = texelFetch(u_drawn, q, 0).r;
     float opaque = imageLoad(u_opaque, q).r;
-    return z < 1.0 && z < opaque && abs(z - opaque) > max(1.0e-6, (1.0 - opaque) * 0.01);
+    return z < 1.0 && z < opaque && (water || abs(z - opaque) > max(1.0e-6, (1.0 - opaque) * 0.01));
+}
+bool in_front(ivec2 q, out float z) { return in_front(q, z, false); }
+// (round POOL) Whether the see-through surface drawn `dist` along the view's `dir` is water: a ray from the eye over a
+// short span round it, every surface met there (the opaque ones too - the bed under a shallow pool) asked its material's
+// class (the material table's rt::kReflectWater - the class the rays and the path tracer meet water by). The layer's test
+// above leaves out what lies within 1 % of the opaque surface's distance - an overlay lying on its wall is the wall's
+// (its own fragments find the inputs' light there) - which left a shallow pool's near part without its layer: its body
+// and its traced mirror fell back to the light store's light and the captured sky (Barcelona's fountain pool).
+bool water_drawn_at(vec3 eye, vec3 dir, float dist)
+{
+    float span = 0.005 * dist + 0.5;
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoOpaqueEXT, 0xFFu, eye, max(dist - span, 0.0), dir, dist + span);
+    bool water = false;
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
+            material(rayQueryGetIntersectionInstanceCustomIndexEXT(query, false)).reflection_class == HIT_CLASS_WATER) {
+            water = true;
+            rayQueryTerminateEXT(query);
+        }
+    }
+    return water;
 }
 // The layer's normal at `here` (toward the eye): from its neighbours on the layer, the nearer along the view on each axis.
-vec3 front_normal(ivec2 p, vec3 here, vec3 dir)
+vec3 front_normal(ivec2 p, vec3 here, vec3 dir, bool water)
 {
     float best[2] = float[2](1.0e30, 1.0e30);
     vec3 step[2] = vec3[2](vec3(0.0), vec3(0.0));
     for (int k = 0; k < 4; ++k) {
         ivec2 o = k == 0 ? ivec2(1, 0) : (k == 1 ? ivec2(-1, 0) : (k == 2 ? ivec2(0, 1) : ivec2(0, -1)));
         float zq;
-        if (!in_front(p + o, zq)) {
+        if (!in_front(p + o, zq, water)) {
             continue;
         }
         vec3 q = world_at(vec2(p + o) + 0.5, zq);
@@ -273,9 +296,19 @@ void main()
     vec3 eye = pass.eye.xyz;
     vec3 here = vec3(0.0);
     float dist = 0.0;
+    bool water = false;
     if (in_front(p, z)) {
         here = world_at(vec2(p) + 0.5, z);
         dist = length(here - eye);
+    } else if (in_front(p, z, true)) {
+        // (round POOL) within 1 % of the opaque surface: the layer only where it is water
+        vec3 at = world_at(vec2(p) + 0.5, z);
+        float d = length(at - eye);
+        if (d > 0.0 && water_drawn_at(eye, (at - eye) / d, d)) {
+            here = at;
+            dist = d;
+            water = true;
+        }
     }
     if (!(dist > 0.0)) {
         imageStore(o_depth, p, vec4(1.0, 0.0, 0.0, 0.0));
@@ -285,7 +318,7 @@ void main()
         return;
     }
     vec3 dir = (here - eye) / dist;
-    vec3 n = front_normal(p, here, dir);
+    vec3 n = front_normal(p, here, dir, water);
     vec3 at = here + n * local_light_offset(here);
     uint rng = path_sequence_start(uint(p.x), uint(p.y), pass.counts.y, 0x464C4159u);
     // the rest of the list on a white diffuser (the disc's picks bring nothing: LL_NO_DISC) + every further bounce

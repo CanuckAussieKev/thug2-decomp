@@ -8,10 +8,13 @@
 //   (The rendering cases draw a test body - water_surfaces.h WaterBody - with the waves given directly: "waves w" is the
 //   four Gerstner waves at the old steepnesses x w over kSwellLength and the ripples x w; still water has none. The
 //   waves' physics is judged on the processor - the last cases.)
-//   - calm (still water, no foam): every water pixel against the processor - the floor seen through the water
-//     (the copy made before the water: its colour and depth), absorbed along the light's path (to the floor and down to
-//     it) by the tint's hue, the scattered deep colour, Fresnel toward the sky (the view's fog colour: no capture, the
-//     reflected rays leave the view); the sand in front of the water the same as without water;
+//   - calm (still water, no foam): every water pixel against the processor - (round POOL: one water material with the
+//     rays and the path tracer) the drawn alpha's share the body's own colour (the program's, no front layer here), the
+//     rest the floor seen through the water (the copy made before the water: its colour and depth), absorbed along the
+//     light's path (to the floor and down to it) by the tint's hue, the scattered deep colour; Fresnel toward the sky (the
+//     view's fog colour: no capture, the reflected rays leave the view); drawn opaque (the whole body the sheet's colour)
+//     and blended with the texture's alpha a half (half the floor seen); the sand in front
+//     of the water the same as without water;
 //   - the reflection: a red wall standing on the calm water - the water mirroring it (found on the screen) where its
 //     mirror image is on the screen, the sky elsewhere, against the processor;
 //   - opaque water kept back and drawn after the opaque world (the calm cases are opaque draws);
@@ -116,6 +119,7 @@ constexpr Vec3 kWallColour{0.85F, 0.15F, 0.1F};
 constexpr float kWallZ = 150.0F;  // (the reflection's case: a wall standing on the water there, up to kWallTop)
 constexpr float kWallTop = 80.0F;
 constexpr float kVisibility = 450.0F;
+constexpr float kHalfAlpha = 128.0F; // (round POOL: the blended calm case's texture alpha - its drawn alpha, a half)
 constexpr float kShoreFoam = 24.0F;     // (the shader's foam depth)
 constexpr float kTolerance = 4.0e-3F;   // a pixel's largest difference (16-bit floats, interpolated depths)
 constexpr float kWorstTolerance = 0.03F;
@@ -363,6 +367,7 @@ struct Scene {
     GpuSurface* depth = nullptr;
     GpuTexture* sand = nullptr;
     GpuTexture* water = nullptr;
+    GpuTexture* water_half = nullptr; // (round POOL: the calm case blended - the texture's alpha a half)
     GpuTexture* wall = nullptr; // (the reflection's case: a red wall standing on the water)
     render::GpuPixelShader* shader = nullptr;
     uint32_t width = kWidth;
@@ -597,7 +602,7 @@ int mirror_shows_wall(const Vec3& point, const Vec3& reflected)
 
 // The calm water's colour at a pixel (rt_water_waves=0, no foam, no sun; with the wall: what it reflects of it): false
 // where the pixel isn't judged (the floor or the wall in front, the shoreline's edge, off the quads).
-bool expected_calm(uint32_t px, uint32_t py, Vec3* out, float* depth_down, bool wall = false)
+bool expected_calm(uint32_t px, uint32_t py, Vec3* out, float* depth_down, bool wall = false, float cover = 1.0F)
 {
     const Ray ray = ray_of(px, py);
     if (!std::isfinite(ray.to_water) || !std::isfinite(ray.to_floor) || ray.to_floor < ray.to_water) {
@@ -641,7 +646,9 @@ bool expected_calm(uint32_t px, uint32_t py, Vec3* out, float* depth_down, bool 
         const float sigma = (3.0F / kVisibility) * (0.2F + (1.6F * (1.0F - core::at(hue, channel))));
         const float through = std::exp(-sigma * path);
         const float below = std::exp(-sigma * *depth_down);
-        const float refracted = (core::at(sand, channel) * through * below) + (core::at(deep, channel) * (1.0F - through));
+        const float seen = (core::at(sand, channel) * through * below) + (core::at(deep, channel) * (1.0F - through));
+        // (round POOL) the covered share the body's own colour: the program's (the texture x 4 v0 c0)
+        const float refracted = std::lerp(seen, core::at(tint, channel) * kProgramGain, cover);
         out->at(channel) = std::lerp(refracted, core::at(reflected, channel), fresnel);
     }
     return true;
@@ -667,13 +674,20 @@ void set_water(bool on, float waves, float foam, bool hdr = true)
     (void)hdr; // (round F: the glitter has one peak)
 }
 
-void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally)
+void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally, bool blended)
 {
     set_water(true, 0.0F, 0.0F);
-    draw_frame(gpu, scene, 1.0, true, false);
+    Scene drawn = scene;
+    if (blended) {
+        drawn.water = scene.water_half;
+    }
+    draw_frame(gpu, drawn, 1.0, true, blended);
     const Picture got = read_picture(scene.colour, kWidth, kHeight);
+    const char* how = blended ? "calm water blended (alpha a half)" : "calm water (opaque)";
+    // (round POOL) the body's coverage: the drawn alpha (the texture's) when blended, all of it opaque
+    const float cover = blended ? kHalfAlpha / kByteMax : 1.0F;
     if (!got.read) {
-        tally->check(false, "calm water: read back");
+        tally->check(false, text::format("%s: read back", how));
         return;
     }
     std::size_t judged = 0;
@@ -684,7 +698,7 @@ void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally)
         for (uint32_t px = 0; px < kWidth; ++px) {
             Vec3 want{};
             float down = 0.0F;
-            if (!expected_calm(px, py, &want, &down)) {
+            if (!expected_calm(px, py, &want, &down, false, cover)) {
                 continue;
             }
             const Vec3& have = core::at(got.rgb, (static_cast<std::size_t>(py) * kWidth) + px);
@@ -705,11 +719,11 @@ void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally)
     }
     const double share = judged != 0 ? static_cast<double>(within) / static_cast<double>(judged) : 0.0;
     tally->check(judged > kLeastJudged && share >= kShareWithin && worst <= kWorstTolerance,
-                 text::format("calm water: %zu pixels against the processor (refraction, absorption, deep colour, Fresnel), "
-                              "%.2f%% within %.3f, the worst %.4f%s",
-                              judged, share * 100.0, static_cast<double>(kTolerance), static_cast<double>(worst),
+                 text::format("%s: %zu pixels against the processor (the body's coverage, refraction, absorption, deep "
+                              "colour, Fresnel), %.2f%% within %.3f, the worst %.4f%s",
+                              how, judged, share * 100.0, static_cast<double>(kTolerance), static_cast<double>(worst),
                               worst > kTolerance ? worst_at.c_str() : ""));
-    tally->check(all_finite(got), "calm water: every pixel finite");
+    tally->check(all_finite(got), text::format("%s: every pixel finite", how));
 }
 
 // The pictures' bytes equal over the pixels `where` says.
@@ -1482,6 +1496,7 @@ int run(const Options& options, SDL_Window* window)
                                  &scene.depth) == value::kResultOk;
     scene.sand = uniform_texture(gpu, kSand, kOpaqueHalf);
     scene.water = uniform_texture(gpu, kTint, kOpaqueHalf);
+    scene.water_half = uniform_texture(gpu, kTint, static_cast<uint8_t>(kHalfAlpha));
     scene.wall = uniform_texture(gpu, kWallColour, kOpaqueHalf);
     tally.check(made && scene.sand != nullptr && scene.water != nullptr, "the material shader, a 16-bit float target, a depth surface and the textures made");
     if (made) {
@@ -1489,7 +1504,8 @@ int run(const Options& options, SDL_Window* window)
         check_wind_sea(&tally);
         check_bodies(&tally);
         check_off(gpu, scene, &tally);
-        check_calm(gpu, scene, &tally);
+        check_calm(gpu, scene, &tally, false);
+        check_calm(gpu, scene, &tally, true);
         check_reflection(gpu, scene, &tally);
         check_foam(gpu, scene, &tally);
         check_waves(gpu, scene, &tally);
@@ -1507,7 +1523,7 @@ int run(const Options& options, SDL_Window* window)
         }
     }
     vk::set_water_settings({});
-    for (GpuTexture* texture : {scene.sand, scene.water, scene.wall}) {
+    for (GpuTexture* texture : {scene.sand, scene.water, scene.water_half, scene.wall}) {
         if (texture != nullptr) {
             gpu.release_texture(texture);
         }
