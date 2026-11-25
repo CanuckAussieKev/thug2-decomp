@@ -898,20 +898,11 @@ float least_vertex_alpha(const MeshRef* mesh)
     if (found != st.vertex_alpha.end()) {
         return found->second;
     }
-    rt::Geometry layout;
-    const uint32_t stride = mesh->stride();
-    float least = 1.0F;
-    if (rt::set_vertex_attributes(mesh->fvf(), &layout) && layout.colour_format == rt::kColourA8R8G8B8 && stride > 0 &&
-        layout.colour_offset + sizeof(uint32_t) <= stride && buffer->data() != nullptr) {
-        const uint32_t count = std::min<uint32_t>(mesh->vertex_count(), static_cast<uint32_t>(buffer->size() / stride));
-        const std::span<const uint8_t> bytes(buffer->data(), std::size_t{count} * stride);
-        uint32_t lowest = kByteMax;
-        for (uint32_t vi = 0; vi < count; ++vi) {
-            // (the colour word's bytes B, G, R, A)
-            lowest = std::min<uint32_t>(lowest, core::at(bytes, (std::size_t{vi} * stride) + layout.colour_offset + 3));
-        }
-        least = static_cast<float>(lowest) * kPerByte;
-    }
+    // (round TRAIN: the format read against the mesh's stride - rt_surface_class.h least_vertex_alpha_in)
+    const float least = buffer->data() != nullptr
+                            ? rt::least_vertex_alpha_in(std::span<const uint8_t>(buffer->data(), buffer->size()),
+                                                        mesh->fvf(), mesh->stride(), mesh->vertex_count())
+                            : 1.0F;
     st.vertex_alpha.emplace(buffer, least);
     return least;
 }
@@ -956,7 +947,13 @@ std::string hit_triangle_text(const MeshRef* mesh, uint32_t primitive)
         out += text::format(" | v%u %.0f %.0f %.0f uv %.4f %.4f", vertex, static_cast<double>(std::get<0>(core::at(at, c))),
                             static_cast<double>(std::get<1>(core::at(at, c))), static_cast<double>(std::get<2>(core::at(at, c))),
                             static_cast<double>(std::get<0>(core::at(uv, c))), static_cast<double>(std::get<1>(core::at(uv, c))));
+        if (layout.colour_format != rt::kAttributeNone) {
+            uint32_t colour = 0;
+            std::memcpy(&colour, bytes.subspan(start + layout.colour_offset, sizeof(colour)).data(), sizeof(colour));
+            out += text::format(" colour %08X", colour);
+        }
     }
+    out += text::format(" (buffer %u of %u)", mesh->current_vertex_buffer_, mesh->vertex_buffer_count());
     const texture_mapping::Stretch stretch = texture_mapping::stretch_of(at, uv);
     out += text::format("; texture per world unit: most %.5f, least %.5f (x %.1f)", static_cast<double>(stretch.most),
                         static_cast<double>(stretch.least),

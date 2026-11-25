@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <span>
 #include <utility>
 #include <vector>
@@ -291,6 +292,26 @@ void check_surface_classes()
         expect(rt::flags_problem(rt::kWorld | rt::surface_instance_flags(each, blended)).empty(),
                rt::surface_class_name(each));
     }
+    // (round TRAIN) the least vertex alpha read from a mesh's own bytes: Barcelona's pool sheet (position, diffuse, one
+    // pair of coordinates - 24 bytes; its vertex alphas 0x20 - 0x33, one 0x0D) with an opaque texture is seen through,
+    // not blended opaque - the reading against a stride of 0 gave 1 for every mesh
+    constexpr uint32_t kFvfXyzDiffuseTex1 = 0x142;
+    constexpr uint32_t kSheetStride = 24;
+    constexpr uint32_t kColourAt = 12;
+    const std::array<uint32_t, 3> words = {0x206B716BU, 0x0D6D6F6CU, 0x3369776FU};
+    std::vector<uint8_t> sheet(words.size() * kSheetStride, 0);
+    for (std::size_t i = 0; i < words.size(); ++i) {
+        std::memcpy(&core::at(sheet, (i * kSheetStride) + kColourAt), &core::at(words, i), sizeof(uint32_t));
+    }
+    const float least = rt::least_vertex_alpha_in(sheet, kFvfXyzDiffuseTex1, kSheetStride, 3);
+    expect(std::abs(least - (13.0F / 255.0F)) < 1.0e-6F, "the sheet's least vertex alpha 0x0D");
+    expect(rt::surface_class(sample_material(rt::kTransparent, kAlpha), least) == C::kSeenThrough,
+           "the pool sheet (blend 5, opaque texels, vertex alpha 0x0D - 0x33): seen through");
+    expect(rt::least_vertex_alpha_in(sheet, kFvfXyzDiffuseTex1, kSheetStride, 2) < 0.1F, "the first vertices alone");
+    expect(rt::least_vertex_alpha_in(sheet, 0x102, 20, 3) == 1.0F, "no diffuse colour: 1");
+    expect(rt::least_vertex_alpha_in(std::span<const uint8_t>(sheet).first(10), kFvfXyzDiffuseTex1, kSheetStride, 3) ==
+               1.0F,
+           "bytes short of a vertex: none read, 1");
 }
 
 } // namespace
