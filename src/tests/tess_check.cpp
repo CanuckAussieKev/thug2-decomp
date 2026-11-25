@@ -1517,6 +1517,15 @@ void check_texture_placing()
     expect(std::get<0>(uv_of(3)) == core::at(corners, 3).u && std::get<1>(uv_of(3)) == core::at(corners, 3).v,
            "texture placing: the shared corner kept for the sound triangle");
     expect(result.largest <= (1000.0F * kDensity) + 1.0F, "texture placing: the coordinates near 0");
+    // the same ceiling lit by the art (its corners' colour grey, not black): the artists' own mapping - kept
+    std::vector<uint8_t> lit = bytes;
+    constexpr uint32_t kGreyWord = 0x80808080U;
+    for (std::size_t i = 0; i < 4; ++i) {
+        std::memcpy(&core::at(lit, (i * kStride) + kColourAt), &kGreyWord, sizeof(kGreyWord));
+    }
+    const mapping::Result kept = mapping::world_aligned(lit, count, layout, strip, kTexels);
+    expect(!kept.changed && kept.placing_nothing == 2 && kept.shown == 2,
+           "texture placing: a rank-one map the art lit is kept");
     // the rule alone: a sound map, a rank-one map on a narrow triangle
     expect(!mapping::places_nothing({{{0, 0, 0}, {10, 0, 0}, {0, 0, 10}}}, {{{0, 0}, {1, 0}, {0, 1}}}, kTexels),
            "texture placing: a sound map places");

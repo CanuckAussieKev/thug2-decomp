@@ -16,8 +16,9 @@
 //
 // The rule, from the data alone: a triangle of an opaque base pass whose map from the triangle's plane to its texture
 // has rank one (its least stretch under kRankOneShare of its most) and whose narrow side spans at least kVisibleTexels of
-// the texture along its mapped direction - the stripes would show (a trim's thin strip mapped lengthwise doesn't). Such a
-// triangle gets world-aligned coordinates - the planar projection on the axis plane it faces most (UE's world-aligned
+// the texture along its mapped direction - the stripes would show (a trim's thin strip mapped lengthwise doesn't) - and
+// that the original never showed: every corner's colour black (a rank-one map the art lit is the artists' own - a
+// gradient, a fade strip, a sky: Boston's 12 700 such triangles, kept). Such a triangle gets world-aligned coordinates - the planar projection on the axis plane it faces most (UE's world-aligned
 // textures; the standard mapping of a surface without its own UVs), at the mesh's own density (its such triangles'
 // median texture length per world unit along the mapped direction), so the texture keeps its size and every renderer
 // (the raster, the rays, the path tracer, the bake) reads the same coordinates. A vertex a triangle with a sound map
@@ -53,6 +54,7 @@ struct Result {
     std::vector<uint16_t> sources; // each copy's original vertex
     uint32_t triangles = 0;        // the strip's triangles (index-degenerate ones left out)
     uint32_t placing_nothing = 0;  // of them, those the rule found
+    uint32_t shown = 0;            // ... and of those, the ones the art lit (a corner's colour not black): kept
     uint32_t vertices = 0;         // the vertices given world-aligned coordinates (copies included)
     float density = 0.0F;          // the coordinate units a world unit took (the median `most`)
     float largest = 0.0F;          // the largest coordinate written (its size)

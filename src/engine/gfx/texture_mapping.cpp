@@ -41,6 +41,15 @@ Vec3 position_at(std::span<const uint8_t> vertices, uint32_t stride, uint32_t ve
     return out;
 }
 
+constexpr uint32_t kColourRgb = 0xFFFFFFU; // (the colour word's red, green and blue)
+
+uint32_t colour_at(std::span<const uint8_t> vertices, uint32_t stride, uint32_t offset, uint32_t vertex)
+{
+    uint32_t out = 0;
+    std::memcpy(&out, vertices.subspan((std::size_t{vertex} * stride) + offset, sizeof(out)).data(), sizeof(out));
+    return out;
+}
+
 Uv uv_at(std::span<const uint8_t> vertices, uint32_t stride, uint32_t offset, uint32_t vertex)
 {
     Uv out{};
@@ -126,14 +135,23 @@ Result world_aligned(std::span<const uint8_t> vertices, uint32_t count, const te
             core::at(at, c) = position_at(vertices, layout.stride, core::at(corners, c));
             core::at(uv, c) = uv_at(vertices, layout.stride, uv_offset, core::at(corners, c));
         }
-        if (!places_nothing(at, uv, texels)) {
+        const bool found = places_nothing(at, uv, texels);
+        result.placing_nothing += found ? 1U : 0U;
+        // (only where the original never showed the mapping: every corner's colour black - a rank-one map the art lit
+        // is the artists' own (a gradient, a fade strip) and is kept)
+        const bool unseen =
+            found && layout.colour_offset >= 0 && std::ranges::all_of(corners, [&](uint16_t vertex) {
+                return (colour_at(vertices, layout.stride, static_cast<uint32_t>(layout.colour_offset), vertex) &
+                        kColourRgb) == 0U;
+            });
+        result.shown += found && !unseen ? 1U : 0U;
+        if (!unseen) {
             for (const uint16_t vertex : corners) {
                 core::at(kept_uses, vertex) = 1;
             }
             continue;
         }
         core::at(nothing, t) = 1;
-        ++result.placing_nothing;
         densities.push_back(stretch_of(at, uv).most);
         const Vec3 n = cross(minus(std::get<1>(at), std::get<0>(at)), minus(std::get<2>(at), std::get<0>(at)));
         const float ax = std::abs(std::get<0>(n));

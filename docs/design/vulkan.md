@@ -3304,8 +3304,9 @@ ceiling showed a fan of stripes in the realtime picture and the path-traced refe
 brick material) were mapped along one direction only - v the same at every corner, so one row of texels is drawn across
 a 1 800-unit triangle. The original never showed it: the bake left those surfaces black (000000 at every corner); lit by
 their lamps they are seen. The rule, from the data alone: an opaque base pass's triangle whose map from its plane to its
-texture has rank one (least stretch under 1/64 of the most) and whose narrow side spans at least 4 of its texels along
-the mapped direction. Such a triangle gets world-aligned coordinates (UE's world-aligned textures - the standard mapping
+texture has rank one (least stretch under 1/64 of the most), whose narrow side spans at least 4 of its texels along
+the mapped direction, and which the original never showed - every corner's colour black (a rank-one map the art lit is
+the artists' own: a gradient, a fade strip, a sky - kept). Such a triangle gets world-aligned coordinates (UE's world-aligned textures - the standard mapping
 of a surface without its own UVs) on the axis plane it faces most, at the mesh's own density (the median of its such
 triangles' u per unit), near 0 (the plane's origin moved by whole repeats); a corner a sound triangle shares is copied
 for it (the strip made again, the copies' sources kept for the relit data). Done at load before the buffers are made, so

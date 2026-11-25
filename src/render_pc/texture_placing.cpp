@@ -28,6 +28,7 @@ struct Totals {
     uint32_t meshes = 0;
     uint32_t triangles = 0;
     uint32_t placing_nothing = 0;
+    uint32_t shown = 0;
     uint32_t vertices = 0;
     uint32_t copies = 0;
     float largest = 0.0F;
@@ -69,6 +70,7 @@ std::vector<uint16_t> place_body(scene_format::MeshBody* body, uint32_t fvf, con
     Totals& sum = totals();
     sum.triangles += result.triangles;
     sum.placing_nothing += result.placing_nothing;
+    sum.shown += result.shown;
     if (!result.changed) {
         return {};
     }
@@ -103,9 +105,9 @@ void log_totals(const char* scene)
     Totals& sum = totals();
     if (sum.placing_nothing != 0) {
         get_log("texture placing: %s - %u of %u opaque textured triangles mapped along one direction only (their texture a "
-                "fan of stripes); %u vertices of %u meshes given world-aligned coordinates (%u of them copies), at most "
-                "%.4f a unit, the largest %.1f",
-                scene != nullptr ? scene : "(scene)", sum.placing_nothing, sum.triangles, sum.vertices, sum.meshes,
+                "fan of stripes), %u of them lit by the art (kept); %u vertices of %u meshes given world-aligned coordinates "
+                "(%u of them copies), at most %.4f a unit, the largest %.1f",
+                scene != nullptr ? scene : "(scene)", sum.placing_nothing, sum.triangles, sum.shown, sum.vertices, sum.meshes,
                 sum.copies, static_cast<double>(sum.densest), static_cast<double>(sum.largest));
     }
     sum = Totals{};
