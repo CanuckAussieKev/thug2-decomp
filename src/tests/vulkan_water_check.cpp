@@ -264,17 +264,27 @@ Axes camera_axes()
             .forward = {0.0F, -std::sin(kPitch), std::cos(kPitch)}};
 }
 
+// (round WATER) The views right-handed - camera space looking along -z, as the game's are (D3DX's ...RH matrices) -
+// rather than Direct3D's left-handed default: the same picture, camera z negative.
+bool& right_handed_views()
+{
+    static bool right_handed = false;
+    return right_handed;
+}
+
 // The view (world -> camera, Direct3D's row vectors) and the projection.
 Matrix view_matrix()
 {
     const Axes axes = camera_axes();
+    const float along = right_handed_views() ? -1.0F : 1.0F; // (camera z: forward, or backward in a right-handed view)
+    const Vec3 z_axis = scale(axes.forward, along);
     Matrix view{};
     for (std::size_t row = 0; row < 3; ++row) {
         core::at(core::at(view, row), 0) = core::at(axes.right, row);
         core::at(core::at(view, row), 1) = core::at(axes.up, row);
-        core::at(core::at(view, row), 2) = core::at(axes.forward, row);
+        core::at(core::at(view, row), 2) = core::at(z_axis, row);
     }
-    core::at(view, 3) = {-dot(axes.right, kCamera), -dot(axes.up, kCamera), -dot(axes.forward, kCamera), 1.0F};
+    core::at(view, 3) = {-dot(axes.right, kCamera), -dot(axes.up, kCamera), -dot(z_axis, kCamera), 1.0F};
     return view;
 }
 Matrix projection_matrix(uint32_t width, uint32_t height)
@@ -286,6 +296,11 @@ Matrix projection_matrix(uint32_t width, uint32_t height)
     core::at(core::at(projection, 2), 2) = kFar / (kFar - kNear);
     core::at(core::at(projection, 2), 3) = 1.0F;
     core::at(core::at(projection, 3), 2) = -kNear * kFar / (kFar - kNear);
+    if (right_handed_views()) {
+        // (D3DXMatrixPerspectiveFovRH: z and w taken from -z - the same depth and w for the same point)
+        core::at(core::at(projection, 2), 2) = -kFar / (kFar - kNear);
+        core::at(core::at(projection, 2), 3) = -1.0F;
+    }
     return projection;
 }
 std::array<float, kMatrixFloats> flat(const Matrix& matrix)
@@ -674,8 +689,9 @@ void set_water(bool on, float waves, float foam, bool hdr = true)
     (void)hdr; // (round F: the glitter has one peak)
 }
 
-void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally, bool blended)
+void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally, bool blended, bool right_handed = false)
 {
+    right_handed_views() = right_handed;
     set_water(true, 0.0F, 0.0F);
     Scene drawn = scene;
     if (blended) {
@@ -683,7 +699,9 @@ void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally, bool blended
     }
     draw_frame(gpu, drawn, 1.0, true, blended);
     const Picture got = read_picture(scene.colour, kWidth, kHeight);
-    const char* how = blended ? "calm water blended (alpha a half)" : "calm water (opaque)";
+    const char* how = right_handed ? "calm water blended, a right-handed view (camera z negative - the game's)"
+                      : blended    ? "calm water blended (alpha a half)"
+                                   : "calm water (opaque)";
     // (round POOL) the body's coverage: the drawn alpha (the texture's) when blended, all of it opaque
     const float cover = blended ? kHalfAlpha / kByteMax : 1.0F;
     if (!got.read) {
@@ -724,6 +742,7 @@ void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally, bool blended
                               how, judged, share * 100.0, static_cast<double>(kTolerance), static_cast<double>(worst),
                               worst > kTolerance ? worst_at.c_str() : ""));
     tally->check(all_finite(got), text::format("%s: every pixel finite", how));
+    right_handed_views() = false;
 }
 
 // The pictures' bytes equal over the pixels `where` says.
@@ -1506,6 +1525,7 @@ int run(const Options& options, SDL_Window* window)
         check_off(gpu, scene, &tally);
         check_calm(gpu, scene, &tally, false);
         check_calm(gpu, scene, &tally, true);
+        check_calm(gpu, scene, &tally, true, true); // (round WATER)
         check_reflection(gpu, scene, &tally);
         check_foam(gpu, scene, &tally);
         check_waves(gpu, scene, &tally);

@@ -3322,6 +3322,22 @@ floor, which got 1/250 of the plaza's sun and sky. The scan is rt_surface_class.
 batches read it too). With the sheets seen through, the floor is lit (rt_water=0 shows it) and the reference shows it
 through clear water; the water shader still covers it (open).
 
+**Round WATER: the water's distances along the view.** The water shader measured every distance along the view by
+camera space's z (`eye.z`) - Direct3D's left-handed convention, which the check program's camera uses. The game's views
+are right-handed (they look along -z; the projection's w is -z), so z was negative and every such distance was the
+1e-3 floor: the light's path through the water (`behind - surface_w`) x dist / 0.001 was 10^5 times too long - the
+absorption took everything, each pool's bed was replaced by the water's deep colour with its texture's detail
+(Barcelona's fountain: "dark circles" - the pebbled texture's pattern - over a dense blue, no floor; the floor black at
+night); the waves' refraction and the traced mirror image were moved by tilt x distance / 0.001 - clamped to the view's
+edge, so the sea read its reflection from the screen's edge columns (the harbour's black sea with coloured blocky
+streaks and white specks); the shore's waves and foam never found their depth (the vertex shader returned at z <= 0).
+Now every one is the projection's w (`water_view_depth`, the depth copy's own measure), whichever way the view looks.
+The mirror image's move by the waves also had the wrong depth: it is seen where the image is - as far behind the surface
+along the view as the hit is in front of it, depth surface_w (1 + a / dist) - so the sky's image moves by twice the
+tilt's angle on the screen, not by the hit's 10^4-unit distance over the surface's (streaks again, from the view's edge).
+`thug2_vulkan_water_check` draws its blended calm case again with a right-handed view (camera z negative): against the
+processor 99.9 %; with `eye.z` back, 0 % (mutation).
+
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
 Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3
