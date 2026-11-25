@@ -61,6 +61,7 @@ add_library(thug2_render_pc STATIC
     water_materials.cpp
     mesh_smoothing.cpp
     building_relief.cpp
+    texture_placing.cpp
     water_bodies.cpp
     air_world.cpp
     water_geometry.cpp

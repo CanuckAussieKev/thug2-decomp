@@ -50,6 +50,7 @@
 #include "engine/gfx/rt_surface_class.h"
 #include "engine/gfx/rt_vertex_attributes.h"
 #include "engine/gfx/surface_material.h"
+#include "engine/gfx/texture_mapping.h"
 #include "engine/gfx/light_cards.h"
 #include "engine/gfx/texel_decode.h"
 #include "engine/memory/arena_alloc.h"
@@ -913,6 +914,54 @@ float least_vertex_alpha(const MeshRef* mesh)
     }
     st.vertex_alpha.emplace(buffer, least);
     return least;
+}
+
+// (round TRAIN, `rt probe`) The hit triangle's corners as the mesh's memory copy holds them - position and first texture
+// coordinates - and how its texture is laid on it: the texture-space lengths of a world unit along the triangle's most
+// and least stretched directions (the singular values of the map from the triangle's plane to its coordinates). Empty
+// when the mesh keeps no copy.
+std::string hit_triangle_text(const MeshRef* mesh, uint32_t primitive)
+{
+    const VertexBuffer* vb = last_drawn_buffer(mesh);
+    const IdxStore* ib = mesh->index_store(0);
+    const uint32_t index_count = core::at(mesh->index_counts(), 0);
+    rt::Geometry layout;
+    layout.vertex_stride = mesh->stride();
+    if (vb == nullptr || vb->data() == nullptr || ib == nullptr || ib->indices() == nullptr || index_count < 3 ||
+        ib->format() == kFormatIndex32 || !rt::set_vertex_attributes(mesh->fvf(), &layout) ||
+        layout.uv_format == rt::kAttributeNone) {
+        return {};
+    }
+    const bool strip = mesh->primitive_type() == kPrimitiveStrip;
+    const uint32_t first = strip ? primitive : primitive * 3;
+    if (first + 2 >= index_count) {
+        return {};
+    }
+    const std::span<const uint16_t> indices(ib->indices(), index_count);
+    const uint32_t stride = mesh->stride();
+    const std::span<const uint8_t> bytes(vb->data(), vb->size());
+    std::array<rt::Vec3, 3> at{};
+    std::array<std::array<float, 2>, 3> uv{};
+    std::string out = "\n  hit triangle";
+    for (uint32_t c = 0; c < 3; ++c) {
+        const uint32_t vertex = core::at(indices, first + c);
+        const std::size_t start = std::size_t{vertex} * stride;
+        if (start + stride > bytes.size()) {
+            return {};
+        }
+        std::memcpy(core::at(at, c).data(), bytes.subspan(start + layout.position_offset, sizeof(rt::Vec3)).data(),
+                    sizeof(rt::Vec3));
+        std::memcpy(core::at(uv, c).data(), bytes.subspan(start + layout.uv_offset, 2 * sizeof(float)).data(),
+                    2 * sizeof(float));
+        out += text::format(" | v%u %.0f %.0f %.0f uv %.4f %.4f", vertex, static_cast<double>(std::get<0>(core::at(at, c))),
+                            static_cast<double>(std::get<1>(core::at(at, c))), static_cast<double>(std::get<2>(core::at(at, c))),
+                            static_cast<double>(std::get<0>(core::at(uv, c))), static_cast<double>(std::get<1>(core::at(uv, c))));
+    }
+    const texture_mapping::Stretch stretch = texture_mapping::stretch_of(at, uv);
+    out += text::format("; texture per world unit: most %.5f, least %.5f (x %.1f)", static_cast<double>(stretch.most),
+                        static_cast<double>(stretch.least),
+                        stretch.least > 0.0F ? static_cast<double>(stretch.most / stretch.least) : 0.0);
+    return out;
 }
 
 // (round PT-B) How every ray meets the mesh drawn with its material (rt_surface_class.h): the material's own data and,
@@ -2909,6 +2958,7 @@ std::string describe_screen_point(float across, float down)
                                     texels.known ? "" : ", not known", static_cast<double>(least_vertex_alpha(mesh)),
                                     rt::vertex_alpha_counts(surface) ? "" : ", not counted");
             }
+            out += hit_triangle_text(mesh, found.primitive);
             break;
         }
     }

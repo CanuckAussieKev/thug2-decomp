@@ -15,7 +15,8 @@
 // edges at most 1.5 x the spacing, wound as the original, covering it exactly (the same area, every inside edge shared by two
 // triangles wound opposite ways), texture coordinates and colours blended as the rasteriser would; two meshes side by
 // side with different shapes meeting at the same points to the bit; a waterfall, a small quad and a strip index past
-// the vertices left alone; a huge quad within 16 bits. Exit code 0 when every check passes.
+// the vertices left alone; a huge quad within 16 bits. (Round TRAIN) Texture coordinates that place nothing made
+// world-aligned (engine/gfx/texture_mapping.h). Exit code 0 when every check passes.
 
 #include <algorithm>
 #include <array>
@@ -41,6 +42,7 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/smooth_tess.h"
+#include "engine/gfx/texture_mapping.h"
 #include "engine/gfx/water_tess.h"
 #include "formats/scene_format.h"
 #include "tests/no_error_dialogs.h"
@@ -1422,6 +1424,108 @@ bool measure_level(const std::filesystem::path& folder)
 
 } // namespace
 
+// (round TRAIN - engine/gfx/texture_mapping.h) Texture coordinates that place nothing: a ceiling's two triangles mapped
+// along x alone (v the same at every corner - Training's ceiling), a sound triangle sharing a corner with them and a thin
+// trim strip mapped lengthwise. The ceiling's triangles get world-aligned coordinates at the density their u had (the
+// texture's size kept, its stretch 1:1), the shared corner copied for them (the sound triangle keeps its own), the strip
+// made again with the same triangles wound the same way; the sound triangle and the thin strip untouched.
+void check_texture_placing()
+{
+    namespace mapping = render::texture_mapping;
+    constexpr float kDensity = 0.002F; // u per world unit along x
+    constexpr uint32_t kTexels = 256;
+    struct V {
+        P3 p;
+        float u = 0.0F;
+        float v = 0.0F;
+    };
+    const std::vector<V> corners = {
+        // the ceiling (y 984, 1000 x 1000), u along x, v 0.5 everywhere
+        {{0.0F, 984.0F, 0.0F}, 0.0F, 0.5F},
+        {{1000.0F, 984.0F, 0.0F}, 1000.0F * kDensity, 0.5F},
+        {{0.0F, 984.0F, 1000.0F}, 0.0F, 0.5F},
+        {{1000.0F, 984.0F, 1000.0F}, 1000.0F * kDensity, 0.5F},
+        // a sound triangle beside it, sharing corner 3
+        {{1500.0F, 984.0F, 1000.0F}, 3.0F, 2.5F},
+        {{1500.0F, 984.0F, 0.0F}, 3.0F, 0.5F},
+        // a trim strip 1000 long and 0.5 wide, mapped along its length (v the same)
+        {{0.0F, 0.0F, 3000.0F}, 0.0F, 0.25F},
+        {{1000.0F, 0.0F, 3000.0F}, 2.0F, 0.25F},
+        {{0.0F, 0.5F, 3000.0F}, 0.0F, 0.25F},
+        {{1000.0F, 0.5F, 3000.0F}, 2.0F, 0.25F},
+    };
+    std::vector<uint8_t> bytes(corners.size() * kStride, 0);
+    for (std::size_t i = 0; i < corners.size(); ++i) {
+        const V& c = core::at(corners, i);
+        const std::array<float, 3> p = {c.p.x, c.p.y, c.p.z};
+        const std::array<float, 3> n = {0.0F, -1.0F, 0.0F};
+        const std::array<float, 2> uv = {c.u, c.v};
+        std::memcpy(&core::at(bytes, i * kStride), p.data(), kFloat3);
+        std::memcpy(&core::at(bytes, (i * kStride) + kNormalAt), n.data(), kFloat3);
+        std::memcpy(&core::at(bytes, (i * kStride) + kUvAt), uv.data(), kFloat2);
+    }
+    const std::vector<uint16_t> strip = {0, 1, 2, 3, 3, 3, 4, 5, 5, 6, 6, 7, 8, 9};
+    const tess::VertexLayout layout = {.stride = kStride, .normal_offset = kNormalAt, .colour_offset = kColourAt,
+                                       .uv_offset = kUvAt, .uv_sets = 1};
+    const auto count = static_cast<uint32_t>(corners.size());
+    const mapping::Result result = mapping::world_aligned(bytes, count, layout, strip, kTexels);
+    expect(result.changed, "texture placing: the ceiling changed");
+    expect(result.placing_nothing == 2, "texture placing: the ceiling's two triangles found (not the sound one, not the trim)");
+    expect(result.sources.size() == 1 && result.sources.front() == 3,
+           "texture placing: the corner the sound triangle shares copied, once");
+    expect(result.vertex_count == count + 1 && result.vertex_bytes.size() == std::size_t{result.vertex_count} * kStride,
+           "texture placing: the copy follows the vertices");
+    expect(std::abs(result.density - kDensity) < 1.0e-6F, "texture placing: the density the u had");
+    const auto position = [&](uint16_t v) {
+        std::array<float, 3> p{};
+        std::memcpy(p.data(), &core::at(result.vertex_bytes, std::size_t{v} * kStride), kFloat3);
+        return p;
+    };
+    const auto uv_of = [&](uint16_t v) {
+        std::array<float, 2> uv{};
+        std::memcpy(uv.data(), &core::at(result.vertex_bytes, (std::size_t{v} * kStride) + kUvAt), kFloat2);
+        return uv;
+    };
+    const std::vector<std::array<uint16_t, 3>> before = tess::strip_triangles(strip);
+    const std::vector<std::array<uint16_t, 3>> after = tess::strip_triangles(result.strip);
+    expect(before.size() == after.size(), "texture placing: the same triangles drawn");
+    for (std::size_t t = 0; t < std::min(before.size(), after.size()); ++t) {
+        bool same = true;
+        for (std::size_t c = 0; c < 3; ++c) {
+            const auto a = core::at(corners, core::at(core::at(before, t), c)).p;
+            const auto b = position(core::at(core::at(after, t), c));
+            same = same && a.x == std::get<0>(b) && a.y == std::get<1>(b) && a.z == std::get<2>(b);
+        }
+        expect(same, "texture placing: each triangle's corners where they were, in the same order (wound the same)");
+        std::array<std::array<float, 3>, 3> at{};
+        std::array<std::array<float, 2>, 3> uv{};
+        for (std::size_t c = 0; c < 3; ++c) {
+            core::at(at, c) = position(core::at(core::at(after, t), c));
+            core::at(uv, c) = uv_of(core::at(core::at(after, t), c));
+        }
+        const mapping::Stretch stretch = mapping::stretch_of(at, uv);
+        if (t < 2) {
+            expect(std::abs(stretch.most - kDensity) < 1.0e-6F && std::abs(stretch.least - kDensity) < 1.0e-6F,
+                   "texture placing: the ceiling's texture laid 1:1 at its density");
+        }
+    }
+    for (const uint16_t v : {4, 5, 6, 7, 8, 9}) {
+        const std::array<float, 2> uv = uv_of(v);
+        expect(std::get<0>(uv) == core::at(corners, v).u && std::get<1>(uv) == core::at(corners, v).v,
+               "texture placing: the sound triangle's and the trim's coordinates kept");
+    }
+    expect(std::get<0>(uv_of(3)) == core::at(corners, 3).u && std::get<1>(uv_of(3)) == core::at(corners, 3).v,
+           "texture placing: the shared corner kept for the sound triangle");
+    expect(result.largest <= (1000.0F * kDensity) + 1.0F, "texture placing: the coordinates near 0");
+    // the rule alone: a sound map, a rank-one map on a narrow triangle
+    expect(!mapping::places_nothing({{{0, 0, 0}, {10, 0, 0}, {0, 0, 10}}}, {{{0, 0}, {1, 0}, {0, 1}}}, kTexels),
+           "texture placing: a sound map places");
+    expect(!mapping::places_nothing({{{0, 0, 0}, {1000, 0, 0}, {0, 0, 0.5F}}}, {{{0, 0}, {2, 0}, {0, 0}}}, kTexels),
+           "texture placing: a thin trim mapped lengthwise left alone");
+    expect(mapping::places_nothing({{{0, 0, 0}, {1000, 0, 0}, {0, 0, 1000}}}, {{{0, 0.5F}, {2, 0.5F}, {0, 0.5F}}}, kTexels),
+           "texture placing: a wide triangle mapped along one direction found");
+}
+
 int main(int argc, char** argv)
 {
     tests::no_error_dialogs();
@@ -1440,6 +1544,7 @@ int main(int argc, char** argv)
     check_unchanged();
     check_smooth();
     check_water_grid();
+    check_texture_placing();
     if (failures() != 0) {
         std::printf("%d check(s) failed\n", failures());
         return 1;

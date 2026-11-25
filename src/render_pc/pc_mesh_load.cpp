@@ -35,6 +35,7 @@
 #include "engine/gfx/renderer.h"
 #include "render_pc/mesh_pass.h"
 #include "render_pc/building_relief.h"
+#include "render_pc/texture_placing.h"
 #include "render_pc/mesh_smoothing.h"
 #include "render_pc/water_bodies.h"
 #include "render_pc/water_geometry.h"
@@ -219,6 +220,16 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
             &body, vertex_format(core::at(body.vertex_types, 0)),
             static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic);
         water_grid = !original_strip.empty();
+    }
+    // Not original - (round TRAIN) texture coordinates that place nothing (one row of the texture drawn across a
+    // triangle - texture_placing.h) made world-aligned. Original behaviour: the body's coordinates as read.
+    if (!water_grid) {
+        std::vector<uint16_t> before = texture_placing::place_body(
+            &body, vertex_format(core::at(body.vertex_types, 0)),
+            static_cast<const MaterialRef*>(scene->find_material(material_checksum)), dynamic, &relief_sources);
+        if (original_strip.empty()) {
+            original_strip = std::move(before);
+        }
     }
     for (int i = 0; i < scene_format::kIndexBuffers; ++i) {
         core::at(mesh->index_counts(), i) = core::at(body.index_counts, i);

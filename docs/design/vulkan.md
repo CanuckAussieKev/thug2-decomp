@@ -3299,6 +3299,20 @@ layer, its mirror falling back to the captured sky), and the water's match with 
 light_front_find). Barcelona's pool: the reference shows a bright blue floor through thin water (the sheets' coverage
 0.1 - 0.26); the raster's floor there gets almost no light (open: its light inputs under the sheets).
 
+**Round TRAIN: texture maps that place nothing** (engine/gfx/texture_mapping.h, render_pc/texture_placing.h). Training's
+ceiling showed a fan of stripes in the realtime picture and the path-traced reference alike: its triangles (the wall's
+brick material) were mapped along one direction only - v the same at every corner, so one row of texels is drawn across
+a 1 800-unit triangle. The original never showed it: the bake left those surfaces black (000000 at every corner); lit by
+their lamps they are seen. The rule, from the data alone: an opaque base pass's triangle whose map from its plane to its
+texture has rank one (least stretch under 1/64 of the most) and whose narrow side spans at least 4 of its texels along
+the mapped direction. Such a triangle gets world-aligned coordinates (UE's world-aligned textures - the standard mapping
+of a surface without its own UVs) on the axis plane it faces most, at the mesh's own density (the median of its such
+triangles' u per unit), near 0 (the plane's origin moved by whole repeats); a corner a sound triangle shares is copied
+for it (the strip made again, the copies' sources kept for the relit data). Done at load before the buffers are made, so
+the raster, the rays, the path tracer and the bake read the same coordinates. Training: 3 987 of 74 862 opaque textured
+triangles, 215 meshes. Coordinates of 8 x 10^4 (the planes' origin at the world's) hung the device - left as a note: some
+shader's cost grows with the coordinates' size (not found).
+
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
 Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3

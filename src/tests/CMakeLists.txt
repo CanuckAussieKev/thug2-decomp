@@ -104,7 +104,8 @@ endif()
 # `--level <folder>...` a level's own meshes measured against its collision, offline (src/tests/tess_check.cpp).
 if(TARGET thug2_base)
     add_executable(thug2_tess_check tess_check.cpp "${PROJECT_SOURCE_DIR}/src/engine/gfx/smooth_tess.cpp"
-                                    "${PROJECT_SOURCE_DIR}/src/engine/gfx/water_tess.cpp")
+                                    "${PROJECT_SOURCE_DIR}/src/engine/gfx/water_tess.cpp"
+                                    "${PROJECT_SOURCE_DIR}/src/engine/gfx/texture_mapping.cpp")
     target_link_libraries(thug2_tess_check PRIVATE thug2_base)
 endif()
 
