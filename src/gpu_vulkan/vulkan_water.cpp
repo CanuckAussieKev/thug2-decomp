@@ -824,7 +824,7 @@ WaterUniforms water_uniforms(const WaterSettings& settings, const WaterView& vie
                     static_cast<float>(core::at(drawn.rect, 2)), static_cast<float>(core::at(drawn.rect, 3))};
     out.target = {view.target.width > 0 ? 1.0F / static_cast<float>(view.target.width) : 0.0F,
                   view.target.height > 0 ? 1.0F / static_cast<float>(view.target.height) : 0.0F, view.copied ? 1.0F : 0.0F,
-                  0.0F}; // (w unused - round F)
+                  view.blended ? 1.0F : 0.0F}; // (w: round POOL - the alpha the body's coverage)
     // (changed by the physical waves) the weather's wind's way (engine/gfx/wind.h) and the body's waves (water_waves.h)
     const water::WaterBody& body = view.body;
     out.time = {static_cast<float>(drawn.game_seconds), core::at(wind::kDirection, 0), core::at(wind::kDirection, 1),
@@ -1040,7 +1040,6 @@ bool water_key(Backend& state, const GpuStateBlock& block, const DrawCall& call,
 
 bool prepare_water_draw(Backend& state, const GpuStateBlock& block, WaterDescriptors* out)
 {
-    (void)block;
     WaterState& own = water_state();
     *out = {};
     std::string error;
@@ -1070,12 +1069,19 @@ bool prepare_water_draw(Backend& state, const GpuStateBlock& block, WaterDescrip
     Image* const sky = sky_image(state);
     const uint64_t frame = state.frames.serial();
     const water::WaterBody body = drawn_body(own);
-    const uint64_t body_key = body.known ? (body.id ^ (uint64_t{body.version} << 48U)) | 1U : 0U;
+    // (round POOL) blended by its alpha (water_candidate takes no other blend): the block says so - its key's bit 1
+    const bool blended = block.render_state(GpuRenderState::kAlphaBlendEnable) != 0U;
+    const uint64_t body_key = (body.known ? (body.id ^ (uint64_t{body.version} << 48U)) | 1U : 0U) ^ (blended ? 2U : 0U);
     if (own.block_serial != own.view_serial || own.block_frame != frame || (sky != nullptr) != (own.sky_image != nullptr) ||
         own.block_body != body_key) {
         const WaterUniforms uniforms = water_uniforms(
             own.settings,
-            {.view = own.view, .body = body, .target = colour->extent, .copied = own.copy_has_depth, .sky_bound = sky != nullptr});
+            {.view = own.view,
+             .body = body,
+             .target = colour->extent,
+             .copied = own.copy_has_depth,
+             .sky_bound = sky != nullptr,
+             .blended = blended});
         const void* const data = &uniforms;
         const std::span<const uint8_t> raw(static_cast<const uint8_t*>(data), sizeof(uniforms));
         const std::optional<RingSpan> span = state.ring.copy(raw, state.uniform_alignment);

@@ -290,7 +290,9 @@ vec4 water_screen_trace(vec3 origin, vec3 d)
     return vec4(0.0);
 }
 
-vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
+// `albedo`: (round POOL) the program's colour under the game's neutral light - the texel x the material's colour, the
+// rays' albedo for this material (ff_shaders.cpp water_albedo_program); display-referred
+vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albedo)
 {
     // where the surface is, which way it faces and from where it is seen (derivatives first: uniform control flow)
     vec3 eye = v_surface_eye;
@@ -345,8 +347,11 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
     // vertex's: the body's colour is the texture's mean lit by it
     float front_z = light_front_depth();
     if (front_z < 1.0) {
-        float front_eye = water.projection[3][2] / (front_z - water.projection[2][2]);
-        light_front_at = abs(front_eye - eye.z) <= max(0.01 * eye.z, 2.0 * water.sea.x + 1.0);
+        // (round POOL) compared as depths, as every other key's match is (light_front_find - one rule, the draw's own
+        // depth against the layer's): the reach 1 % of the distance or the waves' (eye units over the distance), a share
+        // of what is left of the depth, (1 - z) falling as 1 / distance
+        float reach = max(0.01, (2.0 * water.sea.x + 1.0) / max(eye.z, 1.0e-3));
+        light_front_at = abs(gl_FragCoord.z - front_z) <= max(1.0e-6, (1.0 - front_z) * reach);
     }
     if (light_front_at) {
         vec3 front_light = max(light_front_now().rgb + light_front_sun_now().rgb, vec3(0.0));
@@ -359,6 +364,25 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
     float light = water_luma(tint);
     vec3 deep_hue = hue * hue; // (deep water's colour more saturated than the texture's mean, which has its highlights)
     vec3 deep = deep_hue * (light * 0.65 / max(water_luma(deep_hue), 0.05));
+    // (round POOL) the texture's own detail, faintly, on the scattered colour (the covered body below has its texels)
+    deep *= mix(1.0, clamp(water_luma(texel.rgb) / max(water_luma(mean), 0.02), 0.5, 1.6), water.waves.w);
+    // (NOT ORIGINAL - round POOL: one water material with the rays and the path tracer - vulkan_rt_scene.cpp hit_blend,
+    // vulkan_path_reference.cpp) the game's water sheet is an interface whose texture's coverage is the water's own
+    // colour: the drawn alpha (the texel's x the vertex's, doubled - the rays' record_drawn_alpha; 1 for an opaque sheet:
+    // water.target.w) is the share of what is under the surface seen as the body itself - its albedo (the rays': the
+    // texel x the material's colour) lit as a diffuse surface by the front layer's light where it is this water (the
+    // list's light on a white diffuser), else the game's light on it - and the rest is what is behind it, as the rays'
+    // transmittance through the sheet has it for the light reaching the bed (hit_blend_transmittance). (Before, the whole
+    // of the water was the copy behind it with the scattered colour - the sheet's own colour, which the path tracer
+    // shows by its coverage, was nowhere.)
+    float cover = water.target.w > 0.5 ? clamp(colour.a, 0.0, 1.0) : 1.0;
+    vec3 body = colour.rgb;
+#ifdef LIGHT_FRONT
+    if (light_front_at) {
+        body = display_from_linear(linear_from_display(clamp(albedo, 0.0, 1.0)) *
+                                   max(light_front_now().rgb + light_front_sun_now().rgb, vec3(0.0)));
+    }
+#endif
 
     // 3. refraction: what is behind the water (the copy made before the view's first water), moved by the waves' tilt
     // in proportion to the water behind; 4. absorption along the path through it
@@ -390,6 +414,9 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
     vec3 through = exp(-sigma * min(path, 1.0e5));
     vec3 lit_below = exp(-sigma * min(depth_down, 1.0e5));
     vec3 refracted = under * through * lit_below + deep * (1.0 - through);
+    // (round POOL) the covered share the body's own colour; without the copy the blend over what is behind is the game's
+    // alpha's (the draw keeps it), so the colour is the body's alone
+    refracted = copied ? mix(refracted, body, cover) : body;
 
     // 2. the reflection along the wave normal: on the screen where the ray finds something, else the sky - as the
     // screen shows it toward that direction, or as the level's sky was captured
@@ -451,9 +478,6 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha)
 
     vec3 shaded = mix(refracted, reflected, fresnel) + glitter * (1.0 - foam);
     shaded = mix(shaded, foam_colour, foam);
-    // the texture's own detail, faintly
-    float detail = clamp(water_luma(texel.rgb) / max(water_luma(mean), 0.02), 0.5, 1.6);
-    shaded *= mix(1.0, detail, water.waves.w);
     if (water.misc.z > 0.5) {
         // ([debug] rt_water_view=1) what the reflection found: red the screen's march, green the sky on the screen,
         // blue the captured sky; the water's depth below in the alpha-less grey of the rest

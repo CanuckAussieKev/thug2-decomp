@@ -105,6 +105,7 @@ struct WaterView {
     Extent target;          // the colour target's size
     bool copied = false;    // the copy behind the water is there
     bool sky_bound = false; // the level's sky capture is bound
+    bool blended = false;   // (round POOL) the draw blends by its alpha: the alpha is the body's coverage (water_shader.cpp)
 };
 [[nodiscard]] WaterUniforms water_uniforms(const WaterSettings& settings, const WaterView& view);
 

@@ -203,7 +203,8 @@ struct WaterUniforms {
     Float4x4 world_to_eye{}; // the view
     Float4x4 projection{};   // the view's projection (camera space -> Direct3D's clip space, y up)
     Float4 viewport{};       // the view's rectangle in the target: x, y, width, height (pixels)
-    Float4 target{};         // x, y: 1 / the target's width and height; z: 1 when the copy behind the water is there; w: HDR
+    Float4 target{};         // x, y: 1 / the target's width and height; z: 1 when the copy behind the water is there; w:
+                             // (round POOL) 1 when the draw blends by its alpha - the alpha its body's coverage
     Float4 time{};           // x: the game's seconds; y, z: the wind's direction (world x, z); w: the wind over the body (m/s)
     Float4 waves{};          // x: unused; y: how far one sees into the water (units); z: foam; w: the texture's detail kept
     Float4 tint{};           // rgb: the water's colour; w: 1 - the texture's own (auto)
