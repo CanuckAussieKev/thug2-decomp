@@ -20,6 +20,7 @@
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/vulkan_context.h"
 #include "gpu_vulkan/vulkan_loader.h"
+#include "gpu_vulkan/vulkan_pipelines.h"
 
 namespace ff_check {
 
@@ -37,7 +38,21 @@ constexpr uint32_t kRhwFloats = 4;
 constexpr std::array<VkFormat, 4> kFloatFormats = {VK_FORMAT_R32_SFLOAT, VK_FORMAT_R32G32_SFLOAT,
                                                    VK_FORMAT_R32G32B32_SFLOAT, VK_FORMAT_R32G32B32A32_SFLOAT};
 
-void print_message(const std::string& text) { text::print("  vulkan: %s\n", text.c_str()); }
+// (round TRAIN) The validation layer's errors while the modules and pipelines are made - a layout that doesn't match a
+// shader's resources (VUID-VkGraphicsPipelineCreateInfo-layout-07988) passed silently before: each one fails the sweep.
+std::size_t& validation_errors()
+{
+    static std::size_t count = 0;
+    return count;
+}
+
+void print_message(const std::string& text)
+{
+    text::print("  vulkan: %s\n", text.c_str());
+    if (text.starts_with("validation error")) {
+        ++validation_errors();
+    }
+}
 
 // The vertex format's attributes, in Direct3D 9's order (position, normal, diffuse, specular, the sets), one binding.
 struct VertexLayout {
@@ -104,62 +119,19 @@ struct Shared {
 
 bool make_layouts(Shared& shared)
 {
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-    bindings.push_back({.binding = render::vulkan::kVertexUniformsBinding,
-                        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                        .descriptorCount = 1,
-                        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT});
-    bindings.push_back({.binding = render::vulkan::kFragmentUniformsBinding,
-                        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                        .descriptorCount = 1,
-                        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
-    for (uint32_t stage = 0; stage < render::vulkan::kStageCount; ++stage) {
-        bindings.push_back({.binding = render::vulkan::kFirstTextureBinding + stage,
-                            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                            .descriptorCount = 1,
-                            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
-    }
-    // (NOT ORIGINAL - rt_pbr) the per-pixel lighting's block and surface map, as the backend's layout has them
-    bindings.push_back({.binding = render::vulkan::kSurfaceUniformsBinding,
-                        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                        .descriptorCount = 1,
-                        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
-    bindings.push_back({.binding = render::vulkan::kSurfaceMapBinding,
-                        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        .descriptorCount = 1,
-                        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
-    // (NOT ORIGINAL - rt_detail / rt_delight) the detail layer's block and texture
-    bindings.push_back({.binding = render::vulkan::kDetailUniformsBinding,
-                        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                        .descriptorCount = 1,
-                        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
-    bindings.push_back({.binding = render::vulkan::kDetailMapBinding,
-                        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        .descriptorCount = 1,
-                        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT});
-    // (added by cel shading) its block (the scene's binding is only in a ray-tracing device's layout)
-    bindings.push_back({.binding = render::vulkan::kCelUniformsBinding,
-                        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                        .descriptorCount = 1,
-                        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT});
+    // (round TRAIN) the game's own bindings (vulkan_pipelines.h draw_set_bindings / light_set_bindings) - before, a copy
+    // here without the water's, the snow's, the paint's, the wet ground's and the emission map's: every --water
+    // pipeline's shaders read bindings its layout didn't declare (VUID-VkGraphicsPipelineCreateInfo-layout-07988). The
+    // scene's binding is only in a ray-tracing device's layout.
+    const std::vector<VkDescriptorSetLayoutBinding> bindings = render::vulkan::draw_set_bindings(false);
     const VkDescriptorSetLayoutCreateInfo set_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                       .bindingCount = static_cast<uint32_t>(bindings.size()),
                                                       .pBindings = bindings.data()};
     if (vkCreateDescriptorSetLayout(shared.device, &set_info, nullptr, &shared.set_layout) != VK_SUCCESS) {
         return false;
     }
-    // (NOT ORIGINAL - round V; round FL: a set of their own, kLightInputsSet) the view's light inputs
-    // (vulkan_surface_light.h), the front layer's with them
-    std::vector<VkDescriptorSetLayoutBinding> light_bindings;
-    for (uint32_t input = 0; input < render::vulkan::kLightInputCount; ++input) {
-        light_bindings.push_back({.binding = input,
-                                  .descriptorType = input == render::vulkan::kLightGuidesBinding
-                                                        ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
-                                                        : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                  .descriptorCount = 1,
-                                  .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-                                  .pImmutableSamplers = nullptr});
-    }
+    // (round V; round FL: a set of their own, kLightInputsSet) the view's light inputs, the front layer's with them
+    const std::vector<VkDescriptorSetLayoutBinding> light_bindings = render::vulkan::light_set_bindings();
     const VkDescriptorSetLayoutCreateInfo light_info = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                         .bindingCount = static_cast<uint32_t>(light_bindings.size()),
                                                         .pBindings = light_bindings.data()};
@@ -363,7 +335,10 @@ bool check_with_context(const render::vulkan::Context& context, const GpuInput& 
                 static_cast<unsigned>(shared.vertex_modules.size() + shared.fragment_modules.size()),
                 static_cast<unsigned>(refused_modules), static_cast<unsigned>(made),
                 static_cast<unsigned>(refused_pipelines), seconds);
-    return refused_modules == 0 && refused_pipelines == 0;
+    if (validation_errors() != 0) {
+        text::print("GPU: %u validation errors - FAILED\n", static_cast<unsigned>(validation_errors()));
+    }
+    return refused_modules == 0 && refused_pipelines == 0 && validation_errors() == 0;
 }
 
 } // namespace

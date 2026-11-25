@@ -93,7 +93,6 @@ constexpr uint32_t kLowHalf = 0xFFFF;           // a pass's address modes: u, th
 constexpr int kHalfBits = 16;
 constexpr float kPerByteLight = 1.0F / 128.0F;  // a scene light's byte (times its intensity): 128 is 1
 constexpr float kPerByte = 1.0F / 255.0F;       // a dynamic light's
-constexpr uint32_t kByteMax = 255;              // (round PT-B) a colour byte at its most
 constexpr int kBitsPerByte = 8;
 constexpr uint32_t kByteMask = 0xFF;
 // The baked sun's fit (engine/gfx/rt_sun.h)
@@ -2542,14 +2541,8 @@ void record_apart(rt::RayTracing& rt)
             continue;
         }
         const rt::Material& surface = st.materials.at(group.material).material;
-        float least_alpha = 1.0F;
-        if (layout.colour_format == rt::kColourA8R8G8B8 && layout.colour_offset + sizeof(uint32_t) <= group.stride) {
-            uint32_t lowest = kByteMax;
-            for (std::size_t at = layout.colour_offset + 3; at < group.vertices.size(); at += group.stride) {
-                lowest = std::min<uint32_t>(lowest, core::at(group.vertices, at)); // (the colour word's A byte)
-            }
-            least_alpha = static_cast<float>(lowest) * kPerByte;
-        }
+        const float least_alpha = rt::least_vertex_alpha_in(group.vertices, group.fvf, group.stride,
+                                                            static_cast<uint32_t>(group.vertices.size() / group.stride));
         const rt::SurfaceClass surface_class =
             rt::surface_class(surface, rt::vertex_alpha_counts(surface) ? least_alpha : 1.0F);
         batches.push_back({.key = group.material,
@@ -2892,7 +2885,7 @@ std::vector<std::array<float, 3>> emission_texels(std::span<const EmissionTexelQ
     return out;
 }
 
-std::string describe_screen_point(float across, float down)
+std::string describe_screen_point(float across, float down, bool solid)
 {
     rt::RayTracing* rt = backend();
     const rt::FrameRecord& record = rt::frame_record();
@@ -2916,10 +2909,11 @@ std::string describe_screen_point(float across, float down)
     // (round BIAS) the surface under what adds light over it (mask 0x40 - glows, cards, a window's lit panes drawn
     // additively: light passes them whole, the frame shades what is behind) - those reported below as seen in front
     constexpr uint32_t kAddsLightMask = 0x40;
+    constexpr uint32_t kSeenThroughMasks = 0xC0; // (round TRAIN, `solid`: and the seen-through surfaces, mask 0x80)
     const rt::ProbeResult found = rt->probe({.origin = camera.position,
                                              .direction = direction,
                                              .max_distance = 100000.0F,
-                                             .cull_mask = rt::kAllMasks & ~kAddsLightMask});
+                                             .cull_mask = rt::kAllMasks & ~(solid ? kSeenThroughMasks : kAddsLightMask)});
     if (!found.traced || !found.hit) {
         return text::format("rt probe %.3f %.3f: %s", static_cast<double>(across), static_cast<double>(down),
                             found.traced ? "miss" : "no scene");

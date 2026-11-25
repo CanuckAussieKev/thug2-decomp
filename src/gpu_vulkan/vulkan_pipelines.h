@@ -84,6 +84,11 @@ struct PipelineStats {
     double pipeline_seconds = 0.0; // vkCreateGraphicsPipelines
 };
 
+// (round TRAIN) The draws' set 0 bindings (the scene's with ray queries) and set 1's (the view's light inputs): one
+// definition for the pipelines' layout and the shader check's.
+[[nodiscard]] std::vector<VkDescriptorSetLayoutBinding> draw_set_bindings(bool ray_queries);
+[[nodiscard]] std::vector<VkDescriptorSetLayoutBinding> light_set_bindings();
+
 class Pipelines {
 public:
     Pipelines() = default;

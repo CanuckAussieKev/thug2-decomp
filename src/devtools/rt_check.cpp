@@ -804,10 +804,16 @@ std::string console_command(const std::string& arguments)
     }
     if (verb == "probe") {
         // (what the picture shows at a point, 0 - 1 across and down: engine/gfx/rt_relit.h screen_probe)
-        const float across = std::strtof(file.c_str(), nullptr);
+        // (round TRAIN: `rt probe solid <across> <down>` - through what is seen through)
+        const bool solid = file == "solid";
+        std::string first = file;
+        if (solid) {
+            in >> first;
+        }
+        const float across = std::strtof(first.c_str(), nullptr);
         float down = 0.5F;
         in >> down;
-        return rt::screen_probe(across, down);
+        return rt::screen_probe(across, down, solid);
     }
     if (verb == "relit") {
         // (the relit mode, engine/gfx/rt_relit.h: on / off; no word: its state)

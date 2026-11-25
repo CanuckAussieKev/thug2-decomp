@@ -114,7 +114,7 @@ void forget_meshes();
 // (the console's `rt probe <x> <y>`) A ray from the first viewport's camera through the point of its picture (0 - 1
 // across and down) traced: what it hits - the instance's kind, its mesh, its material (passes, reflectivity, class) -
 // and the relit world's vertices round the hit (rt_relit_world::describe_near).
-[[nodiscard]] std::string describe_screen_point(float across, float down);
+[[nodiscard]] std::string describe_screen_point(float across, float down, bool solid);
 // (the light energy audit's census - the console's `rt census`) Every mesh of the loaded scenes by what lights it: the
 // sky's, hidden, not traced, or what the relit mode makes of it (rt_relit_world::census_bucket) - with its material's
 // kind (opaque, cut-out, blended, additive): meshes, vertices and example materials per bucket, a line each.
