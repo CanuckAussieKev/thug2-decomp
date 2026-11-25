@@ -3310,9 +3310,17 @@ the artists' own: a gradient, a fade strip, a sky - kept). Such a triangle gets 
 of a surface without its own UVs) on the axis plane it faces most, at the mesh's own density (the median of its such
 triangles' u per unit), near 0 (the plane's origin moved by whole repeats); a corner a sound triangle shares is copied
 for it (the strip made again, the copies' sources kept for the relit data). Done at load before the buffers are made, so
-the raster, the rays, the path tracer and the bake read the same coordinates. Training: 3 987 of 74 862 opaque textured
-triangles, 215 meshes. Coordinates of 8 x 10^4 (the planes' origin at the world's) hung the device - left as a note: some
-shader's cost grows with the coordinates' size (not found).
+the raster, the rays, the path tracer and the bake read the same coordinates. Training: 3 987 rank-one triangles of
+74 862, 3 887 of them lit by the art (kept), 100 placed anew (14 meshes); Boston 12 733 / 12 721 kept; New Orleans
+2 877 / 2 869; the sky scenes all kept. Coordinates of 8 x 10^4 (the planes' origin at the world's) hung the device - left
+as a note: some shader's cost grows with the coordinates' size (not found).
+
+**Round TRAIN: a mesh's least vertex alpha.** rt_record's least_vertex_alpha laid the vertex format out against a stride
+of 0, so no attribute fitted and every mesh read 1: a blend-5 sheet fading to alpha 0 over opaque texels took the
+blended-opaque class (opaque to every ray, a shadow caster) - Barcelona's pool sheets (alpha 0x0D - 0x33) over their
+floor, which got 1/250 of the plaza's sun and sky. The scan is rt_surface_class.h least_vertex_alpha_in (the drawn-apart
+batches read it too). With the sheets seen through, the floor is lit (rt_water=0 shows it) and the reference shows it
+through clear water; the water shader still covers it (open).
 
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
