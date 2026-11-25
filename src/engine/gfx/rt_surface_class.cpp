@@ -52,6 +52,40 @@ float least_vertex_alpha_in(std::span<const uint8_t> bytes, uint32_t fvf, uint32
     return static_cast<float>(lowest) / static_cast<float>(kByteMax);
 }
 
+VertexColours vertex_colours_in(std::span<const uint8_t> bytes, uint32_t fvf, uint32_t stride, uint32_t count)
+{
+    Geometry layout;
+    layout.vertex_stride = stride;
+    VertexColours out;
+    if (!set_vertex_attributes(fvf, &layout) || layout.colour_format != kColourA8R8G8B8 || stride == 0) {
+        return out;
+    }
+    constexpr uint32_t kAlphaByte = 3; // (the colour word's bytes B, G, R, A)
+    constexpr uint32_t kRgb = 0xFFFFFFU;
+    const auto fits = static_cast<uint32_t>(std::min<std::size_t>(count, bytes.size() / stride));
+    if (fits == 0) {
+        return out;
+    }
+    uint32_t first = 0;
+    out.known = true;
+    out.one_colour = true;
+    out.least_alpha = UINT8_MAX;
+    for (uint32_t vi = 0; vi < fits; ++vi) {
+        const std::size_t at = (std::size_t{vi} * stride) + layout.colour_offset;
+        const uint32_t word = uint32_t{core::at(bytes, at)} | (uint32_t{core::at(bytes, at + 1)} << 8U) |
+                              (uint32_t{core::at(bytes, at + 2)} << 16U);
+        if (vi == 0) {
+            first = word & kRgb;
+            out.brightest = std::max({core::at(bytes, at), core::at(bytes, at + 1), core::at(bytes, at + 2)});
+        }
+        out.one_colour = out.one_colour && (word & kRgb) == first;
+        const uint8_t alpha = core::at(bytes, at + kAlphaByte);
+        out.least_alpha = std::min(out.least_alpha, alpha);
+        out.most_alpha = std::max(out.most_alpha, alpha);
+    }
+    return out;
+}
+
 float least_drawn_alpha(const Material& material, float least_vertex_alpha)
 {
     if (blend_of(material) != kBlendAlpha) {

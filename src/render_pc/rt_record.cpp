@@ -168,6 +168,11 @@ struct State {
     // (round PT-B) each vertex buffer's least vertex alpha (least_vertex_alpha), read when first asked after the buffer
     // was last written (its colours too)
     std::unordered_map<const VertexBufferData*, float> vertex_alpha;
+    // (round FIXTURE) each vertex buffer's light-volume verdict (light_volume_mesh), read with the least vertex alpha's
+    // rule; and each texture's dimmest texel's linear luminance (negative: unreadable)
+    std::unordered_map<const VertexBufferData*, bool> light_volumes;
+    std::unordered_map<const void*, float> least_texel_lumas;
+    std::unordered_set<const VertexBufferData*> light_volumes_told; // (logged once a buffer)
     // (path tracing, stage 3 - engine/gfx/rt_poses.h) the meshes skinned on the processor: each instance's pose of the
     // frame, skinned here with its bones (the draw's code and palette) - the meshes' own buffers hold only the last
     // draw's pose of the frame before, and are never registered
@@ -975,6 +980,10 @@ void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, 
     // (path tracing, stage 3: a mesh skinned on the processor traced in its instance's pose of this frame - one pose
     // per instance; without an instance's bones, not traced)
     const bool skinned = mesh->per_vertex_data() != nullptr;
+    // (round FIXTURE) a light volume is no surface: no instance of it (rt_lights.h light_volume)
+    if (light_volume_mesh(mesh)) {
+        return;
+    }
     rt::Geometry layout;
     const rt::MeshId id =
         skinned ? pose_id(mesh, skin.owner, skin.palette, rt, &layout) : mesh_id(mesh, rt);
@@ -1027,6 +1036,10 @@ void record_world(rt::RayTracing& rt)
             // (round PG) a billboard - a card the processor turns toward each camera as it draws it: its buffer holds the
             // last draw's vertices - is in the rays as drawn, through the draws apart (rt_apart.h), not as a world mesh
             if (mesh->billboard() != nullptr) {
+                continue;
+            }
+            // (round FIXTURE) a light volume is in neither the rays nor the relit bake (rt_lights.h light_volume)
+            if (light_volume_mesh(mesh)) {
                 continue;
             }
             if (mesh_shown(mesh)) {
@@ -2736,6 +2749,60 @@ std::string world_census()
 
 bool light_card_material(const MaterialRef* material) { return material != nullptr && glow_card(material); }
 
+bool light_volume_mesh(const MeshRef* mesh)
+{
+    const MaterialRef* material = mesh != nullptr ? mesh->material() : nullptr;
+    // (the material's facts first: most meshes fail them without a look at their buffer)
+    if (material == nullptr || blend_mode(material, 0) != rt::kBlendShowsAlpha || moving_material(material)) {
+        return false;
+    }
+    const VertexBuffer* buffer = last_drawn_buffer(mesh);
+    if (buffer == nullptr || buffer->data() == nullptr) {
+        return false;
+    }
+    State& st = state();
+    if (const auto found = st.light_volumes.find(buffer); found != st.light_volumes.end()) {
+        return found->second;
+    }
+    const rt::VertexColours colours = rt::vertex_colours_in(std::span<const uint8_t>(buffer->data(), buffer->size()),
+                                                            mesh->fvf(), mesh->stride(), mesh->vertex_count());
+    rt::VolumeLook look{.first_pass_blend = rt::kBlendShowsAlpha,
+                        .moving_texture = false,
+                        .one_colour = colours.known && colours.one_colour,
+                        .brightest = colours.brightest,
+                        .least_alpha = colours.known ? colours.least_alpha : UINT8_MAX,
+                        .most_alpha = colours.most_alpha,
+                        .least_texel_luma = 1.0F};
+    // (its texture's dimmest texel, read once a texture - only for meshes that pass the vertices' facts)
+    const TextureImage* texture = core::at(material->textures(), 0);
+    if (rt::light_volume(look) && texture != nullptr && texture->texture != nullptr) {
+        const auto [kept, made] = st.least_texel_lumas.try_emplace(texture->texture, -1.0F);
+        if (made) {
+            texel::Image image;
+            decode_first_level(texture->texture, &image);
+            if (!image.empty()) {
+                float least = 1.0F;
+                for (const std::array<uint8_t, 4>& texel : image.texels) {
+                    if (std::get<3>(texel) != 0U) { // (a texel drawn at alpha 0 shows nothing: its colour is no part of the look)
+                        least = std::min(least, texel_luma(texel));
+                    }
+                }
+                kept->second = least;
+            }
+        }
+        look.least_texel_luma = std::max(kept->second, 0.0F);
+    }
+    const bool volume = rt::light_volume(look);
+    st.light_volumes.emplace(buffer, volume);
+    if (volume && st.light_volumes_told.insert(buffer).second) {
+        get_log("rt: a light volume (rt_lights.h light_volume) - material %08X, %u vertices of colour %u (brightest), "
+                "alpha %u - %u: hidden while relit, no surface for rays",
+                material->checksum(), mesh->vertex_count(), unsigned{look.brightest}, unsigned{look.least_alpha},
+                unsigned{look.most_alpha});
+    }
+    return volume;
+}
+
 uint8_t lamp_texel_code_of(const MeshRef* mesh)
 {
     const MaterialRef* material = mesh != nullptr ? mesh->material() : nullptr;
@@ -3101,6 +3168,7 @@ void vertex_buffer_written(const VertexBufferData* buffer)
     }
     State& st = state();
     st.vertex_alpha.erase(buffer); // (round PT-B: its least vertex alpha read again - its colours may have changed)
+    st.light_volumes.erase(buffer); // (round FIXTURE: so its light-volume verdict)
     if (st.colour_writes > 0) { // (colour-only: no BLAS built again - ColourWrite)
         if (st.colour_writes_told > 0) {
             rt_relit_world::buffer_written(buffer); // (the game's own colours over the relit ones)
@@ -3115,6 +3183,8 @@ void vertex_buffer_released(const VertexBufferData* buffer)
 {
     state().written.erase(buffer);
     state().vertex_alpha.erase(buffer);
+    state().light_volumes.erase(buffer); // (round FIXTURE)
+    state().light_volumes_told.erase(buffer);
     rt_relit_world::buffer_released(buffer);
 }
 
@@ -3131,6 +3201,7 @@ void forget_meshes()
     st.meshes.clear();
     st.written.clear();
     st.lamp_medians.clear(); // (round PERF4: the level's textures go with it)
+    st.least_texel_lumas.clear(); // (round FIXTURE: so do their least texels)
     st.poses.release_all(gpu(), rt); // (the device's buffers go: the poses made again at the next record)
     st.apart.release_all(gpu(), rt);  // (round PG: the draws apart's meshes, and the clutter's - made again)
     if (st.clutter.buffer != nullptr) {

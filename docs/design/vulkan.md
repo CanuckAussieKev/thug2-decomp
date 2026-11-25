@@ -3338,6 +3338,43 @@ tilt's angle on the screen, not by the hit's 10^4-unit distance over the surface
 `thug2_vulkan_water_check` draws its blended calm case again with a right-handed view (camera z negative): against the
 processor 99.9 %; with `eye.z` back, 0 % (mutation).
 
+**Round FIXTURE: the artists' light volumes; a glow's head on its lit fitting.** Relit data v24 (older not read).
+- *Light volumes* (rt_lights.h `light_volume`, render_pc/rt_record.cpp `light_volume_mesh`): a mesh drawn by its alpha
+  (blend 5), its texture still, every vertex one colour at the original's full brightness (its brightest channel 0x80
+  or more - the art's light colour, never the bake's, which varies over a surface), its vertex alpha fading to nothing
+  (least 0, most above) and its texture a plain light (every texel shown - alpha above 0 - at linear luminance 0.5 or
+  more) is the cone, shaft or pool of light an artist drew under a lamp. It is the same thing as a light card (round
+  EMIT): the air's and the camera's response to the lamp - the fog and bloom make it from the lamp's own light, the
+  pool on the floor is the lamp's light on the floor. So it is hidden while the level is relit (`light_card_hidden`) and
+  is no surface for any ray: no instance in the record, not in the relit bake. Training's fittings' prisms (FD86DE2E,
+  808080, vertex alpha 0 - 0x20 over a plain 255,255,221 texture) were drawn lit as translucent wedges under every
+  fitting - the user's "fog". `tools/game/light_volume_survey.ts` lists them from the level files (the game's levels
+  and the overlays'): 36 meshes in 8 levels (BA 2: a lantern's cone, the fountain's green pool; BO 3; TR 13: the
+  fittings' prisms and the pendants' cones; nj 2: street lamps' pools; skatepark 2; vans 5; z_ho 3; hn 6 - vertical
+  sheets fading up along walls, the nearest to a haze curtain, read as a light wash); `--near` lists what one test keeps
+  out: 142 fades with a dark texture (shadow blobs, dirt, foliage - the texture test) and 172 moving ones (water).
+  rt_scene_check: the prism and the pendant's cone are volumes; a dark texture, varying colours, a colour under full
+  brightness, an alpha that never reaches 0 or never shows, a moving texture and other blends are not.
+- *A glow's head on the fitting it hangs over* (render_pc/relit_bake.cpp `emitting_vertices`): a glow lamp whose card is
+  the pool it throws on the floor (Training's hall: the cards at y -765, the fittings 11 m over them) found no head -
+  the head search takes triangles within the disc of its kind's luminous area (a high-bay's 28 000 cd/m^2: 0.3 m^2), and
+  an 18 m^2 diffuser has none that small - so the fitting stayed grey and its lamp lit the hall from nothing. Now a glow
+  first takes the geometry in its cards' column (x, z within their extent, within its size of it in height) whose every
+  corner the original drew at full brightness (a lamp's lit fitting: Training's diffusers and tubes, baked 808080; a
+  panel lamp's in its plane), nearest first, up to the area that sends its flux at the dimmest face a lit fitting shows
+  (lamp_fixtures.h `kLitFittingLeast`, 500 cd/m^2 - an opal diffuser over one tube), and only a fitting that holds the
+  flux at its kind's brightest face (a few full-bright triangles of a frame or a sign under a big lamp's card would send
+  it at 10^7 cd/m^2 - New Jersey's and New Orleans' first bake); the luminance is then the flux
+  over that area (as every head: flux conserved). Training: 14 glows took a fitting, 10 lamps shown by them.
+- *Training's noon "fog" with rt_fog on* (measured, not changed): the fog's share of the frame at the user's pose is
+  6 % (15 % in the frame's top third); term by term it is the sky's multiply scattered light (Psi) x the air's open
+  share of the sky - the sun's and the lamps' terms are ~0 there. The open share is real geometry (with seen-through
+  surfaces counted as blocking it is the same): the hall's air sees ~1 % of the sky through its windows, its walls ~17
+  x less (windows high in the walls). Not a froxel leak through the walls: a closed room's air stays dark at the game's
+  froxel size (rt_fog_check's closed room: 0.6 % of the open air's light, the same with samples held in front of their
+  pixel's surface). Not the phase either: weighting the open share by the medium's phase toward the eye (the aerosol's
+  forward lobe) made it brighter at that pose (the windows face the eye). The reference has no medium to judge it by.
+
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
 Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3

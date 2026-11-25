@@ -15,6 +15,7 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_checks.h"
+#include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
 #include "engine/gfx/rt_surface_class.h"
@@ -312,6 +313,55 @@ void check_surface_classes()
     expect(rt::least_vertex_alpha_in(std::span<const uint8_t>(sheet).first(10), kFvfXyzDiffuseTex1, kSheetStride, 3) ==
                1.0F,
            "bytes short of a vertex: none read, 1");
+
+    // (round FIXTURE - rt_lights.h light_volume) Training's fitting prism (FD86DE2E: blend 5, every vertex 808080, alpha
+    // 0x00 at its foot - 0x20 at its top, its texture a plain 255,255,221 - linear luminance 0.97) and the pendant's cone
+    // (6535F3A8: 808066 - a warm tint, alpha 0 - 0x40) are light volumes; the census's near misses are not
+    const auto prism = [&](const std::array<uint32_t, 4>& colours) {
+        std::vector<uint8_t> mesh(colours.size() * kSheetStride, 0);
+        for (std::size_t i = 0; i < colours.size(); ++i) {
+            std::memcpy(&core::at(mesh, (i * kSheetStride) + kColourAt), &core::at(colours, i), sizeof(uint32_t));
+        }
+        return rt::vertex_colours_in(mesh, kFvfXyzDiffuseTex1, kSheetStride, static_cast<uint32_t>(colours.size()));
+    };
+    const auto look_of = [](const rt::VertexColours& v, float texel, uint32_t blend = 5, bool moving = false) {
+        return rt::VolumeLook{.first_pass_blend = blend,
+                              .moving_texture = moving,
+                              .one_colour = v.known && v.one_colour,
+                              .brightest = v.brightest,
+                              .least_alpha = v.least_alpha,
+                              .most_alpha = v.most_alpha,
+                              .least_texel_luma = texel};
+    };
+    constexpr float kPlainLight = 0.971F;
+    const rt::VertexColours fitting = prism({0x00808080U, 0x20808080U, 0x00808080U, 0x20808080U});
+    expect(fitting.known && fitting.one_colour && fitting.brightest == 0x80U && fitting.least_alpha == 0U &&
+               fitting.most_alpha == 0x20U,
+           "the prism's colours read: one colour, full-bright, alpha 0 - 0x20");
+    expect(rt::light_volume(look_of(fitting, kPlainLight)), "Training's fitting prism is a light volume");
+    expect(rt::light_volume(look_of(prism({0x00808066U, 0x40808066U, 0x00808066U, 0x40808066U}), kPlainLight)),
+           "the pendant's warm cone (808066) is a light volume");
+    // a shadow blob or dirt fade: the same vertices, a dark texture (SC 789E3EAA's 4,2,2; AU's foliage 0.17)
+    expect(!rt::light_volume(look_of(fitting, 0.001F)) && !rt::light_volume(look_of(fitting, 0.173F)),
+           "a fade with a dark texture (a shadow, dirt, foliage) is no light volume");
+    // a baked surface: its colours vary
+    expect(!rt::light_volume(look_of(prism({0x00808080U, 0x20707070U, 0x00808080U, 0x20808080U}), kPlainLight)),
+           "colours that vary over the mesh (the bake's light) - no light volume");
+    // under full brightness: a lit surface's colour
+    expect(!rt::light_volume(look_of(prism({0x00606060U, 0x20606060U, 0x00606060U, 0x20606060U}), kPlainLight)),
+           "a colour under full brightness - no light volume");
+    // glass or a sheet that never fades to nothing
+    expect(!rt::light_volume(look_of(prism({0x10808080U, 0x40808080U, 0x10808080U, 0x40808080U}), kPlainLight)),
+           "an alpha that never reaches 0 (glass, a haze sheet) - no light volume");
+    expect(!rt::light_volume(look_of(prism({0x00808080U, 0x00808080U, 0x00808080U, 0x00808080U}), kPlainLight)),
+           "nothing drawn (alpha 0 throughout) - no light volume");
+    // water moves; an additive card is a light card's rule; an opaque pass shows itself
+    expect(!rt::light_volume(look_of(fitting, kPlainLight, 5, true)), "a moving texture (water) - no light volume");
+    expect(!rt::light_volume(look_of(fitting, kPlainLight, 1)) && !rt::light_volume(look_of(fitting, kPlainLight, 0)),
+           "blend modes other than 5 - no light volume");
+    const rt::VertexColours none = rt::vertex_colours_in(sheet, kFvfXyzDiffuseTex1, kSheetStride, 0);
+    expect(!none.known && !rt::light_volume(look_of(none, kPlainLight)), "no vertices: none");
+    expect(!rt::vertex_colours_in(sheet, 0x102, 20, 3).known, "no diffuse colour: not known");
 }
 
 } // namespace

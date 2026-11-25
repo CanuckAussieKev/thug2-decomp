@@ -210,6 +210,10 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   rt_water` shades as water, read from the level files (nothing run): every moving material (a UV wibble or a texture
   animation), whether it counts (render_pc/water_materials.cpp's rule and the shader's test of its texture's mean colour -
   not warm, near white or near black), the mean colour, its meshes' bounding box and how flat it is.
+- `node tools/game/light_volume_survey.ts [--game <install>] [--levels TR,BA,...] [--near]` - the levels' light volumes
+  (src/engine/gfx/rt_lights.h light_volume: the cones and pools of light the artists drew under lamps, hidden while
+  relit and no surface for rays), read from the level files of the game and its overlays (nothing run); `--near` also
+  lists the meshes one test keeps out (a dark texture, a moving one).
 - `node tools/game/water_check.ts run --game C:\Games\THUG2-<n> --out <folder> --build <x64 build folder>
   [--settings <ini>] [--levels BA,AU,BE,NO,SE] [--configs off,on] [--set Section.key=value]...` - the water spots of five
   levels (the open sea, harbours, a canal, a river, a pool, a shoreline close up) with `rt_water=0` and `1` over the

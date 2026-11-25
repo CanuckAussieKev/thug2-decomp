@@ -49,6 +49,18 @@ bool vertex_alpha_counts(const Material& material);
 // pool sheets: opaque to every ray, the floor under them in their shadow).
 float least_vertex_alpha_in(std::span<const uint8_t> bytes, uint32_t fvf, uint32_t stride, uint32_t count);
 
+// (round FIXTURE - rt_lights.h light_volume) The vertex colours of the same vertices: whether every one holds the same
+// colour (r, g, b), its brightest channel's byte, and the least and most alpha bytes. `known` false without colours or
+// vertices (Direct3D's diffuse then is white: no fade).
+struct VertexColours {
+    bool known = false;
+    bool one_colour = false;
+    uint8_t brightest = 0;
+    uint8_t least_alpha = 0;
+    uint8_t most_alpha = 0;
+};
+VertexColours vertex_colours_in(std::span<const uint8_t> bytes, uint32_t fvf, uint32_t stride, uint32_t count);
+
 // The instance flags (rt_scene.h InstanceFlag: kOpaque / kAlphaTested / kTransparent / kAddsLight, with kCastsShadow)
 // an instance of the class takes - its kind (kWorld, kObject) and kSkinned are the caller's. A blended cut-out (its
 // material kTransparent) keeps kTransparent beside kAlphaTested (a path's ray takes its coverage: hit_blend).
