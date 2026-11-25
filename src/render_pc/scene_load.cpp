@@ -15,6 +15,7 @@
 #include "engine/file/file_load.h"
 #include "engine/gfx/engine_scene.h"
 #include "render_pc/building_relief.h"
+#include "render_pc/texture_placing.h"
 #include "render_pc/geom.h"
 #include "engine/gfx/surface_material.h"
 #include "render_pc/mesh_list.h"
@@ -162,6 +163,7 @@ gsl::owner<PcScene*> load_scene_from_memory(const uint8_t* data, size_t size, co
     mesh_smoothing::log_totals("(from memory)"); // (not original: smoothed curves' totals, mesh_smoothing.h)
     water_geometry::log_totals("(from memory)"); // (not original: the water's grid, water_geometry.h)
     building_relief::log_totals("(from memory)"); // (not original: building relief's totals, building_relief.h)
+    texture_placing::log_totals("(from memory)"); // (not original - round TRAIN: texture_placing.h)
     return scene;
 }
 
@@ -184,6 +186,7 @@ gsl::owner<PcScene*> load_scene_from_file(const char* name, const TextureSet* te
     mesh_smoothing::log_totals(name); // (not original: smoothed curves' totals, mesh_smoothing.h)
     water_geometry::log_totals(name); // (not original: the water's grid, water_geometry.h)
     building_relief::log_totals(name); // (not original: building relief's totals, building_relief.h)
+    texture_placing::log_totals(name); // (not original - round TRAIN: texture_placing.h)
     return scene;
 }
 

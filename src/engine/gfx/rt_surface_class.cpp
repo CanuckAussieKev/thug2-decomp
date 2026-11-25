@@ -4,6 +4,10 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <span>
+
+#include "base/core/checked_index.h"
+#include "engine/gfx/rt_vertex_attributes.h"
 
 namespace render::rt {
 
@@ -29,6 +33,23 @@ bool vertex_alpha_counts(const Material& material)
 {
     return (material.flags & kTransparent) != 0U && blend_of(material) == kBlendAlpha &&
            (material.flags & kTextureAlpha) == 0U;
+}
+
+float least_vertex_alpha_in(std::span<const uint8_t> bytes, uint32_t fvf, uint32_t stride, uint32_t count)
+{
+    Geometry layout;
+    layout.vertex_stride = stride; // (the attributes that fit within it - set_vertex_attributes)
+    if (!set_vertex_attributes(fvf, &layout) || layout.colour_format != kColourA8R8G8B8 || stride == 0) {
+        return 1.0F;
+    }
+    constexpr uint32_t kAlphaByte = 3; // (the colour word's bytes B, G, R, A)
+    constexpr uint32_t kByteMax = 255;
+    const auto fits = static_cast<uint32_t>(std::min<std::size_t>(count, bytes.size() / stride));
+    uint32_t lowest = kByteMax;
+    for (uint32_t vi = 0; vi < fits; ++vi) {
+        lowest = std::min<uint32_t>(lowest, core::at(bytes, (std::size_t{vi} * stride) + layout.colour_offset + kAlphaByte));
+    }
+    return static_cast<float>(lowest) / static_cast<float>(kByteMax);
 }
 
 float least_drawn_alpha(const Material& material, float least_vertex_alpha)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 #include "engine/gfx/rt_scene.h"
 
@@ -40,6 +41,13 @@ SurfaceClass surface_class(const Material& material, float least_vertex_alpha);
 // Whether the vertex alpha takes part in the material's drawn alpha (blend 5 without kTextureAlpha): a mesh drawn with
 // it needs its least vertex alpha read; any other's is never asked.
 bool vertex_alpha_counts(const Material& material);
+
+// (round TRAIN) The least vertex alpha (0 - 1, the colour word's alpha / 255) of `count` vertices of `stride` bytes in
+// the vertex format `fvf` (rt_vertex_attributes.h - the format the buffer is drawn with); 1 without a colour (Direct3D's
+// diffuse then is white) or when the bytes don't hold them. Before, the format was read against a stride of 0: no
+// attribute fitted and every mesh read 1 - a sheet fading to alpha 0 at its edges took a blended-opaque class (Barcelona's
+// pool sheets: opaque to every ray, the floor under them in their shadow).
+float least_vertex_alpha_in(std::span<const uint8_t> bytes, uint32_t fvf, uint32_t stride, uint32_t count);
 
 // The instance flags (rt_scene.h InstanceFlag: kOpaque / kAlphaTested / kTransparent / kAddsLight, with kCastsShadow)
 // an instance of the class takes - its kind (kWorld, kObject) and kSkinned are the caller's. A blended cut-out (its

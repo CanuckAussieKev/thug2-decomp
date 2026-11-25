@@ -1022,10 +1022,10 @@ ScreenProbe& screen_probe_slot()
 
 void set_screen_probe(ScreenProbe probe) { screen_probe_slot() = probe; }
 
-std::string screen_probe(float across, float down)
+std::string screen_probe(float across, float down, bool solid)
 {
     const ScreenProbe probe = screen_probe_slot();
-    return probe != nullptr ? probe(across, down) : std::string("rt probe: no ray tracing");
+    return probe != nullptr ? probe(across, down, solid) : std::string("rt probe: no ray tracing");
 }
 
 bool parse_relit_levels(std::string_view json, std::vector<RelitLevel>* out)

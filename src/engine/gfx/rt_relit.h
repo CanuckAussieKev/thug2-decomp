@@ -148,9 +148,11 @@ void set_relit_status(std::string text);
 [[nodiscard]] std::string relit_status();
 // (the console's `rt probe <across> <down>` - devtools reaches render_pc through it) What the picture shows at a point:
 // render_pc/rt_record.h describe_screen_point, set by render_pc while ray tracing records frames; none: a line saying so.
-using ScreenProbe = std::string (*)(float across, float down);
+// (round TRAIN) `solid`: the first surface that isn't seen through or adding light (the one under a light cone or a
+// sheet - `rt probe solid <across> <down>`).
+using ScreenProbe = std::string (*)(float across, float down, bool solid);
 void set_screen_probe(ScreenProbe probe);
-[[nodiscard]] std::string screen_probe(float across, float down);
+[[nodiscard]] std::string screen_probe(float across, float down, bool solid = false);
 
 // --- per-level choices (rt_relit_levels.json, built in; thug2-decomp-relit.json beside the exe adds to it) -----------
 struct RelitLevel {

@@ -50,6 +50,7 @@
 #include "engine/gfx/rt_surface_class.h"
 #include "engine/gfx/rt_vertex_attributes.h"
 #include "engine/gfx/surface_material.h"
+#include "engine/gfx/texture_mapping.h"
 #include "engine/gfx/light_cards.h"
 #include "engine/gfx/texel_decode.h"
 #include "engine/memory/arena_alloc.h"
@@ -92,7 +93,6 @@ constexpr uint32_t kLowHalf = 0xFFFF;           // a pass's address modes: u, th
 constexpr int kHalfBits = 16;
 constexpr float kPerByteLight = 1.0F / 128.0F;  // a scene light's byte (times its intensity): 128 is 1
 constexpr float kPerByte = 1.0F / 255.0F;       // a dynamic light's
-constexpr uint32_t kByteMax = 255;              // (round PT-B) a colour byte at its most
 constexpr int kBitsPerByte = 8;
 constexpr uint32_t kByteMask = 0xFF;
 // The baked sun's fit (engine/gfx/rt_sun.h)
@@ -897,22 +897,67 @@ float least_vertex_alpha(const MeshRef* mesh)
     if (found != st.vertex_alpha.end()) {
         return found->second;
     }
-    rt::Geometry layout;
-    const uint32_t stride = mesh->stride();
-    float least = 1.0F;
-    if (rt::set_vertex_attributes(mesh->fvf(), &layout) && layout.colour_format == rt::kColourA8R8G8B8 && stride > 0 &&
-        layout.colour_offset + sizeof(uint32_t) <= stride && buffer->data() != nullptr) {
-        const uint32_t count = std::min<uint32_t>(mesh->vertex_count(), static_cast<uint32_t>(buffer->size() / stride));
-        const std::span<const uint8_t> bytes(buffer->data(), std::size_t{count} * stride);
-        uint32_t lowest = kByteMax;
-        for (uint32_t vi = 0; vi < count; ++vi) {
-            // (the colour word's bytes B, G, R, A)
-            lowest = std::min<uint32_t>(lowest, core::at(bytes, (std::size_t{vi} * stride) + layout.colour_offset + 3));
-        }
-        least = static_cast<float>(lowest) * kPerByte;
-    }
+    // (round TRAIN: the format read against the mesh's stride - rt_surface_class.h least_vertex_alpha_in)
+    const float least = buffer->data() != nullptr
+                            ? rt::least_vertex_alpha_in(std::span<const uint8_t>(buffer->data(), buffer->size()),
+                                                        mesh->fvf(), mesh->stride(), mesh->vertex_count())
+                            : 1.0F;
     st.vertex_alpha.emplace(buffer, least);
     return least;
+}
+
+// (round TRAIN, `rt probe`) The hit triangle's corners as the mesh's memory copy holds them - position and first texture
+// coordinates - and how its texture is laid on it: the texture-space lengths of a world unit along the triangle's most
+// and least stretched directions (the singular values of the map from the triangle's plane to its coordinates). Empty
+// when the mesh keeps no copy.
+std::string hit_triangle_text(const MeshRef* mesh, uint32_t primitive)
+{
+    const VertexBuffer* vb = last_drawn_buffer(mesh);
+    const IdxStore* ib = mesh->index_store(0);
+    const uint32_t index_count = core::at(mesh->index_counts(), 0);
+    rt::Geometry layout;
+    layout.vertex_stride = mesh->stride();
+    if (vb == nullptr || vb->data() == nullptr || ib == nullptr || ib->indices() == nullptr || index_count < 3 ||
+        ib->format() == kFormatIndex32 || !rt::set_vertex_attributes(mesh->fvf(), &layout) ||
+        layout.uv_format == rt::kAttributeNone) {
+        return {};
+    }
+    const bool strip = mesh->primitive_type() == kPrimitiveStrip;
+    const uint32_t first = strip ? primitive : primitive * 3;
+    if (first + 2 >= index_count) {
+        return {};
+    }
+    const std::span<const uint16_t> indices(ib->indices(), index_count);
+    const uint32_t stride = mesh->stride();
+    const std::span<const uint8_t> bytes(vb->data(), vb->size());
+    std::array<rt::Vec3, 3> at{};
+    std::array<std::array<float, 2>, 3> uv{};
+    std::string out = "\n  hit triangle";
+    for (uint32_t c = 0; c < 3; ++c) {
+        const uint32_t vertex = core::at(indices, first + c);
+        const std::size_t start = std::size_t{vertex} * stride;
+        if (start + stride > bytes.size()) {
+            return {};
+        }
+        std::memcpy(core::at(at, c).data(), bytes.subspan(start + layout.position_offset, sizeof(rt::Vec3)).data(),
+                    sizeof(rt::Vec3));
+        std::memcpy(core::at(uv, c).data(), bytes.subspan(start + layout.uv_offset, 2 * sizeof(float)).data(),
+                    2 * sizeof(float));
+        out += text::format(" | v%u %.0f %.0f %.0f uv %.4f %.4f", vertex, static_cast<double>(std::get<0>(core::at(at, c))),
+                            static_cast<double>(std::get<1>(core::at(at, c))), static_cast<double>(std::get<2>(core::at(at, c))),
+                            static_cast<double>(std::get<0>(core::at(uv, c))), static_cast<double>(std::get<1>(core::at(uv, c))));
+        if (layout.colour_format != rt::kAttributeNone) {
+            uint32_t colour = 0;
+            std::memcpy(&colour, bytes.subspan(start + layout.colour_offset, sizeof(colour)).data(), sizeof(colour));
+            out += text::format(" colour %08X", colour);
+        }
+    }
+    out += text::format(" (buffer %u of %u)", mesh->current_vertex_buffer_, mesh->vertex_buffer_count());
+    const texture_mapping::Stretch stretch = texture_mapping::stretch_of(at, uv);
+    out += text::format("; texture per world unit: most %.5f, least %.5f (x %.1f)", static_cast<double>(stretch.most),
+                        static_cast<double>(stretch.least),
+                        stretch.least > 0.0F ? static_cast<double>(stretch.most / stretch.least) : 0.0);
+    return out;
 }
 
 // (round PT-B) How every ray meets the mesh drawn with its material (rt_surface_class.h): the material's own data and,
@@ -2496,14 +2541,8 @@ void record_apart(rt::RayTracing& rt)
             continue;
         }
         const rt::Material& surface = st.materials.at(group.material).material;
-        float least_alpha = 1.0F;
-        if (layout.colour_format == rt::kColourA8R8G8B8 && layout.colour_offset + sizeof(uint32_t) <= group.stride) {
-            uint32_t lowest = kByteMax;
-            for (std::size_t at = layout.colour_offset + 3; at < group.vertices.size(); at += group.stride) {
-                lowest = std::min<uint32_t>(lowest, core::at(group.vertices, at)); // (the colour word's A byte)
-            }
-            least_alpha = static_cast<float>(lowest) * kPerByte;
-        }
+        const float least_alpha = rt::least_vertex_alpha_in(group.vertices, group.fvf, group.stride,
+                                                            static_cast<uint32_t>(group.vertices.size() / group.stride));
         const rt::SurfaceClass surface_class =
             rt::surface_class(surface, rt::vertex_alpha_counts(surface) ? least_alpha : 1.0F);
         batches.push_back({.key = group.material,
@@ -2846,7 +2885,7 @@ std::vector<std::array<float, 3>> emission_texels(std::span<const EmissionTexelQ
     return out;
 }
 
-std::string describe_screen_point(float across, float down)
+std::string describe_screen_point(float across, float down, bool solid)
 {
     rt::RayTracing* rt = backend();
     const rt::FrameRecord& record = rt::frame_record();
@@ -2870,10 +2909,11 @@ std::string describe_screen_point(float across, float down)
     // (round BIAS) the surface under what adds light over it (mask 0x40 - glows, cards, a window's lit panes drawn
     // additively: light passes them whole, the frame shades what is behind) - those reported below as seen in front
     constexpr uint32_t kAddsLightMask = 0x40;
+    constexpr uint32_t kSeenThroughMasks = 0xC0; // (round TRAIN, `solid`: and the seen-through surfaces, mask 0x80)
     const rt::ProbeResult found = rt->probe({.origin = camera.position,
                                              .direction = direction,
                                              .max_distance = 100000.0F,
-                                             .cull_mask = rt::kAllMasks & ~kAddsLightMask});
+                                             .cull_mask = rt::kAllMasks & ~(solid ? kSeenThroughMasks : kAddsLightMask)});
     if (!found.traced || !found.hit) {
         return text::format("rt probe %.3f %.3f: %s", static_cast<double>(across), static_cast<double>(down),
                             found.traced ? "miss" : "no scene");
@@ -2909,6 +2949,7 @@ std::string describe_screen_point(float across, float down)
                                     texels.known ? "" : ", not known", static_cast<double>(least_vertex_alpha(mesh)),
                                     rt::vertex_alpha_counts(surface) ? "" : ", not counted");
             }
+            out += hit_triangle_text(mesh, found.primitive);
             break;
         }
     }

@@ -187,10 +187,11 @@ std::size_t PipelineKeyTableHash::operator()(const PipelineKey& key) const
     return static_cast<std::size_t>(hash);
 }
 
-bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::string& folder, bool ray_queries)
+// (round TRAIN) The draws' set 0 bindings (push descriptors), the one definition the pipelines and the shader check
+// (ff_shader_check) both lay out - the check had its own copy without the water's, the snow's, the paint's, the wet
+// ground's and the emission map's bindings.
+std::vector<VkDescriptorSetLayoutBinding> draw_set_bindings(bool ray_queries)
 {
-    device_ = device;
-    folder_ = folder;
     constexpr std::size_t kWaterBindings = 5; // (NOT ORIGINAL - rt_water: kWaterUniformsBinding - kWaterWavesBinding)
     constexpr std::size_t kDetailBindings = 2; // (NOT ORIGINAL - rt_detail: kDetailUniformsBinding, kDetailMapBinding)
     constexpr std::size_t kSnowBindings = 2;   // (NOT ORIGINAL - snow: kSnowUniformsBinding, kSnowSkyBinding)
@@ -250,7 +251,6 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
                                            .descriptorCount = 1,
                                            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                            .pImmutableSamplers = nullptr};
-    ray_queries_ = ray_queries;
     // (NOT ORIGINAL - rt_water, vulkan_water.h) the water's block, the copy behind it, the sky and the ripples: pushed only
     // for water draws. The block and the depth behind are the vertex shader's too (rt_water_geometry: the moving surface).
     for (uint32_t water = 0; water < kWaterBindings; ++water) {
@@ -316,16 +316,12 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
                                          .descriptorCount = 1,
                                          .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                          .pImmutableSamplers = nullptr};
-    const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-                                                   .pNext = nullptr,
-                                                   .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
-                                                   .bindingCount = static_cast<uint32_t>(bindings.size()) - (ray_queries ? 0U : 1U),
-                                                   .pBindings = bindings.data()};
-    if (vkCreateDescriptorSetLayout(device_, &set_info, nullptr, &set_layout_) != VK_SUCCESS) {
-        return false;
-    }
-    // (NOT ORIGINAL - round V, vulkan_surface_light.h; round FL: a set of their own) the view's light inputs: set 1, one
-    // descriptor set a view (vulkan_surface_light.cpp), bound for the keys that read them
+    return {bindings.begin(), bindings.end() - (ray_queries ? 0 : 1)};
+}
+
+// (round TRAIN) Set 1's bindings: the view's light inputs (ff_uniforms.h kLightInputsSet).
+std::vector<VkDescriptorSetLayoutBinding> light_set_bindings()
+{
     std::array<VkDescriptorSetLayoutBinding, kLightInputCount> light_bindings{};
     for (uint32_t light = 0; light < kLightInputCount; ++light) {
         core::at(light_bindings, light) = {.binding = light,
@@ -335,6 +331,26 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
                                            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
                                            .pImmutableSamplers = nullptr};
     }
+    return {light_bindings.begin(), light_bindings.end()};
+}
+
+bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::string& folder, bool ray_queries)
+{
+    device_ = device;
+    folder_ = folder;
+    ray_queries_ = ray_queries;
+    const std::vector<VkDescriptorSetLayoutBinding> bindings = draw_set_bindings(ray_queries);
+    const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                                                   .pNext = nullptr,
+                                                   .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
+                                                   .bindingCount = static_cast<uint32_t>(bindings.size()),
+                                                   .pBindings = bindings.data()};
+    if (vkCreateDescriptorSetLayout(device_, &set_info, nullptr, &set_layout_) != VK_SUCCESS) {
+        return false;
+    }
+    // (NOT ORIGINAL - round V, vulkan_surface_light.h; round FL: a set of their own) the view's light inputs: set 1, one
+    // descriptor set a view (vulkan_surface_light.cpp), bound for the keys that read them
+    const std::vector<VkDescriptorSetLayoutBinding> light_bindings = light_set_bindings();
     const VkDescriptorSetLayoutCreateInfo light_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                      .pNext = nullptr,
                                                      .flags = 0,
