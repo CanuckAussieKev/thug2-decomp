@@ -83,6 +83,11 @@ void release_emission_map(GpuTexture* map);
 // (round EMIT) Whether a material is a light card (rt_lights.h light_card: an additive first pass whose texture doesn't
 // move - a halo, light cone, pool or starburst the artists drew round a lamp).
 [[nodiscard]] bool light_card_material(const MaterialRef* material);
+// (round FIXTURE) Whether a mesh is a light volume (rt_lights.h light_volume: the cone or pool of light the artists drew
+// under a lamp - its material, its last drawn buffer's vertex colours and its texture's dimmest texel): never a surface
+// for rays (no instance of it, in the record or the relit bake), and hidden while the level is relit
+// (rt_relit_world.h light_card_hidden).
+[[nodiscard]] bool light_volume_mesh(const MeshRef* mesh);
 
 // draw_world, before anything is drawn: the record cleared and filled - instances (meshes and materials registered,
 // changed ones reported) and lights.

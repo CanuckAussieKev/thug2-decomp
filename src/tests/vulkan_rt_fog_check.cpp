@@ -1,4 +1,4 @@
-﻿// NOT ORIGINAL - thug2_vulkan_rt_fog_check.exe: the Vulkan Gpu's volumetric fog and light shafts
+// NOT ORIGINAL - thug2_vulkan_rt_fog_check.exe: the Vulkan Gpu's volumetric fog and light shafts
 // (gpu_vulkan/vulkan_rt_fog.h) tried on this machine against references worked out on the processor.
 //
 // A wall with a window in it, standing on a ground square, the sun low behind it (world, instance mask 0x01): the light
@@ -215,8 +215,14 @@ constexpr Solid comb_post(int k)
     const double left = ((static_cast<double>(k) - (0.5 * (kCombTeeth - 1))) * kCombPitch) - (0.5 * kCombPost);
     return {.low = {left, 0.0, kCombZ - kCombPost}, .high = {left + kCombPost, kCombHigh, kCombZ}, .colour = 0xFF505050};
 }
+// (round FIXTURE) a closed room 1.5 km from the others: 800 x 400 x 800 units round x kRoomX, walls and roof 4 thick,
+// its own floor - the sun and the sky outside it, none of either inside
+constexpr double kRoomX = 60000.0;
+constexpr double kRoomHalf = 400.0;
+constexpr double kRoomHigh = 400.0;
+constexpr double kRoomWall = 4.0;
 // the ground, then the wall (z -2 - 2) round a window x -20 - 20, y 60 - 100; then the street's (and its bar)
-const std::array<Solid, 14> kSolids{{
+const std::array<Solid, 20> kSolids{{
     {.low = {-kGroundHalf, 0.0, -kGroundHalf}, .high = {kGroundHalf, 0.0, kGroundHalf}, .colour = 0xFF909090},
     {.low = {-150.0, 0.0, -2.0}, .high = {-20.0, 150.0, 2.0}, .colour = 0xFFA08060},
     {.low = {20.0, 0.0, -2.0}, .high = {150.0, 150.0, 2.0}, .colour = 0xFFA08060},
@@ -234,6 +240,15 @@ const std::array<Solid, 14> kSolids{{
     comb_post(2),
     comb_post(3),
     comb_post(4),
+    // (round FIXTURE) the closed room: floor, roof, the four walls
+    {.low = {kRoomX - kRoomHalf, -kRoomWall, -kRoomHalf}, .high = {kRoomX + kRoomHalf, 0.0, kRoomHalf}, .colour = 0xFF808080},
+    {.low = {kRoomX - kRoomHalf, kRoomHigh, -kRoomHalf},
+     .high = {kRoomX + kRoomHalf, kRoomHigh + kRoomWall, kRoomHalf},
+     .colour = 0xFF808080},
+    {.low = {kRoomX - kRoomHalf, 0.0, -kRoomHalf - kRoomWall}, .high = {kRoomX + kRoomHalf, kRoomHigh, -kRoomHalf}, .colour = 0xFFA08060},
+    {.low = {kRoomX - kRoomHalf, 0.0, kRoomHalf}, .high = {kRoomX + kRoomHalf, kRoomHigh, kRoomHalf + kRoomWall}, .colour = 0xFFA08060},
+    {.low = {kRoomX - kRoomHalf - kRoomWall, 0.0, -kRoomHalf}, .high = {kRoomX - kRoomHalf, kRoomHigh, kRoomHalf}, .colour = 0xFFA08060},
+    {.low = {kRoomX + kRoomHalf, 0.0, -kRoomHalf}, .high = {kRoomX + kRoomHalf + kRoomWall, kRoomHigh, kRoomHalf}, .colour = 0xFFA08060},
 }};
 
 constexpr Vec3 kLightTravels{0.15, -0.45, 1.0}; // (the sun behind the wall, low: the shaft goes down into +z)
@@ -1720,6 +1735,92 @@ void run_replace(render::Gpu& gpu, const Scene& scene, Tally* tally)
     release_targets(gpu, targets);
 }
 
+// (round FIXTURE) The air of a closed room - the sun and the open sky outside it - against the exact integral: no light
+// of either in front of its walls, at the game's froxel size (12 pixels a column; the far wall's froxel ~70 units deep
+// at 700, the wall 4 - its samples past the wall in the sunlit open air would light the room's air). Training's noon
+// "fog" is not that: the pass keeps a closed room dark (docs/design/vulkan.md "Round FIXTURE").
+constexpr uint32_t kRoomScale = 12;
+constexpr double kMostRoomLight = 0.02; // (the room's air's light, a share of the open air's at the same reach)
+// The exact integral's mean light over the pixels on the room's outside wall seen from 700 units off it outdoors: the
+// open air's light at the reach the room's case looks across.
+double room_outdoor_light()
+{
+    const Vec3 was = look_at();
+    look_at() = {kRoomX - 60.0, 140.0, kRoomHalf};
+    const View outside = view_from({kRoomX + 120.0, 150.0, kRoomHalf + kRoomWall + 700.0}, kTargetWidth, kTargetHeight);
+    double sum = 0.0;
+    int counted = 0;
+    constexpr int kEvery = 8;
+    for (int y = 0; y < static_cast<int>(kTargetHeight); y += kEvery) {
+        for (int x = 0; x < static_cast<int>(kTargetWidth); x += kEvery) {
+            const Pixel pixel{.x = x, .y = y};
+            if (seen_at(outside, pixel).solid == kNoSurface) {
+                continue;
+            }
+            const Fogged exact = exact_at(outside, pixel, false);
+            sum += std::max({core::at(exact.light, 0), core::at(exact.light, 1), core::at(exact.light, 2)});
+            ++counted;
+        }
+    }
+    look_at() = was;
+    return counted > 0 ? sum / counted : 0.0;
+}
+
+void run_room(render::Gpu& gpu, const Scene& scene, Tally* tally)
+{
+    text::print("a closed room's air (the level's fog replaced; the sun and the sky outside):\n");
+    const Vec3 eye{kRoomX + 120.0, 150.0, 300.0};
+    look_at() = {kRoomX - 60.0, 140.0, -kRoomHalf};
+    march_scale() = kRoomScale; // (the game's froxels: 12 pixels a column at 1280 x 720)
+    use_settings(settings_of(false), scene.top.handle);
+    Targets targets;
+    const bool made = make_targets(gpu, kTargetWidth, kTargetHeight, &targets);
+    tally->check(made, "the targets made");
+    if (made) {
+        const View view = view_from(eye, kTargetWidth, kTargetHeight);
+        int passes = 0;
+        for (int frame = 0; frame < kStillFrames; ++frame) {
+            passes += static_cast<int>(draw_frame(gpu, targets, eye));
+        }
+        tally->check(passes == kStillFrames, text::format("%d frames, %d passes", kStillFrames, passes));
+        compare_converged(view, tally);
+        // the room's air lit by nothing: the pass's light over the pixels on the room's walls against the exact
+        // integral's there (both ~0), each as a share of the light the same air gets outdoors (the exact integral at the
+        // view's first pixel looking out of the window's scene, the open air's)
+        render::vulkan::RtFogTexels history;
+        render::vulkan::RtFogTexels info;
+        if (read_fog(render::vulkan::RtFogImage::kHistory, &history) &&
+            read_fog(render::vulkan::RtFogImage::kHistoryInfo, &info)) {
+            double got = 0.0;
+            double want = 0.0;
+            int counted = 0;
+            for (std::size_t i = 0; i < history.texels.size(); ++i) {
+                const Pixel pixel = pixel_of(core::at(info.texels, i), 2);
+                if (seen_at(view, pixel).solid == kNoSurface) {
+                    continue;
+                }
+                const std::array<float, 4>& light = core::at(history.texels, i);
+                got += std::max({static_cast<double>(std::get<0>(light)), static_cast<double>(std::get<1>(light)),
+                                 static_cast<double>(std::get<2>(light))});
+                const Fogged exact = exact_at(view, pixel, false);
+                want += std::max({core::at(exact.light, 0), core::at(exact.light, 1), core::at(exact.light, 2)});
+                ++counted;
+            }
+            const double outdoors = room_outdoor_light();
+            got /= std::max(counted, 1);
+            want /= std::max(counted, 1);
+            tally->check(counted > 0 && outdoors > 0.0 && got - want < kMostRoomLight * outdoors,
+                         text::format("the room's air: the pass's light %.5f, the exact %.5f, over %d pixels (the open "
+                                      "air's %.5f: the pass's leak %.4f of it, at most %.2f)",
+                                      got, want, counted, outdoors, outdoors > 0.0 ? (got - want) / outdoors : 0.0,
+                                      kMostRoomLight));
+        }
+    }
+    release_targets(gpu, targets);
+    look_at() = kAt;
+    march_scale() = 2; // (the others')
+}
+
 void run_shafts(render::Gpu& gpu, const Scene& scene, Tally* tally)
 {
     text::print("shafts over the level's fog (mode 1):\n");
@@ -2651,6 +2752,7 @@ int run(const Options& options, SDL_Window* window)
         publish_light({1.0F, 1.0F, 1.0F}); // (round UNITS: the light in the global unit, a relit level's)
         run_air_model(&tally); // (added by the street air)
         run_replace(gpu, scene, &tally);
+        run_room(gpu, scene, &tally); // (round FIXTURE)
         run_quarter(gpu, scene, &tally); // (added by the street air)
         run_shafts(gpu, scene, &tally);
         run_untouched(gpu, "no fog in the level, rt_fog_haze=0: the pass skipped", settings_of(false), scene.top.handle,

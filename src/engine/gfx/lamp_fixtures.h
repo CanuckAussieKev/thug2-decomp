@@ -88,6 +88,12 @@ enum class LampFixture : uint8_t {
     kHighBay = 8,      // (round indoor lamps) a high-bay fitting: roofed, mounted kHighBayMount or more above its floor
 };
 inline constexpr std::size_t kLampFixtures = 9;
+// (round FIXTURE) The dimmest face a lit fitting shows, cd/m^2: an opal diffuser over its lamps - one T8's 3 100 lm [F]
+// x a light output ratio 0.5 over a 1 m^2 diffuser, 3 100 x 0.5 / (pi 1) = 490 (derived; a diffuse troffer's face 500 -
+// 1 000). The fitting a glow lamp's head takes (relit_bake.cpp emitting_vertices: the full-bright geometry over its card)
+// is at most the area that sends the lamp's flux at this luminance - Phi / (pi L) -, so its face is never dimmer than a
+// lit fitting's.
+inline constexpr float kLitFittingLeast = 500.0F;
 
 struct FixtureValues {
     std::string_view name;

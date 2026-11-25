@@ -2191,7 +2191,8 @@ bool unlit_object_colour(const std::array<float, 3>& position, std::array<uint8_
 
 bool light_card_hidden(const MeshRef* mesh)
 {
-    return state().status == Status::kRelit && mesh != nullptr && rt_record::light_card_material(mesh->material());
+    return state().status == Status::kRelit && mesh != nullptr &&
+           (rt_record::light_card_material(mesh->material()) || rt_record::light_volume_mesh(mesh));
 }
 
 bool unlit_world_colour(const MeshRef* mesh, std::array<uint8_t, 4>* out)

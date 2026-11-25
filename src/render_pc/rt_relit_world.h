@@ -153,6 +153,8 @@ struct ObjectLighting {
 // camera's and the air's response to the lamp (the bloom, the fog's scattering - both made from the lamp's own light),
 // so drawn it counted the lamp twice: Boston's bank ceiling halos 21 % of the frame's light, with nothing behind them
 // in the light the rays see. Before, only the cards the mode relit (their store's hidden flags) were left out.
+// (round FIXTURE) And every light volume (rt_record::light_volume_mesh - a light cone or pool drawn by its alpha: the
+// same response of the air to its lamp; Training's fittings' prisms read as fog under every fitting).
 [[nodiscard]] bool light_card_hidden(const MeshRef* mesh);
 // (round P10 - objects relit) Whether an object (a Singleton) drawn with its own colours is one of the relit level's
 // world meshes now (WorldMesh::object - listed this frame): its meshes are drawn from their light store, or each with

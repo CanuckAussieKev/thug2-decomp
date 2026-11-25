@@ -103,8 +103,12 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // alone - its colour and its own alpha - under its MESH's lamp-texel code), no longer x the material's colour nor with
 // the vertex alpha in the solid test; the luminance is the flux over pi x that map's mean over the drawn area. Older
 // files are not read.
-inline constexpr uint32_t kRelitDataVersion = 23;
-inline constexpr uint32_t kRelitDataOldestRead = 23;
+// v24 (round FIXTURE): a light volume (rt_lights.h light_volume - a cone or pool of light drawn by its alpha) is no
+// mesh of the data (no surface for rays, hidden while relit); a glow lamp with no surface of its own takes its head on
+// the full-bright fitting over its cards (relit_bake.cpp emitting_vertices, lamp_fixtures.h kLitFittingLeast). Older
+// files are not read.
+inline constexpr uint32_t kRelitDataVersion = 24;
+inline constexpr uint32_t kRelitDataOldestRead = 24;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

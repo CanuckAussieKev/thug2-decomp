@@ -351,6 +351,27 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
     }
     constexpr double kUnitsPerMetre = 39.37;
     constexpr double kPiD = 3.14159265358979323846;
+    // (round FIXTURE) each glow lamp's cards' extent (x, z: the column its fitting hangs in - Training's hall fittings'
+    // cards are the pools they throw on the floor, the fitting 11 m over them)
+    std::vector<std::array<float, 4>> card_extent(lamps.size(), {1e30F, 1e30F, -1e30F, -1e30F});
+    for (std::size_t ti = 0; ti < found->triangles.size() && ti < found->triangle_emitter.size(); ++ti) {
+        const uint32_t lamp = core::at(found->triangle_emitter, ti);
+        const rt::EmitterTriangle& triangle = core::at(found->triangles, ti);
+        if (lamp >= lamps.size() || triangle.kind != rt::EmitterKind::kGlow) {
+            continue;
+        }
+        std::array<float, 4>& extent = core::at(card_extent, lamp);
+        for (const std::array<float, 3>& corner : triangle.corners) {
+            std::get<0>(extent) = std::min(std::get<0>(extent), std::get<0>(corner));
+            std::get<1>(extent) = std::min(std::get<1>(extent), std::get<2>(corner));
+            std::get<2>(extent) = std::max(std::get<2>(extent), std::get<0>(corner));
+            std::get<3>(extent) = std::max(std::get<3>(extent), std::get<2>(corner));
+        }
+    }
+    const auto full_bright = [](uint32_t colour) {
+        return std::max({colour & 0xFFU, (colour >> 8U) & 0xFFU, (colour >> 16U) & 0xFFU}) >= rt::kFullBrightByte;
+    };
+    std::size_t on_fittings = 0;
     for (std::size_t li = 0; li < lamps.size(); ++li) {
         const rt::RelitLamp& lamp = core::at(lamps, li);
         // (a glow's card is drawn round its fixture, a pool's lamp hangs from its mount: the geometry at them is theirs;
@@ -412,8 +433,73 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
                                       .area = 0.5 * static_cast<double>(twice)});
             }
         }
+        // (round FIXTURE) A glow's head on the fitting the original drew lit: the geometry in its cards' column (x, z
+        // within their extent; within its size of it in height) whose every corner the original drew at full brightness
+        // (its brightest channel at least 0x80 - unshaded, as a lamp's lit fitting: Training's diffusers and tubes, baked
+        // 808080), not a card's; a panel's in its plane (the diffuser, not the housing's sides). Its luminous area is
+        // then the fitting's - up to the area that sends the flux at the dimmest face a lit fitting shows
+        // (lamp_fixtures.h kLitFittingLeast) -, not the disc of its kind's luminance: a hall's 25 000 lm over its 18 m
+        // fitting is ~700 cd/m^2, a diffuser's; the disc at a high-bay's 28 000 cd/m^2 (0.3 m^2) found none of it, and
+        // the fitting stayed grey while its lamp lit the hall from nothing (45 of Training's 58 shining lamps had no
+        // surface). Without such geometry, the search above.
+        double luminous = area * kUnitsPerMetre * kUnitsPerMetre;
+        if (const std::array<float, 4>& extent = core::at(card_extent, li);
+            lamp.kind == rt::EmitterKind::kGlow && std::get<0>(extent) <= std::get<2>(extent)) {
+            std::vector<Candidate> fitting;
+            for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+                const rt::RelitMesh& mesh = core::at(meshes, mi);
+                if (cards.contains(mesh.id) || mesh.colours.size() < mesh.positions.size()) {
+                    continue;
+                }
+                for (const auto& [one, two, three] : mesh.triangles) {
+                    if (one >= mesh.positions.size() || two >= mesh.positions.size() || three >= mesh.positions.size()) {
+                        continue;
+                    }
+                    const auto over_card = [&](uint32_t vertex) {
+                        const rt::Vec3& at = core::at(mesh.positions, vertex);
+                        return full_bright(core::at(mesh.colours, vertex)) && rt::x_of(at) >= std::get<0>(extent) &&
+                               rt::x_of(at) <= std::get<2>(extent) && rt::z_of(at) >= std::get<1>(extent) &&
+                               rt::z_of(at) <= std::get<3>(extent) &&
+                               std::abs(rt::y_of(at) - rt::y_of(lamp.position)) <= lamp.size;
+                    };
+                    if (!over_card(one) || !over_card(two) || !over_card(three)) {
+                        continue;
+                    }
+                    const rt::Vec3& a = core::at(mesh.positions, one);
+                    const rt::Vec3 n = rt::cross(rt::minus(core::at(mesh.positions, two), a),
+                                                 rt::minus(core::at(mesh.positions, three), a));
+                    const float twice = std::sqrt(rt::dot(n, n));
+                    if (!(twice > 0.0F) ||
+                        (lamp.shape == rt::EmitterShape::kPanel && std::abs(rt::dot(n, lamp.axis)) < rt::kPanelFacing * twice)) {
+                        continue;
+                    }
+                    const rt::Vec3 middle = rt::scaled(
+                        rt::plus(rt::plus(a, core::at(mesh.positions, two)), core::at(mesh.positions, three)), 1.0F / 3.0F);
+                    const rt::Vec3 apart = rt::minus(middle, lamp.position);
+                    fitting.push_back({.mesh = mi,
+                                       .triangle = {one, two, three},
+                                       .distance = static_cast<double>(rt::dot(apart, apart)),
+                                       .area = 0.5 * static_cast<double>(twice)});
+                }
+            }
+            // (and the fitting must hold the flux at its kind's brightest face: a few full-bright triangles of a sign or a
+            // lantern's frame over a big lamp's card would send it at 10^7 cd/m^2 - no lit fitting's)
+            double fitting_area = 0.0;
+            for (const Candidate& each : fitting) {
+                fitting_area += each.area;
+            }
+            const double least_fitting = values.most > 0.0F
+                                             ? static_cast<double>(lamp.lumens) / (kPiD * static_cast<double>(values.most)) *
+                                                   kUnitsPerMetre * kUnitsPerMetre
+                                             : 0.0;
+            if (!fitting.empty() && fitting_area >= least_fitting) {
+                candidates = std::move(fitting);
+                luminous = static_cast<double>(lamp.lumens) / (kPiD * static_cast<double>(rt::kLitFittingLeast)) *
+                           kUnitsPerMetre * kUnitsPerMetre;
+                ++on_fittings;
+            }
+        }
         std::ranges::sort(candidates, {}, &Candidate::distance);
-        const double luminous = area * kUnitsPerMetre * kUnitsPerMetre;
         double taken = 0.0;
         std::size_t kept = 0;
         while (kept < candidates.size() && (kept == 0 || taken < luminous)) {
@@ -475,10 +561,10 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
             attached += core::at(shown, li) != 0 && core::at(has_head, li) == 0 ? 1 : 0;
             none += core::at(shown, li) == 0 ? 1 : 0;
         }
-        get_log("relit bake: lamp heads - %zu on their own surface, %zu on the fixture geometry at them, %zu shining lamps "
+        get_log("relit bake: lamp heads - %zu on their own surface, %zu on the fixture geometry at them (%zu glows on the full-bright fitting over their cards), %zu shining lamps "
                 "with no surface to show (no fixture geometry within their luminous radius, or their own surface's "
                 "corners all shared with other surfaces - their analytic light alone)",
-                own_surface, attached, none);
+                own_surface, attached, on_fittings, none);
     }
     // (round NOBIAS) the area each lamp's marks draw: a triangle with a corner showing lamp L shows it over its area x its
     // lit share x the share of its corners that show L (the blend of the corners' emission). (Round EMIT) x the faces it
