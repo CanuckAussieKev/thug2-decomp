@@ -660,7 +660,9 @@ std::array<float, kMatrixFloats> projection()
     return {kFov, 0, 0, 0, 0, kFov, 0, 0, 0, 0, depth_scale, 1, 0, 0, -kNear * depth_scale, 0};
 }
 
-void draw_case(render::Gpu& gpu, const Case& test, const Quad& quad, GpuTexture* texture, render::GpuPixelShader* shader)
+// (round FIXTURE2) `tint`: a pass tint on pass 0 set after the constants (they reset it) - check_one_light_tint
+void draw_case(render::Gpu& gpu, const Case& test, const Quad& quad, GpuTexture* texture, render::GpuPixelShader* shader,
+               float tint = 0.0F)
 {
     constexpr std::array<float, kMatrixFloats> kIdentity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     gpu.clear(0, nullptr, value::kClearTarget, 0, 1.0F, 0);
@@ -721,6 +723,9 @@ void draw_case(render::Gpu& gpu, const Case& test, const Quad& quad, GpuTexture*
             core::at(quad.uv0, 1) + (along_s * core::at(quad.duv_s, 1)) + (along_t * core::at(quad.duv_t, 1))};
         vertices.at(i) = {.position = point, .normal = normal, .colour = colour, .uv = uv};
         plain.at(i) = {.position = point, .colour = colour, .uv = uv};
+    }
+    if (tint > 0.0F) {
+        gpu.set_pass_tint({tint, tint, tint}, 1U);
     }
     if (test.normals) {
         gpu.set_vertex_format(kFvfPosition | kFvfNormal | kFvfDiffuse | kFvfTex1);
@@ -1306,6 +1311,62 @@ void check_bake_moves(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShad
     tally->check(differ > kLeastChanged, text::format("the map changes the baked picture (%zu channels differ)", differ));
 }
 
+// --- (round FIXTURE2 - one lighting path for the objects) the one light takes no game colour ---------------------------
+// A lit quad with its map drawn four ways: the lights linear (round O's one light - GpuRenderState::kLinearLights, the
+// light store's light) with and without a pass tint of 2 (the game's colour on the object - the time of day's model
+// colour x the light field's ratio, render_pc/pc_mesh_render.cpp set_pixel_shader_colored); then the game's own lights
+// with and without it. The one light's picture is the same either way (the store's light is this renderer's own: no game
+// colour on it - Training's white skater, its tint 4.6 x the light); the game's own lights still take it (the tint
+// reaches the shading - the check means something).
+void check_one_light_tint(render::Gpu& gpu, GpuSurface* target, render::GpuPixelShader* shader, Tally* tally)
+{
+    const Case lit{.name = "one light", .yaw = 0.61F, .pitch = 0.35F};
+    std::array<std::vector<uint8_t>, 4> pictures;
+    vk::set_rt_pbr_settings({.on = true});
+    for (std::size_t i = 0; i < pictures.size(); ++i) {
+        const bool linear = i < 2;
+        const bool tinted = (i % 2) == 1;
+        GpuTexture* texture = make_texture(gpu, true);
+        gpu.begin_scene();
+        gpu.set_render_target(0, target);
+        gpu.set_depth_surface(nullptr);
+        gpu.set_viewport({.x = 0, .y = 0, .width = kSize, .height = kSize, .min_z = 0.0F, .max_z = 1.0F});
+        gpu.set_render_state(GpuRenderState::kLinearLights, linear ? 1U : 0U);
+        constexpr float kTint = 2.0F;
+        draw_case(gpu, lit, make_quad(lit.yaw, lit.pitch, Mapping::kPlain), texture, shader, tinted ? kTint : 0.0F);
+        gpu.set_pass_tint({1.0F, 1.0F, 1.0F}, 0U);
+        gpu.set_render_state(GpuRenderState::kLinearLights, 0U);
+        gpu.set_render_target(0, nullptr);
+        gpu.end_scene();
+        (void)vk::read_surface(target, &pictures.at(i));
+        gpu.release_texture(texture);
+    }
+    const auto apart = [&pictures](std::size_t a, std::size_t b, std::size_t* lit_pixels) {
+        float most = 0.0F;
+        const std::vector<uint8_t>& one = core::at(pictures, a);
+        const std::vector<uint8_t>& two = core::at(pictures, b);
+        for (std::size_t at = 0; at + 1 < one.size() && at + 1 < two.size(); at += 2) {
+            const float x = from_half(static_cast<uint16_t>(core::at(one, at) | (core::at(one, at + 1) << kHighByte)));
+            const float y = from_half(static_cast<uint16_t>(core::at(two, at) | (core::at(two, at + 1) << kHighByte)));
+            if (std::isfinite(x) && std::isfinite(y)) {
+                most = std::max(most, std::fabs(x - y));
+                *lit_pixels += x > 0.0F ? 1U : 0U;
+            }
+        }
+        return most;
+    };
+    std::size_t lit_one = 0;
+    std::size_t lit_game = 0;
+    const float one_light = apart(0, 1, &lit_one);
+    const float game_lights = apart(2, 3, &lit_game);
+    tally->check(lit_one > kLeastChanged && one_light <= kTolerance,
+                 text::format("the one light: the picture with a pass tint of 2 as without it (%zu lit channels, at most "
+                              "%.5f apart)",
+                              lit_one, one_light));
+    tally->check(lit_game > kLeastChanged && game_lights > 0.05F,
+                 text::format("the game's own lights take the tint (%.3f apart at most)", game_lights));
+}
+
 // --- (NOT ORIGINAL - rt_detail / rt_delight, gpu_vulkan/vulkan_detail.h) the detail layer and the de-lighting -----------
 
 constexpr uint32_t kDetailChecksum = 0x0DE7A11U;
@@ -1691,6 +1752,7 @@ int run(const Options& options, SDL_Window* window)
         }
         check_characters(gpu, target, shader, &tally); // (added for the characters - rt_characters)
         check_bake_moves(gpu, target, shader, &tally);
+        check_one_light_tint(gpu, target, shader, &tally); // (round FIXTURE2)
         check_detail(gpu, target, shader, &tally); // (NOT ORIGINAL - rt_detail / rt_delight)
         check_relief(gpu, target, shader, &tally); // (added by surface relief - rt_relief)
         check_relief_variants(gpu, target, shader, &tally);

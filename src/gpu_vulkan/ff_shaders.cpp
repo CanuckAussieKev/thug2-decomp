@@ -1302,9 +1302,18 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
                       "    if (surface_fibre) surface_strand = normalize(surface_strand);"});
         }
         // (round O's one light: v_surface_base.w -1 - the lights and the base are linear light already)
+        // (round FIXTURE2 - one lighting path for the objects) the one light is the light store's, this renderer's own:
+        // it takes no game colour (surface_tint_light - the original's light on the object: the time of day's model
+        // colour, x the light field's now-over-bake ratio, up to 2 in display terms, 4.6 x linear, where the bake was
+        // dark - Training's white skater), as the rays' record of the same object never did (rt_record::object_lit).
+        // Its lights past the key (the fill and the back: the indirect probe's first-order part, pc_lights.h
+        // OneLightSent) are the indirect light, as its ambient is: they take the indirect light's visibility
+        // (surface_li.b - the occlusion; 0 where ReSTIR GI lit the pixel, whose samples are then its indirect light).
+        // Before, they were added whole - the store's bounce again over GI's on every object.
         add(out, {"    bool surface_one = v_surface_base.w < -0.5;\n"
+                  "    vec3 surface_game_light = surface_one ? vec3(1.0) : surface_tint_light;\n"
                   "    vec3 surface_ambient = (surface_one ? v_surface_base.rgb : linear_from_display(v_surface_base.rgb)) * "
-                  "surface_tint_light;\n"
+                  "surface_game_light;\n"
                   // (round ALBEDO: one albedo definition - the draw's diffuse colour, Cd - the vertex colour or the
                   // game's material colour, 0.5 the game's neutral under its doubled light - is never the albedo: the
                   // texel x the material's own colour is, as the rays' hit_surface has it)
@@ -1316,9 +1325,10 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
                   "    for (int i = 0; i < 8; ++i) {\n"
                   "        vec3 l = s.light_toward[i].xyz;\n        if (dot(l, l) == 0.0) continue;\n"
                   "        vec3 light = (surface_one ? max(s.light_colour[i].rgb, vec3(0.0)) : linear_from_display(s.light_colour[i].rgb)) "
-                  "* surface_tint_light;\n"
-                  // (round V: the one light's key - light 0 - is the sun or the moon: its visibility at the pixel)
-                  "        if (i == 0 && surface_one) light *= light_seen(surface_li, 1.0);"});
+                  "* surface_game_light;\n"
+                  // (round V: the one light's key - light 0 - is the sun or the moon: its visibility at the pixel; the
+                  // others its indirect light's parts - the indirect visibility, as the ambient)
+                  "        if (surface_one) light *= i == 0 ? light_seen(surface_li, 1.0) : surface_li.b;"});
         if (hair) {
             add(out, {"        if (surface_fibre) {\n"
                       "            surface_out += brdf_hair_direct(surface_lit.albedo, surface_rough, surface_strand, surface_v, l, "
