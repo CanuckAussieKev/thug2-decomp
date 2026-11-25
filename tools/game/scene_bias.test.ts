@@ -18,6 +18,17 @@ test("the plan sets the time of day before the levels and names each reference b
     assert.equal(shotName("", "no", "night"), "scene_no_night");
 });
 
+test("a spot's own times of day come after the plan's, for that spot alone", () => {
+    const ba = kSceneSpots.find((s) => s.name === "ba")!;
+    const bah = kSceneSpots.find((s) => s.name === "bah")!;
+    const lines = planCommands([ba, bah], ["noon", "night"], 256, "w");
+    assert.ok(lines.includes("console pt ref 256 as scene_w_bah_noon"));
+    assert.ok(lines.includes("console pt ref 256 as scene_w_bah_night"));
+    assert.ok(lines.includes("console pt ref 256 as scene_w_bah_dusk"));
+    assert.ok(!lines.includes("console pt ref 256 as scene_w_ba_dusk"));
+    assert.ok(lines.indexOf("console rt tod dusk") > lines.indexOf("console pt ref 256 as scene_w_bah_night"));
+});
+
 test("parseSaved reads the path tracer's saved line", () => {
     const log =
         "pt: saved C:\\Games\\THUG2-3\\Screenshots\\scene_base_p1_night_reference / _realtime (.exr, .png)  - 853x480, 256 " +

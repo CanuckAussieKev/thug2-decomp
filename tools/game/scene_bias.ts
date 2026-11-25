@@ -1,7 +1,7 @@
 // NOT ORIGINAL - the realtime picture's whole-scene light against the path-traced reference (round BOUNCE): one fixed
 // procedure, so every lighting round measures the same thing and its numbers can be compared with the last round's.
 //
-//   node tools/game/scene_bias.ts plan [--spots no,p1,ba,au,tr] [--tods noon,night] [--samples 256] [--tag t]
+//   node tools/game/scene_bias.ts plan [--spots no,p1,ba,au,tr,bah] [--tods noon,night] [--samples 256] [--tag t]
 //        [--out commands.txt]
 //     the automation commands of the session (run_game.ps1 -Commands (Get-Content commands.txt) in a workspace): for each
 //     time of day (`console rt tod <tod>` before the levels load), for each spot: the level, the skater teleported, the
@@ -23,8 +23,9 @@
 //     from the EXRs, the trimmed ratio - the pixels where either picture is over 20 x the reference's 99th percentile
 //     (emitters seen directly, sparks, spray: a few pixels that decide a whole-frame mean) left out of both.
 //
-// The spots: motion_error.ts kSpots (BO p1 / p2 / p3, BA's fountain, NO's street, AU's lamp pool) and Training's (the
-// user's 2026-11-23 18-33-42 sidecar). The reference's spp, the converge frames and the trim are the procedure: change
+// The spots: motion_error.ts kSpots (BO p1 / p2 / p3, BA's fountain, NO's street, AU's lamp pool), Training's (the
+// user's 2026-11-23 18-33-42 sidecar) and BA's harbour (round WATER: the user's 2026-11-25 17-16-26 - at dusk as well).
+// The reference's spp, the converge frames and the trim are the procedure: change
 // them only with a note in the round's record (the numbers stop being comparable with the rounds before).
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -45,12 +46,16 @@ import {
 } from "./motion_error.ts";
 
 const USAGE =
-    "usage: scene_bias.ts plan [--spots no,p1,ba,au,tr] [--tods noon,night] [--samples 256] [--tag t] [--out file]\n" +
+    "usage: scene_bias.ts plan [--spots no,p1,ba,au,tr,bah] [--tods noon,night] [--samples 256] [--tag t] [--out file]\n" +
     "       scene_bias.ts terms <spot> [--tods night] [--samples 256] [--tag t] [--realtime-only] [--out file]\n" +
     "       scene_bias.ts terms-analyse <Screenshots folder> <spot> [--tag t] [--ref-tag r] [--grid CxR] [--json file]\n" +
     "       scene_bias.ts analyse <thug2-decomp.log> [--screenshots folder] [--tag t] [--json out.json]";
 
-export const kSceneSpots: Spot[] = [
+// A spot of the plan: motion_error.ts's, with the times of day it is measured at besides the plan's.
+export interface SceneSpot extends Spot {
+    tods?: string[];
+}
+export const kSceneSpots: SceneSpot[] = [
     ...kSpots,
     {
         // Training's start (the user's 2026-11-23 18-33-42 sidecar): indoors, its light through the roof openings
@@ -61,8 +66,19 @@ export const kSceneSpots: Spot[] = [
         camera: { x: -2687.7, y: -585.9, z: -1309.0 },
         direction: { x: 0.117, y: -0.179, z: 0.977 },
     },
+    {
+        // (round WATER) Barcelona's harbour from the pier (the user's 2026-11-25 17-16-26 sidecar): the open sea at a
+        // grazing angle - its reflection of the sky and the buildings; measured at dusk too (the sunset in the water)
+        name: "bah",
+        level: "ba",
+        skater: { x: 2155.8, y: 0.0, z: 3617.7 },
+        heading: -124.5,
+        camera: { x: 2038.4, y: 77.4, z: 3538.3 },
+        direction: { x: 0.815, y: -0.179, z: 0.551 },
+        tods: ["dusk"],
+    },
 ];
-export const kDefaultSpots = ["no", "p1", "ba", "au", "tr"];
+export const kDefaultSpots = ["no", "p1", "ba", "au", "tr", "bah"];
 export const kDefaultTods = ["noon", "night"];
 export const kConvergeFrames = 500;
 export const kDefaultSamples = 256;
@@ -77,11 +93,20 @@ export function shotName(tag: string, spot: string, tod: string): string {
     return `scene_${tag ? tag + "_" : ""}${spot}_${tod}`;
 }
 
-export function planCommands(spots: Spot[], tods: string[], samples: number, tag: string): string[] {
+// A spot is measured at the plan's times of day and at its own (SceneSpot.tods - after the plan's).
+export function planCommands(spots: SceneSpot[], tods: string[], samples: number, tag: string): string[] {
     const out: string[] = ["waitfor ready 600"];
-    for (const tod of tods) {
+    const all = [...tods];
+    for (const spot of spots) {
+        for (const tod of spot.tods ?? []) {
+            if (!all.includes(tod)) all.push(tod);
+        }
+    }
+    for (const tod of all) {
+        const here = spots.filter((s) => tods.includes(tod) || (s.tods ?? []).includes(tod));
+        if (here.length === 0) continue;
         out.push(`console rt tod ${tod}`, "wait 5");
-        for (const spot of spots) {
+        for (const spot of here) {
             const level = spot.level ?? "bo";
             out.push(
                 `level ${level}`,
@@ -339,7 +364,7 @@ function main(): number {
     const tag = values.tag as string;
     if (verb === "plan" && rest.length === 0) {
         const names = (values.spots as string).split(",").filter(Boolean);
-        const spots: Spot[] = [];
+        const spots: SceneSpot[] = [];
         for (const n of names) {
             const s = kSceneSpots.find((x) => x.name === n);
             if (!s) {

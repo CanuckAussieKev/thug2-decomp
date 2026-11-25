@@ -44,6 +44,12 @@ constexpr std::string_view kWaterCommonGlsl = R"(layout(set = 0, binding = 10, s
 layout(set = 0, binding = 12) uniform sampler2D water_depth;
 
 const float kWaterFar = 1.0e8;      // the depth copy's sky (1e9) and anything as far
+
+// (round WATER) How far along the view camera-space `eye` lies: the projection's w - the depth copy's measure. Camera
+// space's z is no distance: Direct3D's left-handed views look along +z, the game's right-handed ones along -z (every
+// distance below was 0.001 there: the bed read as 10^5 x deeper than it is - no bed, the water's deep colour and its
+// texture's pattern in its place -, the refraction and the mirror image moved to the view's edge by the waves' tilt).
+float water_view_depth(vec3 eye) { return (water.projection * vec4(eye, 1.0)).w; }
 const float kWaterSharpness = 0.6;  // the crests' sharpening (Gerstner's Q)
 
 // Wave i of the swell (four Gerstner waves about the wind's direction, standing for the wind sea's spectrum round its
@@ -86,7 +92,8 @@ const float kWaterMostSlope = 1.0;    // the waves' slopes together at most this
 // without a copy or with nothing behind.
 float water_shore(vec3 eye, float dist, vec3 to_eye)
 {
-    if (water.target.z < 0.5 || eye.z <= 1.0e-3) {
+    float eye_w = water_view_depth(eye);
+    if (water.target.z < 0.5 || eye_w <= 1.0e-3) {
         return 1.0;
     }
     vec4 clip = water.projection * vec4(eye, 1.0);
@@ -96,7 +103,7 @@ float water_shore(vec3 eye, float dist, vec3 to_eye)
     if (behind >= kWaterFar) {
         return 1.0;
     }
-    float down = max(behind - eye.z, 0.0) * dist / eye.z * clamp(abs(to_eye.y) / dist, 0.0, 1.0);
+    float down = max(behind - eye_w, 0.0) * dist / eye_w * clamp(abs(to_eye.y) / dist, 0.0, 1.0);
     return smoothstep(0.0, kWaterShoreDepth, down);
 }
 
@@ -250,7 +257,7 @@ vec4 water_screen_sky(vec3 d)
 // ray leaves the view, passes behind something thick or finds nothing.
 vec4 water_screen_trace(vec3 origin, vec3 d)
 {
-    float travel = max(origin.z * 0.015, 6.0);
+    float travel = max(water_view_depth(origin) * 0.015, 6.0);
     float before = 0.0;
     for (int i = 0; i < 22; ++i) {
         vec2 uv;
@@ -350,7 +357,7 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
         // (round POOL) compared as depths, as every other key's match is (light_front_find - one rule, the draw's own
         // depth against the layer's): the reach 1 % of the distance or the waves' (eye units over the distance), a share
         // of what is left of the depth, (1 - z) falling as 1 / distance
-        float reach = max(0.01, (2.0 * water.sea.x + 1.0) / max(eye.z, 1.0e-3));
+        float reach = max(0.01, (2.0 * water.sea.x + 1.0) / max(water_view_depth(eye), 1.0e-3));
         light_front_at = abs(gl_FragCoord.z - front_z) <= max(1.0e-6, (1.0 - front_z) * reach);
     }
     if (light_front_at) {
@@ -387,7 +394,7 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
     // 3. refraction: what is behind the water (the copy made before the view's first water), moved by the waves' tilt
     // in proportion to the water behind; 4. absorption along the path through it
     bool copied = water.target.z > 0.5;
-    float surface_w = max(eye.z, 1.0e-3);
+    float surface_w = max(water_view_depth(eye), 1.0e-3);
     vec3 tilt = (water.world_to_eye * vec4(n - face, 0.0)).xyz; // (the waves' tilt from the surface: none when calm)
     vec3 under = deep;
     float behind = kWaterFar * 10.0;
@@ -434,11 +441,15 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
     // (NOT ORIGINAL - round LW) where the front layer is this water, what its rest surface mirrors - a ray traced from it
     // and its hit lit by the light list as everything else is (vulkan_front_layer.h): the lamps, the lit walls, the
     // skater, the sky - not the screen's. The waves move the mirror image by twice their tilt x its distance (the image's
-    // alpha), on the screen.
+    // alpha), on the screen: (round WATER) seen where the image is - as far behind the surface along the view as the hit is
+    // in front of it, its depth along the view surface_w x (1 + a / dist) -, so a far hit or the sky (a = 65504) moves by
+    // twice the tilt's angle (2 x tilt x focal x dist / surface_w), not by its distance over the surface's (the sea's sky
+    // read from the view's edge: streaks).
     vec4 mirror_here = light_front_reflect_at(ivec2(gl_FragCoord.xy));
     if (mirror_here.a > 0.0) {
         float focal = abs(water.projection[1][1]) * water.viewport.w * 0.5;
-        vec2 moved_by = vec2(tilt.x, -tilt.y) * (2.0 * min(mirror_here.a, 1.0e4) * focal / surface_w);
+        float image_w = surface_w * (1.0 + mirror_here.a / dist);
+        vec2 moved_by = vec2(tilt.x, -tilt.y) * (2.0 * mirror_here.a * focal / image_w);
         ivec2 low = ivec2(water.viewport.xy);
         ivec2 high = ivec2(water.viewport.xy + water.viewport.zw) - 1;
         vec4 mirror = light_front_reflect_at(clamp(ivec2(gl_FragCoord.xy + moved_by), low, high));
