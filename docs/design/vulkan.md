@@ -3375,6 +3375,19 @@ processor 99.9 %; with `eye.z` back, 0 % (mutation).
   pixel's surface). Not the phase either: weighting the open share by the medium's phase toward the eye (the aerosol's
   forward lobe) made it brighter at that pose (the windows face the eye). The reference has no medium to judge it by.
 
+**Round FIXTURE2: the objects lit by the one light alone.** A lit object drawn with round O's one light
+(`ff_shaders.cpp surface_finish`, kSurfaceLit with `v_surface_base.w` -1) took its lights x `surface_tint_light` - the
+game's colour on it (`pass_tint_of`: the time of day's model colour x the light field's now-over-bake ratio,
+`tod_manager.cpp colour_models_by_place`, held to a byte: up to 2 in display terms, 4.6 x linear) - and its fill and back
+lights (the indirect probe's first-order part) whole, over ReSTIR GI's indirect light. Where the bake was dark the ratio
+explodes (Training's roof: 1 502) and the skater was drawn white; at Training's measured spot the skater alone put the
+realtime picture at 1.087 of the reference. Now the one light takes no game colour - it is the light store's light, this
+renderer's own, as the rays' record of the same object never took one (`rt_record::object_lit`) - and its lights past
+the key are its indirect light: they take the indirect light's visibility (`surface_li.b` - the occlusion; 0 where ReSTIR
+GI lit the pixel, whose samples are then the object's indirect light, as the world's). The objects drawn with their own
+baked colours (unlit) still take the ratio - their colour is the bake's light, nothing separates it. pbr_check: a lit
+map under the one light is the same picture with a pass tint of 2 as without, the game's own lights still take it.
+
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
 Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3
