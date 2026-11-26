@@ -3429,6 +3429,27 @@ does at its first hit (a surface by its coverage). Without a jittered temporal r
 test). Measured at the user's pose: realtime / reference 2.3 -> 0.71 (the rest: the lamp heads and the glass box's
 fittings seen directly, under the reference).
 
+**Round HEADS: no ray goes where the camera can't, none stops where the camera sees nothing.** At Training's
+quarter-pipe pose the glass box's underside and the pendant were 0.36 / 0.5 of the reference. Term by term the
+underside was no emitter (its store emits nothing) but the reference's direct light from the sky - 330 against the
+realtime's 43 -, on a surface that faces down; with the sky below the horizon taken out of both (a test switch) the
+whole frame went 0.72 -> 1.03. So the light came up from below the horizon: rays leaving the hall through the pit
+behind the quarter pipes, which the artists closed with a black box (blend 5, opaque texels, vertex alpha 0x80) that
+the relit mode hid as "the bake's shadow drawn as geometry" - past it the sky table's ground, bright at noon. And the
+rays disagreed about the hidden box: the path tracer's and ReSTIR GI's hit rays went on past a hidden hit, the light
+rays (next-event estimation, ReSTIR DI's and GI's visibility) stopped at it - the reference's light-sample-only
+estimate of the sky was 1 / 100 of its BSDF-only one. The rules now: a black blended mesh that covers wholly is a
+surface - the original's darkness drawn as a closure -, only one that lets what is under it show is a baked shadow
+(`rt_surface_class.h baked_shadow_mesh`); and a mesh the relit level hides gets no ray instance at all
+(`rt_relit_world.h ray_hidden`: the bake's shadows, the light cards it relit), so every ray agrees with the camera.
+The pendant was the art's light cone and a halo billboard: the cone failed the light-volume test because the game's
+scene lights add light to its vertices (808066 in the level's file, FFED9B - FFF59E in its buffer) - a light volume is
+now every vertex full-bright, not every vertex one colour (Training's D3674F80 and Stadium's 61EEED23 cones taken too;
+the census 56 -> 68 meshes) and keeps its verdict over the game's colour-only writes; the halo billboard (a light
+card) is hidden while relit like a light card drawn in place (`pc_billboards.cpp`). Realtime / reference at the pose:
+0.72 -> 1.39 against a reference that lost the light from beyond the level (2.2e-5 -> 0.88e-5) - the excess the
+realtime's fog (the reference has no medium) and the glass box's panes; the floor, ramp and walls 0.97 - 1.03.
+
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
 Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3
