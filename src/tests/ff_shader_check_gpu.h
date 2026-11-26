@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "gpu_vulkan/ff_key.h"
@@ -11,17 +13,38 @@
 // depth render pass - so the driver compiles each pair and checks that the two halves' interfaces agree.
 namespace ff_check {
 
-struct GpuInput {
-    const std::vector<render::vulkan::VertexKey>* vertex_keys = nullptr;
-    const std::vector<render::vulkan::FragmentKey>* fragment_keys = nullptr;
-    std::vector<const std::vector<uint32_t>*> vertex_spirv;   // in vertex_keys' order
-    std::vector<const std::vector<uint32_t>*> fragment_spirv; // in fragment_keys' order
-    const std::vector<render::vulkan::ShaderKey>* pairs = nullptr;
-    int device_index = -1;   // the physical device (-1: the context's choice)
-    int pipeline_limit = -1; // at most this many pipelines (-1: every pair)
+// One pair of shaders to make a pipeline of: its key, and the fragment module's place in the batch given to run_batch.
+struct BatchPair {
+    const render::vulkan::ShaderKey* key = nullptr;
+    std::size_t fragment = 0;
 };
 
-// Prints what it did; false when a module or a pipeline was refused (true, with a note, when there is no Vulkan).
-bool check_on_gpu(const GpuInput& input);
+// The GPU part in batches, so what it holds stays bounded however many keys there are: open it, hand it the vertex
+// modules (they stay - a pair of the sweep needs one of ~8k), then each batch of fragment shaders with the pairs that
+// use them - the batch's modules and pipelines are made, checked and destroyed before the next batch. finish() prints
+// the totals and says whether every module and pipeline was accepted.
+class GpuSession {
+public:
+    ~GpuSession();
+    GpuSession(const GpuSession&) = delete;
+    GpuSession& operator=(const GpuSession&) = delete;
+
+    // Null (with a note, ok true) when there is no Vulkan; null with ok false when the context's objects failed.
+    // pipeline_limit: at most this many pipelines over all batches (-1: every pair).
+    static std::unique_ptr<GpuSession> open(int device_index, int pipeline_limit, bool& ok);
+
+    // The vertex shaders' modules, in the order of `keys` (a null SPIR-V: no module - a failure counted elsewhere).
+    void add_vertex_modules(const std::vector<render::vulkan::VertexKey>& keys,
+                            const std::vector<const std::vector<uint32_t>*>& spirv);
+    // A batch of fragment shaders (a null SPIR-V: skipped) and the pairs that use them.
+    void run_batch(const std::vector<const std::vector<uint32_t>*>& fragment_spirv, const std::vector<BatchPair>& pairs);
+    // Prints the totals; false when a module or a pipeline was refused or the validation layer reported an error.
+    bool finish();
+
+private:
+    GpuSession();
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
 
 } // namespace ff_check
