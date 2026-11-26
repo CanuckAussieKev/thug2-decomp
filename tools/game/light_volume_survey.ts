@@ -6,7 +6,7 @@
 //     (the game's Dataevels and the overlays' levels - <game>	hug2-decomp-*evels)
 //
 // For each level (Data\levels\<name>\<name>.scn.xbx and its .tex.xbx) every mesh the rule takes - a first pass blended by
-// its alpha (blend mode 5), its texture still, every vertex one colour with its brightest channel at 0x80 or more, its
+// its alpha (blend mode 5), its texture still, every vertex's brightest channel at 0x80 or more, its
 // vertex alpha fading to 0 (its least 0, its most above) and its first texture a plain light (every texel's linear
 // luminance at least 0.5) - with its material, colour, alpha range, box and place. --near also lists the meshes that pass
 // every test but the texture's (the shadow blobs, dirt and foliage fades the texture test keeps out) and the moving ones
@@ -34,8 +34,7 @@ const PASS_ANIMATES = 0x800;
 export interface VolumeLook {
     blend: number;
     moving: boolean;
-    oneColour: boolean;
-    brightest: number;
+    brightest: number; // (the dimmest vertex's brightest channel)
     leastAlpha: number;
     mostAlpha: number;
     leastTexelLuma: number;
@@ -46,7 +45,6 @@ export function isLightVolume(look: VolumeLook): boolean {
     return (
         look.blend === BLEND_BY_ALPHA &&
         !look.moving &&
-        look.oneColour &&
         look.brightest >= FULL_BRIGHT &&
         look.leastAlpha === 0 &&
         look.mostAlpha > 0 &&
@@ -61,28 +59,29 @@ export function moving(material: Material): boolean {
     );
 }
 
-// A mesh's vertex colours (rt_surface_class.h vertex_colours_in): one colour, its brightest byte, the alpha range.
+// A mesh's vertex colours (rt_surface_class.h vertex_colours_in): the dimmest vertex's brightest byte, the alpha range
+// (and the first vertex's colour, for the listing).
 export function vertexColours(
     mesh: Mesh,
-): { oneColour: boolean; brightest: number; leastAlpha: number; mostAlpha: number; colour: number } | null {
+): { brightest: number; leastAlpha: number; mostAlpha: number; colour: number } | null {
     const buffer = mesh.buffers[0]?.[1];
     if (!buffer || ((mesh.vertexShader[0] ?? 0) & FVF_DIFFUSE) === 0 || mesh.vertexCount === 0) return null;
     const at = mesh.offsets[1] ?? 0;
     if (at + 4 > mesh.stride) return null;
     const first = buffer.readUInt32LE(at) & 0xffffff;
-    let oneColour = true;
+    let brightest = 255;
     let leastAlpha = 255;
     let mostAlpha = 0;
     for (let i = 0; i < mesh.vertexCount; i++) {
         const o = i * mesh.stride + at;
         if (o + 4 > buffer.length) break;
-        if ((buffer.readUInt32LE(o) & 0xffffff) !== first) oneColour = false;
+        const word = buffer.readUInt32LE(o) & 0xffffff;
+        brightest = Math.min(brightest, Math.max(word & 0xff, (word >> 8) & 0xff, (word >> 16) & 0xff));
         const alpha = buffer[o + 3] ?? 0;
         leastAlpha = Math.min(leastAlpha, alpha);
         mostAlpha = Math.max(mostAlpha, alpha);
     }
-    const brightest = Math.max(first & 0xff, (first >> 8) & 0xff, (first >> 16) & 0xff);
-    return { oneColour, brightest, leastAlpha, mostAlpha, colour: first };
+    return { brightest, leastAlpha, mostAlpha, colour: first };
 }
 
 const linear = (byte: number): number => {
@@ -150,7 +149,6 @@ function surveyLevel(levels: string, level: string, near: boolean): Row[] {
             const look: VolumeLook = {
                 blend: BLEND_BY_ALPHA,
                 moving: moving(material),
-                oneColour: colours.oneColour,
                 brightest: colours.brightest,
                 leastAlpha: colours.leastAlpha,
                 mostAlpha: colours.mostAlpha,

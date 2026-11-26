@@ -1030,7 +1030,9 @@ void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, 
     rt::Geometry layout;
     const rt::MeshId id =
         skinned ? pose_id(mesh, skin.owner, skin.palette, rt, &layout) : mesh_id(mesh, rt);
-    if (id == 0) {
+    // (round HEADS) a mesh the relit level hides is in no ray (rt_relit_world.h ray_hidden) - registered all the same:
+    // the relit world keeps its entry, which says it is hidden
+    if (id == 0 || rt_relit_world::ray_hidden(mesh)) {
         return;
     }
     rt::MaterialId material = material_id(mesh->material(), rt);
@@ -1586,6 +1588,7 @@ std::vector<rt_relit_world::WorldMesh> world_meshes()
                              .geometry = &found->second.geometry,
                              .source = found->second.source,
                              .blended = first != 0U && first != kBlendAdd && first != kBlendFixedAdd,
+                             .surface = kind,
                              .glow = material != nullptr && glow_card(material),
                              .lit_per_pixel = lit_per_pixel});
         }
@@ -1613,6 +1616,7 @@ std::vector<rt_relit_world::WorldMesh> world_meshes()
                                        .geometry = &found->second.geometry,
                                        .source = found->second.source,
                                        .blended = first != 0U && first != kBlendAdd && first != kBlendFixedAdd,
+                                       .surface = kind,
                                        .glow = material != nullptr && glow_card(material),
                                        .lit_per_pixel = kind == rt::SurfaceClass::kOpaque ||
                                                         kind == rt::SurfaceClass::kCutOut ||
@@ -2814,8 +2818,7 @@ bool light_volume_mesh(const MeshRef* mesh)
                                                             mesh->fvf(), mesh->stride(), mesh->vertex_count());
     rt::VolumeLook look{.first_pass_blend = rt::kBlendShowsAlpha,
                         .moving_texture = false,
-                        .one_colour = colours.known && colours.one_colour,
-                        .brightest = colours.brightest,
+                        .brightest = colours.known ? colours.brightest : uint8_t{0},
                         .least_alpha = colours.known ? colours.least_alpha : UINT8_MAX,
                         .most_alpha = colours.most_alpha,
                         .least_texel_luma = 1.0F};
@@ -3233,13 +3236,15 @@ void vertex_buffer_written(const VertexBufferData* buffer)
     }
     State& st = state();
     st.vertex_alpha.erase(buffer); // (round PT-B: its least vertex alpha read again - its colours may have changed)
-    st.light_volumes.erase(buffer); // (round FIXTURE: so its light-volume verdict)
     if (st.colour_writes > 0) { // (colour-only: no BLAS built again - ColourWrite)
+        // (round HEADS) what a mesh is doesn't change when the game recolours it (the scene lights' light added to its
+        // vertices, a colour cycle): its light-volume verdict is kept
         if (st.colour_writes_told > 0) {
             rt_relit_world::buffer_written(buffer); // (the game's own colours over the relit ones)
         }
         return;
     }
+    st.light_volumes.erase(buffer); // (round FIXTURE: so its light-volume verdict - the buffer written whole)
     state().written.insert(buffer);
     rt_relit_world::buffer_written(buffer); // (the game's own write over the relit colours)
 }

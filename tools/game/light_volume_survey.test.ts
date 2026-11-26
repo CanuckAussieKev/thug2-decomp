@@ -6,7 +6,6 @@ import { isLightVolume, type VolumeLook } from "./light_volume_survey.ts";
 const prism: VolumeLook = {
     blend: 5,
     moving: false,
-    oneColour: true,
     brightest: 0x80,
     leastAlpha: 0,
     mostAlpha: 0x20,
@@ -20,7 +19,6 @@ test("a fitting's prism is a light volume", () => {
 
 test("the near misses are not", () => {
     assert.equal(isLightVolume({ ...prism, leastTexelLuma: 0.001 }), false, "a shadow blob's dark texture");
-    assert.equal(isLightVolume({ ...prism, oneColour: false }), false, "colours the bake varied");
     assert.equal(isLightVolume({ ...prism, brightest: 0x60 }), false, "under full brightness");
     assert.equal(isLightVolume({ ...prism, leastAlpha: 0x10 }), false, "never fades to nothing (glass, haze)");
     assert.equal(isLightVolume({ ...prism, mostAlpha: 0 }), false, "nothing drawn");

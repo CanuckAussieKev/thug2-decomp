@@ -58,8 +58,8 @@ inline constexpr uint32_t kCardBlendFixedAdd = 2;
     return (first_pass_blend == kCardBlendAdd || first_pass_blend == kCardBlendFixedAdd) && !moving_texture;
 }
 // (round FIXTURE - the artists' light volumes) A world or object mesh drawn over what is behind it by its alpha (blend
-// mode 5), its texture still, whose vertices all hold one colour at the original's full brightness (its brightest
-// channel at least 0x80 - the art's own light colour, never the bake's: a surface the bake lit varies over it), whose
+// mode 5), its texture still, whose every vertex is at the original's full brightness (its brightest channel at least
+// 0x80 - the art's own light colour: a surface the bake lit falls under it in its shade), whose
 // vertex alpha fades to nothing (its least 0, its most above) and whose texture is a plain light (every texel's linear
 // luminance at least kVolumeTexelLight, its texels drawn at alpha 0 aside - no picture, no shade) is a light volume:
 // the cone, shaft or pool of light the artists drew under a lamp (Training's fittings' prisms and pendant cones,
@@ -67,15 +67,20 @@ inline constexpr uint32_t kCardBlendFixedAdd = 2;
 // air's and the camera's response to the lamp - the fog's scattering, its pool on the floor the lamp's own light -,
 // never a surface: the relit level hides it and no ray meets it (render_pc rt_record light_volume_mesh). A shadow blob,
 // dirt or a fade to black fails the texture (a dark texel); water moves; a glass or a haze sheet doesn't fade to nothing
-// at its vertices or isn't one full-bright colour (tools/game/light_volume_survey.ts lists them; docs/design/vulkan.md
-// "Round FIXTURE").
+// at its vertices (tools/game/light_volume_survey.ts lists them; docs/design/vulkan.md "Round FIXTURE").
+// (round HEADS) Every vertex full-bright, not every vertex one colour: the game's scene lights add their light to a
+// level's vertex colours (engine/gfx/scene_lights.cpp - the lamps a sector's vertices are near, at load and as the clock
+// turns), so a cone under a lit lamp holds 808066 in the level's file and FFED9B - FFF59E in its buffer (Training's
+// pendant over its quarter pipes): it failed the one-colour test, was drawn as a bright translucent sheet and traced
+// as a surface - the realtime pendant 3 x the reference's. The light a scene light adds never takes a vertex under full
+// brightness; the files' cones of lamps the old test missed for an authored gradient (Training's D3674F80, Stadium's
+// 61EEED23 - 807F6C at their top) are taken too.
 inline constexpr uint8_t kFullBrightByte = 0x80; // (a vertex colour byte: the original draws 0x80 as the texel's own)
 inline constexpr float kVolumeTexelLight = 0.5F;
 struct VolumeLook {
     uint32_t first_pass_blend = 0;
     bool moving_texture = false;
-    bool one_colour = false;     // every vertex's colour (r, g, b) the same
-    uint8_t brightest = 0;       // ... its brightest channel's byte
+    uint8_t brightest = 0;       // the dimmest vertex's brightest channel byte
     uint8_t least_alpha = 0;     // the vertices' least and most alpha bytes
     uint8_t most_alpha = 0;
     float least_texel_luma = 0.0F; // the first texture's dimmest texel's linear luminance (1 untextured; 0 unreadable)
@@ -83,8 +88,7 @@ struct VolumeLook {
 [[nodiscard]] constexpr bool light_volume(const VolumeLook& look)
 {
     constexpr uint32_t kBlendByAlpha = 5;
-    return look.first_pass_blend == kBlendByAlpha && !look.moving_texture && look.one_colour &&
-           look.brightest >= kFullBrightByte && look.least_alpha == 0U && look.most_alpha > 0U &&
+    return look.first_pass_blend == kBlendByAlpha && !look.moving_texture && look.brightest >= kFullBrightByte && look.least_alpha == 0U && look.most_alpha > 0U &&
            look.least_texel_luma >= kVolumeTexelLight;
 }
 // (round LW) Whether a first pass's blend mode draws the surface's own colour - as it is (0, 11: the texel's alpha x the

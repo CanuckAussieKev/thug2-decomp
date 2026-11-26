@@ -328,26 +328,29 @@ void check_surface_classes()
     const auto look_of = [](const rt::VertexColours& v, float texel, uint32_t blend = 5, bool moving = false) {
         return rt::VolumeLook{.first_pass_blend = blend,
                               .moving_texture = moving,
-                              .one_colour = v.known && v.one_colour,
-                              .brightest = v.brightest,
+                              .brightest = v.known ? v.brightest : uint8_t{0},
                               .least_alpha = v.least_alpha,
                               .most_alpha = v.most_alpha,
                               .least_texel_luma = texel};
     };
     constexpr float kPlainLight = 0.971F;
     const rt::VertexColours fitting = prism({0x00808080U, 0x20808080U, 0x00808080U, 0x20808080U});
-    expect(fitting.known && fitting.one_colour && fitting.brightest == 0x80U && fitting.least_alpha == 0U &&
-               fitting.most_alpha == 0x20U,
-           "the prism's colours read: one colour, full-bright, alpha 0 - 0x20");
+    expect(fitting.known && fitting.brightest == 0x80U && fitting.least_alpha == 0U && fitting.most_alpha == 0x20U,
+           "the prism's colours read: every vertex full-bright, alpha 0 - 0x20");
     expect(rt::light_volume(look_of(fitting, kPlainLight)), "Training's fitting prism is a light volume");
     expect(rt::light_volume(look_of(prism({0x00808066U, 0x40808066U, 0x00808066U, 0x40808066U}), kPlainLight)),
            "the pendant's warm cone (808066) is a light volume");
     // a shadow blob or dirt fade: the same vertices, a dark texture (SC 789E3EAA's 4,2,2; AU's foliage 0.17)
     expect(!rt::light_volume(look_of(fitting, 0.001F)) && !rt::light_volume(look_of(fitting, 0.173F)),
            "a fade with a dark texture (a shadow, dirt, foliage) is no light volume");
-    // a baked surface: its colours vary
+    // a baked surface: its shade falls under full brightness
     expect(!rt::light_volume(look_of(prism({0x00808080U, 0x20707070U, 0x00808080U, 0x20808080U}), kPlainLight)),
-           "colours that vary over the mesh (the bake's light) - no light volume");
+           "a vertex in the bake's shade (707070) - no light volume");
+    // (round HEADS) the pendant's cone as the game's scene lights left it in its buffer (their light added to the
+    // level's 808066, more near the lamp): still a light volume
+    const rt::VertexColours lit_cone = prism({0x00FFED9BU, 0x40FFF59EU, 0x00FFF09CU, 0x40FFEC9AU});
+    expect(lit_cone.brightest == 0xFFU && rt::light_volume(look_of(lit_cone, kPlainLight)),
+           "the pendant's cone lit by the scene lights (FFED9B - FFF59E) is a light volume");
     // under full brightness: a lit surface's colour
     expect(!rt::light_volume(look_of(prism({0x00606060U, 0x20606060U, 0x00606060U, 0x20606060U}), kPlainLight)),
            "a colour under full brightness - no light volume");
@@ -700,6 +703,31 @@ void check_coverage()
            "frame); alpha 1 always, 0 never");
 }
 
+// (round HEADS - rt_surface_class.h baked_shadow_mesh) The bake's shadow drawn as geometry, which the relit level hides:
+// a blended mesh, every vertex black, that lets what is under it show. Training's black box over the level's open edge
+// (blend 5, opaque texels, vertex alpha 0x80 - blended opaque) is a surface: kept for every ray.
+void check_baked_shadows()
+{
+    using C = rt::SurfaceClass;
+    constexpr uint32_t kAlpha = 5;
+    constexpr float kHalfVertex = 128.0F / 255.0F;
+    constexpr float kShadowVertex = 51.0F / 255.0F;
+    const std::array<uint32_t, 3> black{0x80000000U, 0x80000000U, 0x80000000U};
+    const std::array<uint32_t, 3> shade{0x33000000U, 0x33000000U, 0x00000000U};
+    const std::array<uint32_t, 3> lit{0x80000000U, 0x80404040U, 0x80000000U};
+    const rt::Material blended = sample_material(rt::kTransparent, kAlpha);
+    const C closure = rt::surface_class(blended, kHalfVertex);
+    const C fence_shadow = rt::surface_class(blended, kShadowVertex);
+    expect(closure == C::kBlendedOpaque && !rt::baked_shadow_mesh(true, closure, black),
+           "Training's black box (blend 5, opaque texels, vertex alpha 0x80): blended opaque - a surface, not hidden");
+    expect(fence_shadow == C::kSeenThrough && rt::baked_shadow_mesh(true, fence_shadow, shade),
+           "a fence's shadow lines (black, vertex alpha 0x33 fading to 0): seen through - the bake's shadow");
+    expect(rt::baked_shadow_mesh(true, C::kCutOut, shade), "a black blended cut-out: the bake's shadow");
+    expect(!rt::baked_shadow_mesh(true, fence_shadow, lit), "a vertex not black: no shadow");
+    expect(!rt::baked_shadow_mesh(false, C::kOpaque, black), "not blended (black paint): no shadow");
+    expect(!rt::baked_shadow_mesh(true, fence_shadow, std::span<const uint32_t>{}), "no colours: no shadow");
+}
+
 } // namespace
 
 int main()
@@ -712,6 +740,7 @@ int main()
     check_surface_classes(); // (round PT-B)
     check_shine_masks();     // (round SHINE)
     check_coverage();        // (round SKIN)
+    check_baked_shadows();   // (round HEADS)
     check_baked_sun();
     check_scene_sun();
     if (failures() != 0) {

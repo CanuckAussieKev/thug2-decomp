@@ -37,6 +37,7 @@
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_surface_class.h"
 
 namespace render {
 
@@ -61,6 +62,9 @@ struct WorldMesh {
     // such a mesh adds no colour of its own - it is the bake's shadow drawn as geometry (College's court: the fence's
     // shadow lines), which the relit level hides (its light store's colour word says so: rt_cel.h)
     bool blended = false;
+    // (round HEADS) how every ray meets it (rt_surface_class.h - add_instance's class): a black blended mesh that covers
+    // what is under it wholly is a surface, not the bake's shadow (baked_shadow_mesh)
+    rt::SurfaceClass surface = rt::SurfaceClass::kOpaque;
     // (lighting round A3 - the original's light cards) drawn additively, its texture still (rt_record.cpp glow_card): a
     // halo, light cone, pool or starburst the artists drew round a lamp - the lamp's evidence for the relit bake, but no
     // light: the relit level hides it (its store's flags kCelHiddenFlags - rt_cel.h kCelHiddenStream), as it hides the bake's shadows drawn as
@@ -156,6 +160,13 @@ struct ObjectLighting {
 // (round FIXTURE) And every light volume (rt_record::light_volume_mesh - a light cone or pool drawn by its alpha: the
 // same response of the air to its lamp; Training's fittings' prisms read as fog under every fitting).
 [[nodiscard]] bool light_card_hidden(const MeshRef* mesh);
+// (round HEADS - a hidden mesh is hidden from every ray) Whether the relit level doesn't show `mesh`: a light card
+// (light_card_hidden) or a mesh whose light store says hidden (the bake's shadow drawn as geometry, a light card the mode
+// relit - rt_cel.h kCelHiddenStream). rt_record gives it no instance, so no ray meets it - not the camera's, not a light
+// ray, not a path's. Before, the rays that find surfaces (the path tracer's, ReSTIR GI's) went on past a hidden hit
+// while the light rays (ray_blocked / seen_through: next-event estimation, ReSTIR DI's and GI's visibility) stopped at
+// it - one mesh two ways.
+[[nodiscard]] bool ray_hidden(const MeshRef* mesh);
 // (round P10 - objects relit) Whether an object (a Singleton) drawn with its own colours is one of the relit level's
 // world meshes now (WorldMesh::object - listed this frame): its meshes are drawn from their light store, or each with
 // the light field's ratio where it stands when it has none (unlit_world_colour) - not the instance's ratio as a whole.
