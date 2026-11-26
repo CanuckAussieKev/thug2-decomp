@@ -153,6 +153,9 @@ struct State {
     double first_frame_work_ms = 0.0;
     bool first_frame_timed = false;
     std::unordered_map<const MaterialRef*, MaterialEntry> materials;
+    // (round SHINE) each material's other reflection class an instance takes on its mesh (rt_surface_class.h
+    // reflection_class_on: a shine mask's coat where the mesh is solid to every ray) - its own id, the same passes
+    std::unordered_map<const MaterialRef*, MaterialEntry> coats;
     // (round PERF4) each texture's texels' median luminance (lamp_texel_code_of; negative: unreadable), decoded once a
     // level - every mesh with a lamp drawn in a texture decoded its texture again when the lamps first switched on (BO
     // at dusk: a 1 - 2 s stall of the main loop)
@@ -807,6 +810,46 @@ rt::MaterialId material_id(const MaterialRef* material, rt::RayTracing& rt)
     return entry.id;
 }
 
+// (round SHINE) The id an instance of `material` on a mesh of class `surface` takes: the material's own, or - where
+// rt_surface_class.h reflection_class_on gives it another reflection class (a shine mask's coat on a solid mesh) - its
+// variant with that class (its passes the same, once a frame with the material's). 0 for none.
+rt::MaterialId material_id_on(const MaterialRef* material, rt::SurfaceClass surface, rt::RayTracing& rt)
+{
+    const rt::MaterialId base = material_id(material, rt);
+    if (base == 0) {
+        return 0;
+    }
+    State& st = state();
+    const rt::Material& own = st.materials.at(material).material;
+    const uint32_t kind = rt::reflection_class_on(own, surface);
+    if (kind == own.reflection_class) {
+        return base;
+    }
+    auto [found, made] = st.coats.try_emplace(material);
+    MaterialEntry& entry = found->second;
+    if (made) {
+        entry.id = rt::next_material_id();
+    } else if (entry.frame == st.frame) {
+        return entry.id;
+    }
+    entry.frame = st.frame;
+    rt::Material now = own;
+    now.reflection_class = kind;
+    if (made) {
+        static const bool kWanted = build_info::fetch_flag("debug", "rt_reflection_materials", false);
+        if (kWanted) {
+            get_log("rt: material %u = %08X on a %s mesh: reflection class %u (a shine mask's coat), as material %u",
+                    static_cast<unsigned>(entry.id), material->checksum(), rt::surface_class_name(surface),
+                    static_cast<unsigned>(kind), static_cast<unsigned>(base));
+        }
+    }
+    if (made || !same_material(entry.material, now)) {
+        entry.material = now;
+        rt.set_material(entry.id, now);
+    }
+    return entry.id;
+}
+
 // A mesh drawn shown, not hidden.
 bool mesh_shown(const MeshRef* mesh)
 {
@@ -990,12 +1033,15 @@ void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, 
     if (id == 0) {
         return;
     }
-    const rt::MaterialId material = material_id(mesh->material(), rt);
+    rt::MaterialId material = material_id(mesh->material(), rt);
     uint32_t flags = kind;
     // (round PT-B) its flags from its class - the one classification every ray takes (rt_surface_class.h)
     if (material != 0) {
         const rt::Material& surface = state().materials.at(mesh->material()).material;
-        flags |= rt::surface_instance_flags(surface_class_of(mesh, surface), surface);
+        const rt::SurfaceClass surface_class = surface_class_of(mesh, surface);
+        flags |= rt::surface_instance_flags(surface_class, surface);
+        // (round SHINE) a shine mask's coat where the mesh is solid to every ray (reflection_class_on)
+        material = material_id_on(mesh->material(), surface_class, rt);
     } else {
         flags |= rt::kOpaque | rt::kCastsShadow;
     }
@@ -2563,7 +2609,7 @@ void record_apart(rt::RayTracing& rt)
                            .layout = layout,
                            .vertices = group.vertices});
         flags.push_back(rt::kObject | rt::kDrawnApart | rt::surface_instance_flags(surface_class, surface));
-        materials.push_back(material);
+        materials.push_back(material_id_on(group.material, surface_class, rt)); // (round SHINE)
     }
     std::vector<rt::MeshId> meshes;
     st.apart.commit(batches, gpu(), rt, &meshes);
@@ -3158,6 +3204,10 @@ void material_released(const MaterialRef* material)
     if (found != st.materials.end()) {
         rt->remove_material(found->second.id);
         st.materials.erase(found);
+    }
+    if (const auto coat = st.coats.find(material); coat != st.coats.end()) { // (round SHINE)
+        rt->remove_material(coat->second.id);
+        st.coats.erase(coat);
     }
 }
 

@@ -139,6 +139,17 @@ uint32_t surface_instance_flags(SurfaceClass surface, const Material& material)
     return kOpaque | kCastsShadow;
 }
 
+uint32_t reflection_class_on(const Material& material, SurfaceClass surface)
+{
+    const bool solid = surface == SurfaceClass::kOpaque || surface == SurfaceClass::kBlendedOpaque ||
+                       surface == SurfaceClass::kCutOut;
+    if (material.reflection_class == kReflectGlass && material.reflection_mask == kReflectEverywhere &&
+        material.reflectivity > 0.0F && solid) {
+        return kReflectCoat;
+    }
+    return material.reflection_class;
+}
+
 const char* surface_class_name(SurfaceClass surface)
 {
     switch (surface) {
