@@ -30,6 +30,9 @@
 //     Cornette-Shanks): every pixel still the furnace's (light neither made nor lost in the air); an air that only
 //     absorbs: the floor at its furnace value x e^-(sigma (d + reach)) - the camera's ray to it and every light ray to the
 //     sky through the air's reach (Beer-Lambert, the reach's rule);
+//   - (round WAVES - the water's surface: the water shader's waves at the path tracer's water hits) a water plane with a
+//     swell over nothing under an even sky: Fresnel's share of the sky over the region against the processor's over the
+//     same waves (gpu_vulkan/water_shader.cpp's twin), at a grazing view and a steeper one - the flat plane's differs;
 //   - no sample was NaN or infinite; the validation layer silent.
 //   thug2_vulkan_path_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
@@ -63,6 +66,7 @@
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_emission_map.h"
 #include "engine/gfx/rt_light_list.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
@@ -221,7 +225,15 @@ struct SceneMesh {
     // (round P10) its instance's flags and the height its transform moves it by (an object's mesh in its own space)
     uint32_t flags = rt::kWorld | rt::kOpaque | rt::kCastsShadow;
     float lift = 0.0F;
+    uint32_t water = rt::kNoWaterSurface; // (round WAVES) its water body's waves: an index into check_water_surfaces
 };
+
+// (round WAVES) The water surfaces the frames' records carry (SceneMesh::water's).
+std::vector<rt::WaterSurface>& check_water_surfaces()
+{
+    static std::vector<rt::WaterSurface> surfaces;
+    return surfaces;
+}
 
 void put_float(std::span<uint8_t> bytes, std::size_t at, float value)
 {
@@ -430,9 +442,14 @@ void draw_frame(render::Gpu& gpu, const Targets& targets, std::span<const SceneM
     for (const SceneMesh& mesh : meshes) {
         std::array<std::array<float, 4>, 3> rows = kIdentityRows;
         std::get<3>(std::get<1>(rows)) = mesh.lift;
-        record.instances.push_back(
-            {.mesh = mesh.id, .material = mesh.material, .flags = mesh.flags, .object_to_world = rows});
+        record.instances.push_back({.mesh = mesh.id,
+                                    .material = mesh.material,
+                                    .flags = mesh.flags,
+                                    .object_to_world = rows,
+                                    .light = rt::kNoObjectLight,
+                                    .water = mesh.water});
     }
+    record.water_surfaces = check_water_surfaces();
     gpu.begin_scene();
     rt::ray_tracing()->begin_frame(record);
     gpu.set_render_target(0, targets.colour);
@@ -1549,6 +1566,127 @@ void check_device(render::Gpu& gpu, Tally* tally)
     release_targets(gpu, targets);
 }
 
+// --- (round WAVES) the water's surface ----------------------------------------------------------------------------------
+
+// The waves' normal at rest point (x, z) at time 0 - gpu_vulkan/water_shader.cpp water_waves_glsl's water_swell (no fade:
+// a ray's footprint 0) and water_wave_normal, without ripples (sea[2] 0).
+Vec3 twin_wave_normal(const rt::WaterSurface& s, double x, double z)
+{
+    constexpr std::array<double, 4> kLengths{1.0, 0.63, 0.41, 0.27};
+    constexpr std::array<double, 4> kTurns{0.0, 0.42, -0.57, 1.05};
+    constexpr double kSharpness = 0.6;
+    constexpr double kPhaseStep = 1.913;
+    Vec3 sum{};
+    for (std::size_t i = 0; i < kLengths.size(); ++i) {
+        const double wavelength = std::max(core::at(kLengths, i) * static_cast<double>(core::at(s.sea, 1)), 0.05);
+        const double k = 2.0 * kPi / wavelength;
+        const double c = std::cos(core::at(kTurns, i));
+        const double n = std::sin(core::at(kTurns, i));
+        const double wx = core::at(s.wind, 0);
+        const double wz = core::at(s.wind, 1);
+        const double dx = (wx * c) - (wz * n);
+        const double dz = (wx * n) + (wz * c);
+        const double a = core::at(s.slopes, i);
+        const double phase = (k * ((dx * x) + (dz * z))) + (static_cast<double>(i) * kPhaseStep);
+        sum = add(sum, {dx * a * std::cos(phase), kSharpness * a * std::sin(phase), dz * a * std::cos(phase)});
+    }
+    return unit({-x_of(sum), std::max(1.0 - y_of(sum), 0.2), -z_of(sum)});
+}
+
+// Schlick's reflectance at the facet a ray along `dir` meets at (x, z) of the water (the path tracer's path_water_facet:
+// a facet turned away from the ray is the plane's) - with `waves` false the plane's alone (the flat mesh's, as before).
+double twin_water_reflectance(const rt::WaterSurface& s, bool waves, const Vec3& point, const Vec3& dir)
+{
+    const double f0 = std::get<0>(rt::material_f0(rt::MaterialKind::kWater));
+    Vec3 n{0.0, 1.0, 0.0};
+    if (waves) {
+        n = twin_wave_normal(s, x_of(point), z_of(point));
+        if (dot(n, dir) >= 0.0) {
+            n = {0.0, 1.0, 0.0};
+        }
+    }
+    const double c = std::clamp(1.0 - std::abs(dot(n, dir)), 0.0, 1.0);
+    return f0 + ((1.0 - f0) * c * c * c * c * c);
+}
+
+// The water's surface where a path meets it (vulkan_path_reference.cpp path_water_facet - the water shader's waves, one
+// surface): a water plane (the game's water class, nothing of its own colour - all of it interface) with a swell over
+// nothing, under an even sky of 1 above the horizon: what a pixel shows is Fresnel's share of the sky - every reflection
+// leaves upward (a steep facet's is mirrored up by the plane), the rest goes down into the dark. Its mean over the
+// region against the processor's (the same waves at 16 x 16 points of each pixel), at a grazing view and a steeper one;
+// the flat plane's answer (the mesh's own normal - what the path tracer did before) reported beside it and required to
+// differ (the case tells the two apart).
+void check_water_surface(render::Gpu& gpu, Tally* tally)
+{
+    text::print("the water's surface (the water shader's waves at the path tracer's water hits):\n");
+    Targets targets;
+    SceneMesh water;
+    bool made = make_targets(gpu, &targets) && make_mesh(gpu, floor_triangles(), false, &water);
+    if (made) {
+        rt::Material surface;
+        surface.colour = {1.0F, 1.0F, 1.0F, 0.0F};
+        surface.blend = 6; // (a fixed alpha of 0: no coverage - the whole surface an interface)
+        surface.reflection_class = rt::kReflectWater;
+        rt::ray_tracing()->set_material(water.material, surface);
+        water.flags = rt::kWorld | rt::kTransparent;
+        water.water = 0;
+        rt::WaterSurface waves;
+        waves.slopes = {0.30F, 0.22F, 0.16F, 0.10F};
+        waves.speeds = {40.0F, 32.0F, 26.0F, 21.0F};
+        waves.sea = {20.0F, 400.0F, 0.0F, 0.0F};
+        waves.wind = {0.8F, 0.6F};
+        check_water_surfaces() = {waves};
+    }
+    tally->check(made, "the water scene made (a water plane, its waves)");
+    bool read = made;
+    uint32_t not_finite = 0;
+    constexpr uint32_t kWaterSeed = 2000;
+    constexpr int kSub = 16;
+    uint32_t seed = kWaterSeed;
+    for (const Vec3& eye : {Vec3{0.0, 80.0, 900.0}, Vec3{0.0, 400.0, 900.0}}) {
+        if (!made) {
+            break;
+        }
+        vk::PathOverrides overrides;
+        overrides.sky = {1.0F, 1.0F, 1.0F};
+        overrides.samples_per_frame = 32;
+        const std::array<SceneMesh, 1> scene{water};
+        const Measured got = run_batches(gpu, targets, scene, eye, overrides, 8, seed++, &read);
+        not_finite += got.not_finite;
+        const rt::WaterSurface& waves = check_water_surfaces().front();
+        double expected = 0.0;
+        double flat = 0.0;
+        const int x0 = static_cast<int>(kWidth / 2) - (kRegion / 2);
+        const int y0 = static_cast<int>(kHeight / 2) - (kRegion / 2);
+        for (int y = y0; y < y0 + kRegion; ++y) {
+            for (int x = x0; x < x0 + kRegion; ++x) {
+                for (int j = 0; j < kSub; ++j) {
+                    for (int i = 0; i < kSub; ++i) {
+                        const double px = x + ((i + 0.5) / kSub);
+                        const double py = y + ((j + 0.5) / kSub);
+                        const Vec3 dir = pixel_ray(eye, px, py);
+                        const Vec3 p = floor_point(eye, px, py);
+                        expected += twin_water_reflectance(waves, true, p, dir);
+                        flat += twin_water_reflectance(waves, false, p, dir);
+                    }
+                }
+            }
+        }
+        constexpr double kPoints = static_cast<double>(kRegion * kRegion * kSub * kSub);
+        expected /= kPoints;
+        flat /= kPoints;
+        tally->check(read && std::abs(got.mean - expected) <= (kSigmas * got.sigma) + 0.004 &&
+                         std::abs(flat - expected) > (6.0 * got.sigma) + 0.01,
+                     text::format("eye %.0f up: the waves' Fresnel share of the sky %.5f +- %.5f, the processor's over "
+                                  "the same waves %.5f (the flat plane's %.5f)",
+                                  y_of(eye), got.mean, got.sigma, expected, flat));
+    }
+    tally->check(read && not_finite == 0, text::format("the water's samples not finite: %u", not_finite));
+    check_water_surfaces().clear();
+    release_mesh(gpu, &water);
+    release_targets(gpu, targets);
+}
+
 int window_position(int display)
 {
     int displays = 0;
@@ -1624,6 +1762,7 @@ int run(const Options& options, SDL_Window* window)
         return vk::loader_version() == 0 ? 2 : 1;
     }
     check_device(vk::gpu(), &tally);
+    check_water_surface(vk::gpu(), &tally); // (round WAVES)
     vk::set_path_overrides({});
     {
         vk::Backend& state = vk::backend();

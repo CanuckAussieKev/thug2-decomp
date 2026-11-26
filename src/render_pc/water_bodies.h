@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "engine/gfx/water_bodies.h"
+#include "engine/gfx/water_surfaces.h"
 
 // NOT ORIGINAL - the level's water bodies for the physical waves (engine/gfx/water_bodies.h, water_waves.h;
 // docs/design/vulkan.md "Water"): each water material's mesh noted as the level loads (its triangles - a level's meshes
@@ -36,6 +37,11 @@ void forget(const IndexBufferData* drawn);
 // an instance's (`instanced`: a moving object's - its triangles in its model's space) is taken out of the measure and
 // drawn still: where it is in the level isn't known at load.
 void before_draw(const IndexBufferData* first_level, bool instanced);
+
+// (round WAVES) The body a mesh's last draw was handed (before_draw: its waves as worked out then) - for the rays' record
+// (rt_record.cpp: the rays meet the water surface the water shader draws). `known` false: not a water mesh, not measured
+// yet, or drawn as an instance's (still).
+[[nodiscard]] water::WaterBody body_of(const IndexBufferData* first_level);
 
 } // namespace water_bodies
 } // namespace render

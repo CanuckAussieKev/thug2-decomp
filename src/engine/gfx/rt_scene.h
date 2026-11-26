@@ -121,6 +121,7 @@ struct ObjectLight {
     bool operator==(const ObjectLight&) const = default;
 };
 inline constexpr uint32_t kNoObjectLight = 0xFFFFFFFFU;
+inline constexpr uint32_t kNoWaterSurface = 0xFFFFFFFFU; // (round WAVES: Instance::water - none)
 
 // One draw of a mesh this frame.
 struct Instance {
@@ -131,6 +132,20 @@ struct Instance {
     // (the objects' shadows) its object's lights: an index into FrameRecord::object_lights (kNoObjectLight: none - the
     // world's meshes, an object drawn with its own baked colours)
     uint32_t light = kNoObjectLight;
+    // (round WAVES) its water body's waves: an index into FrameRecord::water_surfaces (kNoWaterSurface: none - not water,
+    // or a body not measured: still)
+    uint32_t water = kNoWaterSurface;
+};
+
+// (round WAVES) A water body's waves as the water shader draws them (engine/gfx/water_waves.h SeaWaves, the weather's
+// wind's way - gpu_vulkan/water_shader.h water_waves_glsl: the one water surface), for the rays that meet it.
+struct WaterSurface {
+    std::array<float, 4> slopes{};   // the four Gerstner waves' slopes (amplitude x k)
+    std::array<float, 4> speeds{};   // their phase speeds (units a second)
+    std::array<float, 4> sea{};      // Hs, the peak's wavelength (units), x the ripple texture's slope, the whitecaps' share
+    std::array<float, 2> wind{};     // the wind's direction (world x, z)
+    float rain = 0.0F;               // the share of the rain falling on it (the drops' rings)
+    bool operator==(const WaterSurface&) const = default;
 };
 
 struct Light {
@@ -277,6 +292,7 @@ struct FrameRecord {
     // (path tracing, stage 3) What the processor wrote into the frame's geometry, as a key: the skinned meshes' poses
     // (engine/gfx/rt_poses.h - each one's bones hashed). The same key and the same instances: the same triangles.
     uint64_t poses_key = 0;
+    std::vector<WaterSurface> water_surfaces; // (round WAVES) Instance::water's
 };
 
 inline constexpr uint32_t kAllMasks = 0xFF; // a ray that can hit every instance

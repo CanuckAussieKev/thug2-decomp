@@ -22,6 +22,83 @@ static_assert(kWaterUniformsBinding == kGlslUniforms && kWaterSceneBinding == kG
                   kWaterSkyBinding == kGlslSky && kWaterWavesBinding == kGlslWaves,
               "the GLSL below names the bindings");
 
+// (round WAVES) The water's surface - one definition for the raster water (both stages: the moving surface's shape and its
+// normal) and the rays that meet it (the reference path tracer, vulkan_path_reference.cpp): a body's waves (WaterSea -
+// engine/gfx/water_waves.h SeaWaves and the wind's way) at a rest point and time. The ripple texture is read by the
+// includer (a fragment shader by its derivatives, a ray at its full detail): water_ripple_places gives where, water_ripples_of
+// what its two reads make.
+constexpr std::string_view kWaterWavesGlsl = R"(struct WaterSea {
+    vec4 swell;       // the four Gerstner waves' slopes (amplitude x k; 0: still)
+    vec4 swell_speed; // their phase speeds (units a second)
+    vec4 sea;         // x the significant height (units), y the peak's wavelength (units), z x the ripple texture's slope,
+                      // w the whitecaps' share
+    vec2 wind;        // the wind's direction (world x, z)
+};
+const float kWaterSharpness = 0.6;  // the crests' sharpening (Gerstner's Q)
+
+// Wave i of the swell (four Gerstner waves about the wind's direction, standing for the wind sea's spectrum round its
+// peak - engine/gfx/water_waves.h sea_waves: the body's fetch, depth and wind) at rest point p, time t: its direction
+// (xy), wavenumber (z) and phase (w); `slope` its slope's amplitude (its height x k, the energy of its band of the
+// spectrum - 0 on still water), its speed the dispersion's at the body's depth.
+vec4 water_wave(WaterSea sea, int i, vec2 p, float t, out float slope)
+{
+    const vec4 lengths = vec4(1.0, 0.63, 0.41, 0.27);
+    const vec4 turns = vec4(0.0, 0.42, -0.57, 1.05);
+    vec2 wind = sea.wind;
+    float wavelength = max(lengths[i] * sea.sea.y, 0.05);
+    float k = 6.2831853 / wavelength;
+    float c = cos(turns[i]);
+    float s = sin(turns[i]);
+    vec2 d = vec2(wind.x * c - wind.y * s, wind.x * s + wind.y * c);
+    slope = sea.swell[i];
+    return vec4(d, k, k * (dot(d, p) - sea.swell_speed[i] * t) + float(i) * 1.913);
+}
+
+// A wave faded out where a pixel spans a good part of its wavelength (no aliasing far away; a ray's footprint 0: none).
+float water_wave_fade(float footprint, float wavelength) { return 1.0 - smoothstep(0.05, 0.2, footprint / wavelength); }
+
+// The swell at rest point p as its normal's parts - x and z the slope, y the crests' sharpening -, each wave faded out
+// where `footprint` spans a good part of its wavelength. The moving surface's shape is the same waves' (water_lift):
+// this is its normal.
+vec3 water_swell(WaterSea sea, vec2 p, float t, float footprint)
+{
+    vec3 sum = vec3(0.0);
+    for (int i = 0; i < 4; ++i) {
+        float slope;
+        vec4 w = water_wave(sea, i, p, t, slope);
+        float a = slope * water_wave_fade(footprint, 6.2831853 / w.z);
+        sum += vec3(w.x * a * cos(w.w), kWaterSharpness * a * sin(w.w), w.y * a * cos(w.w));
+    }
+    return sum;
+}
+
+// The ripples: the tiling texture at two scales drifting with the wind - where its two reads are at rest point p, time t,
+// and their slope (x, z) and the foam's pattern (z) from the two texels read there. Their slope is the spectrum's short
+// waves' (sea.z: the equilibrium tail past the four waves over the texture's band - water_waves.h; none on still water
+// or where the body's waves are all shorter than the texture's).
+void water_ripple_places(WaterSea sea, vec2 p, float t, out vec2 a, out vec2 b)
+{
+    vec2 along = sea.wind;
+    vec2 across = vec2(-along.y, along.x);
+    vec2 q = vec2(dot(p, along), dot(p, across));
+    a = q / 263.0 + vec2(t * 0.031, 0.0);
+    b = q / 97.0 + vec2(t * 0.083, t * 0.019) + vec2(0.37, 0.71);
+}
+vec3 water_ripples_of(WaterSea sea, vec4 a, vec4 b)
+{
+    vec2 along = sea.wind;
+    vec2 across = vec2(-along.y, along.x);
+    vec2 slope = (a.xy * 0.55 + b.xy * 0.45) * sea.sea.z;
+    return vec3(along * slope.x + across * slope.y, a.w * 0.55 + b.w * 0.45);
+}
+
+// The waves' normal (world, facing up) from the swell's parts and the ripples' (and the rain's rings') slope.
+vec3 water_wave_normal(vec3 swell, vec2 ripple)
+{
+    return normalize(vec3(-(swell.x + ripple.x), max(1.0 - swell.y, 0.2), -(swell.z + ripple.y)));
+}
+)";
+
 // Both stages': the view's block, the depth behind the water, and the swell - the same waves shape the moving surface
 // (the vertex shader) and its normal (the fragment shader).
 constexpr std::string_view kWaterCommonGlsl = R"(layout(set = 0, binding = 10, std140) uniform WaterUniforms {
@@ -51,28 +128,8 @@ const float kWaterFar = 1.0e8;      // the depth copy's sky (1e9) and anything a
 // distance below was 0.001 there: the bed read as 10^5 x deeper than it is - no bed, the water's deep colour and its
 // texture's pattern in its place -, the refraction and the mirror image moved to the view's edge by the waves' tilt).
 float water_view_depth(vec3 eye) { return (water.projection * vec4(eye, 1.0)).w; }
-const float kWaterSharpness = 0.6;  // the crests' sharpening (Gerstner's Q)
-
-// Wave i of the swell (four Gerstner waves about the wind's direction, standing for the wind sea's spectrum round its
-// peak - engine/gfx/water_waves.h sea_waves: the body's fetch, depth and wind) at rest point p, time t: its direction
-// (xy), wavenumber (z) and phase (w); `slope` its slope's amplitude (its height x k, the energy of its band of the
-// spectrum - 0 on still water), its speed the dispersion's at the body's depth.
-vec4 water_wave(int i, vec2 p, float t, out float slope)
-{
-    const vec4 lengths = vec4(1.0, 0.63, 0.41, 0.27);
-    const vec4 turns = vec4(0.0, 0.42, -0.57, 1.05);
-    vec2 wind = water.time.yz;
-    float wavelength = max(lengths[i] * water.sea.y, 0.05);
-    float k = 6.2831853 / wavelength;
-    float c = cos(turns[i]);
-    float s = sin(turns[i]);
-    vec2 d = vec2(wind.x * c - wind.y * s, wind.x * s + wind.y * c);
-    slope = water.swell[i];
-    return vec4(d, k, k * (dot(d, p) - water.swell_speed[i] * t) + float(i) * 1.913);
-}
-
-// A wave faded out where a pixel spans a good part of its wavelength (no aliasing far away).
-float water_wave_fade(float footprint, float wavelength) { return 1.0 - smoothstep(0.05, 0.2, footprint / wavelength); }
+// (round WAVES) The body drawn's waves as the shared surface (water_waves_glsl) takes them.
+WaterSea water_sea() { return WaterSea(water.swell, water.swell_speed, water.sea, water.time.yz); }
 )";
 
 // The vertex shader's (the moving surface: FragmentKey::water kWaterMoving, vulkan_water.h): the rest point moved by
@@ -118,9 +175,10 @@ vec3 water_lift(vec3 world, vec3 eye)
     float footprint = dist / (focal * max(abs(to_eye.y) / dist, 0.1));
     float slopes = 0.0;
     vec3 sum = vec3(0.0);
+    WaterSea sea = water_sea();
     for (int i = 0; i < 4; ++i) {
         float slope;
-        vec4 w = water_wave(i, world.xz, water.time.x, slope);
+        vec4 w = water_wave(sea, i, world.xz, water.time.x, slope);
         float wavelength = 6.2831853 / w.z;
         slope *= water_wave_fade(footprint, wavelength) * (1.0 - smoothstep(0.25, 0.5, kWaterCell / wavelength));
         slopes += slope;
@@ -159,33 +217,14 @@ float water_luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 // by Fresnel; its colour is its body's.
 float water_hue_weight(vec3 mean) { return 1.0 - smoothstep(0.04, 0.12, mean.r - mean.b); }
 
-// The swell (water_wave) at rest point p as its normal's parts - x and z the slope, y the crests' sharpening -, each wave
-// faded out where a pixel spans a good part of its wavelength. The moving surface's shape is the same waves'
-// (water_lift): this is its normal.
-vec3 water_swell(vec2 p, float t, float footprint)
-{
-    vec3 sum = vec3(0.0);
-    for (int i = 0; i < 4; ++i) {
-        float slope;
-        vec4 w = water_wave(i, p, t, slope);
-        float a = slope * water_wave_fade(footprint, 6.2831853 / w.z);
-        sum += vec3(w.x * a * cos(w.w), kWaterSharpness * a * sin(w.w), w.y * a * cos(w.w));
-    }
-    return sum;
-}
-
-// The ripples: the tiling texture at two scales drifting with the wind - their slope (x, z) and the foam's pattern (z).
-// Their slope is the spectrum's short waves' (sea.z: the equilibrium tail past the four waves over the texture's band -
-// water_waves.h; none on still water or where the body's waves are all shorter than the texture's).
+// The ripples (water_ripples_of) read by the fragment's derivatives.
 vec3 water_ripples(vec2 p, float t)
 {
-    vec2 along = water.time.yz;
-    vec2 across = vec2(-along.y, along.x);
-    vec2 q = vec2(dot(p, along), dot(p, across));
-    vec4 a = texture(water_waves, q / 263.0 + vec2(t * 0.031, 0.0));
-    vec4 b = texture(water_waves, q / 97.0 + vec2(t * 0.083, t * 0.019) + vec2(0.37, 0.71));
-    vec2 slope = (a.xy * 0.55 + b.xy * 0.45) * water.sea.z;
-    return vec3(along * slope.x + across * slope.y, a.w * 0.55 + b.w * 0.45);
+    WaterSea sea = water_sea();
+    vec2 a;
+    vec2 b;
+    water_ripple_places(sea, p, t, a, b);
+    return water_ripples_of(sea, texture(water_waves, a), texture(water_waves, b));
 }
 
 // The level's sky as captured (3 x 2 faces of 90 degrees: +x, -x, +z, -z, +y, -y - rt::kSkyCaptureFaces) toward `d`.
@@ -325,14 +364,14 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
 
     // 1. the waves' normal
     float t = water.time.x;
-    vec3 swell = water_swell(rest.xz, t, footprint);
+    vec3 swell = water_swell(water_sea(), rest.xz, t, footprint);
     vec3 ripple = water_ripples(rest.xz, t);
     // (added by the rain - engine/gfx/rain.h rain_ripple) the drops' rings: misc.y the cell (0: no rain), misc.w the share
     // of the rain that reaches the body (round W: the air volume's sky reach over it)
     if (water.misc.y > 0.0) {
         ripple.xy += rain_ripple(rest.xz, vec4(water.misc.y, RAIN_RIPPLE_LAYERS, t, RAIN_RIPPLE_LIFE)) * water.misc.w;
     }
-    vec3 n = normalize(vec3(-(swell.x + ripple.x), max(1.0 - swell.y, 0.2), -(swell.z + ripple.y)));
+    vec3 n = water_wave_normal(swell, ripple.xy);
     // the reflection's normal: the waves' tilt lessened where the water is seen at a grazing angle (a pixel there spans
     // many facets, whose mean is flatter - the reflection is stretched along the water, not broken up), and Fresnel's
     // grazing reflectance held below 1 by the waves' slope (rough water never mirrors fully)
@@ -507,9 +546,12 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
 
 } // namespace
 
+std::string_view water_waves_glsl() { return kWaterWavesGlsl; }
+
 std::string water_declarations_glsl(bool moving)
 {
-    std::string out(kWaterCommonGlsl);
+    std::string out(kWaterWavesGlsl);
+    out += kWaterCommonGlsl;
     out += render::rain::glsl_constants(); // (added by the rain: the drops' rings)
     out += render::rain::ripple_glsl();
     out += moving ? kWaterRestMovingGlsl : kWaterRestFlatGlsl;
@@ -520,7 +562,8 @@ std::string water_declarations_glsl(bool moving)
 
 std::string water_vertex_declarations_glsl()
 {
-    std::string out(kWaterCommonGlsl);
+    std::string out(kWaterWavesGlsl);
+    out += kWaterCommonGlsl;
     out += kWaterVertexGlsl;
     return out;
 }

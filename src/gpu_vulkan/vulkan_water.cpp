@@ -1143,6 +1143,17 @@ WaterBodyMedium water_body_medium_locked(const Backend& state)
             .tint = settings.tint};
 }
 
+bool water_ripples_descriptor_locked(Backend& state, VkDescriptorImageInfo* out)
+{
+    std::string error;
+    if (!ensure_objects(state, &error) || !make_waves(state, &error)) {
+        return false;
+    }
+    const WaterState& own = water_state();
+    *out = {.sampler = own.repeat_mipped, .imageView = own.waves.view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    return true;
+}
+
 WaterStats water_stats()
 {
     const std::scoped_lock lock(backend().mutex);

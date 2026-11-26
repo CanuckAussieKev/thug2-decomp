@@ -110,6 +110,7 @@ struct GeometryRecord {
     uint vertices;
     uint light_vertices;
     uint emission_slot;
+    uvec2 water_address;
 };
 layout(set = THUG2_GEOMETRY_SET, binding = THUG2_GEOMETRY_BINDING, scalar) readonly buffer GeometryRecords {
     GeometryRecord geometry_records[];
@@ -122,11 +123,12 @@ const uint GEOMETRY_COLOUR = 8u;
 const uint GEOMETRY_NORMAL = 16u;
 const uint GEOMETRY_LIGHT = 32u;
 const uint GEOMETRY_OBJECT_LIGHT = 64u;
+const uint GEOMETRY_WATER = 128u;
 GeometryRecord geometry_record(uint instance)
 {
     if (instance >= uint(geometry_records.length())) {
         return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, uvec2(0u), uvec2(0u), 0.0, 0u,
-                              0u, 0u, 0u);
+                              0u, 0u, 0u, uvec2(0u));
     }
     return geometry_records[instance];
 }
@@ -411,6 +413,8 @@ struct FrameScene {
     // (the objects' shadows) the record's objects' lights (rt::ObjectLight, kObjectLightFloats floats each - at most an
     // instance's worth), read by address from their instances' rows
     DeviceBuffer object_lights;
+    // (round WAVES) the record's water surfaces (rt::WaterSurface, kWaterSurfaceFloats floats each), likewise
+    DeviceBuffer water_surfaces;
 };
 
 // The probe's compute pass (made on first use).
@@ -1257,6 +1261,7 @@ bool ensure_frame_scene(Backend& state, Scene& made, FrameScene* frame, uint32_t
     retire(state, VK_NULL_HANDLE, &frame->instances);
     retire(state, VK_NULL_HANDLE, &frame->geometry);
     retire(state, VK_NULL_HANDLE, &frame->object_lights);
+    retire(state, VK_NULL_HANDLE, &frame->water_surfaces); // (round WAVES)
     frame->capacity = 0;
     const VkDeviceSize instance_bytes = static_cast<VkDeviceSize>(capacity) * sizeof(VkAccelerationStructureInstanceKHR);
     if (!state.memory.create_buffer(instance_bytes + kInstanceAlignment,
@@ -1281,6 +1286,14 @@ bool ensure_frame_scene(Backend& state, Scene& made, FrameScene* frame, uint32_t
         return false;
     }
     state.memory.name_buffer(frame->object_lights, "a frame's objects' lights");
+    // (round WAVES: the water bodies' waves, read by address - at most an instance's worth)
+    if (!state.memory.create_buffer(static_cast<VkDeviceSize>(capacity) * kWaterSurfaceFloats * sizeof(float),
+                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                    BufferPlace::kUpload, &frame->water_surfaces) ||
+        frame->water_surfaces.mapped == nullptr) {
+        return false;
+    }
+    state.memory.name_buffer(frame->water_surfaces, "a frame's water surfaces");
     frame->instances_address = align_up(address_of(made.device, frame->instances), kInstanceAlignment);
     VkAccelerationStructureGeometryKHR geometry{};
     geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -1749,6 +1762,24 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
     }
     const VkDeviceAddress lights_address =
         lights > 0 ? address_of(made.device, frame.object_lights) : VkDeviceAddress{0};
+    // (round WAVES) the water bodies' waves, each where its instances' rows point
+    const std::size_t waters = std::min(record.water_surfaces.size(), static_cast<std::size_t>(frame.capacity));
+    const std::span<float> water_floats(static_cast<float*>(frame.water_surfaces.mapped), waters * kWaterSurfaceFloats);
+    for (std::size_t i = 0; i < waters; ++i) {
+        const rt::WaterSurface& water = core::at(record.water_surfaces, i);
+        std::size_t at = i * kWaterSurfaceFloats;
+        const std::array<float, 4> last{core::at(water.wind, 0), core::at(water.wind, 1), water.rain, 0.0F};
+        for (const std::array<float, 4>* part : {&water.slopes, &water.speeds, &water.sea, &last}) {
+            for (const float value : *part) {
+                core::at(water_floats, at++) = value;
+            }
+        }
+    }
+    if (waters > 0) {
+        state.memory.flush(frame.water_surfaces, 0, waters * kWaterSurfaceFloats * sizeof(float));
+    }
+    const VkDeviceAddress waters_address =
+        waters > 0 ? address_of(made.device, frame.water_surfaces) : VkDeviceAddress{0};
     // (round PG) a mesh's row made once a frame - every instance of it has the same one but for its flags (the clutter:
     // thousands of instances of a few meshes)
     // (round CPU: in the scene's map, kept from frame to frame - Scene::mesh_rows)
@@ -1799,6 +1830,11 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
             constexpr VkDeviceAddress kLightBytes = kObjectLightFloats * sizeof(float);
             rows.back().object_light_address = address_words(lights_address + (VkDeviceAddress{given.light} * kLightBytes));
             rows.back().flags |= kGeometryObjectLight;
+        }
+        if ((rows.back().flags & kGeometryLive) != 0 && given.water < waters) {
+            constexpr VkDeviceAddress kWaterBytes = kWaterSurfaceFloats * sizeof(float);
+            rows.back().water_address = address_words(waters_address + (VkDeviceAddress{given.water} * kWaterBytes));
+            rows.back().flags |= kGeometryWater;
         }
         if ((rows.back().flags & kGeometryLive) != 0 && last_reflective) {
             ++frame.reflective;
@@ -3815,6 +3851,7 @@ void release_ray_tracing(Backend& state)
         retire(state, VK_NULL_HANDLE, &frame.instances);
         retire(state, VK_NULL_HANDLE, &frame.geometry);
         retire(state, VK_NULL_HANDLE, &frame.object_lights);
+        retire(state, VK_NULL_HANDLE, &frame.water_surfaces); // (round WAVES)
         frame = FrameScene{};
     }
     retire(state, VK_NULL_HANDLE, &made.scratch);

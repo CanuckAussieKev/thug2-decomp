@@ -306,4 +306,18 @@ void before_draw(const IndexBufferData* first_level, bool instanced)
     water::set_current_body(found->second.body);
 }
 
+water::WaterBody body_of(const IndexBufferData* first_level)
+{
+    if (!water::wanted()) {
+        return {};
+    }
+    State& own = state();
+    const std::scoped_lock lock(own.mutex);
+    const auto found = own.meshes.find(first_level);
+    if (found == own.meshes.end() || found->second.instanced) {
+        return {};
+    }
+    return found->second.body;
+}
+
 } // namespace render::water_bodies

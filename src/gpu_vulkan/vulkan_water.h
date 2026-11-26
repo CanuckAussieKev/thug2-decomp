@@ -124,6 +124,11 @@ struct WaterBodyMedium {
 };
 [[nodiscard]] WaterBodyMedium water_body_medium_locked(const Backend& state);
 
+// (round WAVES) The ripple texture as the water shader samples it (water_shader.h water_waves_glsl's reads), for the rays
+// that meet the water's surface (the reference path tracer) - made now if no water has been drawn yet; false: it couldn't
+// be made. The caller holds the lock, outside a render pass.
+bool water_ripples_descriptor_locked(Backend& state, VkDescriptorImageInfo* out);
+
 // Counts for the log and the checks.
 struct WaterStats {
     uint64_t draws = 0;  // water draws shaded
