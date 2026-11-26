@@ -1755,6 +1755,7 @@ bool reset_device_bindings(Backend& state)
 
 void release_device_objects(Backend& state)
 {
+    render::rt::finish_cloud_amounts(); // (before the process can exit: its thread reads statics the exit destroys)
     if (!state.memory.ready()) {
         return;
     }

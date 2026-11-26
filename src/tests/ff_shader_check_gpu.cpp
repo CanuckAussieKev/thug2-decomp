@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -185,6 +186,10 @@ std::size_t make_modules(VkDevice device, const std::vector<const std::vector<ui
 {
     std::size_t refused = 0;
     for (const std::vector<uint32_t>* words : spirv) {
+        if (words == nullptr) {
+            modules.push_back(VK_NULL_HANDLE);
+            continue;
+        }
         const VkShaderModuleCreateInfo info = {.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
                                                .codeSize = words->size() * sizeof(uint32_t),
                                                .pCode = words->data()};
@@ -288,90 +293,136 @@ std::unordered_map<Key, std::size_t, Hash> index_of(const std::vector<Key>& keys
     return indices;
 }
 
-std::size_t make_pipelines(const Shared& shared, const GpuInput& input, std::size_t& made)
+void destroy_modules(VkDevice device, std::vector<VkShaderModule>& modules)
 {
-    const auto vertex_index = index_of<VertexKey, render::vulkan::VertexKeyHash>(*input.vertex_keys);
-    const auto fragment_index = index_of<FragmentKey, render::vulkan::FragmentKeyHash>(*input.fragment_keys);
-    std::size_t refused = 0;
-    for (const render::vulkan::ShaderKey& key : *input.pairs) {
-        if (input.pipeline_limit >= 0 && std::cmp_greater_equal(made, input.pipeline_limit)) {
-            break;
-        }
-        const VkShaderModule vertex = core::at(shared.vertex_modules, vertex_index.at(key.vertex));
-        const VkShaderModule fragment = core::at(shared.fragment_modules, fragment_index.at(key.fragment));
-        if (vertex == VK_NULL_HANDLE || fragment == VK_NULL_HANDLE) {
-            continue;
-        }
-        ++made;
-        const VkResult result = make_pipeline(shared, key, vertex, fragment);
-        if (result != VK_SUCCESS && refused++ < kReportedFailures) {
-            text::print("pipeline refused (%d): %s | %s\n", static_cast<int>(result),
-                        render::vulkan::describe(key.vertex).c_str(), render::vulkan::describe(key.fragment).c_str());
-        }
+    for (const VkShaderModule module : modules) {
+        vkDestroyShaderModule(device, module, nullptr);
     }
-    return refused;
-}
-
-bool check_with_context(const render::vulkan::Context& context, const GpuInput& input)
-{
-    VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(context.physical_device(), &properties);
-    text::print("GPU: %s\n", static_cast<const char*>(properties.deviceName));
-    Shared shared;
-    shared.device = context.device();
-    static constexpr std::array<VkFormat, 2> kDepthFormats = {VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT};
-    const VkFormat depth = render::vulkan::first_depth_format(context.physical_device(), kDepthFormats);
-    if (!make_layouts(shared) || !make_render_pass(shared, context.surface_format().format, depth)) {
-        text::print("the pipeline layout or render pass couldn't be made\n");
-        return false;
-    }
-    const auto start = std::chrono::steady_clock::now();
-    const std::size_t refused_modules = make_modules(shared.device, input.vertex_spirv, shared.vertex_modules) +
-                                        make_modules(shared.device, input.fragment_spirv, shared.fragment_modules);
-    std::size_t made = 0;
-    const std::size_t refused_pipelines = make_pipelines(shared, input, made);
-    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-    text::print("GPU: %u modules (%u refused), %u pipelines (%u refused) in %.1f s\n",
-                static_cast<unsigned>(shared.vertex_modules.size() + shared.fragment_modules.size()),
-                static_cast<unsigned>(refused_modules), static_cast<unsigned>(made),
-                static_cast<unsigned>(refused_pipelines), seconds);
-    if (validation_errors() != 0) {
-        text::print("GPU: %u validation errors - FAILED\n", static_cast<unsigned>(validation_errors()));
-    }
-    return refused_modules == 0 && refused_pipelines == 0 && validation_errors() == 0;
+    modules.clear();
 }
 
 } // namespace
 
-bool check_on_gpu(const GpuInput& input)
+struct GpuSession::Impl {
+    SDL_Window* window = nullptr;
+    render::vulkan::Context context;
+    std::unique_ptr<Shared> shared;
+    std::unordered_map<VertexKey, std::size_t, render::vulkan::VertexKeyHash> vertex_index;
+    int pipeline_limit = -1;
+    std::size_t modules = 0;
+    std::size_t refused_modules = 0;
+    std::size_t made = 0;
+    std::size_t refused_pipelines = 0;
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+
+    ~Impl()
+    {
+        shared.reset(); // (its modules and layouts go before the device does)
+        context.destroy();
+        if (window != nullptr) {
+            SDL_DestroyWindow(window);
+        }
+        SDL_Quit();
+    }
+};
+
+GpuSession::GpuSession() : impl_(std::make_unique<Impl>()) {}
+
+GpuSession::~GpuSession() = default;
+
+std::unique_ptr<GpuSession> GpuSession::open(int device_index, int pipeline_limit, bool& ok)
 {
+    ok = true;
     if (!render::vulkan::open_loader()) {
         text::print("GPU part skipped: no Vulkan loader for this process\n");
-        return true;
+        return nullptr;
     }
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         text::print("GPU part skipped: SDL_Init: %s\n", SDL_GetError());
-        return true;
+        return nullptr;
     }
-    SDL_Window* window = SDL_CreateWindow("thug2 fixed-function shader check", kWindowSize, kWindowSize,
-                                          SDL_WINDOW_VULKAN | SDL_WINDOW_HIDDEN);
-    bool ok = true;
-    if (window == nullptr) {
+    std::unique_ptr<GpuSession> session(new GpuSession());
+    Impl& impl = *session->impl_;
+    impl.pipeline_limit = pipeline_limit;
+    impl.window = SDL_CreateWindow("thug2 fixed-function shader check", kWindowSize, kWindowSize,
+                                   SDL_WINDOW_VULKAN | SDL_WINDOW_HIDDEN);
+    if (impl.window == nullptr) {
         text::print("GPU part skipped: SDL_CreateWindow: %s\n", SDL_GetError());
-    } else {
-        render::vulkan::Context context;
-        const render::vulkan::ContextOptions options = {
-            .validation = true, .device_index = input.device_index, .on_message = print_message};
-        if (context.create(window, options)) {
-            ok = check_with_context(context, input);
-        } else {
-            text::print("GPU part skipped: no Vulkan context\n");
-        }
-        context.destroy();
-        SDL_DestroyWindow(window);
+        return nullptr;
     }
-    SDL_Quit();
-    return ok;
+    const render::vulkan::ContextOptions options = {
+        .validation = true,
+        .device_index = device_index,
+        .on_message = print_message,
+        // (the game's device has them where it's offered: the light inputs' guides are stored from a fragment shader -
+        // fragmentStoresAndAtomics comes with ray tracing)
+        .ray_tracing = true};
+    if (!impl.context.create(impl.window, options)) {
+        text::print("GPU part skipped: no Vulkan context\n");
+        return nullptr;
+    }
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(impl.context.physical_device(), &properties);
+    text::print("GPU: %s\n", static_cast<const char*>(properties.deviceName));
+    impl.shared = std::make_unique<Shared>();
+    Shared& shared = *impl.shared;
+    shared.device = impl.context.device();
+    static constexpr std::array<VkFormat, 2> kDepthFormats = {VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT};
+    const VkFormat depth = render::vulkan::first_depth_format(impl.context.physical_device(), kDepthFormats);
+    if (!make_layouts(shared) || !make_render_pass(shared, impl.context.surface_format().format, depth)) {
+        text::print("the pipeline layout or render pass couldn't be made\n");
+        ok = false;
+        return nullptr;
+    }
+    return session;
+}
+
+void GpuSession::add_vertex_modules(const std::vector<VertexKey>& keys,
+                                    const std::vector<const std::vector<uint32_t>*>& spirv)
+{
+    impl_->vertex_index = index_of<VertexKey, render::vulkan::VertexKeyHash>(keys);
+    impl_->refused_modules += make_modules(impl_->shared->device, spirv, impl_->shared->vertex_modules);
+    impl_->modules += spirv.size();
+}
+
+void GpuSession::run_batch(const std::vector<const std::vector<uint32_t>*>& fragment_spirv,
+                           const std::vector<BatchPair>& pairs)
+{
+    Impl& impl = *impl_;
+    Shared& shared = *impl.shared;
+    impl.refused_modules += make_modules(shared.device, fragment_spirv, shared.fragment_modules);
+    impl.modules += fragment_spirv.size();
+    for (const BatchPair& pair : pairs) {
+        if (impl.pipeline_limit >= 0 && std::cmp_greater_equal(impl.made, impl.pipeline_limit)) {
+            break;
+        }
+        const render::vulkan::ShaderKey& key = *pair.key;
+        const VkShaderModule vertex = core::at(shared.vertex_modules, impl.vertex_index.at(key.vertex));
+        const VkShaderModule fragment = core::at(shared.fragment_modules, pair.fragment);
+        if (vertex == VK_NULL_HANDLE || fragment == VK_NULL_HANDLE) {
+            continue;
+        }
+        ++impl.made;
+        const VkResult result = make_pipeline(shared, key, vertex, fragment);
+        if (result != VK_SUCCESS && impl.refused_pipelines++ < kReportedFailures) {
+            text::print("pipeline refused (%d): %s | %s\n", static_cast<int>(result),
+                        render::vulkan::describe(key.vertex).c_str(), render::vulkan::describe(key.fragment).c_str());
+        }
+    }
+    destroy_modules(shared.device, shared.fragment_modules);
+}
+
+bool GpuSession::finish()
+{
+    const Impl& impl = *impl_;
+    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - impl.start).count();
+    text::print("GPU: %u modules (%u refused), %u pipelines (%u refused) in %.1f s\n",
+                static_cast<unsigned>(impl.modules), static_cast<unsigned>(impl.refused_modules),
+                static_cast<unsigned>(impl.made), static_cast<unsigned>(impl.refused_pipelines), seconds);
+    if (validation_errors() != 0) {
+        text::print("GPU: %u validation errors - FAILED\n", static_cast<unsigned>(validation_errors()));
+    }
+    return impl.refused_modules == 0 && impl.refused_pipelines == 0 && validation_errors() == 0;
 }
 
 } // namespace ff_check

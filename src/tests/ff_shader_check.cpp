@@ -37,9 +37,17 @@
 // --motion's. Compiled, validated and made into pipelines.
 // --all-materials: every four-pass material shape, not a covering subset; --device: the physical device for the GPU
 // part (the context check's numbering); --pipelines: at most N pipelines (default: every sampled pair); --jobs: the
-// compiling threads (default 8); --dump: every generated shader's GLSL written into FOLDER (vNNNN.vert, fNNNN.frag).
+// compiling threads (default 8); --batch: the fragment shaders compiled, handed to the driver (modules and pipelines) and
+// freed together (default 16384; what the process holds stays bounded however many keys the sweep has - the peak commit
+// is printed at the end); --dump: every generated shader's GLSL written into FOLDER (vNNNN.vert, fNNNN.frag).
 // Exit code: 0 when everything compiled, validated and (with the GPU part) was accepted; 1 otherwise; the GPU part
 // alone missing (no Vulkan) leaves it 0 and says so.
+#ifdef _WIN32
+#include <windows.h>
+
+#include <psapi.h>
+#endif
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -50,10 +58,12 @@
 #include <fstream>
 #include <ios>
 #include <map>
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
 #include <thread>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -81,6 +91,9 @@ using render::vulkan::ShaderStage;
 using render::vulkan::VertexKey;
 
 constexpr int kDefaultJobs = 8;
+// A batch of fragment shaders holds their sources and SPIR-V (~30 KB each) and the driver's copy of their modules and
+// pipelines (~150 KB each): 16384 keeps the process under ~12 GB of commit whatever the sweep.
+constexpr int kDefaultBatch = 16384;
 constexpr std::size_t kReportedFailures = 5;
 constexpr int kBitsPerByte = 8;
 constexpr int kProgramDigit = 10;
@@ -92,6 +105,7 @@ struct Options {
     int device = -1;
     int pipelines = -1;
     int jobs = kDefaultJobs;
+    int batch = kDefaultBatch; // (the fragment shaders compiled, handed to the driver and freed together)
     std::string dump;
     bool surface = false;
     bool detail = false; // (NOT ORIGINAL - rt_detail / rt_delight)
@@ -138,6 +152,8 @@ Options read_options(std::span<char*> arguments)
             options.pipelines = text::to_int(core::at(arguments, ++i));
         } else if (argument == "--jobs" && has_value) {
             options.jobs = std::max(1, text::to_int(core::at(arguments, ++i)));
+        } else if (argument == "--batch" && has_value) {
+            options.batch = std::max(1, text::to_int(core::at(arguments, ++i)));
         } else if (argument == "--dump" && has_value) {
             options.dump = core::at(arguments, ++i);
         }
@@ -207,9 +223,8 @@ void run_jobs(std::vector<Job>& jobs, int threads)
     }
 }
 
-void report_failures(const std::vector<Job>& jobs, const char* what, std::size_t& failures)
+void report_failures(const std::vector<Job>& jobs, const char* what, std::size_t& failures, std::size_t& shown)
 {
-    std::size_t shown = 0;
     for (const Job& job : jobs) {
         if (job.compiled && job.valid) {
             continue;
@@ -231,16 +246,21 @@ void dump_sources(const std::vector<Job>& jobs, const std::string& folder)
     }
 }
 
-std::vector<Job> make_jobs(const ff_check::KeySets& sets, std::vector<VertexKey>& vertex_order,
-                           std::vector<FragmentKey>& fragment_order)
+// The keys in a fixed order (by hash).
+void order_keys(const ff_check::KeySets& sets, std::vector<VertexKey>& vertex_order,
+                std::vector<FragmentKey>& fragment_order)
 {
-    std::vector<Job> jobs;
     vertex_order.assign(sets.vertex.begin(), sets.vertex.end());
     fragment_order.assign(sets.fragment.begin(), sets.fragment.end());
     const auto by_hash = [](const auto& a, const auto& b) { return render::vulkan::hash_of(a) < render::vulkan::hash_of(b); };
     std::ranges::sort(vertex_order, by_hash);
     std::ranges::sort(fragment_order, by_hash);
-    jobs.reserve(vertex_order.size() + fragment_order.size());
+}
+
+std::vector<Job> make_vertex_jobs(const std::vector<VertexKey>& vertex_order)
+{
+    std::vector<Job> jobs;
+    jobs.reserve(vertex_order.size());
     for (std::size_t index = 0; index < vertex_order.size(); ++index) {
         const VertexKey& key = core::at(vertex_order, index);
         jobs.push_back({.stage = ShaderStage::kVertex,
@@ -248,7 +268,15 @@ std::vector<Job> make_jobs(const ff_check::KeySets& sets, std::vector<VertexKey>
                         .description = render::vulkan::describe(key),
                         .source = render::vulkan::vertex_shader_glsl(key)});
     }
-    for (std::size_t index = 0; index < fragment_order.size(); ++index) {
+    return jobs;
+}
+
+// The fragment shaders [begin, end) of the order.
+std::vector<Job> make_fragment_jobs(const std::vector<FragmentKey>& fragment_order, std::size_t begin, std::size_t end)
+{
+    std::vector<Job> jobs;
+    jobs.reserve(end - begin);
+    for (std::size_t index = begin; index < end; ++index) {
         const FragmentKey& key = core::at(fragment_order, index);
         jobs.push_back({.stage = ShaderStage::kFragment,
                         .name = text::format("f%05u", static_cast<unsigned>(index)),
@@ -256,6 +284,19 @@ std::vector<Job> make_jobs(const ff_check::KeySets& sets, std::vector<VertexKey>
                         .source = render::vulkan::fragment_shader_glsl(key)});
     }
     return jobs;
+}
+
+// The process's peak commit (private bytes) in MB; 0 where it can't be asked.
+std::size_t peak_commit_megabytes()
+{
+#ifdef _WIN32
+    PROCESS_MEMORY_COUNTERS counters = {};
+    counters.cb = sizeof(counters);
+    if (K32GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters)) != FALSE) {
+        return counters.PeakPagefileUsage / (kBytesPerKilobyte * kBytesPerKilobyte);
+    }
+#endif
+    return 0;
 }
 
 void print_breakdown(const ff_check::KeySets& sets)
@@ -603,6 +644,109 @@ void add_retro_keys(ff_check::KeySets& sets)
     text::print("retro: %u vertex keys snapped and affine added\n", static_cast<unsigned>(added));
 }
 
+// What the compiling keeps across the batches.
+struct Totals {
+    std::size_t shaders = 0;
+    std::size_t words = 0;
+    std::size_t failures = 0;
+    std::size_t shown = 0;
+    double seconds = 0.0;
+};
+
+// Compiles and validates the jobs, reports the failures and counts them; dumps the sources when asked.
+void compile_batch(std::vector<Job>& jobs, const Options& options, Totals& totals)
+{
+    const auto start = std::chrono::steady_clock::now();
+    run_jobs(jobs, options.jobs);
+    totals.seconds += seconds_since(start);
+    report_failures(jobs, "compile / validate", totals.failures, totals.shown);
+    for (const Job& job : jobs) {
+        totals.words += job.spirv.size();
+    }
+    totals.shaders += jobs.size();
+    if (!options.dump.empty()) {
+        dump_sources(jobs, options.dump);
+    }
+}
+
+// The valid shaders' SPIR-V in the jobs' order (null for one that failed: the GPU part leaves it out).
+std::vector<const std::vector<uint32_t>*> spirv_of(const std::vector<Job>& jobs)
+{
+    std::vector<const std::vector<uint32_t>*> spirv;
+    spirv.reserve(jobs.size());
+    for (const Job& job : jobs) {
+        spirv.push_back(job.compiled && job.valid ? &job.spirv : nullptr);
+    }
+    return spirv;
+}
+
+// (round SWEEP) The vertex shaders first (the GPU part keeps their modules), then the fragment shaders in batches: each
+// batch is compiled, validated, handed to the driver with the pipelines of the pairs that use it, and freed before the
+// next - so what the process holds doesn't grow with the number of keys.
+int sweep(const ff_check::KeySets& sets, const Options& options)
+{
+    std::vector<VertexKey> vertex_order;
+    std::vector<FragmentKey> fragment_order;
+    order_keys(sets, vertex_order, fragment_order);
+    Totals totals;
+    std::unique_ptr<ff_check::GpuSession> gpu;
+    bool gpu_ok = true;
+    {
+        std::vector<Job> jobs = make_vertex_jobs(vertex_order);
+        compile_batch(jobs, options, totals);
+        if (options.gpu) {
+            gpu = ff_check::GpuSession::open(options.device, options.pipelines, gpu_ok);
+            if (gpu) {
+                gpu->add_vertex_modules(vertex_order, spirv_of(jobs));
+            }
+        }
+    }
+    // The pairs by their fragment shader's place, so a batch takes the ones that use it.
+    std::vector<std::size_t> fragment_of(sets.pairs.size());
+    std::vector<std::size_t> pair_order(sets.pairs.size());
+    if (gpu) {
+        std::unordered_map<FragmentKey, std::size_t, render::vulkan::FragmentKeyHash> fragment_index;
+        for (std::size_t index = 0; index < fragment_order.size(); ++index) {
+            fragment_index.emplace(core::at(fragment_order, index), index);
+        }
+        for (std::size_t index = 0; index < sets.pairs.size(); ++index) {
+            core::at(fragment_of, index) = fragment_index.at(core::at(sets.pairs, index).fragment);
+            core::at(pair_order, index) = index;
+        }
+        std::ranges::stable_sort(pair_order, [&fragment_of](std::size_t a, std::size_t b) {
+            return core::at(fragment_of, a) < core::at(fragment_of, b);
+        });
+    }
+    const std::size_t batch = static_cast<std::size_t>(options.batch);
+    const std::size_t batches = (fragment_order.size() + batch - 1) / batch;
+    std::size_t next_pair = 0;
+    std::size_t number = 0;
+    for (std::size_t begin = 0; begin < fragment_order.size(); begin += batch) {
+        const std::size_t end = std::min(begin + batch, fragment_order.size());
+        std::vector<Job> jobs = make_fragment_jobs(fragment_order, begin, end);
+        compile_batch(jobs, options, totals);
+        if (gpu) {
+            std::vector<ff_check::BatchPair> pairs;
+            for (; next_pair < pair_order.size() && core::at(fragment_of, core::at(pair_order, next_pair)) < end; ++next_pair) {
+                const std::size_t pair = core::at(pair_order, next_pair);
+                pairs.push_back({.key = &core::at(sets.pairs, pair), .fragment = core::at(fragment_of, pair) - begin});
+            }
+            gpu->run_batch(spirv_of(jobs), pairs);
+        }
+        text::print("batch %u / %u: %u fragment shaders\n", static_cast<unsigned>(++number), static_cast<unsigned>(batches),
+                    static_cast<unsigned>(end - begin));
+    }
+    const std::size_t kilobytes = totals.words * sizeof(uint32_t) / kBytesPerKilobyte;
+    text::print("compiled %u shaders with %d threads in %.1f s (%u KB of SPIR-V): %u failed\n",
+                static_cast<unsigned>(totals.shaders), options.jobs, totals.seconds, static_cast<unsigned>(kilobytes),
+                static_cast<unsigned>(totals.failures));
+    bool ok = totals.failures == 0U && gpu_ok;
+    if (gpu) {
+        ok = gpu->finish() && ok;
+    }
+    return ok ? 0 : 1;
+}
+
 int run(const Options& options)
 {
     text::print("thug2_ff_shader_check: a %d-bit process, SPIR-V validator %s\n",
@@ -644,40 +788,9 @@ int run(const Options& options)
                 static_cast<unsigned>(sets.pairs.size()), seconds_since(start));
     print_breakdown(sets);
 
-    std::vector<VertexKey> vertex_order;
-    std::vector<FragmentKey> fragment_order;
-    std::vector<Job> jobs = make_jobs(sets, vertex_order, fragment_order);
-    const auto compile_start = std::chrono::steady_clock::now();
-    run_jobs(jobs, options.jobs);
-    std::size_t failures = 0;
-    report_failures(jobs, "compile / validate", failures);
-    std::size_t words = 0;
-    for (const Job& job : jobs) {
-        words += job.spirv.size();
-    }
-    const std::size_t kilobytes = words * sizeof(uint32_t) / kBytesPerKilobyte;
-    text::print("compiled %u shaders with %d threads in %.1f s (%u KB of SPIR-V): %u failed\n",
-                static_cast<unsigned>(jobs.size()), options.jobs, seconds_since(compile_start),
-                static_cast<unsigned>(kilobytes), static_cast<unsigned>(failures));
-    if (!options.dump.empty()) {
-        dump_sources(jobs, options.dump);
-    }
-    if (failures != 0U) {
-        return 1;
-    }
-    if (!options.gpu) {
-        return 0;
-    }
-    ff_check::GpuInput input;
-    input.vertex_keys = &vertex_order;
-    input.fragment_keys = &fragment_order;
-    for (const Job& job : jobs) {
-        (job.stage == ShaderStage::kVertex ? input.vertex_spirv : input.fragment_spirv).push_back(&job.spirv);
-    }
-    input.pairs = &sets.pairs;
-    input.device_index = options.device;
-    input.pipeline_limit = options.pipelines;
-    return ff_check::check_on_gpu(input) ? 0 : 1;
+    const int code = sweep(sets, options);
+    text::print("peak commit %u MB, %.1f s\n", static_cast<unsigned>(peak_commit_megabytes()), seconds_since(start));
+    return code;
 }
 
 } // namespace

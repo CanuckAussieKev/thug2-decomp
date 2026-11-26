@@ -14,6 +14,9 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+
+#include <array>
+#include <cstdio>
 #endif
 #ifdef _MSC_VER
 #include <crtdbg.h>
@@ -23,9 +26,47 @@
 
 namespace tests {
 
+#ifdef _WIN32
+// A crash (an access violation...) printed to stderr as the exception, the faulting address and the calls as
+// module+offset - resolve them with tools/standalone/addr2sym.py against the module's PDB. For the intermittent ones
+// that a debugger's timing hides.
+inline LONG WINAPI report_crash(EXCEPTION_POINTERS* info)
+{
+    const auto where = [](const void* address) {
+        HMODULE module = nullptr;
+        char name[MAX_PATH] = {};
+        if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                               static_cast<const char*>(address), &module) != FALSE) {
+            GetModuleFileNameA(module, name, MAX_PATH);
+            std::fprintf(stderr, "  %p %s+0x%llx\n", address, name,
+                         static_cast<unsigned long long>(static_cast<const char*>(address) -
+                                                         reinterpret_cast<const char*>(module)));
+        } else {
+            std::fprintf(stderr, "  %p\n", address);
+        }
+    };
+    const EXCEPTION_RECORD* record = info->ExceptionRecord;
+    std::fprintf(stderr, "CRASH: exception 0x%08lx at %p", record->ExceptionCode, record->ExceptionAddress);
+    if (record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && record->NumberParameters >= 2) {
+        std::fprintf(stderr, " (%s address 0x%llx)", record->ExceptionInformation[0] == 0 ? "reading" : "writing",
+                     static_cast<unsigned long long>(record->ExceptionInformation[1]));
+    }
+    std::fprintf(stderr, "\n");
+    where(record->ExceptionAddress);
+    std::array<void*, 48> frames{};
+    const USHORT count = CaptureStackBackTrace(0, static_cast<DWORD>(frames.size()), frames.data(), nullptr);
+    for (USHORT i = 0; i < count; ++i) {
+        where(frames[i]);
+    }
+    std::fflush(stderr);
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
 inline void no_error_dialogs()
 {
 #ifdef _WIN32
+    SetUnhandledExceptionFilter(report_crash);
     // no "stopped working", "insert a disk" or "can't open" boxes
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
     // and no window taking the focus from the user: a check's window (the Vulkan checks') is shown and raised without

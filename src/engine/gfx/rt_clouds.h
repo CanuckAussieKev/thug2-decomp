@@ -122,6 +122,9 @@ inline constexpr double kCloudSeenTransmittance = 0.9;
 // (round PERF5) Measures the tenths' amounts cloud_amount reads (~1.5 s of one core, once a run) on a thread of its own,
 // started once: called when the renderer starts, so the first level drawn with a sky doesn't stop for them.
 void start_cloud_amounts();
+// Waits for that thread (it reads statics the process's exit destroys): called when the renderer's device objects are
+// released - at most the ~1.5 s of the measuring if that was just begun. A no-op when it never started or is done.
+void finish_cloud_amounts();
 // The share of the layer's columns clouded at the model's `amount` (round L - the calibration's measure).
 [[nodiscard]] double cloud_clouded_share(double amount);
 [[nodiscard]] double cloud_threshold_share(double coverage);

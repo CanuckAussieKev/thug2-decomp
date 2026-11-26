@@ -422,10 +422,41 @@ double cloud_amount(double coverage)
     return lerp(core::at(amounts, low), core::at(amounts, low + 1), at - static_cast<double>(low));
 }
 
+namespace {
+// The measuring thread, kept so the renderer's release can wait for it (a heap object: never destroyed at exit, where a
+// joinable std::thread would terminate the process).
+std::mutex& amounts_thread_mutex()
+{
+    static std::mutex mutex;
+    return mutex;
+}
+std::thread*& amounts_thread()
+{
+    static std::thread* thread = nullptr;
+    return thread;
+}
+} // namespace
+
 void start_cloud_amounts()
 {
     static std::once_flag started;
-    std::call_once(started, [] { std::thread([] { (void)tenth_amounts(); }).detach(); });
+    std::call_once(started, [] {
+        const std::scoped_lock lock(amounts_thread_mutex());
+        amounts_thread() = new std::thread([] { (void)tenth_amounts(); });
+    });
+}
+
+// The thread reads the columns' and the amounts' function-local statics: left running (it was detached) past main's
+// return it read them while the exit destroyed them - an intermittent access violation in the checks' exits.
+void finish_cloud_amounts()
+{
+    const std::scoped_lock lock(amounts_thread_mutex());
+    std::thread*& thread = amounts_thread();
+    if (thread != nullptr) {
+        thread->join();
+        delete thread;
+        thread = nullptr;
+    }
 }
 
 double cloud_clouded_share(double amount)
