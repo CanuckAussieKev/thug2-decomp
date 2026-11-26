@@ -191,6 +191,35 @@ double medium_layer_depth(double u0, double dy, double s0, double s1, double inv
     return depth;
 }
 
+double open_sky_phase_mean(double view_y, double g)
+{
+    const double y = std::clamp(view_y, -1.0, 1.0);
+    const double x = std::sqrt(std::max(0.0, 1.0 - (y * y)));
+    constexpr int kRings = 256; // (the phase's peak at g 0.8 is ~8 degrees wide: 0.35 degrees a ring)
+    constexpr int kAround = 512;
+    double sum = 0.0;
+    for (int i = 0; i < kRings; ++i) {
+        const double z = (i + 0.5) / kRings; // (the direction's y: even in solid angle)
+        const double r = std::sqrt(std::max(0.0, 1.0 - (z * z)));
+        for (int j = 0; j < kAround; ++j) {
+            const double a = 2.0 * std::numbers::pi * (j + 0.5) / kAround;
+            const double c = (r * std::cos(a) * x) + (z * y);
+            sum += kFourPi * aerosol_phase(c, g);
+        }
+    }
+    return sum / (static_cast<double>(kRings) * kAround);
+}
+
+std::array<float, kSkyPhaseTable> open_sky_phase_table(double g)
+{
+    std::array<float, kSkyPhaseTable> out{};
+    for (std::size_t i = 0; i < kSkyPhaseTable; ++i) {
+        const double y = -1.0 + (2.0 * static_cast<double>(i) / static_cast<double>(kSkyPhaseTable - 1));
+        core::at(out, i) = static_cast<float>(open_sky_phase_mean(y, g));
+    }
+    return out;
+}
+
 std::array<float, 3> water_extinction(const std::array<float, 3>& hue, float clarity)
 {
     constexpr float kVisibilities = 3.0F; // (e^-3: 5 % left at the clarity)

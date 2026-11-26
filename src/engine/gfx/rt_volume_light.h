@@ -275,6 +275,24 @@ vec3 water_scattering_albedo(vec3 reflectance)
     return 1.0 - q * q;
 }
 )";
+// --- (round MEDIUM) the open sky's light in the air indoors -----------------------------------------------------------
+// The air's light from the sky - the sky's own scattered light and every higher order (Psi at the ground for the
+// atmosphere's air; the sky's light on an even upper hemisphere for the street air) - is the open air's: the air sees
+// the whole sky. Where geometry closes part of it (a hall, a street canyon), what reaches the air toward the eye is the
+// share of that light coming in through what is open, weighed by the medium's phase toward the eye: the in-scattering
+// sigma_s Integral p(w . d) L(w) V(w) dw over the open air's sigma_s Integral p(w . d) L(w) dw (the sky taken as even
+// over the upper hemisphere, as the open air's term takes it). Before (round FIXTURE's finding) the share was the open
+// share alone, every open direction counted alike: Training's hall under its roof openings, the eye looking across, got
+// the light the forward-scattering aerosol (g 0.8) sends ahead as if it came from in front - 60 x the reference's air
+// (round MEDIUM, `pt ref` with the medium). The froxels sample the upper hemisphere evenly; a sample's weight is
+// 4 pi p(w . d) / its mean over the upper hemisphere for the view's elevation (Rayleigh's: 1 for every elevation - the
+// mean of (w . d)^2 over a hemisphere is 1 / 3; the aerosol's: open_sky_phase_mean, tabled over d.y).
+inline constexpr std::size_t kSkyPhaseTable = 32; // the view's elevation's sine from -1 to 1
+// The mean of 4 pi x the aerosol's phase (Cornette-Shanks, g) over the upper hemisphere's directions w for a view
+// direction of elevation sine `view_y`: (1 / 2 pi) Integral_upper 4 pi p(w . d) dw.
+[[nodiscard]] double open_sky_phase_mean(double view_y, double g);
+[[nodiscard]] std::array<float, kSkyPhaseTable> open_sky_phase_table(double g);
+
 // The processor's twins (the checks').
 [[nodiscard]] std::array<float, 3> water_extinction(const std::array<float, 3>& hue, float clarity);
 [[nodiscard]] std::array<float, 3> water_deep_reflectance(const std::array<float, 3>& hue);
