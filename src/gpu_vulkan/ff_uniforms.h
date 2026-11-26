@@ -164,6 +164,9 @@ struct FragmentUniforms {
     Float4 fog{};                     // table fog: start, end, density
     Float4 alpha_reference{};         // x: D3DRS_ALPHAREF, 0-255
     Float4 pass_tint{};               // (NOT ORIGINAL - round ALBEDO) GpuStateBlock::pass_tint: rgb, w the passes' bits
+    // (NOT ORIGINAL - round SKIN, engine/gfx/rt_coverage.h) x: the frame's seed for a blended surface's coverage at a pixel
+    // (coverage_seed; -1: no temporal resolve - a half); y, z, w: unused
+    Float4 coverage{};
 };
 
 // (NOT ORIGINAL - rt_pbr) Binding 6, the per-pixel lighting's (fragment shader). Directions are in camera space (the
@@ -180,7 +183,8 @@ struct SurfaceUniforms {
                         // roughness without a map; w: a dielectric's F0
     Float4 sheen{};     // rgb: the sheen's colour (cloth); w: its roughness
     Float4 albedo{};    // (round MATALB) x: the factor the texture's colour takes to be the material's albedo
-                        // (SurfaceDraw::albedo_scale); y, z, w: unused
+                        // (SurfaceDraw::albedo_scale); y, z: (round SKIN) a shine mask's coat - its strength and its
+                        // mask passes packed (GpuStateBlock::surface_coat, rt_surface_class.h surface_coat); w: unused
 };
 
 // (added by cel shading) Binding 8 (vertex and fragment shaders): vulkan_cel.cpp fills it.
@@ -270,7 +274,7 @@ constexpr std::size_t kVectorBytes = 16;
 static_assert(offsetof(VertexUniforms, texture_matrix) == 3 * kMatrixBytes, "std140: matrices are 64 bytes");
 static_assert(offsetof(VertexUniforms, pixel) == (3 + kStageCount) * kMatrixBytes, "std140");
 constexpr std::size_t kVectorsBeforeLights = 10; // pixel ... point_scale
-constexpr std::size_t kFragmentVectors = kPixelShaderConstants + 5;
+constexpr std::size_t kFragmentVectors = kPixelShaderConstants + 6;
 static_assert(offsetof(VertexUniforms, light_direction) == offsetof(VertexUniforms, pixel) + (kVectorsBeforeLights * kVectorBytes),
               "std140: vectors are 16 bytes");
 static_assert(offsetof(VertexUniforms, previous_clip) == offsetof(VertexUniforms, light_direction) + (4 * kMaxLights * kVectorBytes),

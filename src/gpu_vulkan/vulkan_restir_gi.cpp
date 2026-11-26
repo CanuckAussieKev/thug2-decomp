@@ -20,6 +20,7 @@
 #include "base/core/format.h"
 #include "engine/gfx/gpu_markers.h"
 #include "engine/gfx/rt_brdf.h"
+#include "engine/gfx/rt_coverage.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_light_list.h"
@@ -601,6 +602,9 @@ Surface primary(ivec2 p)
     HitSurface h;
     // (round BAKEALB: the camera ray's surface as DI's shared primary makes it, its layer laid on - without DI's cone: this
     // pass's own primary is the fallback when DI's isn't shared)
+#ifndef CHECK
+    ray_drawn_least = coverage_least(uvec2(p), pass.cache_cells.y); // (round SKIN: the prepass's threshold here)
+#endif
     if (!camera_surface(eye, dir, reach, expected, no_cone(), instance, primitive, id, bary, t, to_world, h) || h.hidden) {
 #ifdef CHECK
         return no_surface();
@@ -3196,7 +3200,9 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
     block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),
                        static_cast<uint32_t>(scene.instances_address >> 32U), scene.instances, 0U};
     (void)disc_of(lighting, &block.sun, &block.sun_radiance);
-    block.cache_cells = {static_cast<float>(kCacheCellPixels * pixel_angle(to_world, view)), 0.0F, 0.0F, 0.0F};
+    // (y - round SKIN, rt_coverage.h: the frame's seed for a blended surface's coverage at a pixel)
+    block.cache_cells = {static_cast<float>(kCacheCellPixels * pixel_angle(to_world, view)),
+                         check ? -1.0F : rt::coverage_seed(state.frames.serial(), state.motion.active), 0.0F, 0.0F};
     // (round OM) the local lights' next-event picks from ReSTIR DI's presampled pool (vulkan_light_list.h) - made for this
     // submission from the same local group the list holds
     if (!own.pool_off && local.light_pool != VK_NULL_HANDLE && local.entries > 0 && own.local_share > 0.0F) {

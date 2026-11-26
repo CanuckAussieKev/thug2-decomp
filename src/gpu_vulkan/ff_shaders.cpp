@@ -3,6 +3,7 @@
 // documentation leaves something open, the comment beside the code says what is assumed.
 #include "gpu_vulkan/ff_shaders.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -17,10 +18,14 @@
 #include "engine/gfx/precip_occlusion.h"
 #include "engine/gfx/rain.h"
 #include "engine/gfx/rt_brdf.h"
+#include "engine/gfx/rt_coverage.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_emission_map.h"
 #include "engine/gfx/rt_lights.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_relit.h"
+#include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_surface_class.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/water_shader.h"
@@ -1224,6 +1229,45 @@ std::string decal_layer_onto(std::string_view material, std::string_view indent)
 
 // (round M - the per-pixel lighting's comment has the model) After the program: `colour` (its albedo under white
 // light, display-referred) lit - linear light in a linear frame, else encoded for the display.
+// (NOT ORIGINAL - round SKIN) A shine mask's coat on the per-pixel material (rt_scene.h kReflectCoat; SurfaceUniforms::
+// albedo y / z - GpuStateBlock::surface_coat): the material table's lacquer laid on the surface's material by its share -
+// its strength x each mask pass's texel alpha (or 1 - it; x 2 x the vertex alpha unless the alpha is the texel's alone),
+// the stage the pass's - F0 and roughness toward the lacquer's, the layered material's parameters blended by coverage:
+// the rays' hit_coat_share / hit_surface_at's twin (vulkan_rt_scene.cpp). So the specular the draw puts ReSTIR GI's
+// traced environment light on (its specular albedo) and Ray Reconstruction's roughness and specular albedo guides are the
+// coated lobe's, as the rays' samples are. Before, the draw kept its uncoated material: GI's specular, sampled from the
+// coated lobe, went onto a rougher, dimmer one (Boston's windows, Training's quarter pipe).
+void surface_coat_layer(std::string& out, const FragmentKey& key, uint32_t sampled)
+{
+    // (the stages the program declares - fragment_program's count: the material's passes, else the one sampled)
+    const uint32_t textures = key.program == PixelProgram::kMaterial ? key.material_passes : (sampled != 0U ? 1U : 0U);
+    std::string alpha_of = "1.0";
+    for (uint32_t stage = std::min<uint32_t>(textures, 4U); stage-- > 0;) {
+        alpha_of = "stage == " + num(stage) + " ? t" + num(stage) + ".a : (" + alpha_of + ")";
+    }
+    add(out, {"    float surface_coat = clamp(s.albedo.y, 0.0, 1.0);\n"
+              "    if (surface_coat > 0.0) {\n"
+              "        int coat_masks = int(s.albedo.z + 0.5);\n"
+              "        for (int k = 0; k < 3; ++k) {\n"
+              "            int m = (coat_masks >> (",
+              num(rt::kCoatMaskBits), " * k)) & ", num((1U << rt::kCoatMaskBits) - 1U),
+              ";\n"
+              "            int kind = m & 3;\n"
+              "            if (kind == 0) continue;\n"
+              "            int stage = (m >> ",
+              num(rt::kCoatMaskStageShift), ") & 3;\n            float a = ", alpha_of,
+              ";\n"
+              "            if ((m & ",
+              num(rt::kCoatMaskTexelAlpha), ") == 0) a = clamp(a * 2.0 * v_diffuse.a, 0.0, 1.0);\n",
+              "            surface_coat *= kind == ", num(rt::kMaskClear),
+              " ? 1.0 - clamp(a, 0.0, 1.0) : clamp(a, 0.0, 1.0);\n"
+              "        }\n"
+              "        surface_m.f0 = mix(surface_m.f0, vec3(",
+              num(std::get<0>(rt::material_f0(rt::MaterialKind::kLacquer))), "), surface_coat);\n"
+              "        surface_m.roughness = mix(surface_m.roughness, ",
+              num(rt::material_values(rt::MaterialKind::kLacquer).roughness), ", surface_coat);\n    }"});
+}
+
 void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
 {
     // (round ALBEDO) the game's colour on the geometry (pass_tint_of: the time of day's sector colour, an object's light
@@ -1252,6 +1296,9 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
     }
     if ((key.detail & kDetailCloth) != 0U) {
         add(out, {"    surface_m.sheen = s.sheen.rgb;\n    surface_m.sheen_roughness = s.sheen.w;"});
+    }
+    if (key.program != PixelProgram::kStages) {
+        surface_coat_layer(out, key, sampled);
     }
     // the environment's specular: the light store's estimate, or the reflections pass's traced one (params.y)
     add(out, {"    float surface_env = s.params.y > 0.0 ? smoothstep(0.75 * s.params.y, s.params.y, surface_rough) : 1.0;"});
@@ -1451,7 +1498,10 @@ void fragment_declarations(std::string& out, const FragmentKey& key, uint32_t sa
 {
     add(out, {"layout(set = 0, binding = ", num(kFragmentUniformsBinding), ", std140) uniform FragmentUniforms {"});
     add(out, {"    vec4 constant[8];\n    vec4 texture_factor;\n    vec4 fog_colour;\n    vec4 fog;\n"
-              "    vec4 alpha_reference;\n    vec4 pass_tint;\n} u;"});
+              "    vec4 alpha_reference;\n    vec4 pass_tint;\n    vec4 coverage;\n} u;"});
+    if ((key.light & kLightDepthHalf) != 0U) {
+        add(out, {rt::kCoverageGlsl}); // (NOT ORIGINAL - round SKIN: a kept blended draw's coverage, rt_coverage.h)
+    }
     // (round F - a linear, scene-referred frame: fragment_linear_output) the frame's transfer; whether this draw writes
     // linear light (u.alpha_reference.y); a stage's texel as the game's colour arithmetic takes it - a texture that
     // holds linear light (a copy of the world drawn this view - u.alpha_reference.z's bit) encoded back to the display's
@@ -2175,6 +2225,19 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     }
     fragment_fog(out, key);
     fragment_alpha_test(out, key);
+    if ((key.light & kLightDepthHalf) != 0U) {
+        // (NOT ORIGINAL - round V: a blended draw's prepass keeps only its mostly opaque part - its translucent edges
+        // don't hide what was drawn behind them; vulkan_surface_light.h)
+        // (round SKIN - engine/gfx/rt_coverage.h: its coverage stochastic under a temporal resolve, else a half) Its
+        // prepass and its shaded draw keep the same pixels: the shaded one is that surface there, wholly - opaque, lit
+        // with its own light inputs - and nothing elsewhere, where the surface behind it was shaded. Before, its shaded
+        // draw was blended over a pixel its prepass had hidden from the shading (what the target held there), and its
+        // fragments under half opaque had no light inputs.
+        add(out, {"    if (!(colour.a > coverage_least(uvec2(gl_FragCoord.xy), u.coverage.x))) discard;"});
+        if ((key.light & kLightDepthOnly) == 0U) {
+            add(out, {"    colour.a = 1.0;"});
+        }
+    }
     if ((key.light & kLightGuides) != 0U && (key.light & (kLightInputs | kLightShare)) != 0U) {
         add(out, {"    light_write_guides();"}); // (round V: once kept)
     }
@@ -2182,11 +2245,6 @@ std::string fragment_shader_glsl(const FragmentKey& key)
         // (NOT ORIGINAL - round FRONT: a particle's depth in the front layer where it covers at all - vulkan_surface_light.cpp
         // depth_pipeline's `covered`)
         add(out, {"    if (colour.a < 1.0 / 255.0) discard;"});
-    }
-    if ((key.light & kLightDepthOnly) != 0U && (key.light & kLightDepthHalf) != 0U) {
-        // (NOT ORIGINAL - round V: a blended draw's prepass keeps only its mostly opaque part - its translucent edges
-        // don't hide what was drawn behind them; vulkan_surface_light.h)
-        add(out, {"    if (colour.a < 0.5) discard;"});
     }
     if (layer_write(key)) {
         // (NOT ORIGINAL - round DECAL: laid where it lies on the surface the inputs were made for - its material over the

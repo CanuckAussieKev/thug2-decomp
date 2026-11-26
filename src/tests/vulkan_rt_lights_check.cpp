@@ -2512,7 +2512,10 @@ bool through_quad(int x, int y, double height, double x0, double x1, double z0, 
     return x_of(at) > x0 + 2.0 && x_of(at) < x1 - 2.0 && z_of(at) > z0 + 2.0 && z_of(at) < z1 - 2.0;
 }
 
-enum class Over : uint8_t { kNothing, kGlass, kGlow, kLitGlow };
+// (round SKIN) kCover*: a quad alpha-blended over the floor that WRITES depth (a character's laces, a fence's soft edge -
+// engine/gfx/rt_coverage.h), its vertex alpha kCoverColour's at three heights
+enum class Over : uint8_t { kNothing, kGlass, kGlow, kLitGlow, kCoverFull, kCoverHigh, kCoverLow };
+constexpr uint32_t kCoverColour = 0x00C08040U; // (rgb; the alpha per case: 0xFF, 0xC0 - 0.75 -, 0x40 - 0.25)
 
 // (round RG) A lit glow - an added quad drawn with the fixed-function light, normals and coordinates (a lit object's draw: lit per
 // pixel in such a view), kLitGlowOver over the floor: well within the 1 % of its distance at which a fragment counts as
@@ -2650,6 +2653,18 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
         gpu.set_render_state(GpuRenderState::kLighting, 0);
         gpu.set_vertex_format(kFvfColour);
         gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
+    } else if (over == Over::kCoverFull || over == Over::kCoverHigh || over == Over::kCoverLow) {
+        // (round SKIN) blended by its alpha, its depth written - as the game draws such a surface
+        const uint32_t alpha = over == Over::kCoverFull ? 0xFFU : (over == Over::kCoverHigh ? 0xC0U : 0x40U);
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 1);
+        gpu.set_render_state(GpuRenderState::kSrcBlend, value::kBlendSrcAlpha);
+        gpu.set_render_state(GpuRenderState::kDestBlend, value::kBlendInvSrcAlpha);
+        const std::vector<ColourVertex> quad =
+            quad_at(kOverFloor, -kFloorHalf, 0.0, 0.0, kFloorHalf, (alpha << 24U) | kCoverColour);
+        gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(quad.size() / 3), quad.data(),
+                             sizeof(ColourVertex));
         gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
     } else if (over != Over::kNothing) {
         const bool glass = over == Over::kGlass;
@@ -2878,6 +2893,49 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     tally->check(ok && glow_pixels > 100 && glow_wrong == 0,
                  text::format("a glow over the shadow adds its light whole: %d pixels, %d darkened (worst %.4f)",
                               glow_pixels, glow_wrong, glow_worst));
+    // (round SKIN - engine/gfx/rt_coverage.h) a blended surface that writes depth, without a temporal resolve (the check's
+    // view: the half threshold): at alpha 0.75 it is the surface wholly - the picture the same as at alpha 1 -, at 0.25 it
+    // is not there - the floor under it shaded as without it. Before, the prepass kept its pixels at least half opaque and
+    // its shaded draw was blended over them: at 0.75 a quarter of what the target held there (the floor never shaded under
+    // it - here the clear's black; Training's skater: up to 10^4 x its light), at 0.25 drawn over the floor without light
+    // inputs of its own.
+    std::array<std::vector<uint8_t>, 3> cover_shots; // alpha 1, 0.75, 0.25
+    ok = ok && draw_per_surface(gpu, targets, meshes, false, Over::kCoverFull, frame++, &core::at(cover_shots, 0)) &&
+         draw_per_surface(gpu, targets, meshes, false, Over::kCoverHigh, frame++, &core::at(cover_shots, 1)) &&
+         draw_per_surface(gpu, targets, meshes, false, Over::kCoverLow, frame++, &core::at(cover_shots, 2));
+    int cover_pixels = 0;
+    int cover_high_wrong = 0;
+    int cover_low_wrong = 0;
+    int cover_seen = 0;
+    double cover_worst = 0.0;
+    for (const FloorPixel& pixel : pixels) {
+        if (!ok || !through_quad(pixel.x, pixel.y, kOverFloor, -kFloorHalf, 0.0, 0.0, kFloorHalf)) {
+            continue;
+        }
+        const Rgb full = linear_pixel_at(core::at(cover_shots, 0), pixel.x, pixel.y);
+        const Rgb high = linear_pixel_at(core::at(cover_shots, 1), pixel.x, pixel.y);
+        const Rgb low = linear_pixel_at(core::at(cover_shots, 2), pixel.x, pixel.y);
+        const Rgb floor_alone = linear_pixel_at(core::at(shots, 1), pixel.x, pixel.y);
+        bool high_bad = false;
+        bool low_bad = false;
+        bool seen = false;
+        for (std::size_t c = 0; c < 3; ++c) {
+            cover_worst = std::max({cover_worst, std::abs(core::at(high, c) - core::at(full, c)),
+                                    std::abs(core::at(low, c) - core::at(floor_alone, c))});
+            high_bad = high_bad || std::abs(core::at(high, c) - core::at(full, c)) > kLinearTolerance;
+            low_bad = low_bad || std::abs(core::at(low, c) - core::at(floor_alone, c)) > kLinearTolerance;
+            seen = seen || std::abs(core::at(full, c) - core::at(floor_alone, c)) > 4.0 * kLinearTolerance;
+        }
+        ++cover_pixels;
+        cover_high_wrong += high_bad ? 1 : 0;
+        cover_low_wrong += low_bad ? 1 : 0;
+        cover_seen += seen ? 1 : 0;
+    }
+    tally->check(ok && cover_pixels > 100 && cover_seen > cover_pixels / 2 && cover_high_wrong == 0 && cover_low_wrong == 0,
+                 text::format("a blended surface writing depth (no temporal resolve: a half): %d pixels (%d where it differs "
+                              "from the floor) - at alpha 0.75 the alpha-1 picture: %d wrong; at 0.25 the floor alone: %d "
+                              "wrong (worst %.4f)",
+                              cover_pixels, cover_seen, cover_high_wrong, cover_low_wrong, cover_worst));
     // Ray Reconstruction's guides (written as with it on): each floor pixel's albedo guide is the floor's own - a colour
     // lit already, its light not separated: the colour lit, as the guide was before round V - also under the glass,
     // which is in front of the surface the inputs were made for and writes none

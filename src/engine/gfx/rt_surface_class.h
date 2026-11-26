@@ -74,6 +74,20 @@ uint32_t surface_instance_flags(SurfaceClass surface, const Material& material);
 // WhereBaseOpaque - the windows in a wall's texture), water, shiny and a light-adding surface keep their class.
 uint32_t reflection_class_on(const Material& material, SurfaceClass surface);
 
+// (round SKIN) A shine mask's coat as the raster's draw takes it (Gpu::set_surface_coat - the per-pixel material's coat
+// layer, the rays' hit_coat_share's twin): its strength (the material's reflectivity, 0 - 1) and its mask passes packed,
+// five bits a mask pass k (0 - 2) from bit 5k - bits 0 - 1 its kind (kMaskClear / kMaskOpaque), bit 2 its alpha the
+// texel's alone (else 2 x the vertex alpha x it), bits 3 - 4 its stage (the pass's number); a pass past the fourth stage
+// is left out (none in the game's materials: four passes at most). All 0 where `class_on` isn't kReflectCoat.
+struct SurfaceCoat {
+    float strength = 0.0F;
+    uint32_t masks = 0;
+};
+SurfaceCoat surface_coat(const Material& material, uint32_t class_on);
+inline constexpr uint32_t kCoatMaskBits = 5;
+inline constexpr uint32_t kCoatMaskTexelAlpha = 4;
+inline constexpr uint32_t kCoatMaskStageShift = 3;
+
 // Its name for the logs ("opaque", "cut-out", "blended opaque", "seen through", "adds light").
 const char* surface_class_name(SurfaceClass surface);
 

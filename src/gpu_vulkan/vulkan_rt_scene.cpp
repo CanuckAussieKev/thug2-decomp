@@ -24,6 +24,7 @@
 #include "engine/gfx/gpu_markers.h"
 #include "engine/gfx/light_store.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_coverage.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_lights.h"
@@ -2679,6 +2680,7 @@ std::string_view cutout_rays_glsl()
                            std::to_string(std::get<0>(rt::material_f0(rt::MaterialKind::kWater))) +
                            ";\nconst float HIT_BLEND_GAMMA = " + std::to_string(rt::kDisplayGamma) +
                            ";\nconst float RAY_LAYER_LIFT = " + std::to_string(kLayerLift) + ";\n"; // (round DECAL)
+        text += rt::kCoverageGlsl; // (round SKIN: the prepass's threshold for a blended surface - coverage_least)
         text += R"(
 // (round PF - the path tracer's cost) What the tests of a candidate hit read, read once each: a ray's candidates on
 // cut-out and seen-through surfaces are most of the device's time in the light rays (every pass's ray_light), and each
@@ -2906,8 +2908,9 @@ vec3 hit_blend_transmittance(HitBlend b, float cos_theta)
 }
 
 // (round CW) The surface the per-surface lighting's prepass keeps at a pixel (vulkan_surface_light.h, step 1): an opaque or
-// cut-out one where its alpha test passes, a blended one (HIT_COVERAGE / HIT_GLASS - an alpha blend) where it is at
-// least half opaque (the prepass's kLightDepthHalf); never a filter or an added one (no depth of theirs is kept). The
+// cut-out one where its alpha test passes, a blended one (HIT_COVERAGE / HIT_GLASS - an alpha blend) where its coverage is
+// above the prepass's threshold at the pixel (round SKIN - ray_drawn_least: its kLightDepthHalf, stochastic coverage under a
+// temporal resolve, else at least half opaque); never a filter or an added one (no depth of theirs is kept). The
 // light inputs are made for that surface, so a pass that finds the pixel's surface by a camera ray takes this test and
 // every drawn instance (RAY_DRAWN: the seen-through ones too). With the opaque kinds alone, a blended layer the prepass
 // kept - a road's painted crosswalk, 0.8 units over the asphalt - was missed: the ray found the asphalt under it, and the
@@ -2917,6 +2920,10 @@ const uint RAY_INSTANCE_APART = 512u; // (round PG: rt::kDrawnApart - drawn by a
 const uint RAY_INSTANCE_OBJECT = 32u; // (rt::kObject)
 // (round DECAL) a layer lies on a surface facing as it does: |cos| between the two faces at least this (~25 degrees)
 const float RAY_LAYER_FACING = 0.9;
+// (round SKIN - engine/gfx/rt_coverage.h) the least coverage of a blended surface the prepass kept at the pixel a camera
+// ray is traced for: the raster's threshold there (coverage_least - its pixel and the frame's seed), set by the pass
+// before its camera_surface; a half (the alpha test without a temporal resolve) otherwise
+float ray_drawn_least = 0.5 - 1.0e-6;
 bool drawn_kept(uint instance, uint primitive, uint id, vec2 barycentrics)
 {
     uint flags = geometry_record(instance).instance_flags;
@@ -2927,7 +2934,7 @@ bool drawn_kept(uint instance, uint primitive, uint id, vec2 barycentrics)
         return cutout_kept(instance, primitive, id, barycentrics);
     }
     HitBlend b = hit_blend(instance, primitive, id, barycentrics);
-    return (b.kind == HIT_COVERAGE || b.kind == HIT_GLASS) && b.coverage >= 0.5;
+    return (b.kind == HIT_COVERAGE || b.kind == HIT_GLASS) && b.coverage > ray_drawn_least;
 }
 // (round DECAL) How far a blended surface met at `t` along `dir` lies from `t_behind` along the blended triangle's own
 // normal (its world face from its corners) - a layer on the surface behind it within RAY_LAYER_LIFT (ff_key.h kLayerLift:

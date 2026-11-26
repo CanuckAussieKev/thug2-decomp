@@ -60,6 +60,7 @@
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_surface_class.h"
 #include "engine/gfx/surface_maps.h"
 #include "formats/detail_material_format.h"
 #include "formats/surface_map_format.h"
@@ -353,6 +354,10 @@ struct Case {
     float skin = 1.0F;
     float cloth = 1.0F;
     float hair = 1.0F;
+    // (round SKIN) a shine mask's coat on the draw (Gpu::set_surface_coat: its strength, its mask passes packed -
+    // rt_surface_class.h surface_coat); 0: none
+    float coat = 0.0F;
+    uint32_t coat_masks = 0;
 };
 
 constexpr Vec3 kAmbient{0.15F, 0.15F, 0.18F};
@@ -549,6 +554,30 @@ bool expected(const Case& given, const Quad& quad, uint32_t px, uint32_t py, Vec
         core::at(m.f0, channel) = metal ? core::at(albedo, channel) : surface.f0;
     }
     m.roughness = std::clamp(surface.rough, 0.0F, 1.0F);
+    if (test.coat > 0.0F && test.pbr) {
+        // (round SKIN - ff_shaders.cpp surface_coat_layer, the rays' hit_coat_share) the lacquer laid by its share: the
+        // strength x each mask pass's alpha - the texture's (stage 0: kHalfAlpha), x 2 x the vertex alpha (128) unless the
+        // texel's alone - or 1 - it
+        float share = std::clamp(test.coat, 0.0F, 1.0F);
+        for (uint32_t k = 0; k < 3; ++k) {
+            const uint32_t mask = (test.coat_masks >> (render::rt::kCoatMaskBits * k)) & ((1U << render::rt::kCoatMaskBits) - 1U);
+            const uint32_t mask_kind = mask & 3U;
+            if (mask_kind == 0) {
+                continue;
+            }
+            float a = static_cast<float>(kHalfAlpha) / kByteMax;
+            if ((mask & render::rt::kCoatMaskTexelAlpha) == 0U) {
+                a = std::clamp(a * kTwo * (static_cast<float>(kHalfAlpha) / kByteMax), 0.0F, 1.0F); // (argb: alpha 128)
+            }
+            share *= mask_kind == render::rt::kMaskClear ? 1.0F - a : a;
+        }
+        const float lacquer_f0 = std::get<0>(render::rt::material_f0(render::rt::MaterialKind::kLacquer));
+        const float lacquer_rough = render::rt::material_values(render::rt::MaterialKind::kLacquer).roughness;
+        for (std::size_t channel = 0; channel < 3; ++channel) {
+            core::at(m.f0, channel) += (lacquer_f0 - core::at(m.f0, channel)) * share;
+        }
+        m.roughness += (lacquer_rough - m.roughness) * share;
+    }
     const Character character = character_of(test, texel.colour); // (added for the characters)
     if (test.characters && test.lit && map_used(test) &&
         (kind == render::rt::MaterialKind::kCloth || kind == render::rt::MaterialKind::kDenim)) {
@@ -727,6 +756,7 @@ void draw_case(render::Gpu& gpu, const Case& test, const Quad& quad, GpuTexture*
     if (tint > 0.0F) {
         gpu.set_pass_tint({tint, tint, tint}, 1U);
     }
+    gpu.set_surface_coat({test.coat, static_cast<float>(test.coat_masks), 0.0F, 0.0F}); // (round SKIN)
     if (test.normals) {
         gpu.set_vertex_format(kFvfPosition | kFvfNormal | kFvfDiffuse | kFvfTex1);
         gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, vertices.data(), sizeof(Vertex));
@@ -734,6 +764,7 @@ void draw_case(render::Gpu& gpu, const Case& test, const Quad& quad, GpuTexture*
         gpu.set_vertex_format(kFvfPosition | kFvfDiffuse | kFvfTex1);
         gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, 2, plain.data(), sizeof(VertexNoNormal));
     }
+    gpu.set_surface_coat({});
 }
 
 void run_case(render::Gpu& gpu, GpuSurface* target, const Case& test, render::GpuPixelShader* shader, Tally* tally)
@@ -1733,7 +1764,12 @@ int run(const Options& options, SDL_Window* window)
         constexpr float kYaw = 0.61F;   // 35 degrees
         constexpr float kPitch = 0.35F; // 20 degrees
         const Vec3 dark{0.12F, 0.11F, 0.1F};
-        const std::array<Case, 12> cases{{
+        // (round SKIN) a shine mask's coat: its mask passes - stage 0 where its texel's alpha is (opaque, the texel's
+        // alone), where it is clear (2 x the vertex alpha x it), and both at a strength of 0.6
+        constexpr uint32_t kCoatWhereOpaque = render::rt::kMaskOpaque | render::rt::kCoatMaskTexelAlpha;
+        constexpr uint32_t kCoatWhereClear = render::rt::kMaskClear;
+        constexpr uint32_t kCoatClearTexel = render::rt::kMaskClear | render::rt::kCoatMaskTexelAlpha;
+        const std::array<Case, 15> cases{{
             {.name = "lit, facing the camera"},
             {.name = "lit, turned 35 / 20 degrees", .yaw = kYaw, .pitch = kPitch},
             {.name = "lit, u mirrored", .yaw = kYaw, .pitch = kPitch, .mapping = Mapping::kMirrored},
@@ -1746,6 +1782,12 @@ int run(const Options& options, SDL_Window* window)
             {.name = "lit, no map (per-pixel lights)", .yaw = kYaw, .pitch = kPitch, .map = false},
             {.name = "rt_pbr off, lit: the original's", .yaw = kYaw, .pitch = kPitch, .pbr = false},
             {.name = "rt_pbr off, baked: the original's", .yaw = kYaw, .lit = false, .pbr = false},
+            {.name = "lit, a shine mask's coat where the texel is opaque", .yaw = kYaw, .pitch = kPitch, .coat = 1.0F,
+             .coat_masks = kCoatWhereOpaque},
+            {.name = "baked, a coat where the texture is clear (vertex alpha)", .yaw = kYaw, .pitch = kPitch, .lit = false,
+             .coat = 1.0F, .coat_masks = kCoatWhereClear},
+            {.name = "lit, a coat at 0.6 under two masks", .yaw = -kYaw, .pitch = kPitch, .coat = 0.6F,
+             .coat_masks = kCoatWhereOpaque | (kCoatClearTexel << render::rt::kCoatMaskBits)},
         }};
         for (const Case& test : cases) {
             run_case(gpu, target, test, shader, &tally);

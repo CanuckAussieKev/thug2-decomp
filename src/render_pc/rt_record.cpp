@@ -3176,6 +3176,21 @@ void mesh_drawn(const MeshRef* mesh)
     rt->mesh_drawn(id, rt::object_to_world_rows(world));
 }
 
+std::array<float, 4> surface_coat(const MeshRef* mesh)
+{
+    if (backend() == nullptr || mesh->material() == nullptr) {
+        return {};
+    }
+    const State& st = state();
+    const auto made = st.materials.find(mesh->material());
+    if (made == st.materials.end() || made->second.material.reflection_class != rt::kReflectGlass) {
+        return {}; // (a coat is only ever glass by its cover on a solid mesh - the common case leaves here)
+    }
+    const rt::Material& own = made->second.material;
+    const rt::SurfaceCoat coat = rt::surface_coat(own, rt::reflection_class_on(own, surface_class_of(mesh, own)));
+    return {coat.strength, static_cast<float>(coat.masks), 0.0F, 0.0F};
+}
+
 void mesh_released(const MeshRef* mesh)
 {
     rt::RayTracing* rt = backend();

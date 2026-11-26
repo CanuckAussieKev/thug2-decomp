@@ -6,7 +6,8 @@
 //   thug2_ff_shader_check [--all-materials] [--no-gpu] [--device N] [--pipelines N] [--jobs N] [--dump FOLDER] [--surface] [--motion] [--cel]
 //                         [--retro] [--detail] [--water] [--characters] [--trails] [--light]
 // --light (NOT ORIGINAL - round V, gpu_vulkan/vulkan_surface_light.h): every pair again as a prepass's draw (FragmentKey::
-// light kLightDepthOnly, and kLightDepthHalf - a blended one's), every pair not lit per pixel with the light inputs as
+// light kLightDepthOnly, and kLightDepthHalf - a blended one's; round SKIN: the shaded keys with kLightDepthHalf too, a
+// blended draw that writes depth kept where its prepass kept it), every pair not lit per pixel with the light inputs as
 // shares (kLightShare) - and as shares reading the front layer with their depth in it where they cover (kLightFront: round
 // FRONT's particles) -, and with --surface every pair lit per pixel with the light inputs (kLightInputs) - after
 // --surface's, --trails' and --water's, before --motion's.
@@ -517,6 +518,13 @@ void add_light_keys(ff_check::KeySets& sets)
                                                                                              : uint8_t{0};
         if (lit.fragment.light != 0U) {
             keys.push_back(lit);
+            // (round SKIN - engine/gfx/rt_coverage.h: a blended draw that writes depth, shaded where its prepass kept it -
+            // kLightDepthHalf - with Ray Reconstruction's guides, as the game draws it under RR; the guides' code is the
+            // plain lit keys' as well)
+            ShaderKey covered = lit;
+            covered.fragment.light =
+                static_cast<uint8_t>(covered.fragment.light | render::vulkan::kLightDepthHalf | render::vulkan::kLightGuides);
+            keys.push_back(covered);
         }
         if (lit.fragment.light == kLightShare) {
             // (round FRONT: a particle - shares that read the front layer - and its depth in the layer where it covers)
@@ -542,6 +550,11 @@ void add_light_keys(ff_check::KeySets& sets)
             (key.surface & render::vulkan::kSurfaceCel) == 0U) {
             key.light = kLightInputs;
             if (sets.fragment.insert(key).second) {
+                ++added;
+            }
+            FragmentKey covered = key; // (round SKIN: a blended relit draw that writes depth - kLightDepthHalf)
+            covered.light = static_cast<uint8_t>(kLightInputs | render::vulkan::kLightDepthHalf);
+            if (sets.fragment.insert(covered).second) {
                 ++added;
             }
             // (round DECAL: a see-through overlay laid into its surface - its shaded draw and its laying)

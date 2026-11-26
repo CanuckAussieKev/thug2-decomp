@@ -21,6 +21,7 @@
 #include "engine/gfx/gpu_markers.h"
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/rt_brdf.h"
+#include "engine/gfx/rt_coverage.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_light_list.h"
@@ -513,6 +514,9 @@ Surface primary(ivec2 p)
     cone.dy = world_at(centre + vec2(0.0, 1.0), d) - eye;
     cone.bias = pass.cone.x;
     cone.most_anisotropy = max(pass.cone.y, 1.0);
+#endif
+#ifndef CHECK
+    ray_drawn_least = coverage_least(uvec2(p), pass.cone.z); // (round SKIN: the prepass's threshold here)
 #endif
     if (!camera_surface(eye, dir, reach, expected, cone, instance, primitive, id, bary, t, to_world, h) || h.hidden) {
 #ifdef CHECK
@@ -2969,7 +2973,8 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
                   static_cast<float>(std::max(1, graphics_options::device_anisotropy(
                                                      graphics_options::get_pull().anisotropy, state.sampler_limits.anisotropy,
                                                      static_cast<uint32_t>(state.sampler_limits.max_anisotropy)))),
-                  0.0F, 0.0F};
+                  // (round SKIN - rt_coverage.h) the frame's seed for a blended surface's coverage at a pixel
+                  check ? -1.0F : rt::coverage_seed(state.frames.serial(), state.motion.active), 0.0F};
     block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),
                        static_cast<uint32_t>(scene.instances_address >> 32U), scene.instances, 0U};
     block.list = {kListCapacity, 0U, 0U, 0U};

@@ -358,6 +358,11 @@ struct GpuStateBlock {
     // where it stands), kept apart from them by a device that takes it apart (Gpu::takes_pass_tint): rgb the factor, w
     // the passes it is on (bit n: pass n; 0 - none). Constants given again put it back to none.
     std::array<float, 4> pass_tint{1.0F, 1.0F, 1.0F, 0.0F};
+    // NOT ORIGINAL - (round SKIN) a shine mask's coat on the draw's surface (rt_scene.h kReflectCoat - the rays' material
+    // has it as a layer: vulkan_rt_scene.cpp hit_surface_at): x its strength (the material's reflectivity; 0 none), y its
+    // mask passes (surface_coat_masks - each pass's texel alpha, or 1 - it, scaling the strength). Set for a mesh's draw by
+    // render_pc's ray-tracing record (rt_record.h surface_coat), cleared after it.
+    std::array<float, 4> surface_coat{};
     GpuVertexShader* vertex_shader{};
     std::array<std::array<float, 4>, kGpuVertexConstantCount> vertex_constants{};
     GpuMaterial material{};
@@ -687,6 +692,8 @@ public:
     {
         block_.pass_tint = {std::get<0>(factor), std::get<1>(factor), std::get<2>(factor), static_cast<float>(passes)};
     }
+    // NOT ORIGINAL - (round SKIN) the next draws' shine-mask coat (GpuStateBlock::surface_coat; {} none)
+    void set_surface_coat(const std::array<float, 4>& coat) { block_.surface_coat = coat; }
 
 private:
     GpuStateBlock block_;
