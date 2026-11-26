@@ -392,12 +392,15 @@ void Singleton::render(uint32_t draw_bits)
         const bool game_colour = renderer().instance_colour_on() != 0U;
         // (round P10 - objects relit: an object the relit level lists is lit mesh by mesh - its light store, or the
         // field's ratio where each mesh stands - pc_mesh_render.cpp UnlitWorldColour)
-        if (!game_colour && !rt_relit_world::object_listed(this) && rt_relit_world::unlit_object_colour(place, &colour)) {
+        const bool listed = rt_relit_world::object_listed(this);
+        if (!game_colour && !listed && rt_relit_world::unlit_object_colour(place, &colour)) {
             renderer().set_instance_colour_on(1);
             renderer().set_instance_colour(colour);
             darkened.on = true;
         }
-        render::rt::note_light_path(game_colour                              ? render::rt::LightPath::kObjectUnlitGameColour
+        // (round HEADS) a listed object counted apart, whatever colour the game set: its meshes are the relit level's
+        render::rt::note_light_path(listed                                   ? render::rt::LightPath::kObjectUnlitListed
+                                    : game_colour                            ? render::rt::LightPath::kObjectUnlitGameColour
                                     : render::rt::light_field() != nullptr ? render::rt::LightPath::kObjectUnlitField
                                                                            : render::rt::LightPath::kObjectUnlitOwn);
     }

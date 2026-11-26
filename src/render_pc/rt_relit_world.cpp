@@ -662,8 +662,7 @@ bool make_entry(const WorldMesh& world, Entry* out)
     entry.input.colours = entry.originals;
     entry.glow_card = world.glow;
     entry.lit_per_pixel = world.lit_per_pixel;
-    entry.baked_shadow = world.blended && !entry.originals.empty() &&
-                         std::ranges::all_of(entry.originals, [](uint32_t colour) { return luma_of(colour) < 1.0F; });
+    entry.baked_shadow = rt::baked_shadow_mesh(world.blended, world.surface, entry.originals);
     // (added by building relief) a relieved mesh's made vertices take the flat wall's light (rt_relit.h
     // RelitMesh::sources): their sources, the last of its vertices
     const std::span<const relief::VertexSource> made = mesh_smoothing::sources_of(core::at(mesh->index_buffers(), 0));
@@ -2193,6 +2192,23 @@ bool light_card_hidden(const MeshRef* mesh)
 {
     return state().status == Status::kRelit && mesh != nullptr &&
            (rt_record::light_card_material(mesh->material()) || rt_record::light_volume_mesh(mesh));
+}
+
+bool ray_hidden(const MeshRef* mesh)
+{
+    if (light_card_hidden(mesh)) {
+        return true;
+    }
+    const State& st = state();
+    if (st.status != Status::kRelit || mesh == nullptr) {
+        return false;
+    }
+    const auto buffer = st.buffer_of.find(mesh);
+    if (buffer == st.buffer_of.end()) {
+        return false;
+    }
+    const auto entry = st.entries.find(buffer->second);
+    return entry != st.entries.end() && (entry->second.baked_shadow || entry->second.glow_card);
 }
 
 bool unlit_world_colour(const MeshRef* mesh, std::array<uint8_t, 4>* out)

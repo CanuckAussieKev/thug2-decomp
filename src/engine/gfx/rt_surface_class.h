@@ -49,12 +49,12 @@ bool vertex_alpha_counts(const Material& material);
 // pool sheets: opaque to every ray, the floor under them in their shadow).
 float least_vertex_alpha_in(std::span<const uint8_t> bytes, uint32_t fvf, uint32_t stride, uint32_t count);
 
-// (round FIXTURE - rt_lights.h light_volume) The vertex colours of the same vertices: whether every one holds the same
-// colour (r, g, b), its brightest channel's byte, and the least and most alpha bytes. `known` false without colours or
-// vertices (Direct3D's diffuse then is white: no fade).
+// (round FIXTURE - rt_lights.h light_volume) The vertex colours of the same vertices: the dimmest vertex's brightest
+// channel byte (round HEADS: every vertex's own - before, the first vertex's, with a test that every vertex held its
+// colour), and the least and most alpha bytes. `known` false without colours or vertices (Direct3D's diffuse then is
+// white: no fade).
 struct VertexColours {
     bool known = false;
-    bool one_colour = false;
     uint8_t brightest = 0;
     uint8_t least_alpha = 0;
     uint8_t most_alpha = 0;
@@ -87,6 +87,16 @@ SurfaceCoat surface_coat(const Material& material, uint32_t class_on);
 inline constexpr uint32_t kCoatMaskBits = 5;
 inline constexpr uint32_t kCoatMaskTexelAlpha = 4;
 inline constexpr uint32_t kCoatMaskStageShift = 3;
+
+// (lighting round A; round HEADS) Whether a mesh is the bake's shadow drawn as geometry, which the relit level hides (it
+// adds no colour, only takes the light away - College's court: the fence's shadow lines): `blended` - its first pass
+// drawn over what is under it, not added -, every vertex colour (ARGB words) black (luminance under 1 of 255) and it
+// lets what is under it show: any class but kBlendedOpaque. A black mesh that covers wholly is no shadow laid on a
+// surface but a surface - the original's darkness drawn as a closure (Training's pit behind its quarter pipes, a black
+// box over the level's open edge): kept, every ray meets it. Hidden, the rays past it met the open world beyond the
+// level - its ground's light, bright at noon, lit Training's hall in the reference path tracer while ReSTIR's light rays
+// stopped at the hidden box: half the reference's light at the user's quarter-pipe spot. No colours: not one.
+[[nodiscard]] bool baked_shadow_mesh(bool blended, SurfaceClass surface, std::span<const uint32_t> colours);
 
 // Its name for the logs ("opaque", "cut-out", "blended opaque", "seen through", "adds light").
 const char* surface_class_name(SurfaceClass surface);

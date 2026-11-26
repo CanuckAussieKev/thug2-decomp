@@ -178,6 +178,14 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
     if (mesh->stride() < kMinSourceStride || mesh->stride() > kMaxSourceStride) {
         return;
     }
+    // Not original (round HEADS - one rule for every drawn mesh): a billboard that is a light card or a light volume -
+    // a lamp's halo the artists turned toward the camera - isn't drawn in a relit view, as a mesh drawn in place isn't
+    // (MeshRef::render, rt_relit_world.h light_card_hidden). Drawn, Training's pendant kept its halo - its baked colour
+    // x the light field's ratio there (the bake was dark round it: x 6 700) - over the lamp's own light: the realtime
+    // pendant 3 x the reference's. Original behaviour: drawn.
+    if (rt_relit_world::light_card_hidden(mesh)) {
+        return;
+    }
     if (view_setup().distance_clipping() && view_setup().fog_setting()) { // (fog: its start a quarter back)
         const float end = renderer().render_camera().far_z_;
         renderer().set_fog_begin_distance(0.0F);
