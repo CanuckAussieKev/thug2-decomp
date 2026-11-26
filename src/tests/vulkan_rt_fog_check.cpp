@@ -1738,9 +1738,11 @@ void run_replace(render::Gpu& gpu, const Scene& scene, Tally* tally)
 // (round FIXTURE) The air of a closed room - the sun and the open sky outside it - against the exact integral: no light
 // of either in front of its walls, at the game's froxel size (12 pixels a column; the far wall's froxel ~70 units deep
 // at 700, the wall 4 - its samples past the wall in the sunlit open air would light the room's air). Training's noon
-// "fog" is not that: the pass keeps a closed room dark (docs/design/vulkan.md "Round FIXTURE").
+// "fog" is not that: the pass keeps a closed room dark (docs/design/vulkan.md "Round FIXTURE"). (Round MEDIUM: the
+// froxels' points past the surface their pixel shows left out - the room's air 0.0065 of the open air's before, 0 now;
+// the bound 0.02 -> 0.002.)
 constexpr uint32_t kRoomScale = 12;
-constexpr double kMostRoomLight = 0.02; // (the room's air's light, a share of the open air's at the same reach)
+constexpr double kMostRoomLight = 0.002; // (the room's air's light, a share of the open air's at the same reach)
 // The exact integral's mean light over the pixels on the room's outside wall seen from 700 units off it outdoors: the
 // open air's light at the reach the room's case looks across.
 double room_outdoor_light()
@@ -1811,7 +1813,7 @@ void run_room(render::Gpu& gpu, const Scene& scene, Tally* tally)
             want /= std::max(counted, 1);
             tally->check(counted > 0 && outdoors > 0.0 && got - want < kMostRoomLight * outdoors,
                          text::format("the room's air: the pass's light %.5f, the exact %.5f, over %d pixels (the open "
-                                      "air's %.5f: the pass's leak %.4f of it, at most %.2f)",
+                                      "air's %.5f: the pass's leak %.4f of it, at most %.3f)",
                                       got, want, counted, outdoors, outdoors > 0.0 ? (got - want) / outdoors : 0.0,
                                       kMostRoomLight));
         }
@@ -2094,6 +2096,61 @@ constexpr double kMostPhaseError = 0.01;      // the phase's mean over the spher
 double ground_extinction(const render::rt::Aerosol& air)
 {
     return core::at(render::rt::kRayleigh, 1) + (core::at(air.extinction, 1) * render::rt::aerosol_density(air, 0.0));
+}
+
+// (round MEDIUM - rt_volume_light.h open_sky_phase_mean) The open sky's light indoors weighed by the phase toward the
+// eye: the phase's mean over the upper hemisphere - even phases 1 at every view, any phase's upper and lower halves
+// together its whole sphere (D(y) + D(-y) = 2) -, and a roof opening (the sky open within 30 degrees of the zenith) seen
+// by an eye looking across: the forward-scattering aerosol sends it less than its open share, looking up more.
+void run_sky_phase(Tally* tally)
+{
+    namespace rt = render::rt;
+    text::print("the open sky's light indoors, by the phase toward the eye (rt_volume_light.h open_sky_phase_mean):\n");
+    double even = 0.0;
+    double halves = 0.0;
+    for (const double y : {-1.0, -0.6, -0.2, 0.0, 0.3, 0.7, 1.0}) {
+        even = std::max(even, std::abs(rt::open_sky_phase_mean(y, 0.0) - 1.0));
+        halves = std::max(halves, std::abs(rt::open_sky_phase_mean(y, 0.8) + rt::open_sky_phase_mean(-y, 0.8) - 2.0));
+    }
+    tally->check(even < 2e-3, text::format("an even phase's mean over the upper hemisphere: 1 at every view (worst %.2g "
+                                           "off)",
+                                           even));
+    tally->check(halves < 5e-3, text::format("g 0.8: the upper and lower hemispheres' means add up to the sphere's (2; "
+                                             "worst %.2g off)",
+                                             halves));
+    // the roof opening: the share the froxels' weight gives (the open directions' 4 pi p over the mean) against the open
+    // share, by a grid over the upper hemisphere
+    const auto share = [](double view_y) {
+        const double view_x = std::sqrt(1.0 - (view_y * view_y));
+        constexpr double kG = 0.8;
+        constexpr double kOpenFrom = 0.866; // (cos 30 degrees)
+        constexpr int kRings = 400;
+        constexpr int kAround = 400;
+        const double mean = rt::open_sky_phase_mean(view_y, kG);
+        double weighted = 0.0;
+        double open = 0.0;
+        for (int i = 0; i < kRings; ++i) {
+            const double z = (i + 0.5) / kRings;
+            const double r = std::sqrt(1.0 - (z * z));
+            for (int j = 0; j < kAround; ++j) {
+                const double a = 2.0 * std::numbers::pi * (j + 0.5) / kAround;
+                if (z < kOpenFrom) {
+                    continue;
+                }
+                const double c = (r * std::cos(a) * view_x) + (z * view_y);
+                weighted += 4.0 * std::numbers::pi * rt::aerosol_phase(c, kG) / mean;
+                open += 1.0;
+            }
+        }
+        const double n = static_cast<double>(kRings) * kAround;
+        return std::array<double, 2>{weighted / n, open / n};
+    };
+    const std::array<double, 2> across = share(0.0);
+    const std::array<double, 2> up = share(0.9);
+    tally->check(across.front() < 0.5 * across.back() && up.front() > across.back(),
+                 text::format("a roof opening (the sky within 30 degrees of the zenith, %.3f of the upper hemisphere): "
+                              "its light in the air toward an eye looking across %.4f, looking up %.4f",
+                              across.back(), across.front(), up.front()));
 }
 
 void run_air_model(Tally* tally)
@@ -2751,6 +2808,7 @@ int run(const Options& options, SDL_Window* window)
         render::Gpu& gpu = render::vulkan::gpu();
         publish_light({1.0F, 1.0F, 1.0F}); // (round UNITS: the light in the global unit, a relit level's)
         run_air_model(&tally); // (added by the street air)
+        run_sky_phase(&tally); // (round MEDIUM)
         run_replace(gpu, scene, &tally);
         run_room(gpu, scene, &tally); // (round FIXTURE)
         run_quarter(gpu, scene, &tally); // (added by the street air)

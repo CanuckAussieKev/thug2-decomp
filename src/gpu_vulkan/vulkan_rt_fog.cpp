@@ -165,6 +165,9 @@ layout(set = 0, binding = 7) uniform FogBlock {
     // (round FOG) the light grid's picks this frame (vulkan_light_list.h light_grid_reader_glsl: xy their address, z 1
     // when there) - RTXDI's ReGIR: a froxel inside ReSTIR DI's light grid takes its candidates from its cell's picks
     uvec4 picks;
+    // (round MEDIUM - rt_volume_light.h open_sky_phase_mean) the mean of 4 pi x the aerosol's phase over the upper
+    // hemisphere for view elevations' sines -1 .. 1 (32 entries)
+    vec4 sky_phase[8];
 } fog;
 
 const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
@@ -243,43 +246,11 @@ ivec2 froxel(ivec2 column, int slice)
 vec2 column_size() { return vec2(fog.rect.zw) / vec2(fog.low.xy); }
 
 // The optical depth of a layer between s0 and s1 along the view ray (y linear along it): extinction `sigma` at height
-// `ground`, thinning by e every 1 / inv_h above it, `sigma` at and below it - in closed form.
+// `ground`, thinning by e every 1 / inv_h above it, `sigma` at and below it - in closed form (round MEDIUM: the medium's
+// one definition, rt_volume_light.h kMediumGlsl - the path tracer's too).
 float layer_depth(vec3 direction, float s0, float s1, float sigma, float inv_h, float ground)
 {
-    float u0 = fog.camera.y - ground; // the camera's height above the ground
-    float dy = direction.y;
-    float lo = s0; // [lo, hi]: the part above the ground
-    float hi = s1;
-    float below = 0.0;
-    if (inv_h > 0.0) {
-        if (abs(dy) < 1e-12) {
-            if (u0 <= 0.0) {
-                below = s1 - s0;
-                hi = lo;
-            }
-        } else {
-            float cut = clamp(-u0 / dy, s0, s1); // where the ray crosses the ground's height
-            if (dy > 0.0) {
-                below = cut - s0;
-                lo = cut;
-            } else {
-                below = s1 - cut;
-                hi = cut;
-            }
-        }
-    }
-    float depth = sigma * below;
-    if (hi > lo) {
-        float k = dy * inv_h;
-        float e_lo = exp(-max(u0 + dy * lo, 0.0) * inv_h);
-        float e_hi = exp(-max(u0 + dy * hi, 0.0) * inv_h);
-        if (abs(k) * (hi - lo) < 1e-4) {
-            depth += sigma * exp(-max(u0 + dy * 0.5 * (lo + hi), 0.0) * inv_h) * (hi - lo);
-        } else {
-            depth += sigma * (e_lo - e_hi) / k;
-        }
-    }
-    return depth;
+    return sigma * medium_layer_depth(fog.camera.y - ground, direction.y, s0, s1, inv_h);
 }
 
 // The street air's optical depth between s0 and s1: the weather's air over the level's ground and the falling snow.
@@ -408,15 +379,60 @@ float light_seen(vec3 at, ivec2 p, int i)
     return visible(at, toward_light(p, i), SUN_DISTANCE) * through;
 }
 
-// (the indoor air) How much of the sky the air at `at` sees: a ray toward a point of the upper hemisphere, even in solid
-// angle (cos theta uniform) - the samples and the history average them into the open share of the sky round the point.
-// The light scattered more than once (Psi) and the sky's own light reach the air only through what is open above it.
-float sky_seen(vec3 at, ivec2 p, int i)
+// (the indoor air; round MEDIUM - rt_volume_light.h open_sky_phase_mean) How much of the open air's light from the sky
+// reaches the air at `at` toward the eye (seen along `d`): a ray toward a point of the upper hemisphere, even in solid
+// angle, weighed by the medium's phase toward the eye over its mean for the view's elevation (`rayleigh` / `aerosol`:
+// each phase's share of the scattering here) - the samples and the history average it into the open share of the
+// phase-weighted sky (1 in the open). The light scattered more than once (Psi) and the sky's own light reach the air
+// only through what is open, and send the eye what the phase sends from where they come in.
+float sky_phase_mean(float y)
 {
+    float x = clamp((y + 1.0) * 0.5 * 31.0, 0.0, 31.0);
+    int i = int(floor(x));
+    int k = min(i + 1, 31);
+    return mix(fog.sky_phase[i / 4][i % 4], fog.sky_phase[k / 4][k % 4], x - float(i));
+}
+// Two directions a point: one drawn by the aerosol's phase (Henyey-Greenstein about `d` with its g - Cornette-Shanks'
+// close shape), one even over the upper hemisphere (Rayleigh's nearly even phase; and a view looking down, whose phase
+// sends most of its draws under the horizon, still meets the sky) - Veach's multi-sample MIS with the balance heuristic:
+// each the weight over the two pdfs' sum, directions under the horizon none.
+float sky_toward(vec3 at, vec3 w, vec3 d, float rayleigh, float aerosol, float g)
+{
+    if (!(w.y > 0.0)) {
+        return 0.0;
+    }
+    float c = dot(w, d);
+    float k = max(1.0 + g * g - 2.0 * g * c, 1.0e-6);
+    float hg = (1.0 - g * g) / (12.5663706 * k * sqrt(k));
+    float f = rayleigh * 0.75 * (1.0 + c * c) + aerosol * phase(c);
+    return f * visible(at, w, SUN_DISTANCE) / (6.2831853 * (hg + 0.159154943)); // (even: 1 / 2 pi)
+}
+float sky_seen(vec3 at, vec3 d, float rayleigh, float aerosol, ivec2 p, int i)
+{
+    float mean = rayleigh + aerosol * sky_phase_mean(d.y);
+    if (!(mean > 0.0)) {
+        return 0.0;
+    }
+    float g = clamp(fog.sun.w, -0.95, 0.95);
+    float u1 = hash01(p, fog.flags.w, i, 0xC5u);
+    float u2 = hash01(p, fog.flags.w, i, 0x6Du);
+    float c;
+    if (abs(g) < 1.0e-3) {
+        c = 1.0 - 2.0 * u1;
+    } else {
+        float q = (1.0 - g * g) / (1.0 - g + 2.0 * g * u1);
+        c = clamp((1.0 + g * g - q * q) / (2.0 * g), -1.0, 1.0);
+    }
+    float sine = sqrt(max(1.0 - c * c, 0.0));
+    float a = 6.2831853 * u2;
+    vec3 side = normalize(abs(d.y) < 0.9 ? cross(d, vec3(0.0, 1.0, 0.0)) : cross(d, vec3(1.0, 0.0, 0.0)));
+    vec3 up = cross(side, d);
+    vec3 by_phase = d * c + side * (sine * cos(a)) + up * (sine * sin(a));
     float z = hash01(p, fog.flags.w, i, 0x3Bu);
-    float a = 6.2831853 * hash01(p, fog.flags.w, i, 0xC5u);
+    float b = 6.2831853 * hash01(p, fog.flags.w, i, 0x5Fu);
     float r = sqrt(max(1.0 - z * z, 0.0));
-    return visible(at, vec3(r * cos(a), z, r * sin(a)), SUN_DISTANCE);
+    vec3 even = vec3(r * cos(b), z, r * sin(b));
+    return (sky_toward(at, by_phase, d, rayleigh, aerosol, g) + sky_toward(at, even, d, rayleigh, aerosol, g)) / mean;
 }
 
 // (the distinct shafts - rt_volume_light.h air_map_half) How much of the light reaches `at` by the air's sun map: -1
@@ -609,12 +625,26 @@ void main()
     int samples = max(fog.low.w, 1);
     vec4 a = vec4(0.0);
     vec4 b = vec4(0.0);
+    int seen = 0;
     for (int j = 0; j < samples; ++j) {
         // a point in the froxel: across it at random, along it stratified (the frame's golden-ratio offset)
         vec2 across = vec2(hash01(p, fog.flags.w, j, 0x21u), hash01(p, fog.flags.w, j, 0x22u));
         float along = fract(fog.fog_range.w + (float(j) + hash01(p, fog.flags.w, j, 0x23u)) / float(samples));
-        vec3 direction = direction_through(corner + across * cell);
-        vec3 at = fog.camera.xyz + direction * slice_distance(float(f.z) + along);
+        vec2 through = corner + across * cell;
+        vec3 direction = direction_through(through);
+        float s_at = slice_distance(float(f.z) + along);
+        // (round MEDIUM) only the air the eye sees: a point past the surface its pixel shows (behind a wall - the
+        // sunlit, open air outside a hall) lights no pixel through this froxel; it is left out of the froxel's light
+        // (none of its points seen this frame: the froxel keeps its history). Before, a froxel whose slice reached
+        // through a wall took the outside's sky and sun into the air in front of it - Training's hall a blue haze
+        // along its walls the reference's air doesn't have.
+        ivec2 pixel = clamp(ivec2(floor(through + 0.5)), fog.rect.xy, fog.rect.xy + fog.rect.zw - 1);
+        float surface = distance_of(pixel);
+        if (surface >= 0.0 && s_at > surface) {
+            continue;
+        }
+        ++seen;
+        vec3 at = fog.camera.xyz + direction * s_at;
         float sun_seen = map_light_seen(at, p, j);
         if (sun_seen < 0.0) {
             sun_seen = light_seen(at, p, j);
@@ -626,12 +656,32 @@ void main()
             lamp = list_lights(at, centre_direction, p, j, near, lamp_rayleigh);
         }
 #endif
-        float open = need_sky ? sky_seen(at, p, j) : 1.0;
+        float open = 1.0;
+        if (need_sky) {
+            // (round MEDIUM) each phase's share of the scattering here: the molecules' and the aerosol's (its mist and
+            // the falling drops taken with it) in the atmosphere's air, the aerosol's alone in the street air
+            float rayleigh = 0.0;
+            float aerosol = 1.0;
+#ifdef AERIAL
+            float u = at.y - fog.aerial.y;
+            rayleigh = dot(fog.medium.rgb, LUMA) * medium_layer_density(u, fog.aerial.x);
+            aerosol = dot(fog.aerosol_s.rgb, LUMA) * (medium_layer_density(u, fog.aerial.z) +
+                                                      fog.aerial.w * medium_layer_density(u, fog.aerosol_s.w)) +
+                      fog.aerosol_t.w * medium_layer_density(u, fog.ambient.w);
+#endif
+            open = sky_seen(at, direction, rayleigh, aerosol, p, j);
+        }
         a += vec4(lamp, sun_seen);
         b += vec4(lamp_rayleigh, open);
     }
-    a /= float(samples);
-    b /= float(samples);
+    if (seen == 0) {
+        // (nothing of the froxel seen this frame: its history, or no light)
+        a = vec4(0.0);
+        b = vec4(0.0);
+    } else {
+        a /= float(seen);
+        b /= float(seen);
+    }
     // the history (Frostbite's, UE's): the froxel's centre where the grid of the frame before had it, its light
     // trilinearly read there and blended in exponentially - 1 / (frames + 1) while the history is young, then
     // 1 / HISTORY_FRAMES; none where it was outside that grid
@@ -649,7 +699,7 @@ void main()
                 ha.rgb *= fog.shares.w; // (round PX: the history's light into this frame's pre-exposure)
                 hb.rgb *= fog.shares.w;
                 if (!any(isnan(ha)) && !any(isnan(hb)) && !any(isinf(ha)) && !any(isinf(hb))) {
-                    keep = 1.0 - 1.0 / float(fog.flags.z + 1);
+                    keep = seen == 0 ? 1.0 : 1.0 - 1.0 / float(fog.flags.z + 1);
                     a = mix(a, ha, keep);
                     b = mix(b, hb, keep);
                 }
@@ -1190,8 +1240,9 @@ struct FogBlock {
     std::array<float, 4> list_light{};   // x the frame's pre-exposure; (round FA) y the in-scattered light kept (0: a debug view without it)
     std::array<float, 4> grid{}; // (round FOG) x the grid's far, y its slices' scale; zw the same of the frame before
     std::array<uint32_t, 4> picks{}; // (round FOG) the light grid's picks (FrameLightList::grid)
+    std::array<float, rt::kSkyPhaseTable> sky_phase{}; // (round MEDIUM) open_sky_phase_table
 };
-constexpr std::size_t kFogBlockBytes = 656;
+constexpr std::size_t kFogBlockBytes = 784;
 static_assert(sizeof(FogBlock) == kFogBlockBytes, "the shaders' std140 block");
 
 constexpr VkShaderStageFlags kStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -1350,6 +1401,8 @@ struct FogState {
     bool haze = false; // this view's level has no fog: the haze drawn instead (rt_fog_haze)
     bool clock_air = false; // (round FW) ... or its fog is the time of day's, under the clock's physical air
     bool aerial = false; // ... as the sky model's aerial perspective (rt_sky_model=1, a sun and its table)
+    // (round MEDIUM) the air this view's pass marched, as layers (rt_volume_light.h AirMedium) - the path tracer's too
+    rt::AirMedium medium;
     std::array<float, 3> sun_colour{1.0F, 1.0F, 1.0F}; // the sky model's (display-referred, brightest channel 1)
     bool standard_samples = false;
     bool failed = false;
@@ -1502,6 +1555,7 @@ std::string source_of(const char* body, bool traces, bool multisampled, uint32_t
             source += rt_lamp_glsl();
         }
     }
+    source += rt::kMediumGlsl;
     source += kCommon;
     if (lights) {
         source += kListGlsl;
@@ -2717,6 +2771,74 @@ AerialLight aerial_light(const rt::ViewDrawn& view, float ground)
     return out;
 }
 
+// (round MEDIUM) The air the pass marches as layers (rt_volume_light.h AirMedium - the path tracer traces the same):
+// from the same inputs block_for hands the shaders - the atmosphere's air (the molecules, the weather's aerosol, its
+// mist, what falls) at the level's ground, or the street air (the aerosol as one layer and what falls) over its street.
+// The level's own fog (from the eye's distances) is no world medium: left out, said in `none`.
+rt::AirMedium medium_of(const FogState& own, float ground, float reach)
+{
+    rt::AirMedium out;
+    const rt::Aerosol air = rt::aerosol();
+    out.g = static_cast<float>(air.g);
+    out.reach = reach;
+    const auto add = [&out](const std::array<float, 3>& scattering, const std::array<float, 3>& extinction,
+                            double height, float layer_ground, rt::MediumPhase phase) {
+        if (out.layers >= rt::kMediumLayers || !(core::at(extinction, 1) > 0.0F)) {
+            return;
+        }
+        core::at(out.layer, out.layers) = {.scattering = scattering,
+                                          .extinction = extinction,
+                                          .inverse_height = height > 0.0 ? static_cast<float>(1.0 / height) : 0.0F,
+                                          .ground = layer_ground,
+                                          .phase = phase};
+        ++out.layers;
+    };
+    const auto grey = [](double value) {
+        const auto f = static_cast<float>(value);
+        return std::array<float, 3>{f, f, f};
+    };
+    constexpr double kUnits = rt::kUnitsPerMetre;
+    if (own.aerial) {
+        out.sky_holds_ray = rt::sky_replacement().on;
+        std::array<float, 3> rayleigh{};
+        std::array<float, 3> s{};
+        std::array<float, 3> t{};
+        std::array<float, 3> mist_s{};
+        std::array<float, 3> mist_t{};
+        for (std::size_t i = 0; i < 3; ++i) {
+            core::at(rayleigh, i) = static_cast<float>(core::at(rt::kRayleigh, i) / kUnits);
+            core::at(s, i) = static_cast<float>(core::at(air.scattering, i) / kUnits);
+            core::at(t, i) = static_cast<float>(core::at(air.extinction, i) / kUnits);
+            core::at(mist_s, i) = static_cast<float>(core::at(air.scattering, i) * air.mist / kUnits);
+            core::at(mist_t, i) = static_cast<float>(core::at(air.extinction, i) * air.mist / kUnits);
+        }
+        add(rayleigh, rayleigh, rt::kRayleighHeight * kUnits, ground, rt::MediumPhase::kRayleigh);
+        add(s, t, air.height * kUnits, ground, rt::MediumPhase::kAerosol);
+        if (air.mist > 0.0) {
+            add(mist_s, mist_t, air.mist_height > 0.0 ? air.mist_height * kUnits : 0.0, ground,
+                rt::MediumPhase::kAerosol);
+        }
+        const double falling = rt::precipitation_extinction(rt::air_weather()) / kUnits;
+        add(grey(falling), grey(falling), rt::kPrecipitationHeight * kUnits, ground, rt::MediumPhase::kAerosol);
+        return out;
+    }
+    if (!own.haze) {
+        out.none = "the level's own fog (drawn from the eye's distances - no world medium) left out, its street air kept";
+    }
+    const rt::BakedSun& baked = rt::baked_sun();
+    const float street = baked.scene != 0 && baked.street_known ? baked.street : ground;
+    const rt::StreetAir street_air = rt::street_air(air, rt::air_weather());
+    const std::array<float, 3> albedo = rt::aerosol_albedo(air);
+    const auto scattered = [&albedo](double extinction) {
+        const auto e = static_cast<float>(extinction);
+        return std::array<float, 3>{core::at(albedo, 0) * e, core::at(albedo, 1) * e, core::at(albedo, 2) * e};
+    };
+    add(scattered(street_air.extinction), grey(street_air.extinction), street_air.height, street,
+        rt::MediumPhase::kAerosol);
+    add(scattered(street_air.snow), grey(street_air.snow), street_air.snow_height, street, rt::MediumPhase::kAerosol);
+    return out;
+}
+
 FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const ViewSlot& slot, bool have_before,
                    VkSampleCountFlagBits samples)
 {
@@ -2842,6 +2964,7 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
         core::at(block.air_look, 0) = rt::sky_replacement().on ? 1.0F : 0.0F;
         core::at(block.air_look, 1) = static_cast<float>(sigma);
     }
+    fog_state().medium = medium_of(own, ground, reach.front());
     // (round WF) the light list's local group
     if (own.lights) {
         block.list = {own.local.entries, own.settings.lamps, 0U, 0U};
@@ -2854,6 +2977,16 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
     // (round FA - vulkan_debug_view.h) the in-scattered light kept, or none in a debug view without the fog
     core::at(block.list_light, 1) = (debug_terms() & debug_term::kFog) != 0U ? 1.0F : 0.0F;
     block.rays = own.rays; // (added by the god rays: set_rays)
+    // (round MEDIUM) the sky's light indoors weighed by the phase toward the eye (open_sky_phase_mean) - tabled once a g
+    {
+        static double tabled_g = -2.0;
+        static std::array<float, rt::kSkyPhaseTable> table{};
+        if (air.g != tabled_g) {
+            table = rt::open_sky_phase_table(air.g);
+            tabled_g = air.g;
+        }
+        block.sky_phase = table;
+    }
     // (the peak x 4 pi, per sr - round UNITS: the level's fog's too, its light being the irradiance now)
     core::at(block.rays, 2) = static_cast<float>(1.0 / (4.0 * std::numbers::pi));
     return block;
@@ -2975,6 +3108,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
 {
     FogState& own = fog_state();
     read_light();
+    own.medium = {};
     if (skip(state, view)) {
         return false;
     }
@@ -3178,6 +3312,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
                   .cloud_map = own.have_cloud,
                   .cutouts = own.cutouts,
                   .lights = own.lights,
+                  .depth = depth, // (round MEDIUM: only the air the eye sees)
                   .out = &core::at(slot->light, now),
                   .out_info = &core::at(slot->light_b, now),
                   .history = &core::at(slot->light, before),
@@ -3398,6 +3533,16 @@ bool record_rt_fog_pass(Backend& state, const rt::ViewDrawn& view)
     replacing() = recorded && fog_state().settings.mode == RtFogMode::kReplace &&
                   (!fog_state().haze || fog_state().clock_air);
     return recorded;
+}
+
+rt::AirMedium rt_fog_medium_locked(const Backend& state)
+{
+    (void)state;
+    const FogState& own = fog_state();
+    if (!own.settings.on || own.failed) {
+        return {}; // (no pass runs: the last one's air is gone)
+    }
+    return own.medium;
 }
 
 RtFogLights rt_fog_lights_locked(const Backend& state)

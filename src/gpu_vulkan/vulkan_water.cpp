@@ -1133,6 +1133,16 @@ bool prepare_water_draw(Backend& state, const GpuStateBlock& block, WaterDescrip
     return true;
 }
 
+WaterBodyMedium water_body_medium_locked(const Backend& state)
+{
+    (void)state;
+    const WaterSettings& settings = water_state().settings;
+    return {.on = settings.on,
+            .clarity = std::max(water::level_water().visibility * settings.clarity, 1.0F),
+            .tint_auto = settings.tint_auto,
+            .tint = settings.tint};
+}
+
 WaterStats water_stats()
 {
     const std::scoped_lock lock(backend().mutex);

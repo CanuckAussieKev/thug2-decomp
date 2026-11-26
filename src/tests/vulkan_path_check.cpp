@@ -25,6 +25,11 @@
 //     without its surface marked: brighter (the lamp counted twice - what the rule prevents);
 //   - (stage 2) the light list by power against stage 1's kinds evenly: the same mean on the floor, disc and sky; on the
 //     floor under 32 lamps of very different power the same mean and less noise;
+//   - (round MEDIUM - the media: rt_volume_light.h AirMedium) the white furnace again with an air that scatters all it
+//     takes (a layer of molecules, a thinning layer of aerosol, g 0.8 - its phase sampled by Henyey-Greenstein, weighed by
+//     Cornette-Shanks): every pixel still the furnace's (light neither made nor lost in the air); an air that only
+//     absorbs: the floor at its furnace value x e^-(sigma (d + reach)) - the camera's ray to it and every light ray to the
+//     sky through the air's reach (Beer-Lambert, the reach's rule);
 //   - no sample was NaN or infinite; the validation layer silent.
 //   thug2_vulkan_path_check [--device N] [--display N] [--no-validation]
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan ray queries for this process.
@@ -61,6 +66,7 @@
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/gpu_vulkan.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
@@ -1151,6 +1157,46 @@ void check_sampling(Tally* tally)
                  text::format("`pt ref`'s nee / bsdf read as the strategies (%u, %u; none: %u)", nee, bsdf, mis));
 }
 
+// (round MEDIUM) The media's processor twins: a layer's optical depth in closed form against a sum along the ray, and the
+// water's body - its single-scattering albedo from a deep reflectance gives that reflectance back by Kubelka-Munk's
+// two-stream relation.
+void check_media(Tally* tally)
+{
+    double worst = 0.0;
+    for (const double u0 : {-200.0, 0.0, 150.0}) {
+        for (const double dy : {-0.8, -0.05, 0.0, 0.3, 1.0}) {
+            constexpr double kInverseHeight = 1.0 / 500.0;
+            constexpr double kEnd = 3000.0;
+            constexpr int kSteps = 200000;
+            double sum = 0.0;
+            for (int i = 0; i < kSteps; ++i) {
+                const double s = (i + 0.5) * kEnd / kSteps;
+                sum += std::exp(-std::max(u0 + (dy * s), 0.0) * kInverseHeight) * kEnd / kSteps;
+            }
+            const double closed = rt::medium_layer_depth(u0, dy, 0.0, kEnd, kInverseHeight);
+            worst = std::max(worst, std::abs(closed - sum) / sum);
+        }
+    }
+    tally->check(worst < 1e-4, text::format("a layer's optical depth in closed form against a sum along the ray: worst "
+                                            "%.2g of it",
+                                            worst));
+    double off = 0.0;
+    for (const float r : {0.02F, 0.1F, 0.3F, 0.6F}) {
+        const std::array<float, 3> a = rt::water_scattering_albedo({r, r, r});
+        const double q = std::sqrt(1.0 - static_cast<double>(core::at(a, 0)));
+        off = std::max(off, std::abs(((1.0 - q) / (1.0 + q)) - static_cast<double>(r)));
+    }
+    tally->check(off < 1e-5, text::format("the water's body: the albedo from a deep reflectance gives it back (two-stream; "
+                                          "worst %.2g)",
+                                          off));
+    const std::array<float, 3> sigma = rt::water_extinction({0.2F, 0.6F, 1.0F}, 600.0F);
+    tally->check(std::abs(core::at(sigma, 2) - (3.0F / 600.0F * 0.2F)) < 1e-7F &&
+                     core::at(sigma, 0) > core::at(sigma, 1) && core::at(sigma, 1) > core::at(sigma, 2),
+                 text::format("the water's extinction: least in its hue's channel (%.5f %.5f %.5f per unit)",
+                              static_cast<double>(core::at(sigma, 0)), static_cast<double>(core::at(sigma, 1)),
+                              static_cast<double>(core::at(sigma, 2))));
+}
+
 void check_device(render::Gpu& gpu, Tally* tally)
 {
     Targets targets;
@@ -1188,6 +1234,86 @@ void check_device(render::Gpu& gpu, Tally* tally)
                              "lobe there %.5f +- %.5f; 1 within the DFG table's error)",
                              y_of(eye), roughness, got.mean, got.sigma, expected.mean, expected.sigma));
         }
+    }
+
+    // (round MEDIUM) 1b. the media: the furnace with an air that scatters all it takes (nothing made, nothing lost), and
+    // one that only absorbs (Beer-Lambert along the camera's ray and every light ray to the sky through the reach)
+    text::print("the media (the furnace's floor, roughness 1, seen through an air):\n");
+    {
+        const Vec3 medium_eye{0.0, 300.0, 900.0};
+        constexpr float kSigma = 1.0F / 1000.0F; // (per unit: about one optical depth to the floor)
+        constexpr float kReach = 2000.0F;
+        constexpr uint32_t kMediumSeed = 1000; // (its own seeds: the later cases' stay as they were)
+        vk::PathOverrides overrides;
+        overrides.sky = {1.0F, 1.0F, 1.0F};
+        overrides.force_material = true;
+        overrides.roughness = 1.0F;
+        overrides.f0 = 0.04F;
+        overrides.albedo_scale = 1.0F;
+        overrides.samples_per_frame = 32;
+        const Measured plain = run_batches(gpu, targets, floor_only, medium_eye, overrides, 8, kMediumSeed + 1, &read);
+        // the scattering air: molecules and aerosol, each thinning by e every 600 units over the floor (an even layer's
+        // scattered paths climb to where the floor's edge leaves most of the lower sphere dark - 5 % lost, measured)
+        rt::AirMedium air;
+        air.layers = 2;
+        air.g = 0.8F;
+        air.reach = kReach;
+        constexpr float kHalf = 0.5F * kSigma;
+        constexpr float kThinning = 1.0F / 600.0F;
+        core::at(air.layer, 0) = {.scattering = {kHalf, kHalf, kHalf},
+                                  .extinction = {kHalf, kHalf, kHalf},
+                                  .inverse_height = kThinning,
+                                  .ground = 0.0F,
+                                  .phase = rt::MediumPhase::kRayleigh};
+        core::at(air.layer, 1) = {.scattering = {kSigma, kSigma, kSigma},
+                                  .extinction = {kSigma, kSigma, kSigma},
+                                  .inverse_height = kThinning,
+                                  .ground = 0.0F,
+                                  .phase = rt::MediumPhase::kAerosol};
+        vk::PathOverrides scattering = overrides;
+        scattering.medium = air;
+        const Measured furnace = run_batches(gpu, targets, floor_only, medium_eye, scattering, 8, kMediumSeed + 2, &read);
+        vk::PathOverrides scattering_bsdf = scattering;
+        scattering_bsdf.strategy = vk::PathStrategy::kBsdfOnly;
+        const Measured bsdf = run_batches(gpu, targets, floor_only, medium_eye, scattering_bsdf, 16, kMediumSeed + 3, &read);
+        not_finite += plain.not_finite + furnace.not_finite + bsdf.not_finite;
+        tally->check(read && std::abs(furnace.mean - plain.mean) < 0.03,
+                     text::format("an air that scatters all it takes: the furnace %.5f +- %.5f, without it %.5f +- "
+                                  "%.5f (the floor's edge leaves a little of the air's lower sphere dark)",
+                                  furnace.mean, furnace.sigma, plain.mean, plain.sigma));
+        tally->check(read && within(furnace.mean, furnace.sigma, bsdf.mean, bsdf.sigma),
+                     text::format("the air's light by a light sample at a point of each ray (MIS) %.5f +- %.5f, by the "
+                                  "scattered paths alone (the BSDF's and the phase's) %.5f +- %.5f",
+                                  furnace.mean, furnace.sigma, bsdf.mean, bsdf.sigma));
+        // the absorbing air: even, nothing scattered
+        rt::AirMedium dark;
+        dark.layers = 1;
+        dark.reach = kReach;
+        core::at(dark.layer, 0) = {.scattering = {0.0F, 0.0F, 0.0F},
+                                   .extinction = {kSigma, kSigma, kSigma},
+                                   .inverse_height = 0.0F,
+                                   .ground = 0.0F,
+                                   .phase = rt::MediumPhase::kAerosol};
+        vk::PathOverrides absorbing = overrides;
+        absorbing.medium = dark;
+        const Measured got = run_batches(gpu, targets, floor_only, medium_eye, absorbing, 8, kMediumSeed + 4, &read);
+        not_finite += got.not_finite;
+        double through = 0.0;
+        const int x0 = static_cast<int>(kWidth / 2) - (kRegion / 2);
+        const int y0 = static_cast<int>(kHeight / 2) - (kRegion / 2);
+        for (int y = y0; y < y0 + kRegion; ++y) {
+            for (int x = x0; x < x0 + kRegion; ++x) {
+                const Vec3 p = floor_point(medium_eye, x + 0.5, y + 0.5);
+                const Vec3 to = sub(p, medium_eye);
+                through += std::exp(-kSigma * std::sqrt(dot(to, to)));
+            }
+        }
+        through /= kRegion * kRegion;
+        const double expected = plain.mean * through * std::exp(-kSigma * kReach);
+        tally->check(read && std::abs(got.mean - expected) <= (kSigmas * got.sigma) + (0.02 * expected),
+                     text::format("an air that only absorbs: the floor %.5f +- %.5f, its furnace value x e^-(sigma "
+                                  "(d + reach)) %.5f",
+                                  got.mean, got.sigma, expected));
     }
 
     // 2. the floor under the disc, direct light only
@@ -1489,6 +1615,7 @@ int run(const Options& options, SDL_Window* window)
     check_alias(&tally);
     check_lamp_power(&tally);
     check_sky(&tally);
+    check_media(&tally);
     const Opened opened = open_device(options, window);
     if (opened == Opened::kNoRayQueries) {
         return 2;

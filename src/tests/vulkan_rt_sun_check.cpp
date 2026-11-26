@@ -1337,15 +1337,44 @@ double sky_open(const Vec3& at)
     }
     return static_cast<double>(open) / kSkyChecks;
 }
-// The least open share of the sky along the view ray (a few points).
-double ray_sky_open(const View& view, const Vec3& direction, double distance)
+// (round MEDIUM - rt_volume_light.h open_sky_phase_mean) The open share of the sky weighed by the aerosol's phase toward
+// the eye (the air's light from the sky indoors: the open directions' 4 pi p(w . d) over its mean on the upper hemisphere)
+// - a finer grid, the phase being peaked.
+double sky_open_weighted(const Vec3& at, const Vec3& d, double g)
+{
+    constexpr int kRings = 24;
+    constexpr int kAround = 48;
+    double sum = 0.0;
+    for (int i = 0; i < kRings; ++i) {
+        const double z = (static_cast<double>(i) + kHalf) / kRings;
+        const double r = std::sqrt(std::max(1.0 - (z * z), 0.0));
+        for (int j = 0; j < kAround; ++j) {
+            const double a = 2.0 * std::numbers::pi * (static_cast<double>(j) + kHalf) / kAround;
+            const Ray ray{.origin = at, .direction = {r * std::cos(a), z, r * std::sin(a)}};
+            bool hit = false;
+            for (const Solid& solid : kSolids) {
+                hit = hit || intersect(solid, ray) < kNoHit;
+            }
+            if (!hit) {
+                sum += 4.0 * std::numbers::pi * render::rt::aerosol_phase(dot(ray.direction, d), g);
+            }
+        }
+    }
+    return sum / (static_cast<double>(kRings) * kAround) / render::rt::open_sky_phase_mean(std::get<1>(d), g);
+}
+// The least open share of the sky along the view ray (a few points), and the least phase-weighted one.
+double ray_sky_open(const View& view, const Vec3& direction, double distance, double* weighted)
 {
     constexpr int kPoints = 8;
     double least = 1.0;
+    double least_weighted = 1e30;
+    const double g = render::rt::aerosol().g;
     for (int i = 0; i < kPoints; ++i) {
         const double s = distance * (static_cast<double>(i) + kHalf) / kPoints;
         least = std::min(least, sky_open(step(view.eye, direction, s)));
+        least_weighted = std::min(least_weighted, sky_open_weighted(step(view.eye, direction, s), direction, g));
     }
+    *weighted = least_weighted;
     return least;
 }
 
@@ -1390,10 +1419,12 @@ void judge_aerial_texel(const View& view, const std::array<float, 4>& marched, c
     // the sky: at least the shade's x the least open share of the sky along the ray where most of it is open (the
     // march's one sky ray a pair of steps, averaged by the history, is near it there); at most all of it sunlit anywhere
     constexpr double kMostlyOpen = 0.75;
-    const double open = ray_sky_open(view, direction, distance);
+    double weighted = 0.0;
+    const double open = ray_sky_open(view, direction, distance, &weighted);
     if (open >= kMostlyOpen) {
         ++out->open;
-        out->below += light < (shade * open * kAerialSlack) - kAerialSlackAbsolute ? 1 : 0;
+        // (round MEDIUM) the open directions weighed by the phase toward the eye (open_sky_phase_mean)
+        out->below += light < (shade * std::min(weighted, 1.0) * kAerialSlack) - kAerialSlackAbsolute ? 1 : 0;
     }
     out->above += light > (sunlit / kAerialSlack) + kAerialSlackAbsolute ? 1 : 0;
 }

@@ -159,4 +159,143 @@ inline constexpr double kCloudMapFadeTo = 0.15;
 [[nodiscard]] std::array<double, 2> cloud_map_place(const std::array<double, 3>& at,
                                                     const std::array<double, 3>& toward, double base_y);
 
+// --- (round MEDIUM) the air as a medium: one definition for the fog's froxels and the reference path tracer ----------
+// The fog pass (vulkan_rt_fog) decides each frame which air the view has - the atmosphere's air (aerial perspective: the
+// air's molecules, the weather's aerosol, its mist, what falls), the street air near the ground (the weather's aerosol
+// as one layer, what falls), or none - and describes it as up to kMediumLayers exponential layers: each a scattering and
+// an extinction per world unit (rgb) at its ground's height, thinning by e every 1 / inverse_height above it, even below
+// it, scattering by Rayleigh's phase (the molecules) or the aerosol's (Cornette-Shanks with g: haze, mist, drops,
+// flakes). Its froxels march that medium; the path tracer (`pt ref`) traces paths through the same one
+// (vulkan_path_reference.cpp: its optical depths in closed form, the in-scattering by next-event estimation at a point
+// picked along each ray, the scattered paths by free-flight sampling). Where its media end:
+//   - `reach`: no ray's air goes farther from its origin (the froxels' grid's far - the aerial air's kFogAerialFar, the
+//     haze's kFogHazeEnd; past it the level's world is seen through what is before it);
+//   - `sky_holds_ray`: a ray that leaves the level has no air - the sky's radiance there is the sky-view table's, which
+//     holds the whole ray through the atmosphere (the aerial air with the atmosphere drawn); else a ray to the sky goes
+//     through `reach` of the air first. The sun's and the sky's light are those at the level's ground (the atmosphere's
+//     transmittance in them), so a light ray toward them takes the same rule.
+// Not a medium here (left out of the reference, logged): the level's own fog drawn from the eye's distances (the
+// original's `start`, a camera-relative near range - no world medium has one) and a level without physical light (its
+// fog is the game's colour, a look, not light).
+inline constexpr std::size_t kMediumLayers = 4;
+enum class MediumPhase : uint32_t { kRayleigh = 0, kAerosol = 1 };
+struct MediumLayer {
+    std::array<float, 3> scattering{}; // per world unit at its ground
+    std::array<float, 3> extinction{};
+    float inverse_height = 0.0F;       // per world unit (0: even)
+    float ground = 0.0F;               // world y
+    MediumPhase phase = MediumPhase::kAerosol;
+};
+struct AirMedium {
+    uint32_t layers = 0; // (0: no medium)
+    std::array<MediumLayer, kMediumLayers> layer{};
+    float g = 0.0F;             // the aerosol's asymmetry (Cornette-Shanks)
+    float reach = 0.0F;         // world units
+    bool sky_holds_ray = false;
+    const char* none = nullptr; // why there is no medium (the log's)
+};
+// The optical depth of a layer along a ray from height `u0` over its ground, going up `dy` per unit, between s0 and s1
+// (its density 1 at the ground) - the GLSL's medium_layer_depth.
+[[nodiscard]] double medium_layer_depth(double u0, double dy, double s0, double s1, double inverse_height);
+
+// (GLSL, after nothing) the layers' density and optical depth in closed form, the phases per steradian.
+inline constexpr const char* kMediumGlsl = R"(
+// a layer's density at height u over its ground: e^(-u / H) above it, 1 below
+float medium_layer_density(float u, float inv_h) { return exp(-max(u, 0.0) * inv_h); }
+// a layer's optical depth (its density 1 at its ground) along y = u0 + dy s, s in [s0, s1], in closed form
+float medium_layer_depth(float u0, float dy, float s0, float s1, float inv_h)
+{
+    float lo = s0; // [lo, hi]: the part above the ground
+    float hi = s1;
+    float below = 0.0;
+    if (inv_h > 0.0) {
+        if (abs(dy) < 1e-12) {
+            if (u0 <= 0.0) {
+                below = s1 - s0;
+                hi = lo;
+            }
+        } else {
+            float cut = clamp(-u0 / dy, s0, s1); // where the ray crosses the ground's height
+            if (dy > 0.0) {
+                below = cut - s0;
+                lo = cut;
+            } else {
+                below = s1 - cut;
+                hi = cut;
+            }
+        }
+    }
+    float depth = below;
+    if (hi > lo) {
+        float k = dy * inv_h;
+        float e_lo = exp(-max(u0 + dy * lo, 0.0) * inv_h);
+        float e_hi = exp(-max(u0 + dy * hi, 0.0) * inv_h);
+        if (abs(k) * (hi - lo) < 1e-4) {
+            depth += exp(-max(u0 + dy * 0.5 * (lo + hi), 0.0) * inv_h) * (hi - lo);
+        } else {
+            depth += (e_lo - e_hi) / k;
+        }
+    }
+    return depth;
+}
+// Rayleigh's phase and the aerosol's (Cornette-Shanks), per steradian (rt_sky.h)
+float medium_rayleigh_phase(float c) { return 0.0596831037 * (1.0 + c * c); }
+float medium_aerosol_phase(float c, float g)
+{
+    float k = max(1.0 + g * g - 2.0 * g * c, 1e-6);
+    return 0.119366207 * (1.0 - g * g) * (1.0 + c * c) / ((2.0 + g * g) * k * sqrt(k));
+}
+)";
+
+// --- (round MEDIUM) the water's body as a medium: one definition for the water's shader and the path tracer -------------
+// The water's shader (water_shader.cpp) has always taken what is under the surface through an absorbing body - its
+// extinction from the water's colour and how far one sees into it (its `through`) - and the light the body scatters back
+// as deep water's colour (its `deep`: a diffuse reflectance of the water's hue, x the light the surface gets). The path
+// tracer's water (round LW / POOL: an interface - Fresnel's share mirrored, the texture's coverage the body's own colour)
+// now has the same body below the interface: Beer-Lambert's extinction water_extinction, and scattering (an even phase)
+// whose single-scattering albedo gives a deep body that reflectance - Kubelka-Munk's two-stream relation for a
+// semi-infinite medium, R = (1 - sqrt(1 - a)) / (1 + sqrt(1 - a)), so a = 1 - ((1 - R) / (1 + R))^2. The surface is the
+// plane it was entered through (a path's next-event rays from under the water cross that much of it).
+// (GLSL, after nothing)
+inline constexpr const char* kWaterMediumGlsl = R"(
+// water's extinction per world unit for a body of hue `hue` (its brightest channel 1) seen `clarity` units into
+vec3 water_extinction(vec3 hue, float clarity) { return (3.0 / max(clarity, 1.0)) * (0.2 + 1.6 * (1.0 - hue)); }
+// deep water's diffuse reflectance per unit of the body's albedo's luminance (its scattered light over a white
+// diffuser's under the same light, x that luminance)
+vec3 water_deep_reflectance(vec3 hue)
+{
+    vec3 h2 = hue * hue; // (deep water's colour more saturated than the texture's mean, which has its highlights)
+    return h2 * (0.65 / max(dot(h2, vec3(0.2126, 0.7152, 0.0722)), 0.05));
+}
+// the body's single-scattering albedo for a deep reflectance R (Kubelka-Munk's two-stream, semi-infinite)
+vec3 water_scattering_albedo(vec3 reflectance)
+{
+    vec3 r = clamp(reflectance, vec3(0.0), vec3(0.999));
+    vec3 q = (1.0 - r) / (1.0 + r);
+    return 1.0 - q * q;
+}
+)";
+// --- (round MEDIUM) the open sky's light in the air indoors -----------------------------------------------------------
+// The air's light from the sky - the sky's own scattered light and every higher order (Psi at the ground for the
+// atmosphere's air; the sky's light on an even upper hemisphere for the street air) - is the open air's: the air sees
+// the whole sky. Where geometry closes part of it (a hall, a street canyon), what reaches the air toward the eye is the
+// share of that light coming in through what is open, weighed by the medium's phase toward the eye: the in-scattering
+// sigma_s Integral p(w . d) L(w) V(w) dw over the open air's sigma_s Integral p(w . d) L(w) dw (the sky taken as even
+// over the upper hemisphere, as the open air's term takes it). Before (round FIXTURE's finding) the share was the open
+// share alone, every open direction counted alike: Training's hall under its roof openings, the eye looking across, got
+// the light the forward-scattering aerosol (g 0.8) sends ahead as if it came from in front - 60 x the reference's air
+// (round MEDIUM, `pt ref` with the medium). The froxels sample the upper hemisphere evenly; a sample's weight is
+// 4 pi p(w . d) / its mean over the upper hemisphere for the view's elevation (Rayleigh's: 1 for every elevation - the
+// mean of (w . d)^2 over a hemisphere is 1 / 3; the aerosol's: open_sky_phase_mean, tabled over d.y).
+inline constexpr std::size_t kSkyPhaseTable = 32; // the view's elevation's sine from -1 to 1
+// The mean of 4 pi x the aerosol's phase (Cornette-Shanks, g) over the upper hemisphere's directions w for a view
+// direction of elevation sine `view_y`: (1 / 2 pi) Integral_upper 4 pi p(w . d) dw.
+[[nodiscard]] double open_sky_phase_mean(double view_y, double g);
+[[nodiscard]] std::array<float, kSkyPhaseTable> open_sky_phase_table(double g);
+
+// The processor's twins (the checks').
+[[nodiscard]] std::array<float, 3> water_extinction(const std::array<float, 3>& hue, float clarity);
+[[nodiscard]] std::array<float, 3> water_deep_reflectance(const std::array<float, 3>& hue);
+[[nodiscard]] std::array<float, 3> water_scattering_albedo(const std::array<float, 3>& reflectance);
+
 } // namespace render::rt

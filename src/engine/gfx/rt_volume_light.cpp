@@ -153,4 +153,111 @@ std::array<double, 2> cloud_map_place(const std::array<double, 3>& at, const std
     return {core::at(at, 0) + (core::at(toward, 0) * along), core::at(at, 2) + (core::at(toward, 2) * along)};
 }
 
+double medium_layer_depth(double u0, double dy, double s0, double s1, double inverse_height)
+{
+    double lo = s0;
+    double hi = s1;
+    double below = 0.0;
+    constexpr double kLevel = 1e-12;
+    if (inverse_height > 0.0) {
+        if (std::abs(dy) < kLevel) {
+            if (u0 <= 0.0) {
+                below = s1 - s0;
+                hi = lo;
+            }
+        } else {
+            const double cut = std::clamp(-u0 / dy, s0, s1);
+            if (dy > 0.0) {
+                below = cut - s0;
+                lo = cut;
+            } else {
+                below = s1 - cut;
+                hi = cut;
+            }
+        }
+    }
+    double depth = below;
+    if (hi > lo) {
+        const double k = dy * inverse_height;
+        constexpr double kThin = 1e-4;
+        if (std::abs(k) * (hi - lo) < kThin) {
+            depth += std::exp(-std::max(u0 + (dy * 0.5 * (lo + hi)), 0.0) * inverse_height) * (hi - lo);
+        } else {
+            depth += (std::exp(-std::max(u0 + (dy * lo), 0.0) * inverse_height) -
+                      std::exp(-std::max(u0 + (dy * hi), 0.0) * inverse_height)) /
+                     k;
+        }
+    }
+    return depth;
+}
+
+double open_sky_phase_mean(double view_y, double g)
+{
+    const double y = std::clamp(view_y, -1.0, 1.0);
+    const double x = std::sqrt(std::max(0.0, 1.0 - (y * y)));
+    constexpr int kRings = 256; // (the phase's peak at g 0.8 is ~8 degrees wide: 0.35 degrees a ring)
+    constexpr int kAround = 512;
+    double sum = 0.0;
+    for (int i = 0; i < kRings; ++i) {
+        const double z = (i + 0.5) / kRings; // (the direction's y: even in solid angle)
+        const double r = std::sqrt(std::max(0.0, 1.0 - (z * z)));
+        for (int j = 0; j < kAround; ++j) {
+            const double a = 2.0 * std::numbers::pi * (j + 0.5) / kAround;
+            const double c = (r * std::cos(a) * x) + (z * y);
+            sum += kFourPi * aerosol_phase(c, g);
+        }
+    }
+    return sum / (static_cast<double>(kRings) * kAround);
+}
+
+std::array<float, kSkyPhaseTable> open_sky_phase_table(double g)
+{
+    std::array<float, kSkyPhaseTable> out{};
+    for (std::size_t i = 0; i < kSkyPhaseTable; ++i) {
+        const double y = -1.0 + (2.0 * static_cast<double>(i) / static_cast<double>(kSkyPhaseTable - 1));
+        core::at(out, i) = static_cast<float>(open_sky_phase_mean(y, g));
+    }
+    return out;
+}
+
+std::array<float, 3> water_extinction(const std::array<float, 3>& hue, float clarity)
+{
+    constexpr float kVisibilities = 3.0F; // (e^-3: 5 % left at the clarity)
+    constexpr float kLeast = 0.2F;
+    constexpr float kByHue = 1.6F;
+    std::array<float, 3> out{};
+    for (std::size_t i = 0; i < 3; ++i) {
+        core::at(out, i) = (kVisibilities / std::max(clarity, 1.0F)) * (kLeast + (kByHue * (1.0F - core::at(hue, i))));
+    }
+    return out;
+}
+
+std::array<float, 3> water_deep_reflectance(const std::array<float, 3>& hue)
+{
+    constexpr float kDeep = 0.65F;
+    constexpr float kLeastLuma = 0.05F;
+    std::array<float, 3> h2{};
+    for (std::size_t i = 0; i < 3; ++i) {
+        core::at(h2, i) = core::at(hue, i) * core::at(hue, i);
+    }
+    const float luma = (0.2126F * core::at(h2, 0)) + (0.7152F * core::at(h2, 1)) + (0.0722F * core::at(h2, 2));
+    const float scale = kDeep / std::max(luma, kLeastLuma);
+    for (float& value : h2) {
+        value *= scale;
+    }
+    return h2;
+}
+
+std::array<float, 3> water_scattering_albedo(const std::array<float, 3>& reflectance)
+{
+    constexpr float kMost = 0.999F;
+    std::array<float, 3> out{};
+    for (std::size_t i = 0; i < 3; ++i) {
+        const float r = std::clamp(core::at(reflectance, i), 0.0F, kMost);
+        const float q = (1.0F - r) / (1.0F + r);
+        core::at(out, i) = 1.0F - (q * q);
+    }
+    return out;
+}
+
 } // namespace render::rt

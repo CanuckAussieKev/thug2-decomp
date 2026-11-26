@@ -7,6 +7,7 @@
 
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_volume_light.h"
 
 // NOT ORIGINAL - volumetric fog and light shafts (docs/design/vulkan.md "Volumetric fog"; [Graphics] rt_fog - gpu_vulkan.h's
 // RtFogSettings). (Round FOG - rewritten as froxel volumetric fog: Wronski 2014 "Volumetric Fog" (AC4), Hillaire 2015
@@ -147,6 +148,9 @@ struct RtFogLights {
     uint64_t frame = 0;
 };
 [[nodiscard]] RtFogLights rt_fog_lights_locked(const Backend& state);
+// (round MEDIUM) The air the last pass marched (rt_volume_light.h AirMedium; no layers: no pass, or none) - what the
+// reference path tracer traces its paths through. The caller holds the lock.
+[[nodiscard]] rt::AirMedium rt_fog_medium_locked(const Backend& state);
 
 // The passes' time on the device, from timestamps written before and after each (read back a few passes later, when
 // the device has written them): how many were timed and their total. Every 240 timed passes the log gets their average
