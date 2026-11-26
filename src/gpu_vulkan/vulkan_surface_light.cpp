@@ -1307,6 +1307,12 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
         }
         return;
     }
+    // (round SKIN - engine/gfx/rt_coverage.h) An alpha-blended draw that writes depth: its prepass keeps its pixels by their
+    // coverage (kLightDepthHalf - stochastic under a temporal resolve, else a half), and its shaded draw keeps the same
+    // pixels, wholly - there it is the surface its inputs were made for; elsewhere it draws nothing and the surface behind
+    // it shows, shaded. Before, the shaded draw was blended over pixels its own prepass had hidden from the shading.
+    const uint8_t coverage = blend_of(block) == Blend::kAlpha && surface_draw(block) ? kLightDepthHalf : 0U;
+    fragment.light = static_cast<uint8_t>(fragment.light | coverage);
     // (round RG) A draw that adds or multiplies - a glow, a light cone, a flare, a multiplied mark - is never the surface
     // the inputs were made for (the prepass leaves it out), even where its depth meets that surface's: it reads none of
     // them (lit per pixel, it added the surface's lamps and traced specular a second time).
@@ -1314,10 +1320,10 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
         return;
     }
     if ((fragment.surface & kSurfaceLighting) != 0U) {
-        fragment.light = kLightInputs;
+        fragment.light = static_cast<uint8_t>(kLightInputs | coverage);
     } else if (fragment.surface == 0) {
         // (a colour lit already: its light by shares)
-        fragment.light = kLightShare;
+        fragment.light = static_cast<uint8_t>(kLightShare | coverage);
     } else {
         return;
     }

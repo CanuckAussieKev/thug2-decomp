@@ -1635,12 +1635,38 @@ void save_upscaler_inputs(Backend& state, const LinearFrames& own, const rt::Vie
     // gets, on the traced albedo, the lights' specular over E) and ReSTIR DI's primary surface per pixel - its traced albedo
     // and which surface it is (di_kind: red the camera ray's traced surface, green the depth's own, black none)
     const SurfaceInputs light = surface_input_images(state);
-    const std::array<std::pair<const char*, Image*>, 3> lights{
-        {{"lamps", light.lamps}, {"lamps_on", light.lamps_on}, {"lamps_specular", light.specular}}};
+    // (round SKIN) and the visibility input (r the sun's or the moon's visibility - -1 not traced -, g the direct light's
+    // share, b the indirect light's visibility)
+    const std::array<std::pair<const char*, Image*>, 4> lights{{{"lamps", light.lamps},
+                                                                {"lamps_on", light.lamps_on},
+                                                                {"lamps_specular", light.specular},
+                                                                {"visibility", light.visibility}}};
     for (const auto& [name, image] : lights) {
         std::vector<std::array<float, 3>> rgb;
         if (image != nullptr && read_input_image(state, image, width, height, &rgb)) {
             write_file(text::format("%sinputs_%04u_%s.exr", own.folder.c_str(), number, name), exr_bytes(width, height, rgb));
+        }
+    }
+    // (round SKIN) the front layer's images, both halves (this view's and the last's - which is which follows the swap):
+    // its depth, its light, the disc's light and (front_seen) the disc's visibility its see-through surfaces take
+    FrontLayerImages front;
+    if (surface_light_front_images(&front)) {
+        for (std::size_t half = 0; half < 2; ++half) {
+            const std::array<std::pair<const char*, Image*>, 3> layer{{{"front_depth", core::at(front.depth, half)},
+                                                                       {"front_light", core::at(front.light, half)},
+                                                                       {"front_sun", core::at(front.sun, half)}}};
+            for (const auto& [name, image] : layer) {
+                std::vector<std::array<float, 3>> rgb;
+                if (image != nullptr && read_input_image(state, image, width, height, &rgb)) {
+                    write_file(text::format("%sinputs_%04u_%s%zu.exr", own.folder.c_str(), number, name, half),
+                               exr_bytes(width, height, rgb));
+                }
+            }
+            std::vector<std::array<float, 3>> seen;
+            if (core::at(front.sun, half) != nullptr && read_input_image(state, core::at(front.sun, half), width, height, &seen, true)) {
+                write_file(text::format("%sinputs_%04u_front_seen%zu.exr", own.folder.c_str(), number, half),
+                           exr_bytes(width, height, seen));
+            }
         }
     }
     RestirPrimaryReadback primary;

@@ -167,6 +167,7 @@ void GpuStateBlock::reset()
         constant.fill(0.0F);
     }
     pass_tint = {1.0F, 1.0F, 1.0F, 0.0F};
+    surface_coat = {}; // (NOT ORIGINAL - round SKIN)
     vertex_shader = nullptr;
     for (auto& constant : vertex_constants) {
         constant.fill(0.0F);

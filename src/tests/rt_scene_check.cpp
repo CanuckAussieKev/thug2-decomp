@@ -15,6 +15,7 @@
 
 #include "base/core/checked_index.h"
 #include "engine/gfx/rt_checks.h"
+#include "engine/gfx/rt_coverage.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_sun.h"
@@ -644,6 +645,59 @@ void check_shine_masks()
     rt::Material dull = ramp;
     dull.reflectivity = 0.0F;
     expect(rt::reflection_class_on(dull, C::kBlendedOpaque) == rt::kReflectGlass, "no reflectivity: unchanged");
+    // (round SKIN) the raster's coat for the same: the ramp's strength and its mask (pass 1's texel where clear, 2 x the
+    // vertex alpha x it); none where the class isn't the coat
+    const rt::SurfaceCoat coat = rt::surface_coat(ramp, rt::reflection_class_on(ramp, C::kBlendedOpaque));
+    expect(coat.strength == 1.0F && coat.masks == (rt::kMaskClear | (1U << rt::kCoatMaskStageShift)),
+           "the raster's coat on the quarter pipe: strength 1, pass 1 where clear");
+    const rt::SurfaceCoat none = rt::surface_coat(ramp, rt::reflection_class_on(ramp, C::kSeenThrough));
+    expect(none.strength == 0.0F && none.masks == 0U, "no coat on a seen-through mesh (glass)");
+}
+
+// (round SKIN - rt_coverage.h) A blended surface that writes depth, as the prepass keeps it: without a temporal resolve
+// at least half opaque (an alpha test); under one each pixel keeps it in a frame with the probability of its alpha - over
+// the cycle's frames the kept share is its alpha at every pixel (the resolve's blend - the path tracer's surface by its
+// coverage), and over a block of pixels in one frame too (the pattern spreads: no frame drops a whole region).
+void check_coverage()
+{
+    expect(rt::coverage_kept(0.5F, 3, 7, -1.0F) && !rt::coverage_kept(0.49F, 3, 7, -1.0F) &&
+               rt::coverage_kept(1.0F, 0, 0, -1.0F) && !rt::coverage_kept(0.0F, 0, 0, -1.0F),
+           "no temporal resolve: kept where at least half opaque");
+    expect(rt::coverage_seed(129, false) < 0.0F && rt::coverage_seed(129, true) == 1.0F,
+           "the seed: -1 without a temporal resolve, the frame within the cycle with one");
+    double worst_pixel = 0.0;
+    double worst_block = 0.0;
+    bool ends = true;
+    for (const float alpha : {0.1F, 0.25F, 0.5F, 0.75F, 0.9F}) {
+        for (uint32_t y = 0; y < 8; ++y) {
+            for (uint32_t x = 0; x < 8; ++x) {
+                uint32_t kept = 0;
+                for (uint32_t frame = 0; frame < rt::kCoverageFrames; ++frame) {
+                    kept += rt::coverage_kept(alpha, x, y, static_cast<float>(frame)) ? 1U : 0U;
+                }
+                const double share = static_cast<double>(kept) / static_cast<double>(rt::kCoverageFrames);
+                worst_pixel = std::max(worst_pixel, std::abs(share - static_cast<double>(alpha)));
+            }
+        }
+        for (uint32_t frame = 0; frame < rt::kCoverageFrames; ++frame) {
+            uint32_t kept = 0;
+            for (uint32_t y = 0; y < 16; ++y) {
+                for (uint32_t x = 0; x < 16; ++x) {
+                    kept += rt::coverage_kept(alpha, x + 40, y + 9, static_cast<float>(frame)) ? 1U : 0U;
+                }
+            }
+            worst_block = std::max(worst_block, std::abs((static_cast<double>(kept) / 256.0) - static_cast<double>(alpha)));
+        }
+    }
+    for (uint32_t frame = 0; frame < rt::kCoverageFrames && ends; ++frame) {
+        ends = rt::coverage_kept(1.0F, frame * 7, frame * 3, static_cast<float>(frame)) &&
+               !rt::coverage_kept(0.0F, frame * 7, frame * 3, static_cast<float>(frame));
+    }
+    std::printf("  coverage: the kept share's worst error per pixel over %u frames %.3f, per 16 x 16 block in a frame %.3f\n",
+                rt::kCoverageFrames, worst_pixel, worst_block);
+    expect(worst_pixel <= 0.1 && worst_block <= 0.05 && ends,
+           "a temporal resolve: each pixel kept with the probability of its alpha (per pixel over the cycle, per block in a "
+           "frame); alpha 1 always, 0 never");
 }
 
 } // namespace
@@ -657,6 +711,7 @@ int main()
     check_flags();
     check_surface_classes(); // (round PT-B)
     check_shine_masks();     // (round SHINE)
+    check_coverage();        // (round SKIN)
     check_baked_sun();
     check_scene_sun();
     if (failures() != 0) {

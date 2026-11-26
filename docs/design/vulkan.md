@@ -3403,8 +3403,31 @@ roughness toward the lacquer's (`vulkan_rt_scene.cpp hit_surface_at` / `hit_coat
 every estimator that reads the hit's material has it as the surface's own specular lobe: ReSTIR DI's lights, ReSTIR GI's
 environment specular, the path tracer. In a view ReSTIR GI lit the reflections pass leaves it (no in-place mirror);
 without GI it is the lacquer in place, as the game's other shines. `tools/game/shine_mask_survey.ts` lists each level's.
-The raster's per-pixel material doesn't know the coat yet: it weighs GI's specular by its own (uncoated) specular albedo
-and gives Ray Reconstruction its own roughness.
+(Round SKIN) The raster's per-pixel material has the coat too: render_pc's record gives a mesh's draw its coat
+(`rt_record.h surface_coat` - the same class rule - through `Gpu::set_surface_coat`, `SurfaceUniforms::albedo` y / z:
+the strength and the mask passes packed, `rt_surface_class.h surface_coat`), and the generated program lays it on the
+surface's material from its own stage texels (`ff_shaders.cpp surface_coat_layer`, hit_coat_share's twin), so the
+specular albedo GI's traced specular goes onto and Ray Reconstruction's roughness and specular albedo guides are the
+coated lobe's, as the rays' samples are.
+
+**Round SKIN: a blended surface that writes depth, by its coverage.** The game draws some surfaces alpha-blended over
+what it drew first and writes their depth - a character's laces and headphones (Training's skater: materials 0913CEBF /
+30E37549, one blended pass, the texel's alpha), a fence's soft edges, a sheet fading out. Round V's prepass kept such a
+surface's pixels at least half opaque (`kLightDepthHalf`), and its shaded draw was blended over them - over a pixel the
+prepass had hidden from the shading (the floor behind never shaded there), so (1 - alpha) of whatever the target held
+showed through: on Training at noon the sky pass's light, ~10^4 x the hall's - 200 pixels held 61 % of the frame's light
+(white bits on the shoes and headphones; `scene_bias` at the user's quarter-pipe pose 2.3 x the reference). Its pixels
+under half opaque, drawn over the shaded floor, had no light inputs of their own either. The rule now
+(`engine/gfx/rt_coverage.h`, stochastic transparency - Enderton et al. 2010; UE's dithered opacity under a temporal
+resolve): at each pixel, each frame, the surface is either wholly there - kept by the prepass, shaded opaque with its own
+light inputs - or not there at all (its fragment discarded; the surface behind it shaded as usual), with the probability
+of its alpha (interleaved gradient noise over the pixels, moved on by the golden ratio each frame). The prepass and the
+shaded draw (`kLightDepthHalf` on both keys, `FragmentUniforms::coverage` the frame's seed) and the rays' camera surface
+(`vulkan_rt_scene.cpp drawn_kept` - `ray_drawn_least`, set by ReSTIR DI's and GI's primaries) take the same threshold at
+the same pixel. The upscaler / Ray Reconstruction averages the frames into the blend - what the path tracer's reference
+does at its first hit (a surface by its coverage). Without a jittered temporal resolve the threshold is a half (an alpha
+test). Measured at the user's pose: realtime / reference 2.3 -> 0.71 (the rest: the lamp heads and the glass box's
+fittings seen directly, under the reference).
 
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 

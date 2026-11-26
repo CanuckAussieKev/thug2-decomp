@@ -424,7 +424,8 @@ void fill_surface_uniforms(const GpuStateBlock& block, const VertexUniforms& ver
     uniforms->sheen = {std::get<0>(material.sheen), std::get<1>(material.sheen), std::get<2>(material.sheen),
                        material.sheen_roughness};
     // (round MATALB) the texture's colour to its kind's albedo (rt_material_table.h material_albedo_scale; 1: as painted)
-    uniforms->albedo = {draw.albedo_scale, 0.0F, 0.0F, 0.0F};
+    // (round SKIN) y, z: a shine mask's coat - its strength and its mask passes (GpuStateBlock::surface_coat)
+    uniforms->albedo = {draw.albedo_scale, std::get<0>(block.surface_coat), std::get<1>(block.surface_coat), 0.0F};
     (void)settings;
 }
 

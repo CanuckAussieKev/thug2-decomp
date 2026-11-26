@@ -104,6 +104,10 @@ void set_world_passes(bool inside);
 // A mesh drawn (MeshRef::render), with the world transform it is drawn with: reported to a check that wants draws,
 // when inside the world's passes.
 void mesh_drawn(const MeshRef* mesh);
+// (round SKIN) The shine-mask coat `mesh`'s draw takes (Gpu::set_surface_coat - rt_surface_class.h surface_coat): its
+// material's coat where an instance of it on this mesh is one (reflection_class_on, as the rays' record takes it), from
+// the material the record made (none before the record has seen it, or without ray tracing): {strength, masks, 0, 0}.
+[[nodiscard]] std::array<float, 4> surface_coat(const MeshRef* mesh);
 // The destructors: the mesh / material removed if it was registered.
 void mesh_released(const MeshRef* mesh);
 void material_released(const MaterialRef* material);

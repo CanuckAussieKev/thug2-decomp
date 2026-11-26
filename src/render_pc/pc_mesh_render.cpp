@@ -550,7 +550,15 @@ void MeshRef::render()
         // meshes and the scene objects', not on a character's - skinned here, or a mesh a bone while Singleton::render
         // says it draws one)
         surface_trail::set_current_ground(!flat && per_vertex_data_ == nullptr && !surface_trail::current_character());
+        // (not original - round SKIN: a shine mask's coat on the per-pixel material, as the rays' record has it)
+        const std::array<float, 4> coat = flat ? std::array<float, 4>{} : rt_record::surface_coat(this);
+        if (std::get<0>(coat) > 0.0F) {
+            gpu().set_surface_coat(coat);
+        }
         gpu().draw_indexed(static_cast<GpuPrimitive>(primitive_type_), 0, 0, vertex_count_, 0, primitives);
+        if (std::get<0>(coat) > 0.0F) {
+            gpu().set_surface_coat({});
+        }
         water_geometry::after_draw();
         surface_trail::set_current_ground(false);
     } else {

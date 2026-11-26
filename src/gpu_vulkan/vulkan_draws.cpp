@@ -31,6 +31,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_markers.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_coverage.h"
 #include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_display.h"
 #include "gpu_vulkan/ff_key.h"
@@ -408,6 +409,9 @@ bool set_uniforms(Backend& state, const GpuStateBlock& block, const VertexKey& k
         }
     }
     core::at(fragment.alpha_reference, 3) = static_cast<float>(environment_stages);
+    // (NOT ORIGINAL - round SKIN, engine/gfx/rt_coverage.h) the frame's seed for a blended surface's coverage: stochastic
+    // while a jittered temporal resolve draws the view (read by the kept blended draws that write depth - kLightDepthHalf)
+    fragment.coverage = {rt::coverage_seed(state.frames.serial(), state.motion.active), 0.0F, 0.0F, 0.0F};
     // NOT ORIGINAL - the upscaler (vulkan_motion.h): the frame before's transforms; a scaled view's pre-transformed
     // positions put into its drawn part
     if (key.motion != 0U) {

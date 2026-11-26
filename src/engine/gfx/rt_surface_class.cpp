@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 
@@ -148,6 +149,24 @@ uint32_t reflection_class_on(const Material& material, SurfaceClass surface)
         return kReflectCoat;
     }
     return material.reflection_class;
+}
+
+SurfaceCoat surface_coat(const Material& material, uint32_t class_on)
+{
+    if (class_on != kReflectCoat) {
+        return {};
+    }
+    SurfaceCoat coat{.strength = std::clamp(material.reflectivity, 0.0F, 1.0F), .masks = 0};
+    constexpr uint32_t kStages = 4;
+    for (std::size_t k = 0; k < material.mask_passes.size(); ++k) {
+        const Material::MaskPass& mask = core::at(material.mask_passes, k);
+        if (mask.kind == kMaskNone || mask.uv_set >= kStages) {
+            continue;
+        }
+        const uint32_t bits = mask.kind | (mask.texture_alpha ? kCoatMaskTexelAlpha : 0U) | (mask.uv_set << kCoatMaskStageShift);
+        coat.masks |= bits << (kCoatMaskBits * static_cast<uint32_t>(k));
+    }
+    return coat;
 }
 
 const char* surface_class_name(SurfaceClass surface)
