@@ -2356,6 +2356,12 @@ int run(const Options& options, SDL_Window* window)
         run_mirror(gpu, mirror,
                    {.name = "glass under a cover, its clear texels", .kind = rt::kReflectGlass, .cover = true}, &tally);
         run_mirror(gpu, mirror, {.name = "the game's shine under a cover", .cover = true, .rough = true}, &tally);
+        // (round SHINE - rt_scene.h kReflectCoat) a shine mask's coat (glass by its cover on a solid mesh) in a view
+        // ReSTIR GI didn't light: the table's lacquer through the cover's clear texels, as the game's shine - not glass
+        run_mirror(gpu, mirror,
+                   {.name = "a shine mask's coat under its cover (no ReSTIR GI: the lacquer in place)",
+                    .kind = rt::kReflectCoat, .cover = true, .rough = true},
+                   &tally);
         run_rough(gpu, mirror, &tally);
         run_untouched(gpu, mirror, "nothing reflective: the pass skipped", true, 0.0F, &tally);
         run_untouched(gpu, mirror, "rt_reflections off: no pass", false, 1.0F, &tally);

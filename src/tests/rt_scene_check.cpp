@@ -610,6 +610,42 @@ void check_scene_sun()
            "rt_sun_source: anything else refused, the choice kept");
 }
 
+// (round SHINE - rt_surface_class.h reflection_class_on) Which reflection class an instance takes on its mesh: Training's
+// quarter pipe (4D1670EA: an environment-mapped first pass, blend 5, the ramp's texture blended over it by its alpha -
+// glass by its cover) on its blended-opaque mesh is a shine mask's coat; the same on a seen-through mesh stays glass;
+// painted glass (the environment lerped into a wall texture's clear texels), water, the game's other shines and a
+// surface that doesn't reflect keep their class.
+void check_shine_masks()
+{
+    using C = rt::SurfaceClass;
+    constexpr uint32_t kAlpha = 5;
+    rt::Material ramp = sample_material(rt::kTransparent, kAlpha);
+    ramp.reflectivity = 1.0F;
+    ramp.environment_pass = 0;
+    ramp.reflection_class = rt::kReflectGlass;
+    ramp.reflection_mask = rt::kReflectEverywhere;
+    ramp.mask_passes[0] = {.kind = rt::kMaskClear, .uv_set = 1};
+    expect(rt::reflection_class_on(ramp, C::kBlendedOpaque) == rt::kReflectCoat,
+           "the quarter pipe's shine mask on its blended-opaque mesh: a coat");
+    expect(rt::reflection_class_on(ramp, C::kOpaque) == rt::kReflectCoat, "on an opaque mesh: a coat");
+    expect(rt::reflection_class_on(ramp, C::kCutOut) == rt::kReflectCoat, "on a cut-out (its solid texels): a coat");
+    expect(rt::reflection_class_on(ramp, C::kSeenThrough) == rt::kReflectGlass, "on a seen-through mesh: glass");
+    expect(rt::reflection_class_on(ramp, C::kAddsLight) == rt::kReflectGlass, "on a light-adding mesh: unchanged");
+    rt::Material painted = ramp;
+    painted.reflection_mask = rt::kReflectWhereBaseClear;
+    expect(rt::reflection_class_on(painted, C::kBlendedOpaque) == rt::kReflectGlass,
+           "glass painted into a wall texture's clear texels: glass");
+    rt::Material water = ramp;
+    water.reflection_class = rt::kReflectWater;
+    expect(rt::reflection_class_on(water, C::kBlendedOpaque) == rt::kReflectWater, "water: water");
+    rt::Material shiny = ramp;
+    shiny.reflection_class = rt::kReflectShiny;
+    expect(rt::reflection_class_on(shiny, C::kOpaque) == rt::kReflectShiny, "the game's shine: unchanged");
+    rt::Material dull = ramp;
+    dull.reflectivity = 0.0F;
+    expect(rt::reflection_class_on(dull, C::kBlendedOpaque) == rt::kReflectGlass, "no reflectivity: unchanged");
+}
+
 } // namespace
 
 int main()
@@ -620,6 +656,7 @@ int main()
     check_geometry();
     check_flags();
     check_surface_classes(); // (round PT-B)
+    check_shine_masks();     // (round SHINE)
     check_baked_sun();
     check_scene_sun();
     if (failures() != 0) {

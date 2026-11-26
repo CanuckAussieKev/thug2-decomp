@@ -245,6 +245,15 @@ inline constexpr uint32_t kReflectGlass = 2; // windows: the material table's gl
 // texel - never set on an rt::Material, only by the Vulkan material table (vulkan_rt_materials.h, vulkan_surface.h
 // surface_map_gloss)
 inline constexpr uint32_t kReflectSurface = 3;
+// (round SHINE - rt_surface_class.h reflection_class_on) a shine mask: an environment pass under a later pass that
+// covers it by its alpha, on a surface every ray meets as opaque - not a window (nothing is behind it to see through),
+// but a clear coat over the surface (the material table's lacquer: F0 of index 1.5, its roughness) as strong as the
+// share the covering passes leave (reflectivity x the mask passes). Never set by render_pc's classification of a
+// material alone: an instance takes it when its mesh's class isn't seen through (rt_record.cpp add_instance). Its
+// specular is the surface's own lobe (vulkan_rt_scene.cpp hit_surface_at lays the coat on its material), so ReSTIR GI
+// owns it where it runs - the reflections pass leaves it (Training's quarter pipe: the ramp's texture over a shine map,
+// read as glass, mirrored the lamp-lit hall in place with one light sample a hit - square specks every frame).
+inline constexpr uint32_t kReflectCoat = 4;
 // Water's Fresnel reflectance face-on (Schlick's F0; index 1.33): the reflections' and the material table's (its
 // MaterialRecord::f0 - gpu_vulkan/vulkan_rt_materials.h); the surface maps' water class gives the same
 // (tools/pbr_maps/classes.ts).

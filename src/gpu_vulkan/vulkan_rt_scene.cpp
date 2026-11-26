@@ -3377,6 +3377,12 @@ std::string_view hit_surface_glsl()
                            ";\nconst float HIT_SURFACE_ROUGHNESS = " +
                            std::to_string(rt::material_values(rt::MaterialKind::kPainted).roughness) +
                            ";\nconst float HIT_SURFACE_METAL_F0 = " + std::to_string(kHitMetalF0) +
+                           // (round SHINE) a shine mask's coat: the material table's lacquer (rt_scene.h kReflectCoat)
+                           ";\nconst float HIT_COAT_F0 = " + std::to_string(std::get<0>(rt::material_f0(rt::MaterialKind::kLacquer))) +
+                           ";\nconst float HIT_COAT_ROUGHNESS = " +
+                           std::to_string(rt::material_values(rt::MaterialKind::kLacquer).roughness) +
+                           ";\nconst uint HIT_CLASS_COAT = " + std::to_string(rt::kReflectCoat) +
+                           "u;\nconst uint HIT_MASK_CLEAR = " + std::to_string(rt::kMaskClear) + "u" +
                            ";\nconst float EMITTER_FRONT_SIGN = " + std::to_string(rt::kFrontFaceSign) + ";\n";
         text += hit_albedo_glsl();     // (round BAKEALB: the albedo, the relit bake's bounce rays' too)
         text += R"(
@@ -3495,6 +3501,35 @@ bool hit_emission(uint instance, uint primitive, uint id, vec2 barycentrics, out
     }
     return hit_emission_of(instance, primitive, id, barycentrics, v, emitted);
 }
+// (round SHINE - rt_scene.h kReflectCoat) A shine mask's coat at a hit: the material's reflectivity x the share of its
+// environment pass its covering passes leave there (rt::Material::mask_passes - each one's texel alpha a, the texel's
+// own or x the vertex alpha doubled, held to 1: 1 - a for kMaskClear, a for kMaskOpaque), each mask texture at its level
+// for the cone (none: its most detailed) - the reflections pass's environment_mask, as a material's layer.
+float hit_coat_share(uint instance, uint primitive, uint id, vec2 barycentrics, HitVertices v, vec3 a, vec3 b, vec3 c,
+                     HitCone cone)
+{
+    Material m = material(id);
+    float share = clamp(m.reflectivity, 0.0, 1.0);
+    float vertex_alpha = (v.flags & GEOMETRY_COLOUR) != 0u ? hit_colour(v, barycentrics).a * 2.0 : 1.0;
+    for (uint k = 0u; k < 3u; ++k) {
+        uint mode = m.mask_mode[k];
+        uint kind = mode & 15u;
+        if (kind == 0u) {
+            continue;
+        }
+        uint set = (mode >> 4) & 15u;
+        vec2 uv = hit_uv_set(instance, primitive, barycentrics, set);
+        float lod = cone.most_anisotropy > 0.0 ? hit_cone_level(instance, primitive, m.mask_texture[k], set, barycentrics,
+                                                                a, b, c, cone)
+                                               : 0.0;
+        float alpha = material_mask_alpha(id, k, uv, lod);
+        if ((mode & 256u) == 0u) {
+            alpha = clamp(alpha * vertex_alpha, 0.0, 1.0);
+        }
+        share *= kind == HIT_MASK_CLEAR ? 1.0 - alpha : alpha;
+    }
+    return clamp(share, 0.0, 1.0);
+}
 bool hit_surface_at(uint instance, uint primitive, uint id, vec2 barycentrics, mat4x3 object_to_world, vec3 direction,
                     HitCone cone, out HitSurface s)
 {
@@ -3576,15 +3611,22 @@ bool hit_surface_at(uint instance, uint primitive, uint id, vec2 barycentrics, m
     }
     if (!material_has_surface(id) || surface.f0 <= 0.0) {
         s.material = brdf_material(s.base_colour, vec3(HIT_SURFACE_F0), HIT_SURFACE_ROUGHNESS);
-        return true;
-    }
-    float r = clamp(material_surface_lod(id, uv, 0.0).b, 0.0, 1.0);
-    r = mix(r, surface.kind_roughness, surface.kind_roughness_weight);
-    if (surface.f0 >= HIT_SURFACE_METAL_F0) {
-        s.kind = HIT_KIND_METAL;
-        s.material = brdf_material(vec3(0.0), s.base_colour, r);
     } else {
-        s.material = brdf_material(s.base_colour, vec3(surface.f0), r);
+        float r = clamp(material_surface_lod(id, uv, 0.0).b, 0.0, 1.0);
+        r = mix(r, surface.kind_roughness, surface.kind_roughness_weight);
+        if (surface.f0 >= HIT_SURFACE_METAL_F0) {
+            s.kind = HIT_KIND_METAL;
+            s.material = brdf_material(vec3(0.0), s.base_colour, r);
+        } else {
+            s.material = brdf_material(s.base_colour, vec3(surface.f0), r);
+        }
+    }
+    if (surface.reflection_class == HIT_CLASS_COAT) {
+        // (round SHINE) a shine mask's coat laid on the material by its share - the layered material's parameters blended
+        // by its coverage, as the DBuffer's layers are (camera_surface): F0 and roughness toward the lacquer's
+        float coat = hit_coat_share(instance, primitive, id, barycentrics, v, a, b, c, cone);
+        s.material.f0 = mix(s.material.f0, vec3(HIT_COAT_F0), coat);
+        s.material.roughness = mix(s.material.roughness, HIT_COAT_ROUGHNESS, coat);
     }
     return true;
 }

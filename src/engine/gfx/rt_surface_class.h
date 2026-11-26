@@ -66,6 +66,14 @@ VertexColours vertex_colours_in(std::span<const uint8_t> bytes, uint32_t fvf, ui
 // material kTransparent) keeps kTransparent beside kAlphaTested (a path's ray takes its coverage: hit_blend).
 uint32_t surface_instance_flags(SurfaceClass surface, const Material& material);
 
+// (round SHINE) The reflection class an instance of `material` takes on a mesh of class `surface`: glass whose
+// environment pass isn't lerped into its texture (reflection_mask kReflectEverywhere - glass by a later pass covering it,
+// or by its first pass being blended) is glass only where a ray can see through the mesh (kSeenThrough); on a mesh every
+// ray meets as solid (opaque, blended opaque, a cut-out's solid texels) it is a shine mask - kReflectCoat, its strength
+// the share the covering passes leave. Glass painted into a texture's clear texels (kReflectWhereBaseClear /
+// WhereBaseOpaque - the windows in a wall's texture), water, shiny and a light-adding surface keep their class.
+uint32_t reflection_class_on(const Material& material, SurfaceClass surface);
+
 // Its name for the logs ("opaque", "cut-out", "blended opaque", "seen through", "adds light").
 const char* surface_class_name(SurfaceClass surface);
 

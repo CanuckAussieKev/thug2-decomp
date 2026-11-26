@@ -214,6 +214,10 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   (src/engine/gfx/rt_lights.h light_volume: the cones and pools of light the artists drew under lamps, hidden while
   relit and no surface for rays), read from the level files of the game and its overlays (nothing run); `--near` also
   lists the meshes one test keeps out (a dark texture, a moving one).
+- `node tools/game/shine_mask_survey.ts [--game <install>] [--levels TR,BA,...] [--list]` - (round SHINE) the levels'
+  environment-mapped glass not painted into its texture, by the class its meshes take for rays
+  (src/engine/gfx/rt_surface_class.h reflection_class_on): a shine mask's coat on a solid mesh, glass on a seen-through
+  one - meshes and materials per level (`--list` names them); read from the level files, nothing run.
 - `node tools/game/water_check.ts run --game C:\Games\THUG2-<n> --out <folder> --build <x64 build folder>
   [--settings <ini>] [--levels BA,AU,BE,NO,SE] [--configs off,on] [--set Section.key=value]...` - the water spots of five
   levels (the open sea, harbours, a canal, a river, a pool, a shoreline close up) with `rt_water=0` and `1` over the

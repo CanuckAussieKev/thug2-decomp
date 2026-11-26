@@ -136,6 +136,7 @@ const uint INSTANCE_OBJECT = 32u; // (rt::InstanceFlag kObject)
 const uint CLASS_WATER = 1u;      // (rt::kReflectWater, kReflectGlass)
 const uint CLASS_GLASS = 2u;
 const uint CLASS_SURFACE = 3u;    // (rt::kReflectSurface: glossy by its surface map)
+const uint CLASS_COAT = 4u;       // (rt::kReflectCoat: a shine mask's coat - round SHINE)
 const uint MASK_PASS_CLEAR = 1u;  // (a mask pass's kind: rt::kMaskClear; kMaskOpaque 2)
 const float MAX_CONE = 0.5;       // (a rough surface's cone at most, radians)
 // (the apply's blur spans 3 x 3 pixels: a lobe narrower than three pixels' angle is traced as a mirror - one ray)
@@ -495,6 +496,12 @@ void main()
             // from GI (left_out 0 below: weight 0, no ray) - nothing to do for it, so nothing read for it either (its
             // triangle, mask, normals and texels were read for a weight of 0: most of the view's pixels)
             if (pass.surface.w > 0.5 && material(id).reflection_class == CLASS_SURFACE && material(id).reflection_mask == 0u) {
+                reflectivity = 0.0;
+            }
+            // (round SHINE - rt_scene.h kReflectCoat) a shine mask's coat is the surface's own specular lobe (hit_surface_at
+            // lays it on the material): in a view ReSTIR GI lit, GI's - no reflection here (without GI: the lacquer's,
+            // in place, as the game's other shines)
+            if (pass.surface.w > 0.5 && material(id).reflection_class == CLASS_COAT) {
                 reflectivity = 0.0;
             }
             HitVertices v;

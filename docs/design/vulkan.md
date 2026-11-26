@@ -3388,6 +3388,24 @@ GI lit the pixel, whose samples are then the object's indirect light, as the wor
 baked colours (unlit) still take the ratio - their colour is the bake's light, nothing separates it. pbr_check: a lit
 map under the one light is the same picture with a pass tint of 2 as without, the game's own lights still take it.
 
+**Round SHINE: a shine mask is a clear coat, not glass.** The game marks a shiny part of a surface by drawing an
+environment-mapped pass and covering it with a later pass by that pass's alpha: the shine shows where the cover's texels
+are clear. `rt_record.cpp classify_reflective` called every such cover glass (the rule that finds windows in a wall's
+texture), so the reflections pass replaced the pixel there with a glass mirror lit by one light sample a hit - on
+Training's quarter pipe (material 4D1670EA: the shine map under the ramp's texture) square specks, a texel of the cover
+each, that changed every frame. The rule now (`rt_surface_class.h reflection_class_on`): glass not painted into its
+texture is glass only where a ray can see through the mesh (its class `kSeenThrough`); on a mesh every ray meets as solid
+(opaque, blended opaque, a cut-out's solid texels) it is a shine mask - `rt::kReflectCoat`, the material table's lacquer
+(index 1.5, its roughness) as strong as the share the covering passes leave. An instance takes it by its mesh's class
+(`rt_record.cpp material_id_on`: the material's variant with that class, so one material can be glass on a seen-through
+mesh and a coat on a solid one). The coat is laid on the hit's material as a layered material by its coverage - F0 and
+roughness toward the lacquer's (`vulkan_rt_scene.cpp hit_surface_at` / `hit_coat_share`, the DBuffer layers' blend) - so
+every estimator that reads the hit's material has it as the surface's own specular lobe: ReSTIR DI's lights, ReSTIR GI's
+environment specular, the path tracer. In a view ReSTIR GI lit the reflections pass leaves it (no in-place mirror);
+without GI it is the lacquer in place, as the game's other shines. `tools/game/shine_mask_survey.ts` lists each level's.
+The raster's per-pixel material doesn't know the coat yet: it weighs GI's specular by its own (uncoated) specular albedo
+and gives Ray Reconstruction its own roughness.
+
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
 Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3

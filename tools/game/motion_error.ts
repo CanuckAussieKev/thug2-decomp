@@ -497,6 +497,15 @@ export const kSpots: Spot[] = [
         camera: { x: -1046.7, y: 241.8, z: 7431.7 },
         direction: { x: 0.7069, y: -0.179, z: -0.685 }, // (the sidecar's 0.707)
     },
+    // (round SHINE) Training's quarter pipe with its shine mask (the user's 2026-11-25 22-17-22, noon): the ramp's coat
+    {
+        name: "trq",
+        level: "tr",
+        skater: { x: 296.8, y: -765.4, z: -2235.4 },
+        heading: 108.2,
+        camera: { x: 169.6, y: -681.8, z: -2176.0 },
+        direction: { x: 0.884, y: -0.222, z: -0.412 },
+    },
 ];
 
 export interface Motion {
