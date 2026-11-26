@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "engine/gfx/rain.h"
+#include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/ff_uniforms.h"
 
 namespace render::vulkan {
@@ -369,8 +370,8 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
     vec3 tint = water.tint.w > 0.5 ? own : water.tint.rgb * gain;
     vec3 hue = clamp(tint / max(max(tint.r, tint.g), max(tint.b, 1.0e-3)), 0.03, 1.0);
     float light = water_luma(tint);
-    vec3 deep_hue = hue * hue; // (deep water's colour more saturated than the texture's mean, which has its highlights)
-    vec3 deep = deep_hue * (light * 0.65 / max(water_luma(deep_hue), 0.05));
+    // (round MEDIUM: the water's body's one definition with the path tracer's - rt_volume_light.h kWaterMediumGlsl)
+    vec3 deep = water_deep_reflectance(hue) * light;
     // (round POOL) the texture's own detail, faintly, on the scattered colour (the covered body below has its texels)
     deep *= mix(1.0, clamp(water_luma(texel.rgb) / max(water_luma(mean), 0.02), 0.5, 1.6), water.waves.w);
     // (NOT ORIGINAL - round POOL: one water material with the rays and the path tracer - vulkan_rt_scene.cpp hit_blend,
@@ -417,7 +418,7 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
     }
     float path = max(behind - surface_w, 0.0) * dist / surface_w;
     float depth_down = path * clamp(v.y, 0.0, 1.0);
-    vec3 sigma = (3.0 / max(water.waves.y, 1.0)) * (0.2 + 1.6 * (1.0 - hue));
+    vec3 sigma = water_extinction(hue, water.waves.y);
     vec3 through = exp(-sigma * min(path, 1.0e5));
     vec3 lit_below = exp(-sigma * min(depth_down, 1.0e5));
     vec3 refracted = under * through * lit_below + deep * (1.0 - through);
@@ -512,6 +513,7 @@ std::string water_declarations_glsl(bool moving)
     out += render::rain::glsl_constants(); // (added by the rain: the drops' rings)
     out += render::rain::ripple_glsl();
     out += moving ? kWaterRestMovingGlsl : kWaterRestFlatGlsl;
+    out += render::rt::kWaterMediumGlsl; // (round MEDIUM)
     out += kWaterGlsl;
     return out;
 }

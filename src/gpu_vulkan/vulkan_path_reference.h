@@ -8,6 +8,7 @@
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_volume_light.h"
 
 // NOT ORIGINAL - the reference path tracer (path tracing plan, stage 1; vulkan_path_reference.cpp): an unbiased,
 // progressive integrator over the frame's own acceleration structures, materials and light store - the yardstick the
@@ -75,6 +76,8 @@ struct PathOverrides {
     std::vector<uint8_t> lamps_surfaced;            // per lamp: its own surface emits (rt_path.h analytic_lamps)
     rt::lights::LightWeights light_weights = rt::lights::LightWeights::kPower; // how the list picks its lights
     uint32_t light_kinds = rt::path::kAllLightKinds; // the kinds of light counted (`pt ref ... only`)
+    rt::AirMedium medium;       // (round MEDIUM) the air the paths go through (no layers: none)
+    float water_clarity = 0.0F; // (round MEDIUM) > 0: a water body under the water's interfaces, seen this far into
 };
 void set_path_overrides(const PathOverrides& overrides);
 

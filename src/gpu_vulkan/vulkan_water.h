@@ -113,6 +113,17 @@ struct WaterView {
 // four floats each (slope along x, slope along z, height 0 - 1, the foam's pattern 0 - 1).
 [[nodiscard]] std::vector<std::array<float, 4>> water_waves_reference(uint32_t level);
 
+// (round MEDIUM) The water's body as the shader takes it (rt_volume_light.h kWaterMediumGlsl): how far one sees into the
+// level's water (world units: the level's visibility x rt_water_clarity) and its hue's source - the water's own colour
+// (tint_auto), else the set tint. For the reference path tracer's water medium. The caller holds the lock.
+struct WaterBodyMedium {
+    bool on = false; // the water shader draws (rt_water)
+    float clarity = 1.0F;
+    bool tint_auto = true;
+    std::array<float, 3> tint{};
+};
+[[nodiscard]] WaterBodyMedium water_body_medium_locked(const Backend& state);
+
 // Counts for the log and the checks.
 struct WaterStats {
     uint64_t draws = 0;  // water draws shaded

@@ -153,4 +153,82 @@ std::array<double, 2> cloud_map_place(const std::array<double, 3>& at, const std
     return {core::at(at, 0) + (core::at(toward, 0) * along), core::at(at, 2) + (core::at(toward, 2) * along)};
 }
 
+double medium_layer_depth(double u0, double dy, double s0, double s1, double inverse_height)
+{
+    double lo = s0;
+    double hi = s1;
+    double below = 0.0;
+    constexpr double kLevel = 1e-12;
+    if (inverse_height > 0.0) {
+        if (std::abs(dy) < kLevel) {
+            if (u0 <= 0.0) {
+                below = s1 - s0;
+                hi = lo;
+            }
+        } else {
+            const double cut = std::clamp(-u0 / dy, s0, s1);
+            if (dy > 0.0) {
+                below = cut - s0;
+                lo = cut;
+            } else {
+                below = s1 - cut;
+                hi = cut;
+            }
+        }
+    }
+    double depth = below;
+    if (hi > lo) {
+        const double k = dy * inverse_height;
+        constexpr double kThin = 1e-4;
+        if (std::abs(k) * (hi - lo) < kThin) {
+            depth += std::exp(-std::max(u0 + (dy * 0.5 * (lo + hi)), 0.0) * inverse_height) * (hi - lo);
+        } else {
+            depth += (std::exp(-std::max(u0 + (dy * lo), 0.0) * inverse_height) -
+                      std::exp(-std::max(u0 + (dy * hi), 0.0) * inverse_height)) /
+                     k;
+        }
+    }
+    return depth;
+}
+
+std::array<float, 3> water_extinction(const std::array<float, 3>& hue, float clarity)
+{
+    constexpr float kVisibilities = 3.0F; // (e^-3: 5 % left at the clarity)
+    constexpr float kLeast = 0.2F;
+    constexpr float kByHue = 1.6F;
+    std::array<float, 3> out{};
+    for (std::size_t i = 0; i < 3; ++i) {
+        core::at(out, i) = (kVisibilities / std::max(clarity, 1.0F)) * (kLeast + (kByHue * (1.0F - core::at(hue, i))));
+    }
+    return out;
+}
+
+std::array<float, 3> water_deep_reflectance(const std::array<float, 3>& hue)
+{
+    constexpr float kDeep = 0.65F;
+    constexpr float kLeastLuma = 0.05F;
+    std::array<float, 3> h2{};
+    for (std::size_t i = 0; i < 3; ++i) {
+        core::at(h2, i) = core::at(hue, i) * core::at(hue, i);
+    }
+    const float luma = (0.2126F * core::at(h2, 0)) + (0.7152F * core::at(h2, 1)) + (0.0722F * core::at(h2, 2));
+    const float scale = kDeep / std::max(luma, kLeastLuma);
+    for (float& value : h2) {
+        value *= scale;
+    }
+    return h2;
+}
+
+std::array<float, 3> water_scattering_albedo(const std::array<float, 3>& reflectance)
+{
+    constexpr float kMost = 0.999F;
+    std::array<float, 3> out{};
+    for (std::size_t i = 0; i < 3; ++i) {
+        const float r = std::clamp(core::at(reflectance, i), 0.0F, kMost);
+        const float q = (1.0F - r) / (1.0F + r);
+        core::at(out, i) = 1.0F - (q * q);
+    }
+    return out;
+}
+
 } // namespace render::rt

@@ -243,43 +243,11 @@ ivec2 froxel(ivec2 column, int slice)
 vec2 column_size() { return vec2(fog.rect.zw) / vec2(fog.low.xy); }
 
 // The optical depth of a layer between s0 and s1 along the view ray (y linear along it): extinction `sigma` at height
-// `ground`, thinning by e every 1 / inv_h above it, `sigma` at and below it - in closed form.
+// `ground`, thinning by e every 1 / inv_h above it, `sigma` at and below it - in closed form (round MEDIUM: the medium's
+// one definition, rt_volume_light.h kMediumGlsl - the path tracer's too).
 float layer_depth(vec3 direction, float s0, float s1, float sigma, float inv_h, float ground)
 {
-    float u0 = fog.camera.y - ground; // the camera's height above the ground
-    float dy = direction.y;
-    float lo = s0; // [lo, hi]: the part above the ground
-    float hi = s1;
-    float below = 0.0;
-    if (inv_h > 0.0) {
-        if (abs(dy) < 1e-12) {
-            if (u0 <= 0.0) {
-                below = s1 - s0;
-                hi = lo;
-            }
-        } else {
-            float cut = clamp(-u0 / dy, s0, s1); // where the ray crosses the ground's height
-            if (dy > 0.0) {
-                below = cut - s0;
-                lo = cut;
-            } else {
-                below = s1 - cut;
-                hi = cut;
-            }
-        }
-    }
-    float depth = sigma * below;
-    if (hi > lo) {
-        float k = dy * inv_h;
-        float e_lo = exp(-max(u0 + dy * lo, 0.0) * inv_h);
-        float e_hi = exp(-max(u0 + dy * hi, 0.0) * inv_h);
-        if (abs(k) * (hi - lo) < 1e-4) {
-            depth += sigma * exp(-max(u0 + dy * 0.5 * (lo + hi), 0.0) * inv_h) * (hi - lo);
-        } else {
-            depth += sigma * (e_lo - e_hi) / k;
-        }
-    }
-    return depth;
+    return sigma * medium_layer_depth(fog.camera.y - ground, direction.y, s0, s1, inv_h);
 }
 
 // The street air's optical depth between s0 and s1: the weather's air over the level's ground and the falling snow.
@@ -1350,6 +1318,8 @@ struct FogState {
     bool haze = false; // this view's level has no fog: the haze drawn instead (rt_fog_haze)
     bool clock_air = false; // (round FW) ... or its fog is the time of day's, under the clock's physical air
     bool aerial = false; // ... as the sky model's aerial perspective (rt_sky_model=1, a sun and its table)
+    // (round MEDIUM) the air this view's pass marched, as layers (rt_volume_light.h AirMedium) - the path tracer's too
+    rt::AirMedium medium;
     std::array<float, 3> sun_colour{1.0F, 1.0F, 1.0F}; // the sky model's (display-referred, brightest channel 1)
     bool standard_samples = false;
     bool failed = false;
@@ -1502,6 +1472,7 @@ std::string source_of(const char* body, bool traces, bool multisampled, uint32_t
             source += rt_lamp_glsl();
         }
     }
+    source += rt::kMediumGlsl;
     source += kCommon;
     if (lights) {
         source += kListGlsl;
@@ -2717,6 +2688,74 @@ AerialLight aerial_light(const rt::ViewDrawn& view, float ground)
     return out;
 }
 
+// (round MEDIUM) The air the pass marches as layers (rt_volume_light.h AirMedium - the path tracer traces the same):
+// from the same inputs block_for hands the shaders - the atmosphere's air (the molecules, the weather's aerosol, its
+// mist, what falls) at the level's ground, or the street air (the aerosol as one layer and what falls) over its street.
+// The level's own fog (from the eye's distances) is no world medium: left out, said in `none`.
+rt::AirMedium medium_of(const FogState& own, float ground, float reach)
+{
+    rt::AirMedium out;
+    const rt::Aerosol air = rt::aerosol();
+    out.g = static_cast<float>(air.g);
+    out.reach = reach;
+    const auto add = [&out](const std::array<float, 3>& scattering, const std::array<float, 3>& extinction,
+                            double height, float layer_ground, rt::MediumPhase phase) {
+        if (out.layers >= rt::kMediumLayers || !(core::at(extinction, 1) > 0.0F)) {
+            return;
+        }
+        core::at(out.layer, out.layers) = {.scattering = scattering,
+                                          .extinction = extinction,
+                                          .inverse_height = height > 0.0 ? static_cast<float>(1.0 / height) : 0.0F,
+                                          .ground = layer_ground,
+                                          .phase = phase};
+        ++out.layers;
+    };
+    const auto grey = [](double value) {
+        const auto f = static_cast<float>(value);
+        return std::array<float, 3>{f, f, f};
+    };
+    constexpr double kUnits = rt::kUnitsPerMetre;
+    if (own.aerial) {
+        out.sky_holds_ray = rt::sky_replacement().on;
+        std::array<float, 3> rayleigh{};
+        std::array<float, 3> s{};
+        std::array<float, 3> t{};
+        std::array<float, 3> mist_s{};
+        std::array<float, 3> mist_t{};
+        for (std::size_t i = 0; i < 3; ++i) {
+            core::at(rayleigh, i) = static_cast<float>(core::at(rt::kRayleigh, i) / kUnits);
+            core::at(s, i) = static_cast<float>(core::at(air.scattering, i) / kUnits);
+            core::at(t, i) = static_cast<float>(core::at(air.extinction, i) / kUnits);
+            core::at(mist_s, i) = static_cast<float>(core::at(air.scattering, i) * air.mist / kUnits);
+            core::at(mist_t, i) = static_cast<float>(core::at(air.extinction, i) * air.mist / kUnits);
+        }
+        add(rayleigh, rayleigh, rt::kRayleighHeight * kUnits, ground, rt::MediumPhase::kRayleigh);
+        add(s, t, air.height * kUnits, ground, rt::MediumPhase::kAerosol);
+        if (air.mist > 0.0) {
+            add(mist_s, mist_t, air.mist_height > 0.0 ? air.mist_height * kUnits : 0.0, ground,
+                rt::MediumPhase::kAerosol);
+        }
+        const double falling = rt::precipitation_extinction(rt::air_weather()) / kUnits;
+        add(grey(falling), grey(falling), rt::kPrecipitationHeight * kUnits, ground, rt::MediumPhase::kAerosol);
+        return out;
+    }
+    if (!own.haze) {
+        out.none = "the level's own fog (drawn from the eye's distances - no world medium) left out, its street air kept";
+    }
+    const rt::BakedSun& baked = rt::baked_sun();
+    const float street = baked.scene != 0 && baked.street_known ? baked.street : ground;
+    const rt::StreetAir street_air = rt::street_air(air, rt::air_weather());
+    const std::array<float, 3> albedo = rt::aerosol_albedo(air);
+    const auto scattered = [&albedo](double extinction) {
+        const auto e = static_cast<float>(extinction);
+        return std::array<float, 3>{core::at(albedo, 0) * e, core::at(albedo, 1) * e, core::at(albedo, 2) * e};
+    };
+    add(scattered(street_air.extinction), grey(street_air.extinction), street_air.height, street,
+        rt::MediumPhase::kAerosol);
+    add(scattered(street_air.snow), grey(street_air.snow), street_air.snow_height, street, rt::MediumPhase::kAerosol);
+    return out;
+}
+
 FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const ViewSlot& slot, bool have_before,
                    VkSampleCountFlagBits samples)
 {
@@ -2842,6 +2881,7 @@ FogBlock block_for(const rt::ViewDrawn& view, const Matrix& to_world, const View
         core::at(block.air_look, 0) = rt::sky_replacement().on ? 1.0F : 0.0F;
         core::at(block.air_look, 1) = static_cast<float>(sigma);
     }
+    fog_state().medium = medium_of(own, ground, reach.front());
     // (round WF) the light list's local group
     if (own.lights) {
         block.list = {own.local.entries, own.settings.lamps, 0U, 0U};
@@ -2975,6 +3015,7 @@ bool record_pass(Backend& state, const rt::ViewDrawn& view)
 {
     FogState& own = fog_state();
     read_light();
+    own.medium = {};
     if (skip(state, view)) {
         return false;
     }
@@ -3398,6 +3439,12 @@ bool record_rt_fog_pass(Backend& state, const rt::ViewDrawn& view)
     replacing() = recorded && fog_state().settings.mode == RtFogMode::kReplace &&
                   (!fog_state().haze || fog_state().clock_air);
     return recorded;
+}
+
+rt::AirMedium rt_fog_medium_locked(const Backend& state)
+{
+    (void)state;
+    return fog_state().medium;
 }
 
 RtFogLights rt_fog_lights_locked(const Backend& state)

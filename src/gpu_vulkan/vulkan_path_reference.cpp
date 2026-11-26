@@ -33,6 +33,7 @@
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
+#include "engine/gfx/rt_volume_light.h"
 #include "gpu_vulkan/glsl_compiler.h"
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_hdr.h"
@@ -44,12 +45,14 @@
 #include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "gpu_vulkan/vulkan_rt_lights.h"
 #include "gpu_vulkan/vulkan_rt_clouds.h"
+#include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_materials.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/vulkan_rt_sky.h"
 #include "gpu_vulkan/vulkan_rt_sky_pass.h"
 #include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_upscale.h"
+#include "gpu_vulkan/vulkan_water.h"
 #include "platform/run_log.h"
 #include "platform/screenshot_files.h"
 
@@ -127,8 +130,15 @@ struct PathBlock {
         cloud_ray{}; // (the sky's march) xy the clouds' offset (metres), z the camera's altitude, w coverage
     std::array<float, 4> cloud_sun{};    // rgb the light on the clouds (exposed), w the march's steps
     std::array<float, 4> cloud_toward{}; // xyz toward that light, w the density's scale
+    // (round MEDIUM) the air (rt_volume_light.h AirMedium): x its layers, y its reach, z its reach toward the sky, w g
+    std::array<float, 4> medium{};
+    std::array<std::array<float, 4>, rt::kMediumLayers> layer_s{}; // rgb scattering, w 1 / height
+    std::array<std::array<float, 4>, rt::kMediumLayers> layer_t{}; // rgb extinction, w ground
+    std::array<uint32_t, 4> layer_phase{};
+    std::array<float, 4> water{};      // x clarity, y 1: its own colour, z 1: a body
+    std::array<float, 4> water_tint{};
 };
-static_assert(sizeof(PathBlock) == 21 * 16);
+static_assert(sizeof(PathBlock) == 33 * 16);
 
 // --- the shaders -------------------------------------------------------------------------------------------------------
 
@@ -157,6 +167,12 @@ layout(std140, set = 0, binding = 3) uniform PathBlock {
     vec4 cloud_ray;
     vec4 cloud_sun;
     vec4 cloud_toward;
+    vec4 medium;      // (round MEDIUM) x the air's layers, y its reach, z its reach toward the sky, w the aerosol's g
+    vec4 layer_s[4];  // rgb the layer's scattering per world unit at its ground, w 1 / its height
+    vec4 layer_t[4];  // rgb its extinction, w its ground's y
+    uvec4 layer_phase; // 0 Rayleigh's, 1 the aerosol's
+    vec4 water;       // x how far one sees into the water (world units), y 1: its own colour, z 1: a body
+    vec4 water_tint;
 } pass;
 layout(std430, set = 0, binding = 4) buffer Emitters {
     uint emitter_count;
@@ -347,11 +363,143 @@ BrdfMaterial surface_material(HitSurface s)
     return s.material;
 }
 
-// One light picked from the list by its power (the alias table) and sampled from `p` (normal n, the triangle's ng, toward
-// the eye v): its light x the BSDF x N.L / its pdf (the pick's x the direction's), the MIS weight against the BSDF's pdf
-// in the MIS strategy.
-vec3 sample_light(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rng)
+// --- (round MEDIUM) the media: the air the fog marches (rt_volume_light.h AirMedium, kMediumGlsl) and the water's body
+// (kWaterMediumGlsl) below the interface a path went down through. A path's state while it is in water: the plane it
+// entered by (its height), the body's extinction and scattering per world unit.
+bool g_in_water = false;
+float g_water_top = 0.0;
+vec3 g_water_t = vec3(0.0);
+vec3 g_water_s = vec3(0.0);
+const float MEDIUM_FAR = 1.0e6;   // a ray that leaves the level in water: as far as this (nothing gets through)
+const float MEDIUM_MOST_TAU = 80.0;
+const int MEDIUM_STEPS = 26;      // the bisection's steps finding a point by its optical depth
+
+bool air_on() { return pass.medium.x > 0.5; }
+
+// The air's optical depth (rgb) along origin + dir s, s in [s0, s1] (closed form, each layer's).
+vec3 air_depth(vec3 origin, vec3 dir, float s0, float s1)
 {
+    vec3 tau = vec3(0.0);
+    if (!(s1 > s0)) {
+        return tau;
+    }
+    uint layers = uint(pass.medium.x + 0.5);
+    for (uint i = 0u; i < layers; ++i) {
+        tau += pass.layer_t[i].rgb *
+               medium_layer_depth(origin.y - pass.layer_t[i].w, dir.y, s0, s1, pass.layer_s[i].w);
+    }
+    return tau;
+}
+
+// What scatters at a point: the air's molecules (Rayleigh's phase), its aerosol, mist and drops (the aerosol's), the
+// water's body (an even phase); the extinction there.
+struct MediumHere {
+    vec3 rayleigh;
+    vec3 aerosol;
+    vec3 water;
+    vec3 extinction;
+};
+MediumHere medium_here(vec3 x, bool air, bool water)
+{
+    MediumHere m;
+    m.rayleigh = vec3(0.0);
+    m.aerosol = vec3(0.0);
+    m.water = water ? g_water_s : vec3(0.0);
+    m.extinction = water ? g_water_t : vec3(0.0);
+    if (air) {
+        uint layers = uint(pass.medium.x + 0.5);
+        for (uint i = 0u; i < layers; ++i) {
+            float density = medium_layer_density(x.y - pass.layer_t[i].w, pass.layer_s[i].w);
+            if (pass.layer_phase[i] == 0u) {
+                m.rayleigh += pass.layer_s[i].rgb * density;
+            } else {
+                m.aerosol += pass.layer_s[i].rgb * density;
+            }
+            m.extinction += pass.layer_t[i].rgb * density;
+        }
+    }
+    return m;
+}
+// The light scattered per unit length and steradian for the scattering angle's cosine c (rgb).
+vec3 medium_scattered(MediumHere m, float c)
+{
+    return m.rayleigh * medium_rayleigh_phase(c) + m.aerosol * medium_aerosol_phase(c, pass.medium.w) +
+           m.water * (1.0 / (4.0 * PATH_PI));
+}
+
+// A ray's segment through the media: the air to `air_end` (0: none), the water to `water_end` (0: not in water).
+struct Segment {
+    vec3 origin;
+    vec3 dir;
+    float air_end;
+    float water_end;
+    float end;
+};
+vec3 segment_depth(Segment g, float s)
+{
+    vec3 tau = air_depth(g.origin, g.dir, 0.0, min(s, g.air_end));
+    if (g.water_end > 0.0) {
+        tau += g_water_t * min(s, g.water_end);
+    }
+    return tau;
+}
+// The point of the segment where channel `c`'s optical depth reaches `target` (it is below that at the end: the end).
+float segment_point(Segment g, uint c, float target)
+{
+    float lo = 0.0;
+    float hi = g.end;
+    for (int k = 0; k < MEDIUM_STEPS; ++k) {
+        float mid = 0.5 * (lo + hi);
+        if (segment_depth(g, mid)[c] < target) {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    return 0.5 * (lo + hi);
+}
+float one_minus_exp(float x) { return x < 1.0e-4 ? x * (1.0 - 0.5 * x) : 1.0 - exp(-x); }
+
+// The light that gets from `p` along `dir` through the media for `reach` (a distant light's - the sun's, the sky's -
+// rays go through the air's reach to the sky; the water's to its plane).
+vec3 medium_through(vec3 p, vec3 dir, float reach, bool distant)
+{
+    if (!g_in_water && !air_on()) {
+        return vec3(1.0);
+    }
+    vec3 tau = vec3(0.0);
+    float w = 0.0;
+    if (g_in_water) {
+        w = dir.y > 1.0e-6 ? clamp((g_water_top - p.y) / dir.y, 0.0, reach) : reach;
+        tau += g_water_t * min(w, MEDIUM_FAR);
+    }
+    if (air_on()) {
+        float most = distant ? pass.medium.z : pass.medium.y;
+        tau += air_depth(p, dir, w, min(reach, w + most));
+    }
+    return exp(-min(tau, vec3(MEDIUM_MOST_TAU)));
+}
+
+// One light picked from the list by its power (the alias table) and sampled from `p`: its direction, the light it sends
+// per the pick's and the direction's pdf (an analytic lamp's: its light on a surface facing it), the direction's pdf for
+// MIS (0 for an analytic lamp: no ray meets it), how far its light ray goes. At a surface (`ng` not zero: its triangle's
+// normal, n the shading normal) a light behind it is culled before anything is traced; at a point of the medium nothing.
+struct LightSample {
+    vec3 dir;
+    vec3 light;
+    float pdf;
+    float reach;
+    bool distant;
+    bool lamp;
+};
+bool light_sample(vec3 p, vec3 n, vec3 ng, inout uint rng, out LightSample ls)
+{
+    ls.dir = vec3(0.0, 1.0, 0.0);
+    ls.light = vec3(0.0);
+    ls.pdf = 0.0;
+    ls.reach = PATH_REACH;
+    ls.distant = true;
+    ls.lamp = false;
     float u = path_next(rng);
     float u1 = path_next(rng);
     float u2 = path_next(rng);
@@ -359,55 +507,49 @@ vec3 sample_light(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rn
     float u4 = path_next(rng);
     uint count = pass.lists.x;
     if (count == 0u) {
-        return vec3(0.0);
+        return false;
     }
     LightEntry e = light_entries[light_pick(u, count)];
     if (!(e.pdf > 0.0)) {
-        return vec3(0.0);
+        return false;
     }
-    bool mis = pass.frame.w == STRATEGY_MIS;
     uint kind = light_kind(e.payload);
     if (counted(kind) == 0.0) {
-        return vec3(0.0);
+        return false;
     }
+    bool surface = dot(ng, ng) > 0.0;
     if (kind == LIGHT_DISC) {
         vec3 dir = path_to_world(pass.sun.xyz, path_cone_direction(pass.sun.w, u1, u2));
-        if (dot(dir, ng) <= 0.0) {
-            return vec3(0.0);
+        if (surface && dot(dir, ng) <= 0.0) {
+            return false;
         }
-        vec3 f = path_bsdf_cosine(m, n, v, dir);
-        if (max(f.r, max(f.g, f.b)) <= 0.0) {
-            return vec3(0.0);
-        }
-        f *= transmittance(p, dir, PATH_REACH);
-        float pdf = e.pdf / pass.sun_radiance.w;
-        float w = mis ? path_power_heuristic(pdf, path_bsdf_pdf(m, n, v, dir)) : 1.0;
-        return f * pass.sun_radiance.rgb * sun_kept(p) * (w / pdf);
+        ls.dir = dir;
+        ls.pdf = e.pdf / pass.sun_radiance.w;
+        ls.light = pass.sun_radiance.rgb * sun_kept(p) / ls.pdf;
+        return true;
     }
     if (kind == LIGHT_SKY) {
         uint cell;
         vec3 dir = sky_sample(u1, u2, u3, u4, cell);
-        if (dot(dir, ng) <= 0.0 || dot(dir, n) <= 0.0) {
-            return vec3(0.0);
+        if (surface && (dot(dir, ng) <= 0.0 || dot(dir, n) <= 0.0)) {
+            return false;
         }
         vec3 radiance = sky_cells[cell].rgb;
         float pdf = e.pdf * path_luma(radiance) * pass.sky_dist.x;
         if (!(pdf > 0.0)) {
-            return vec3(0.0);
+            return false;
         }
-        vec3 f = path_bsdf_cosine(m, n, v, dir);
-        if (max(f.r, max(f.g, f.b)) <= 0.0) {
-            return vec3(0.0);
-        }
-        f *= transmittance(p, dir, PATH_REACH);
-        float w = mis ? path_power_heuristic(pdf, path_bsdf_pdf(m, n, v, dir)) : 1.0;
-        return f * radiance * (w / pdf);
+        ls.dir = dir;
+        ls.pdf = pdf;
+        ls.light = radiance / pdf;
+        return true;
     }
+    ls.distant = false;
     if (kind == LIGHT_TRIANGLE) {
         uvec4 entry = emitter_entries[light_index(e.payload)];
         HitVertices tri;
         if (!hit_vertices(entry.x, entry.y, tri)) {
-            return vec3(0.0);
+            return false;
         }
         mat4x3 to_world = instance_transform(entry.x);
         vec3 b = path_triangle_point(u1, u2);
@@ -415,15 +557,11 @@ vec3 sample_light(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rn
         vec3 to = y - p;
         float d = length(to);
         if (!(d > 0.0)) {
-            return vec3(0.0);
+            return false;
         }
         vec3 dir = to / d;
-        if (dot(dir, ng) <= 0.0) {
-            return vec3(0.0);
-        }
-        vec3 f = path_bsdf_cosine(m, n, v, dir);
-        if (max(f.r, max(f.g, f.b)) <= 0.0) {
-            return vec3(0.0);
+        if (surface && dot(dir, ng) <= 0.0) {
+            return false;
         }
         // (round BIAS) the sampled point's own surface - its emission there - and the light ray to it (ray_light: nothing
         // solid before it, the seen-through surfaces' transmittance), as ReSTIR DI's light_point and the list's other
@@ -433,32 +571,131 @@ vec3 sample_light(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rn
         HitSurface s;
         if (!hit_surface(entry.x, entry.y, instance_material(entry.x), b.yz, to_world, dir, s) || !(s.area > 0.0) ||
             s.cut_out || s.hidden) {
-            return vec3(0.0);
+            return false;
         }
         float cos_light = abs(dot(s.normal, dir));
         if (!(cos_light > 0.0)) {
-            return vec3(0.0);
+            return false;
         }
-        float pdf = e.pdf / s.area * d * d / cos_light;
-        float w = mis ? path_power_heuristic(pdf, path_bsdf_pdf(m, n, v, dir)) : 1.0;
-        return f * s.emitted * transmittance(p, dir, max(d * 0.999 - ray_offset(y), 0.0)) * (w / pdf);
+        ls.dir = dir;
+        ls.pdf = e.pdf / s.area * d * d / cos_light;
+        ls.light = s.emitted / ls.pdf;
+        ls.reach = max(d * 0.999 - ray_offset(y), 0.0);
+        return true;
     }
     LightRecord light = lamps[light_index(e.payload)];
     vec3 from;
-    float g = lamp_geometry(light, p, n, from);
+    vec3 facing_normal = n;
+    if (!surface) {
+        // (a point of the medium: the lamp's light on a surface facing it - `from` doesn't hang on the normal)
+        float unused = lamp_geometry(light, p, vec3(0.0, 1.0, 0.0), from);
+        facing_normal = normalize(from - p);
+    }
+    float g = lamp_geometry(light, p, facing_normal, from);
     if (!(g > 0.0)) {
-        return vec3(0.0);
+        return false;
     }
     vec3 to = from - p;
     float d = length(to);
     vec3 dir = to / max(d, 1e-6);
-    float facing = dot(n, dir);
-    if (!(facing > 1.0e-4) || dot(dir, ng) <= 0.0) {
+    float facing = dot(facing_normal, dir);
+    if (!(facing > 1.0e-4) || (surface && dot(dir, ng) <= 0.0)) {
+        return false;
+    }
+    ls.dir = dir;
+    ls.lamp = true;
+    // (a lamp's light: rt_lights.h's model - its light on a surface facing it, as the lamps pass shines it)
+    ls.light = light.colour.rgb * (g / facing) / e.pdf;
+    ls.reach = max(d - light.at.w, 0.0);
+    return true;
+}
+
+// What of a sampled light gets to `p`: the scene's (nothing solid, the seen-through surfaces) and the media's.
+vec3 light_through(vec3 p, LightSample ls)
+{
+    vec3 through = transmittance(p, ls.dir, ls.reach);
+    if (max(through.r, max(through.g, through.b)) <= 0.0) {
+        return through;
+    }
+    return through * medium_through(p, ls.dir, ls.reach, ls.distant);
+}
+
+// One light sampled from a surface point `p` (normal n, the triangle's ng, toward the eye v): its light x the BSDF x N.L
+// / its pdf, the MIS weight against the BSDF's pdf in the MIS strategy.
+vec3 sample_light(vec3 p, vec3 n, vec3 ng, vec3 v, BrdfMaterial m, inout uint rng)
+{
+    LightSample ls;
+    if (!light_sample(p, n, ng, rng, ls)) {
         return vec3(0.0);
     }
-    vec3 through = transmittance(p, dir, max(d - light.at.w, 0.0));
-    // (a lamp's light: rt_lights.h's model - its light on the surface x the light model, as the lamps pass shines it)
-    return brdf_direct(m, n, v, dir, light.colour.rgb * through * (g / facing)) / e.pdf;
+    if (ls.lamp) {
+        return brdf_direct(m, n, v, ls.dir, ls.light * light_through(p, ls));
+    }
+    vec3 f = path_bsdf_cosine(m, n, v, ls.dir);
+    if (max(f.r, max(f.g, f.b)) <= 0.0) {
+        return vec3(0.0);
+    }
+    f *= light_through(p, ls);
+    float w = pass.frame.w == STRATEGY_MIS ? path_power_heuristic(ls.pdf, path_bsdf_pdf(m, n, v, ls.dir)) : 1.0;
+    return f * ls.light * w;
+}
+
+// (round MEDIUM) One light sampled from a point `x` of the medium seen along `d`: its light x what scatters there toward
+// the eye / its pdf. The scattered paths (free-flight sampling, trace_path) never count a light they meet directly: this
+// is the only estimate of the media's light straight from the lights (no MIS).
+vec3 medium_light(vec3 x, vec3 d, MediumHere m, inout uint rng)
+{
+    LightSample ls;
+    if (!light_sample(x, vec3(0.0), vec3(0.0), rng, ls)) {
+        return vec3(0.0);
+    }
+    vec3 f = medium_scattered(m, dot(d, ls.dir));
+    if (max(f.r, max(f.g, f.b)) <= 0.0) {
+        return vec3(0.0);
+    }
+    return f * ls.light * light_through(x, ls);
+}
+
+// (round MEDIUM) A direction scattered at a point of the medium from the way `d` the path came: one of the phases picked
+// by its share of the scattering (Rayleigh's and the water's even sphere, the aerosol's by Henyey-Greenstein with its g -
+// Cornette-Shanks' close shape), the throughput's factor (the scattering x the phases / the mixture's pdf).
+vec3 medium_scatter_direction(MediumHere m, vec3 d, float u0, float u1, float u2, out vec3 l)
+{
+    float wr = path_luma(m.rayleigh);
+    float wa = path_luma(m.aerosol);
+    float ww = path_luma(m.water);
+    float sum = wr + wa + ww;
+    l = d;
+    if (!(sum > 0.0)) {
+        return vec3(0.0);
+    }
+    float g = clamp(pass.medium.w, -0.95, 0.95);
+    float pick = u0 * sum;
+    if (pick < wa) {
+        float c;
+        if (abs(g) < 1.0e-3) {
+            c = 1.0 - 2.0 * u1;
+        } else {
+            float q = (1.0 - g * g) / (1.0 - g + 2.0 * g * u1);
+            c = clamp((1.0 + g * g - q * q) / (2.0 * g), -1.0, 1.0);
+        }
+        float sine = sqrt(max(1.0 - c * c, 0.0));
+        float phi = PATH_TWO_PI * u2;
+        l = path_to_world(d, vec3(sine * cos(phi), sine * sin(phi), c));
+    } else {
+        float c = 1.0 - 2.0 * u1;
+        float sine = sqrt(max(1.0 - c * c, 0.0));
+        float phi = PATH_TWO_PI * u2;
+        l = vec3(sine * cos(phi), c, sine * sin(phi));
+    }
+    float c = dot(d, l);
+    float hg_k = max(1.0 + g * g - 2.0 * g * c, 1.0e-6);
+    float hg = (1.0 - g * g) / (4.0 * PATH_PI * hg_k * sqrt(hg_k));
+    float pdf = (wa * hg + (wr + ww) / (4.0 * PATH_PI)) / sum;
+    if (!(pdf > 0.0)) {
+        return vec3(0.0);
+    }
+    return medium_scattered(m, c) / pdf;
 }
 
 vec3 trace_path(vec3 origin, vec3 dir, inout uint rng)
@@ -469,6 +706,7 @@ vec3 trace_path(vec3 origin, vec3 dir, inout uint rng)
     uint strategy = pass.frame.w;
     uint skipped = 0u;
     uint crossed = 0u;
+    g_in_water = false; // (round MEDIUM: the camera is in the air)
     for (uint depth = 0u; depth <= pass.frame.z; ++depth) {
         uint instance;
         uint primitive;
@@ -479,6 +717,78 @@ vec3 trace_path(vec3 origin, vec3 dir, inout uint rng)
         uint seed = path_pcg(rng ^ 0x68E31DA4u);
         path_next(rng);
         bool hit = trace_surface(origin, dir, PATH_REACH, seed, instance, primitive, id, bary, t, to_world);
+        // (round MEDIUM) the media along the ray to what it met: the air (to its reach; a ray that leaves the level -
+        // its sky's own reach, 0 where the sky holds the whole ray), or the water's body it is in (to the surface it
+        // meets; leaving the level in water nothing gets through). The in-scattering straight from the lights by one
+        // light sampled at a point picked along it (by each channel's optical depth in turn, its pdf the three's mean);
+        // the path itself by free-flight sampling - scattered there (the phase sampled; its next hit's light counted only
+        // where no light sample could have found it) or on to what it met, x the transmittance over its pdf.
+        if (g_in_water || air_on()) {
+            Segment g;
+            g.origin = origin;
+            g.dir = dir;
+            g.air_end = g_in_water || !air_on() ? 0.0 : (hit ? min(t, pass.medium.y) : pass.medium.z);
+            g.water_end = g_in_water ? (hit ? t : MEDIUM_FAR) : 0.0;
+            g.end = max(g.air_end, g.water_end);
+            if (g.end > 0.0) {
+                vec3 tau_end = min(segment_depth(g, g.end), vec3(MEDIUM_MOST_TAU));
+                if (strategy != STRATEGY_BSDF && max(tau_end.r, max(tau_end.g, tau_end.b)) > 1.0e-9) {
+                    // (a channel the media don't dim can't be sampled by: the others', each as likely)
+                    bvec3 dims = greaterThan(tau_end, vec3(1.0e-12));
+                    float channels = float(dims.r) + float(dims.g) + float(dims.b);
+                    float pick = path_next(rng) * channels;
+                    uint c = dims.r && pick < 1.0 ? 0u : (dims.g && pick < float(dims.r) + 1.0 ? 1u : 2u);
+                    float target = -log(1.0 - path_next(rng) * one_minus_exp(tau_end[c]));
+                    float at = segment_point(g, c, target);
+                    vec3 x = origin + dir * at;
+                    MediumHere m = medium_here(x, at < g.air_end, at < g.water_end);
+                    vec3 tau = segment_depth(g, at);
+                    vec3 density = exp(-tau) * m.extinction;
+                    float pdf = ((dims.r ? density.r / one_minus_exp(tau_end.r) : 0.0) +
+                                 (dims.g ? density.g / one_minus_exp(tau_end.g) : 0.0) +
+                                 (dims.b ? density.b / one_minus_exp(tau_end.b) : 0.0)) / channels;
+                    if (pdf > 0.0) {
+                        radiance += weight * exp(-tau) * medium_light(x, dir, m, rng) / pdf;
+                    }
+                }
+                uint c = min(uint(path_next(rng) * 3.0), 2u);
+                float target = -log(max(1.0 - path_next(rng), 1.0e-30));
+                if (target < tau_end[c]) {
+                    if (depth == pass.frame.z) {
+                        break;
+                    }
+                    float at = segment_point(g, c, target);
+                    vec3 x = origin + dir * at;
+                    MediumHere m = medium_here(x, at < g.air_end, at < g.water_end);
+                    vec3 tau = segment_depth(g, at);
+                    vec3 transmitted = exp(-tau);
+                    float pdf = dot(transmitted * m.extinction, vec3(1.0 / 3.0));
+                    vec3 l;
+                    vec3 scattered = medium_scatter_direction(m, dir, path_next(rng), path_next(rng), path_next(rng), l);
+                    if (!(pdf > 0.0) || max(scattered.r, max(scattered.g, scattered.b)) <= 0.0) {
+                        break;
+                    }
+                    weight *= transmitted * scattered / pdf;
+                    origin = x;
+                    dir = l;
+                    last_pdf = 0.0; // (a light this direction meets was the light sample's)
+                    if (depth + 1u >= ROULETTE_FROM) {
+                        float keep = clamp(max(weight.r, max(weight.g, weight.b)), ROULETTE_LEAST, ROULETTE_MOST);
+                        if (path_next(rng) >= keep) {
+                            break;
+                        }
+                        weight /= keep;
+                    }
+                    continue;
+                }
+                vec3 passed = exp(-tau_end);
+                float passed_pdf = dot(passed, vec3(1.0 / 3.0));
+                if (!(passed_pdf > 0.0)) {
+                    break;
+                }
+                weight *= passed / passed_pdf;
+            }
+        }
         if (!hit) {
             vec3 seen_sky = sky_radiance(dir) * counted(LIGHT_SKY);
             bool sun_seen = in_sun(dir);
@@ -527,6 +837,20 @@ vec3 trace_path(vec3 origin, vec3 dir, inout uint rng)
                 break;
             }
             ++crossed;
+            // (round MEDIUM) through the interface: going down, into the water's body (its hue the water's colour here
+            // - the body's albedo, or the set tint -, its extinction and scattering - rt_volume_light.h
+            // kWaterMediumGlsl); going up, out of it
+            if (dir.y < 0.0 && pass.water.z > 0.5) {
+                vec3 colour = pass.water.y > 0.5 ? s.base_colour : pass.water_tint.rgb;
+                vec3 hue = clamp(colour / max(max(colour.r, colour.g), max(colour.b, 1.0e-3)), 0.03, 1.0);
+                vec3 reflectance = water_deep_reflectance(hue) * path_luma(colour);
+                g_in_water = true;
+                g_water_top = s.position.y;
+                g_water_t = water_extinction(hue, pass.water.x);
+                g_water_s = g_water_t * water_scattering_albedo(reflectance);
+            } else if (dir.y > 0.0) {
+                g_in_water = false;
+            }
             origin = s.position + dir * ray_offset(s.position);
             --depth;
             continue;
@@ -678,6 +1002,8 @@ std::string shader_source(Shader which, SkySource sky, bool cloud_map)
     source += hit_surface_glsl();
     source += rt::path::kPathGlsl;
     source += rt_lamp_glsl();
+    source += rt::kMediumGlsl;
+    source += rt::kWaterMediumGlsl;
     if (which == Shader::kTrace && cloud_map) {
         source += "#define CLOUD_MAP\n" + cloud_map_glsl(kBindingCloudMap);
     }
@@ -800,6 +1126,9 @@ struct PathState {
     uint64_t scene_poses = 0;
     uint64_t lighting_key = 0;
     Lighting lighting;
+    // (round MEDIUM) the media frozen with the lighting: the air the fog pass marched (or the check's), the water's body
+    rt::AirMedium medium;
+    WaterBodyMedium water;
     SkySource sky_source = SkySource::kEven;
     bool cloud_map = false;
     rt::lights::LightWeights weights = rt::lights::LightWeights::kPower;
@@ -1980,6 +2309,15 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
         own.scene_poses = rt::frame_record().poses_key;
         own.lighting_key = lighting_key;
         own.lighting = lighting;
+        own.medium = checking ? own.overrides.medium : rt_fog_medium_locked(state);
+        own.water = checking ? WaterBodyMedium{.on = own.overrides.water_clarity > 0.0F,
+                                                .clarity = std::max(own.overrides.water_clarity, 1.0F),
+                                                .tint_auto = true,
+                                                .tint = {}}
+                             : water_body_medium_locked(state);
+        if (!checking) {
+            own.water.on = true; // (the water's body is there whether or not its shader draws it)
+        }
         own.weights = weights;
         own.light_kinds = checking ? own.overrides.light_kinds
                                    : (request.analytic_lamps ? request.light_kinds & ~rt::path::kLightKindEmitters
@@ -2097,6 +2435,30 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
                     static_cast<double>(lit.sun_radius_degrees), own.cloud_map ? ", the clouds' shadow map on it" : "",
                     own.sky_text.c_str(), own.lamp_count, lit.points, own.lamps_owned, own.instances, own.triangles);
         }
+        if (!checking) {
+            // (round MEDIUM) the media the paths go through
+            const rt::AirMedium& air = own.medium;
+            std::string layers;
+            for (uint32_t i = 0; i < air.layers && i < rt::kMediumLayers; ++i) {
+                const rt::MediumLayer& layer = core::at(air.layer, i);
+                layers += text::format("%s%s extinction %.3g %.3g %.3g /unit, height %.0f units", i > 0 ? "; " : "",
+                                       layer.phase == rt::MediumPhase::kRayleigh ? "molecules" : "aerosol",
+                                       static_cast<double>(core::at(layer.extinction, 0)),
+                                       static_cast<double>(core::at(layer.extinction, 1)),
+                                       static_cast<double>(core::at(layer.extinction, 2)),
+                                       layer.inverse_height > 0.0F ? 1.0 / static_cast<double>(layer.inverse_height)
+                                                                   : 0.0);
+            }
+            const std::string air_text =
+                air.layers > 0 ? text::format("%u layers (%s), to %.0f units, %s", air.layers, layers.c_str(),
+                                              static_cast<double>(air.reach),
+                                              air.sky_holds_ray ? "the sky holding a ray that leaves the level"
+                                                                : "a ray to the sky through that much of it")
+                               : std::string("none (no fog pass - rt_fog off, or nothing to march)");
+            get_log("pt: the air: %s%s%s; the water's body: seen %.0f units into, its colour %s", air_text.c_str(),
+                    air.none != nullptr ? " - " : "", air.none != nullptr ? air.none : "",
+                    static_cast<double>(own.water.clarity), own.water.tint_auto ? "its own" : "the set tint");
+        }
     }
     // the light list: gathered in the run's first frame, built in its second (its work waited for), then traced
     if (own.phase == ListPhase::kRead) {
@@ -2152,6 +2514,19 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
     block.cloud_ray = sky_inputs.cloud_ray;
     block.cloud_sun = sky_inputs.cloud_sun;
     block.cloud_toward = sky_inputs.cloud_toward;
+    // (round MEDIUM) the media
+    block.medium = {static_cast<float>(own.medium.layers), own.medium.reach,
+                    own.medium.sky_holds_ray ? 0.0F : own.medium.reach, own.medium.g};
+    for (uint32_t i = 0; i < own.medium.layers && i < rt::kMediumLayers; ++i) {
+        const rt::MediumLayer& layer = core::at(own.medium.layer, i);
+        core::at(block.layer_s, i) = {core::at(layer.scattering, 0), core::at(layer.scattering, 1),
+                                      core::at(layer.scattering, 2), layer.inverse_height};
+        core::at(block.layer_t, i) = {core::at(layer.extinction, 0), core::at(layer.extinction, 1),
+                                      core::at(layer.extinction, 2), layer.ground};
+        core::at(block.layer_phase, i) = static_cast<uint32_t>(layer.phase);
+    }
+    block.water = {own.water.clarity, own.water.tint_auto ? 1.0F : 0.0F, own.water.on ? 1.0F : 0.0F, 0.0F};
+    block.water_tint = {core::at(own.water.tint, 0), core::at(own.water.tint, 1), core::at(own.water.tint, 2), 0.0F};
     std::array<uint8_t, sizeof(PathBlock)> block_bytes{};
     std::memcpy(block_bytes.data(), &block, sizeof(block));
     const std::optional<RingSpan> block_span = state.ring.copy(block_bytes, kUniformAlignment);
