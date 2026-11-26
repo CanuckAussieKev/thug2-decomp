@@ -1143,6 +1143,20 @@ WaterBodyMedium water_body_medium_locked(const Backend& state)
             .tint = settings.tint};
 }
 
+std::array<double, 3> water_mirror_image(const std::array<double, 3>& surface, const std::array<double, 3>& face,
+                                         const std::array<double, 3>& reflected, double distance)
+{
+    double along = 0.0;
+    for (std::size_t axis = 0; axis < face.size(); ++axis) {
+        along += 2.0 * core::at(reflected, axis) * core::at(face, axis);
+    }
+    std::array<double, 3> out{};
+    for (std::size_t axis = 0; axis < out.size(); ++axis) {
+        core::at(out, axis) = core::at(surface, axis) + ((core::at(reflected, axis) - (along * core::at(face, axis))) * distance);
+    }
+    return out;
+}
+
 bool water_ripples_descriptor_locked(Backend& state, VkDescriptorImageInfo* out)
 {
     std::string error;

@@ -92,6 +92,14 @@ vec3 water_ripples_of(WaterSea sea, vec4 a, vec4 b)
     return vec3(along * slope.x + across * slope.y, a.w * 0.55 + b.w * 0.45);
 }
 
+// Where the calm surface's mirror shows what a ray reflected by the waves at `surface` along `reflected` meets `distance`
+// on: that point mirrored by the rest plane through `surface` (normal `face`) - the flat mirror's image of it (the sky:
+// a far distance). vulkan_water.h water_mirror_image is the processor's twin.
+vec3 water_mirror_image(vec3 surface, vec3 face, vec3 reflected, float distance)
+{
+    return surface + reflect(reflected, face) * distance;
+}
+
 // The waves' normal (world, facing up) from the swell's parts and the ripples' (and the rain's rings') slope.
 vec3 water_wave_normal(vec3 swell, vec2 ripple)
 {
@@ -485,14 +493,22 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
     // in front of it, its depth along the view surface_w x (1 + a / dist) -, so a far hit or the sky (a = 65504) moves by
     // twice the tilt's angle (2 x tilt x focal x dist / surface_w), not by its distance over the surface's (the sea's sky
     // read from the view's edge: streaks).
+    // (round WAVES) Where: the point the waves' reflected ray reaches (its hit's distance along it) mirrored by the rest
+    // plane - water_mirror_image -, seen on the screen: the flat mirror's image of that point is what the front layer
+    // traced there. (Before, the image moved by the tilt's part across the screen alone: at a grazing view a wave turned
+    // toward the eye tilts the normal mostly along the view - the mirror image moved by a sixth of its angle at 10
+    // degrees, the reflection near the calm mirror's.)
     vec4 mirror_here = light_front_reflect_at(ivec2(gl_FragCoord.xy));
     if (mirror_here.a > 0.0) {
-        float focal = abs(water.projection[1][1]) * water.viewport.w * 0.5;
-        float image_w = surface_w * (1.0 + mirror_here.a / dist);
-        vec2 moved_by = vec2(tilt.x, -tilt.y) * (2.0 * mirror_here.a * focal / image_w);
         ivec2 low = ivec2(water.viewport.xy);
         ivec2 high = ivec2(water.viewport.xy + water.viewport.zw) - 1;
-        vec4 mirror = light_front_reflect_at(clamp(ivec2(gl_FragCoord.xy + moved_by), low, high));
+        ivec2 image_at = ivec2(gl_FragCoord.xy);
+        vec4 image_clip = water.projection * (water.world_to_eye * vec4(water_mirror_image(world, face, r, mirror_here.a), 1.0));
+        if (image_clip.w > 1.0e-3) {
+            vec2 ndc = image_clip.xy / image_clip.w;
+            image_at = ivec2(floor(water.viewport.xy + vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5) * water.viewport.zw));
+        }
+        vec4 mirror = light_front_reflect_at(clamp(image_at, low, high));
         reflected = display_from_linear(max((mirror.a > 0.0 ? mirror : mirror_here).rgb, vec3(0.0)));
         found = vec4(0.0, 0.0, 0.0, 1.0);
     }

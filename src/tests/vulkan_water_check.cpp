@@ -38,7 +38,10 @@
 //     Pierson-Moskowitz, the depth's limit, no waves below the onset wind, the four waves' energy within the spectrum's;
 //     the bodies measured from geometry (engine/gfx/water_bodies.h): a small puddle in a closed room - no sky, no wind,
 //     still; the same puddle in the open - millimetre ripples at most; a lake 1 km along the wind - its fetch the
-//     distance to the upwind shore and its waves the fetch-limited sea's; water running off the world's edge - open.
+//     distance to the upwind shore and its waves the fetch-limited sea's; water running off the world's edge - open;
+//   - (round WAVES) on the processor: the waves' mirror image (water_mirror_image - where the water shader reads the front
+//     layer's traced mirror): the flat mirror's ray at the image point passes through the wave's hit, the sky's leaves
+//     along the wave's reflection, at a grazing and a steeper view, tilts toward, away from and across the view.
 //   thug2_vulkan_water_check [--device N] [--display N] [--no-validation] [--perf]
 // --perf also times a frame of full-screen water at 2560 x 1440 with rt_water off and on (reported, not checked).
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan for this process.
@@ -1496,6 +1499,68 @@ void check_bodies(Tally* tally)
                  "the sheltered puddle still, the open lake wavy: the waves follow the body, not the level");
 }
 
+// (round WAVES) The waves' mirror image (vulkan_water.h water_mirror_image - the water shader's twin): where the calm
+// surface's mirror - the front layer's traced image - shows what a wave's reflected ray meets. For a camera over the
+// water at a grazing and a steeper view, waves tilted toward and away from the eye and across, and hits near, far and
+// at the sky's distance: the camera ray toward the image point, reflected by the flat plane where it meets it, passes
+// through the wave's hit (its distance from that ray under 1e-6 of the hit's distance) and, for the sky, leaves along
+// the wave's reflected direction. Beside it, how far on the screen the image moved (degrees of view) against what the
+// old move by the tilt's part across the screen gave - the grazing view's toward-the-eye tilt moves the image by twice the
+// tilt's angle, not a sixth of it.
+void check_mirror_image(Tally* tally)
+{
+    using D3 = std::array<double, 3>;
+    const auto sub = [](const D3& a, const D3& b) { return D3{a[0] - b[0], a[1] - b[1], a[2] - b[2]}; };
+    const auto add = [](const D3& a, const D3& b) { return D3{a[0] + b[0], a[1] + b[1], a[2] + b[2]}; };
+    const auto mul = [](const D3& a, double s) { return D3{a[0] * s, a[1] * s, a[2] * s}; };
+    const auto dot = [](const D3& a, const D3& b) { return (a[0] * b[0]) + (a[1] * b[1]) + (a[2] * b[2]); };
+    const auto unit = [&dot, &mul](const D3& a) { return mul(a, 1.0 / std::sqrt(dot(a, a))); };
+    const auto reflect = [&dot, &sub, &mul](const D3& d, const D3& n) { return sub(d, mul(n, 2.0 * dot(d, n))); };
+    const D3 face{0.0, 1.0, 0.0};
+    double worst = 0.0;
+    double worst_sky = 0.0;
+    double grazing_moved = 0.0;
+    int cases = 0;
+    for (const double eye_height : {40.0, 400.0}) {
+        const D3 eye{0.0, eye_height, 0.0};
+        const D3 surface{0.0, 0.0, 600.0};
+        const D3 view = unit(sub(surface, eye));
+        for (const D3& tilt : {D3{0.0, 0.0, -0.12}, D3{0.0, 0.0, 0.12}, D3{0.1, 0.0, 0.0}, D3{0.07, 0.0, -0.05}}) {
+            const D3 n = unit(add(face, tilt));
+            D3 r = reflect(view, n);
+            r = unit(D3{r[0], std::max(r[1], 0.02), r[2]}); // (the shader's: never below the horizon)
+            for (const double distance : {150.0, 2000.0, 65504.0}) {
+                const D3 image = vk::water_mirror_image(surface, face, r, distance);
+                const D3 hit = add(surface, mul(r, distance));
+                // the camera's ray toward the image, met by the plane, mirrored
+                const D3 toward = unit(sub(image, eye));
+                const D3 met = add(eye, mul(toward, -eye[1] / toward[1]));
+                const D3 mirrored = reflect(toward, face);
+                const D3 off = sub(hit, met);
+                const D3 across = sub(off, mul(mirrored, dot(off, mirrored)));
+                worst = std::max(worst, std::sqrt(dot(across, across)) / distance);
+                if (distance > 60000.0) {
+                    worst_sky = std::max(worst_sky, 1.0 - dot(mirrored, r));
+                }
+                ++cases;
+            }
+            if (eye_height < 100.0 && tilt[2] < 0.0 && tilt[0] == 0.0) {
+                const D3 toward = unit(sub(vk::water_mirror_image(surface, face, r, 65504.0), eye));
+                grazing_moved = std::acos(std::clamp(dot(toward, view), -1.0, 1.0)) * 180.0 / std::numbers::pi;
+            }
+        }
+    }
+    // the old move: 2 x the tilt's part across the screen (its eye-space y) - the grazing view's toward-the-eye tilt
+    const double elevation = std::atan2(40.0, 600.0);
+    const double old_moved = 2.0 * std::sin(elevation) * std::asin(0.12 / std::sqrt(1.0 + (0.12 * 0.12))) * 180.0 / std::numbers::pi;
+    tally->check(cases == 24 && worst < 1.0e-6 && worst_sky < 1.0e-4, // (the sky 65504 units off: parallel within the view's size over it)
+                 text::format("the waves' mirror image: the flat mirror's ray at the image point passes through the wave's "
+                              "hit (worst %.2g of its distance over %d cases), the sky's along the wave's reflection "
+                              "(1 - cos %.2g); the grazing view's image moved %.2f degrees (the old move by the tilt's "
+                              "part across the screen %.2f)",
+                              worst, cases, worst_sky, grazing_moved, old_moved));
+}
+
 int run(const Options& options, SDL_Window* window)
 {
     if (!open_device(options, window)) {
@@ -1522,6 +1587,7 @@ int run(const Options& options, SDL_Window* window)
         render::water::set_level_water({.level = 1, .visibility = kVisibility});
         check_wind_sea(&tally);
         check_bodies(&tally);
+        check_mirror_image(&tally); // (round WAVES)
         check_off(gpu, scene, &tally);
         check_calm(gpu, scene, &tally, false);
         check_calm(gpu, scene, &tally, true);
