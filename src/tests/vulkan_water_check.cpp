@@ -71,6 +71,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/smooth_tess.h"
 #include "engine/gfx/water_bodies.h"
@@ -273,6 +274,14 @@ bool& right_handed_views()
 {
     static bool right_handed = false;
     return right_handed;
+}
+
+// (round WAVES) The frames drawn linear (the ray-traced lighting's: the draws' colours decoded to linear light at their
+// output, Backend::linear_phase - the tone mapping's listener opens it in the game) rather than display-referred.
+bool& linear_frames()
+{
+    static bool linear = false;
+    return linear;
 }
 
 // The view (world -> camera, Direct3D's row vectors) and the projection.
@@ -486,6 +495,11 @@ void draw_frame(render::Gpu& gpu, const Scene& scene, double seconds, bool marke
     gpu.set_viewport({.x = 0, .y = 0, .width = scene.width, .height = scene.height, .min_z = 0.0F, .max_z = 1.0F});
     gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth, kBlackOpaque, 1.0F, 0);
     render::rt::view_begins(view);
+    if (linear_frames()) {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        state.linear_phase = true;
+    }
     common_states(gpu, scene);
     gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
     gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
@@ -525,6 +539,11 @@ void draw_frame(render::Gpu& gpu, const Scene& scene, double seconds, bool marke
     render::water::set_current(nullptr, 0);
     render::rt::opaque_view_drawn(view);
     render::rt::world_view_drawn(view);
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        state.linear_phase = false;
+    }
     gpu.set_render_target(0, nullptr);
     gpu.set_depth_surface(nullptr);
     gpu.end_scene();
@@ -650,23 +669,31 @@ bool expected_calm(uint32_t px, uint32_t py, Vec3* out, float* depth_down, bool 
     if (*depth_down < kEdgeDepth) {
         return false;
     }
-    const Vec3 tint = as_bytes(kTint);
+    // (round WAVES) in a linear frame every colour the water's arithmetic takes is decoded to linear light first, and the
+    // result is linear (the frame's)
+    const bool linear = linear_frames();
+    const auto light_of = [linear](const Vec3& display) {
+        return linear ? Vec3{render::rt::linear_from_display(core::at(display, 0)), render::rt::linear_from_display(core::at(display, 1)),
+                             render::rt::linear_from_display(core::at(display, 2))}
+                      : display;
+    };
+    constexpr float kProgramGain = 2.0F * 128.0F / kByteMax; // (4 v0 c0: v0 the vertex colour 128 / 255, c0 0.5)
+    const Vec3 tint = light_of(scale(as_bytes(kTint), kProgramGain)); // (the program's colour: the texture x 4 v0 c0)
     const float most = std::max({core::at(tint, 0), core::at(tint, 1), core::at(tint, 2)});
     const Vec3 hue = scale(tint, 1.0F / most);
-    constexpr float kProgramGain = 2.0F * 128.0F / kByteMax; // (4 v0 c0: v0 the vertex colour 128 / 255, c0 0.5)
-    const float light = dot(tint, kLuma) * kProgramGain;
+    const float light = dot(tint, kLuma);
     const Vec3 deep_hue{core::at(hue, 0) * core::at(hue, 0), core::at(hue, 1) * core::at(hue, 1), core::at(hue, 2) * core::at(hue, 2)};
     const Vec3 deep = scale(deep_hue, light * 0.65F / dot(deep_hue, kLuma));
-    const Vec3 sand = as_bytes(kSand);
-    const Vec3 reflected = shows_wall == 1 ? scale(as_bytes(kWallColour), kProgramGain) : kFog;
+    const Vec3 sand = light_of(as_bytes(kSand));
+    const Vec3 reflected = light_of(shows_wall == 1 ? scale(as_bytes(kWallColour), kProgramGain) : kFog);
     const float fresnel = 0.02F + (0.98F * std::pow(1.0F - core::at(v, 1), 5.0F));
     for (std::size_t channel = 0; channel < 3; ++channel) {
         const float sigma = (3.0F / kVisibility) * (0.2F + (1.6F * (1.0F - core::at(hue, channel))));
         const float through = std::exp(-sigma * path);
         const float below = std::exp(-sigma * *depth_down);
         const float seen = (core::at(sand, channel) * through * below) + (core::at(deep, channel) * (1.0F - through));
-        // (round POOL) the covered share the body's own colour: the program's (the texture x 4 v0 c0)
-        const float refracted = std::lerp(seen, core::at(tint, channel) * kProgramGain, cover);
+        // (round POOL) the covered share the body's own colour: the program's
+        const float refracted = std::lerp(seen, core::at(tint, channel), cover);
         out->at(channel) = std::lerp(refracted, core::at(reflected, channel), fresnel);
     }
     return true;
@@ -692,9 +719,11 @@ void set_water(bool on, float waves, float foam, bool hdr = true)
     (void)hdr; // (round F: the glitter has one peak)
 }
 
-void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally, bool blended, bool right_handed = false)
+void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally, bool blended, bool right_handed = false,
+                bool linear = false)
 {
     right_handed_views() = right_handed;
+    linear_frames() = linear;
     set_water(true, 0.0F, 0.0F);
     Scene drawn = scene;
     if (blended) {
@@ -702,7 +731,8 @@ void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally, bool blended
     }
     draw_frame(gpu, drawn, 1.0, true, blended);
     const Picture got = read_picture(scene.colour, kWidth, kHeight);
-    const char* how = right_handed ? "calm water blended, a right-handed view (camera z negative - the game's)"
+    const char* how = linear         ? "calm water blended, a linear frame (the water's arithmetic in linear light)"
+                      : right_handed ? "calm water blended, a right-handed view (camera z negative - the game's)"
                       : blended    ? "calm water blended (alpha a half)"
                                    : "calm water (opaque)";
     // (round POOL) the body's coverage: the drawn alpha (the texture's) when blended, all of it opaque
@@ -746,6 +776,7 @@ void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally, bool blended
                               worst > kTolerance ? worst_at.c_str() : ""));
     tally->check(all_finite(got), text::format("%s: every pixel finite", how));
     right_handed_views() = false;
+    linear_frames() = false;
 }
 
 // The pictures' bytes equal over the pixels `where` says.
@@ -1592,6 +1623,7 @@ int run(const Options& options, SDL_Window* window)
         check_calm(gpu, scene, &tally, false);
         check_calm(gpu, scene, &tally, true);
         check_calm(gpu, scene, &tally, true, true); // (round WATER)
+        check_calm(gpu, scene, &tally, true, true, true); // (round WAVES)
         check_reflection(gpu, scene, &tally);
         check_foam(gpu, scene, &tally);
         check_waves(gpu, scene, &tally);

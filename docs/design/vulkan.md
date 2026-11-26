@@ -3483,6 +3483,31 @@ rest the glass box's pane edges. The harbour (the reference's sea no longer the 
 0.904, dusk 0.726 -> 0.801 - the rest is the reference's flat water against the realtime's waves (the path tracer
 meets the water's flat mesh: its grazing mirror of the bright horizon).
 
+**Round WAVES: one water surface for the raster water and the rays.** The water shader's waves (the four Gerstner waves
+of the body's swell, the ripple texture, the rain's rings) are one GLSL text (`water_shader.h water_waves_glsl`:
+`WaterSea` - a body's slopes, speeds, sea and the wind's way -, `water_swell`, `water_ripple_places` /
+`water_ripples_of`, `water_wave_normal`) which the water shader and the reference path tracer both include. Each level
+water mesh's instance in the frame record carries its body's waves (`rt::WaterSurface`, `Instance::water` - the body
+its last draw was handed, `water_bodies.h body_of`), and the scene's row points at it (`kGeometryWater`). A path that
+meets water reflects at the waves' facet there at full detail (no fade by a footprint: the pixel's paths resolve the
+waves), a facet turned away from the path counts as the plane (the far side of a wave, hidden behind its crest), and a
+reflection sent into the water by a steep facet leaves upward mirrored by the plane (the second reflection between
+waves at grazing light). `thug2_vulkan_path_check`: a water plane with a swell under an even sky - Fresnel's share of
+the sky 0.591 against the processor's 0.593 over the same waves at a grazing view (the flat plane's 0.637), 0.243 / 0.244
+at a steeper one (flat 0.093); the flat normal (mutation) fails both.
+The water shader's traced mirror image (the front layer's ray from the rest surface) was moved by the waves' tilt across
+the screen alone - its eye-space x / y. At a grazing view a wave turned toward the eye tilts the normal mostly along the
+view: a 0.12 tilt seen at 4 degrees moved the image 0.9 degrees where the reflection turns 13.6. The image is now read
+where the calm mirror shows the waves' reflected ray's hit: that point mirrored by the rest plane (`water_mirror_image`),
+projected - `thug2_vulkan_water_check` casts the flat mirror's ray at that pixel back through the hit (24 cases).
+And in a linear frame (the ray-traced lighting's) the water shader's arithmetic is in linear light (`water_light_of`),
+as the path tracer's: the hue and the deep reflectance from the linear tint, what is behind, the body, the reflection
+and the Fresnel mix - the frame's output encoded once at the end. It worked on display-referred values: the deep
+reflectance (0.65 a unit of the body's luminance) multiplied an encoded colour - 0.65^2.2 = 0.39 of the light - and the
+Fresnel mix weighed encoded colours (Barcelona's harbour water 0.45 - 0.75 of the reference). The original's look (a
+display-referred frame) is unchanged. `thug2_vulkan_water_check`: the calm case in a linear frame against the
+processor's linear arithmetic (33 600 pixels, 100 % within 0.004; the display arithmetic - mutation - 0 %).
+
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
 Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3

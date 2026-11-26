@@ -285,6 +285,10 @@ vec3 water_scene_at(vec2 uv)
     return frame_linear() ? display_from_linear(c) : c;
 }
 
+// (round WAVES) A display-referred colour as the light the water's arithmetic works in: linear light in a linear frame
+// (the path tracer's), the display's values in the original's look.
+vec3 water_light_of(vec3 display) { return frame_linear() ? linear_from_display(display) : display; }
+
 // The sky seen on the screen toward camera-space direction `d` (a point at infinity): its colour where the copy shows
 // the sky there (nothing drawn), weight in w.
 vec4 water_screen_sky(vec3 d)
@@ -415,8 +419,13 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
     }
 #endif
     vec3 tint = water.tint.w > 0.5 ? own : water.tint.rgb * gain;
-    vec3 hue = clamp(tint / max(max(tint.r, tint.g), max(tint.b, 1.0e-3)), 0.03, 1.0);
-    float light = water_luma(tint);
+    // (round WAVES) in a linear frame the water's light is worked in linear light, as the path tracer's: its hue, its
+    // body's reflectance x the light on it, what is behind, the Fresnel mix (water_light_of; the original's look - a
+    // display-referred frame - as before). In display-referred values the deep reflectance (0.65 a unit) multiplied the
+    // encoded colour - 0.65^2.2 = 0.39 of the light - and the Fresnel mix weighed encoded colours.
+    vec3 tint_light = water_light_of(tint);
+    vec3 hue = clamp(tint_light / max(max(tint_light.r, tint_light.g), max(tint_light.b, 1.0e-3)), 0.03, 1.0);
+    float light = water_luma(tint_light);
     // (round MEDIUM: the water's body's one definition with the path tracer's - rt_volume_light.h kWaterMediumGlsl)
     vec3 deep = water_deep_reflectance(hue) * light;
     // (round POOL) the texture's own detail, faintly, on the scattered colour (the covered body below has its texels)
@@ -431,11 +440,11 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
     // of the water was the copy behind it with the scattered colour - the sheet's own colour, which the path tracer
     // shows by its coverage, was nowhere.)
     float cover = water.target.w > 0.5 ? clamp(colour.a, 0.0, 1.0) : 1.0;
-    vec3 body = colour.rgb;
+    vec3 body = water_light_of(colour.rgb);
 #ifdef LIGHT_FRONT
     if (light_front_at) {
-        body = display_from_linear(linear_from_display(clamp(albedo, 0.0, 1.0)) *
-                                   max(light_front_now().rgb + light_front_sun_now().rgb, vec3(0.0)));
+        body = water_light_of(display_from_linear(linear_from_display(clamp(albedo, 0.0, 1.0)) *
+                                                  max(light_front_now().rgb + light_front_sun_now().rgb, vec3(0.0))));
     }
 #endif
 
@@ -460,7 +469,7 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
             bent_uv = here; // (something in front of the water there: not refracted)
             bent = straight;
         }
-        under = water_scene_at(bent_uv);
+        under = water_light_of(water_scene_at(bent_uv));
         behind = bent;
     }
     float path = max(behind - surface_w, 0.0) * dist / surface_w;
@@ -543,8 +552,9 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
     float foam = clamp(water.waves.z * max(shore * mix(0.3, 1.0, pattern), 0.85 * caps), 0.0, 1.0);
     vec3 foam_colour = vec3(0.9, 0.93, 0.95) * clamp(gain, 0.15, 1.2); // (white, at the light the game gave the surface)
 
-    vec3 shaded = mix(refracted, reflected, fresnel) + glitter * (1.0 - foam);
-    shaded = mix(shaded, foam_colour, foam);
+    vec3 shaded = mix(refracted, water_light_of(reflected), fresnel) + water_light_of(glitter) * (1.0 - foam);
+    shaded = mix(shaded, water_light_of(foam_colour), foam);
+    shaded = frame_linear() ? display_from_linear(shaded) : shaded; // (the draw's output: display-referred, decoded after)
     if (water.misc.z > 0.5) {
         // ([debug] rt_water_view=1) what the reflection found: red the screen's march, green the sky on the screen,
         // blue the captured sky; the water's depth below in the alpha-less grey of the rest
