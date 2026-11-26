@@ -1813,7 +1813,7 @@ void run_room(render::Gpu& gpu, const Scene& scene, Tally* tally)
             want /= std::max(counted, 1);
             tally->check(counted > 0 && outdoors > 0.0 && got - want < kMostRoomLight * outdoors,
                          text::format("the room's air: the pass's light %.5f, the exact %.5f, over %d pixels (the open "
-                                      "air's %.5f: the pass's leak %.4f of it, at most %.2f)",
+                                      "air's %.5f: the pass's leak %.4f of it, at most %.3f)",
                                       got, want, counted, outdoors, outdoors > 0.0 ? (got - want) / outdoors : 0.0,
                                       kMostRoomLight));
         }

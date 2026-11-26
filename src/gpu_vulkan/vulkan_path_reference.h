@@ -38,6 +38,14 @@
 //     uniformly on it) or an analytic lamp (rt_lights.h's lamp model; the frame record's point lights where the level's
 //     lamps aren't solved) - the lamps whose own surface emits are sampled as that surface, never also as their analytic
 //     light (rt_path.h analytic_lamps: one owner, so a lamp is never counted twice);
+//   - (round MEDIUM) the media the realtime draws, one definition with it: the air the fog pass marches
+//     (engine/gfx/rt_volume_light.h AirMedium - its layers' optical depths in closed form) and the water's body below an
+//     interface the path went down through (kWaterMediumGlsl: Beer-Lambert's extinction, scattering with deep water's
+//     reflectance); every ray's segment through them: the in-scattering straight from the lights by one light sampled
+//     at a point picked along it by its optical depth, the path itself by free-flight sampling (scattered there by the
+//     phase, or on to its hit x the transmittance over its pdf - each channel's in turn, their mean the pdf); every
+//     light ray x the media's transmittance (a distant light's through the air's reach to the sky, the water to its
+//     plane);
 //   - the BSDF sampled for the next direction; what it hits by chance (the sky, the sun's disc, an emitting triangle) is
 //     weighed against the light list's pdf for it (the same pick x direction pdf) by the power heuristic (MIS); Russian
 //     roulette from the third bounce;

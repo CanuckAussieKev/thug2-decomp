@@ -392,19 +392,47 @@ float sky_phase_mean(float y)
     int k = min(i + 1, 31);
     return mix(fog.sky_phase[i / 4][i % 4], fog.sky_phase[k / 4][k % 4], x - float(i));
 }
+// Two directions a point: one drawn by the aerosol's phase (Henyey-Greenstein about `d` with its g - Cornette-Shanks'
+// close shape), one even over the upper hemisphere (Rayleigh's nearly even phase; and a view looking down, whose phase
+// sends most of its draws under the horizon, still meets the sky) - Veach's multi-sample MIS with the balance heuristic:
+// each the weight over the two pdfs' sum, directions under the horizon none.
+float sky_toward(vec3 at, vec3 w, vec3 d, float rayleigh, float aerosol, float g)
+{
+    if (!(w.y > 0.0)) {
+        return 0.0;
+    }
+    float c = dot(w, d);
+    float k = max(1.0 + g * g - 2.0 * g * c, 1.0e-6);
+    float hg = (1.0 - g * g) / (12.5663706 * k * sqrt(k));
+    float f = rayleigh * 0.75 * (1.0 + c * c) + aerosol * phase(c);
+    return f * visible(at, w, SUN_DISTANCE) / (6.2831853 * (hg + 0.159154943)); // (even: 1 / 2 pi)
+}
 float sky_seen(vec3 at, vec3 d, float rayleigh, float aerosol, ivec2 p, int i)
 {
-    float z = hash01(p, fog.flags.w, i, 0x3Bu);
-    float a = 6.2831853 * hash01(p, fog.flags.w, i, 0xC5u);
-    float r = sqrt(max(1.0 - z * z, 0.0));
-    vec3 w = vec3(r * cos(a), z, r * sin(a));
-    float c = dot(w, d);
     float mean = rayleigh + aerosol * sky_phase_mean(d.y);
     if (!(mean > 0.0)) {
         return 0.0;
     }
-    float weight = (rayleigh * 0.75 * (1.0 + c * c) + aerosol * phase(c)) / mean;
-    return weight * visible(at, w, SUN_DISTANCE);
+    float g = clamp(fog.sun.w, -0.95, 0.95);
+    float u1 = hash01(p, fog.flags.w, i, 0xC5u);
+    float u2 = hash01(p, fog.flags.w, i, 0x6Du);
+    float c;
+    if (abs(g) < 1.0e-3) {
+        c = 1.0 - 2.0 * u1;
+    } else {
+        float q = (1.0 - g * g) / (1.0 - g + 2.0 * g * u1);
+        c = clamp((1.0 + g * g - q * q) / (2.0 * g), -1.0, 1.0);
+    }
+    float sine = sqrt(max(1.0 - c * c, 0.0));
+    float a = 6.2831853 * u2;
+    vec3 side = normalize(abs(d.y) < 0.9 ? cross(d, vec3(0.0, 1.0, 0.0)) : cross(d, vec3(1.0, 0.0, 0.0)));
+    vec3 up = cross(side, d);
+    vec3 by_phase = d * c + side * (sine * cos(a)) + up * (sine * sin(a));
+    float z = hash01(p, fog.flags.w, i, 0x3Bu);
+    float b = 6.2831853 * hash01(p, fog.flags.w, i, 0x5Fu);
+    float r = sqrt(max(1.0 - z * z, 0.0));
+    vec3 even = vec3(r * cos(b), z, r * sin(b));
+    return (sky_toward(at, by_phase, d, rayleigh, aerosol, g) + sky_toward(at, even, d, rayleigh, aerosol, g)) / mean;
 }
 
 // (the distinct shafts - rt_volume_light.h air_map_half) How much of the light reaches `at` by the air's sun map: -1

@@ -3450,6 +3450,39 @@ card) is hidden while relit like a light card drawn in place (`pc_billboards.cpp
 0.72 -> 1.39 against a reference that lost the light from beyond the level (2.2e-5 -> 0.88e-5) - the excess the
 realtime's fog (the reference has no medium) and the glass box's panes; the floor, ramp and walls 0.97 - 1.03.
 
+**Round MEDIUM: the reference has the realtime's media; the froxels light only the air the eye sees.** `pt ref` had no
+participating media, so neither the fog nor the water's body could be judged against it. Now one definition serves both:
+the fog pass describes the air it marches each frame as up to four exponential layers (`rt_volume_light.h AirMedium` -
+the atmosphere's air: molecules with Rayleigh's phase, the weather's aerosol, its mist and what falls with the
+aerosol's Cornette-Shanks phase; or the street air near the ground), their optical depths in closed form in GLSL both
+passes include (`kMediumGlsl medium_layer_depth`); the water's shader and the path tracer share the water's body
+(`kWaterMediumGlsl`: Beer-Lambert's extinction from the water's hue and clarity, deep water's diffuse reflectance, and for
+the path tracer the single-scattering albedo giving that reflectance by Kubelka-Munk's two-stream relation). The path
+tracer goes through them on every ray's segment: the in-scattering straight from the lights by one light sample at a
+point picked along the segment by its optical depth (each channel's in turn, the three's mean the pdf), the path by
+free-flight sampling (scattered there - the phase sampled, Henyey-Greenstein for the aerosol weighed by Cornette-Shanks -
+and its next hit's light counted only where no light sample could have found it, or on to its hit x the transmittance
+over its pdf), every light ray x the media's transmittance; a ray that leaves the level has the air's reach (none where
+the sky-view table holds the whole ray), the water below an interface the path went down through (its plane the one it
+entered by). Check cases (`thug2_vulkan_path_check`): the white furnace with an air that scatters all it takes stays the
+furnace's (0.982 against 0.999 - the finite floor's edge), the light sample and the scattered paths alone agree, an air
+that only absorbs gives e^-(sigma (d + reach)); mutations (no in-scattering from the lights; no transmittance on the
+light rays) fail them.
+With the medium in the reference, Training's noon haze at the quarter pipes was the realtime's alone (the reference's
+air 0.2 % of its frame, the realtime's 10 %, 60 x more, rt_fog on against off) - a blue haze along the hall's walls. Its
+root: a froxel's points are spread across its column and slice, and those past the surface their pixel shows - outside
+the hall's walls, in the open sunlit air - lit the air in front of them. The froxels now take only the points the eye
+sees (in front of their pixel's surface; none seen: the froxel keeps its history) - `thug2_vulkan_rt_fog_check`'s closed
+room 0.0065 -> 0 of the open air's light, its bound 0.02 -> 0.002. And the open sky's light in the air indoors is no
+longer every open direction alike: it is the share of the open air's light coming in through what is open weighed by the
+phase toward the eye (`open_sky_phase_mean` - a roof opening seen by an eye looking across 0.016, looking up 0.50, of
+its open share 0.135; in the open the term is the open air's as before). Each froxel point traces two sky directions,
+one drawn by the phase (Henyey-Greenstein) and one even over the upper hemisphere, combined by Veach's balance
+heuristic (one direction alone was too noisy for `thug2_vulkan_rt_sun_check`'s bounds). Training at the quarter pipes: realtime / reference 1.310 -> 1.181 (trimmed 1.172 -> 1.030) - the
+rest the glass box's pane edges. The harbour (the reference's sea no longer the sky below the horizon): noon 0.846 ->
+0.904, dusk 0.726 -> 0.801 - the rest is the reference's flat water against the realtime's waves (the path tracer
+meets the water's flat mesh: its grazing mirror of the bright horizon).
+
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
 Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3
