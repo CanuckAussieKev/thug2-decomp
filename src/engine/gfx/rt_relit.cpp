@@ -2895,9 +2895,8 @@ std::vector<FittingTriangle> lit_fitting_triangles(std::span<const RelitMesh> me
             const Vec3 n = cross(minus(b, a), minus(c, a));
             const float twice = std::sqrt(dot(n, n));
             // (round HAZE) no larger than the fitting's whole luminous area: before, the nearest candidate was taken
-            // whatever its area - under Training's hanging lamps the hall floor's two 170 m^2 triangles (full-bright
-            // 808080 under the cards' column, within a card cluster's 577-unit size of its middle) were the four lamps'
-            // heads: the lamps shone up from the floor at 7 cd/m^2, and a skater standing on it cast no shadow
+            // whatever its area - Training's hanging glass boxes' 9 m^2 undersides were their lamps' heads, the lamps'
+            // 3 600 lm sent from 18 m^2 at 60 cd/m^2 (no lit fitting's face: kLitFittingLeast)
             if (!(twice > 0.0F) || 0.5 * static_cast<double>(twice) > most ||
                 (lamp.shape == EmitterShape::kPanel && std::abs(dot(n, lamp.axis)) < kPanelFacing * twice)) {
                 continue;
@@ -4036,6 +4035,68 @@ std::vector<RelitLamp> find_pool_lamps(std::span<const RelitMesh> meshes, std::s
     }
     found.mounted = out.size();
     return out;
+}
+
+bool pool_card_lamp(const RelitLamp& lamp)
+{
+    return lamp.kind == EmitterKind::kGlow && lamp.shape == EmitterShape::kPanel && y_of(lamp.axis) >= kFlatUpShare &&
+           lamp.core > 0.0F;
+}
+
+std::size_t mount_pool_cards(std::vector<RelitLamp>* lamps, RayTracing& tracer)
+{
+    std::vector<std::size_t> which;
+    std::vector<ProbeRequest> rays;
+    for (std::size_t li = 0; li < lamps->size(); ++li) {
+        const RelitLamp& lamp = core::at(*lamps, li);
+        if (!pool_card_lamp(lamp)) {
+            continue;
+        }
+        // (the card's own plane: emitter_of lifted the lamp by its core)
+        const Vec3 card = minus(lamp.position, Vec3{0.0F, lamp.core, 0.0F});
+        which.push_back(li);
+        rays.push_back({.origin = plus(card, Vec3{0.0F, kRelitOffset, 0.0F}),
+                        .direction = {0.0F, 1.0F, 0.0F},
+                        .max_distance = kEmitterMaxReach,
+                        .cull_mask = kRelitWorldMask,
+                        .cutouts = false});
+    }
+    std::vector<ProbeResult> answers;
+    if (!rays.empty()) {
+        tracer.probe_many(rays, &answers);
+    }
+    if (answers.size() != rays.size()) {
+        return 0;
+    }
+    // (a ceiling's fitting: its typical luminous area - find_pool_lamps')
+    const FixtureValues& panel = fixture_values(LampFixture::kPanel);
+    constexpr float kSquareUnitsPerSquareMetre = 39.37F * 39.37F;
+    const float core = emitter_core(
+        static_cast<float>(static_cast<double>(panel.lumens) / (kPi * static_cast<double>(panel.luminance))) *
+        kSquareUnitsPerSquareMetre);
+    std::size_t mounted = 0;
+    for (std::size_t k = 0; k < rays.size(); ++k) {
+        const ProbeResult& answer = core::at(answers, k);
+        RelitLamp& lamp = core::at(*lamps, core::at(which, k));
+        // (its luminous disc a fitting's, the same flux from it: a panel's is 2 pi^2 I core^2 - rt_light_list.h
+        // lamp_power - wherever it hangs)
+        const float ratio = (lamp.core * lamp.core) / (core * core);
+        lamp.light = scaled(lamp.light, ratio);
+        lamp.core = core;
+        if (!answer.hit || answer.distance < kPoolLeastMount) {
+            // (no mount straight over it - an open sky, a roof opening, between the trusses - or one lower than a
+            // fitting's least height: it stays where its pool puts it, its pool's radius over it - a 45-degree cone)
+            continue;
+        }
+        const ProbeRequest& ray = core::at(rays, k);
+        const Vec3 mount = plus(ray.origin, Vec3{0.0F, answer.distance, 0.0F});
+        lamp.position = minus(mount, Vec3{0.0F, kPoolMount, 0.0F});
+        lamp.size = kPoolMount;
+        lamp.reach = std::clamp(kPoolReachPerDistance * answer.distance, kEmitterMinReach, kEmitterMaxReach);
+        lamp.axis = {0.0F, 1.0F, 0.0F};
+        ++mounted;
+    }
+    return mounted;
 }
 
 void relit_to_unit(RelitModel* model, std::span<RelitVertices> light, std::span<RelitLamp> lamps)

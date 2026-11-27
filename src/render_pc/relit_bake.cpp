@@ -1389,6 +1389,14 @@ void bake(std::span<const rt_relit_world::WorldMesh> world, rt::RayTracing& trac
     rt::RelitStats stats;
     rt::RelitStats lamp_stats;
     std::vector<rt::RelitLamp> lamps = level_lamps();
+    {
+        // (round HAZE) a pool card's lamp is the fitting over it (rt_relit.h mount_pool_cards) - before the lamps are traced
+        const std::size_t cards = static_cast<std::size_t>(std::ranges::count_if(lamps, rt::pool_card_lamp));
+        const std::size_t mounted = rt::mount_pool_cards(&lamps, tracer);
+        get_log("relit bake: %zu lamps from light cards lying on a floor (pools): %zu mounted at the fitting over them, "
+                "%zu with none over them (left as they were)",
+                cards, mounted, cards - mounted);
+    }
     data.lamps = static_cast<uint32_t>(lamps.size());
     rt::RelitLampLinks links;
     double trace_ms = 0.0;
