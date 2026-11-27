@@ -289,11 +289,16 @@ void main()
     vec3 here = world_at(p, d);
     vec3 to_camera = pc.camera.xyz - here;
     float distance = length(to_camera);
-    vec3 normal = cross(surface_step(p, d, here, ivec2(1, 0)), surface_step(p, d, here, ivec2(0, 1)));
-    float normal_length = length(normal);
-    normal = normal_length > 1e-20 ? normal / normal_length : to_camera / max(distance, 1e-6);
-    if (dot(normal, to_camera) < 0.0) {
-        normal = -normal;
+    // (round SHEETS - vulkan_rt_scene.h camera_face) the surface's own face: the triangle the camera ray meets at the
+    // depth's point; the neighbouring depths' only where no traced triangle lies there (ReSTIR DI's primary's rule)
+    vec3 normal;
+    if (!camera_face(pc.camera.xyz, here, normal)) {
+        normal = cross(surface_step(p, d, here, ivec2(1, 0)), surface_step(p, d, here, ivec2(0, 1)));
+        float normal_length = length(normal);
+        normal = normal_length > 1e-20 ? normal / normal_length : to_camera / max(distance, 1e-6);
+        if (dot(normal, to_camera) < 0.0) {
+            normal = -normal;
+        }
     }
     float footprint = length(world_at(p + ivec2(1, 0), d) - here);
     bool object;
