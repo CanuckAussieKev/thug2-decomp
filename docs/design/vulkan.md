@@ -3322,8 +3322,10 @@ cache's writes moved out of ReSTIR GI into `radiance_cache_write_glsl`, one copy
 trusted after CACHE_TRUSTED_FRAMES as an opaque surface's is; and every pixel of one 8 x 8 tile in
 `kFrontLayerUpdateTiles` (16) traces and adds its bounce each frame, each tile in turn, so a trusted cell keeps taking
 samples (the cache frees an entry 64 frames after its last). Whole tiles rather than one pixel of each block: a lane that
-traces keeps its subgroup waiting - one pixel in 16 saved ~0.85 ms, whole tiles ~1.5 ms. The bounce a trusted layer
-point gets is its cell's average, the cache's stated compromise everywhere else (SHaRC). Front layer 5.9 -> 4.4 ms at the
+traces keeps its subgroup waiting - one pixel in 16 saved ~0.85 ms, whole tiles ~1.5 ms. The layer's cells are its own
+(`ll_cache_kind` 1 in the key): a pane or the water lying where a wall or the bed has its cell (the same place, facing
+the same way) neither moves that cell's light - which ReSTIR GI's paths end on - nor takes it. The bounce a trusted
+layer point gets is its own cell's average, the cache's stated compromise everywhere else (SHaRC). Front layer 5.9 -> 4.4 ms at the
 fountain, 4.9 -> 3.3 ms at the harbour (noon, 2560 x 1440 DLSS Quality + Ray Reconstruction).
 
 **Round POOL: one water material in the raster, the rays and the path tracer.** The path tracer meets the game's water as

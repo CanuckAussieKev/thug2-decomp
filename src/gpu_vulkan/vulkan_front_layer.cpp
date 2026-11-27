@@ -453,12 +453,17 @@ void main()
     // turn (SHaRC's update paths - the trusted cells kept current; whole tiles: the work group traces together). Before,
     // no path ever wrote a layer point's cell (the water's surface, the mist: no opaque surface's path ends there), so
     // every layer pixel traced its bounce every frame (Barcelona's fountain at 1707 x 960: ~3 ms of the layer's ~6).
+    // The layer's cells are its own (ll_cache_kind 1): a pane or the water lying where a wall or the bed has its cell
+    // neither moves that cell's light nor takes it - the layer's bounce is its own points' samples alone.
     vec3 bounce;
+    ll_cache_kind = 1u;
     bool trusted = cache_lookup(here, n, bounce);
     uint tile_turn = path_sequence_start(gl_WorkGroupID.x, gl_WorkGroupID.y, 0u, 0x46435550u);
     bool update = LL_CACHE_ON && (tile_turn + pass.counts.y) % UPDATE_TILES == 0u;
     if (!trusted || update) {
+        ll_cache_kind = 0u; // (the path's vertices: the surfaces' cells)
         vec3 traced = traced_bounce(at, n, rng);
+        ll_cache_kind = 1u;
         if (LL_CACHE_ON) {
             cache_add(here, n, traced, rng);
         }
@@ -466,6 +471,7 @@ void main()
             bounce = traced;
         }
     }
+    ll_cache_kind = 0u;
     rest = rest / (PATH_PI * float(samples)) + bounce;
     // the disc: its visibility toward a point of its cone (the clouds' shadow with it), its light on a white diffuser
     vec3 sun = vec3(0.0);
