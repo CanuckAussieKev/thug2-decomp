@@ -23,6 +23,12 @@
 //     the table: per spot and time of day the log's mean-luma ratio (realtime / reference, the `pt: saved` line) and,
 //     from the EXRs, the trimmed ratio - the pixels where either picture is over 20 x the reference's 99th percentile
 //     (emitters seen directly, sparks, spray: a few pixels that decide a whole-frame mean) left out of both.
+//   node tools/game/scene_bias.ts plan ... --apart
+//     (round HAZE) each spot measured a second time with the particles neither drawn nor traced (`console set particles
+//     0` - [debug] particles), the world still frozen: its pictures under the tag + "np".
+//   node tools/game/scene_bias.ts apart <Screenshots folder> --tag t [--grid 8x6] [--json f]
+//     the particles' own term on each side: (with - without) of the realtime picture and of the reference, whole and per
+//     cell (the cells where the reference's term is 5 % of its light or more), and the scene without them.
 //   node tools/game/scene_bias.ts repeat <Screenshots folder> <tag a> <tag b> [--grid 4x3] [--json f]
 //     (round MIST) two runs of the same plan side by side: per spot and time of day both ratios and their difference, each
 //     picture's mean (reference / realtime) b against a, and the largest cell's difference - whether the measurement
@@ -55,7 +61,8 @@ const USAGE =
     "       scene_bias.ts terms <spot> [--tods night] [--samples 256] [--tag t] [--realtime-only] [--out file]\n" +
     "       scene_bias.ts terms-analyse <Screenshots folder> <spot> [--tag t] [--ref-tag r] [--grid CxR] [--json file]\n" +
     "       scene_bias.ts analyse <thug2-decomp.log> [--screenshots folder] [--tag t] [--json out.json]\n" +
-    "       scene_bias.ts repeat <Screenshots folder> <tag a> <tag b> [--grid CxR] [--json file]";
+    "       scene_bias.ts repeat <Screenshots folder> <tag a> <tag b> [--grid CxR] [--json file]\n" +
+    "       scene_bias.ts apart <Screenshots folder> --tag t [--grid CxR] [--json file]  (a plan made with --apart)";
 
 // A spot of the plan: motion_error.ts's, with the times of day it is measured at besides the plan's.
 export interface SceneSpot extends Spot {
@@ -107,7 +114,18 @@ export function shotName(tag: string, spot: string, tod: string): string {
 }
 
 // A spot is measured at the plan's times of day and at its own (SceneSpot.tods - after the plan's).
-export function planCommands(spots: SceneSpot[], tods: string[], samples: number, tag: string): string[] {
+// (round HAZE) `apart`: each spot measured again with the particles neither drawn nor traced ([debug] particles=0) after
+// its own measurement, the world still frozen - its pictures named with apartTag(tag): `apart` then sets their own term.
+export function apartTag(tag: string): string {
+    return `${tag}np`;
+}
+export function planCommands(
+    spots: SceneSpot[],
+    tods: string[],
+    samples: number,
+    tag: string,
+    apart = false,
+): string[] {
     const out: string[] = ["waitfor ready 600"];
     const all = [...tods];
     for (const spot of spots) {
@@ -136,6 +154,17 @@ export function planCommands(spots: SceneSpot[], tods: string[], samples: number
                 "waitfor pt 3000",
                 "console pt off",
                 "wait 5",
+                ...(apart
+                    ? [
+                          "console set particles 0",
+                          `wait ${kConvergeFrames}`,
+                          `console pt ref ${samples} as ${shotName(apartTag(tag), spot.name, tod)}`,
+                          "waitfor pt 3000",
+                          "console pt off",
+                          "console set particles 1",
+                          "wait 5",
+                      ]
+                    : []),
                 "console measure off",
                 "camera off",
                 "wait 5",
@@ -404,6 +433,72 @@ function repeat(folder: string, tagA: string, tagB: string, grid: string, json?:
     return both.length > 0 ? 0 : 1;
 }
 
+// (round HAZE) The particles' own term: per spot and time of day, (with - without) on each side - the realtime's and the
+// reference's - whole and per cell, and their ratio; the cells where the reference's term is at least `least` of the
+// cell's light are listed (the particles' place).
+export interface ApartCell {
+    cell: number;
+    realtime: number; // the term (with - without), the global unit
+    reference: number;
+    share: number; // the reference's term over the reference's whole light in the cell
+}
+export function apartCells(
+    rtWith: number[],
+    rtWithout: number[],
+    refWith: number[],
+    refWithout: number[],
+    least: number,
+): ApartCell[] {
+    const out: ApartCell[] = [];
+    for (let i = 0; i < refWith.length - 1; i++) {
+        const reference = refWith[i]! - refWithout[i]!;
+        const share = refWith[i]! > 0 ? Math.abs(reference) / refWith[i]! : 0;
+        if (share < least) continue;
+        out.push({ cell: i, realtime: rtWith[i]! - rtWithout[i]!, reference, share });
+    }
+    return out;
+}
+function apartTerm(folder: string, tag: string, grid: string, json?: string): number {
+    const [cols, rows] = grid.split("x").map(Number) as [number, number];
+    const without = apartTag(tag);
+    const keys = fs
+        .readdirSync(folder)
+        .filter((f) => f.startsWith(`scene_${without}_`) && f.endsWith("_reference.exr"))
+        .map((f) => f.slice(`scene_${without}_`.length, -"_reference.exr".length))
+        .filter((k) => fs.existsSync(path.join(folder, `scene_${tag}_${k}_reference.exr`)))
+        .sort();
+    const out: Record<string, unknown>[] = [];
+    for (const key of keys) {
+        const cells = (t: string, kind: string) =>
+            cellMeans(readExr(fs.readFileSync(path.join(folder, `scene_${t}_${key}_${kind}.exr`))), cols, rows);
+        const rw = cells(tag, "realtime");
+        const ro = cells(without, "realtime");
+        const fw = cells(tag, "reference");
+        const fo = cells(without, "reference");
+        const whole = cols * rows;
+        const rtTerm = rw[whole]! - ro[whole]!;
+        const refTerm = fw[whole]! - fo[whole]!;
+        print(
+            `${key}: the particles' term - realtime ${rtTerm.toExponential(3)}, reference ${refTerm.toExponential(3)} ` +
+                `(x ${(refTerm !== 0 ? rtTerm / refTerm : 0).toFixed(3)}); without them realtime / reference ` +
+                `${(fo[whole]! > 0 ? ro[whole]! / fo[whole]! : 0).toFixed(3)}, with them ${(fw[whole]! > 0 ? rw[whole]! / fw[whole]! : 0).toFixed(3)}`,
+        );
+        const listed = apartCells(rw, ro, fw, fo, 0.05);
+        for (const c of listed) {
+            const col = c.cell % cols;
+            const row = Math.floor(c.cell / cols);
+            print(
+                `  cell ${col},${row}: term realtime ${c.realtime.toExponential(2)} reference ${c.reference.toExponential(2)} ` +
+                    `(x ${(c.reference !== 0 ? c.realtime / c.reference : 0).toFixed(2)}; ${(100 * c.share).toFixed(0)} % of ` +
+                    `the reference's light there); without: realtime / reference ${(fo[c.cell]! > 0 ? ro[c.cell]! / fo[c.cell]! : 0).toFixed(3)}`,
+            );
+        }
+        out.push({ spot: key, realtimeTerm: rtTerm, referenceTerm: refTerm, cells: listed, rw, ro, fw, fo });
+    }
+    if (json) fs.writeFileSync(json, JSON.stringify(out, null, 1));
+    return keys.length > 0 ? 0 : 1;
+}
+
 function main(): number {
     const { values, positionals } = parseCli(USAGE, {
         options: {
@@ -418,6 +513,7 @@ function main(): number {
             "ref-tag": { type: "string" },
             refs: { type: "string" },
             grid: { type: "string", default: "4x3" },
+            apart: { type: "boolean", default: false },
         },
         allowPositionals: true,
     });
@@ -435,7 +531,7 @@ function main(): number {
             spots.push(s);
         }
         const tods = (values.tods as string).split(",").filter(Boolean);
-        const text = planCommands(spots, tods, Number(values.samples), tag).join("\n") + "\n";
+        const text = planCommands(spots, tods, Number(values.samples), tag, values.apart as boolean).join("\n") + "\n";
         if (values.out) fs.writeFileSync(values.out as string, text);
         else process.stdout.write(text);
         return 0;
@@ -462,6 +558,9 @@ function main(): number {
     if (verb === "terms-analyse" && rest.length === 2) {
         const refTag = (values["ref-tag"] as string | undefined) ?? tag;
         return termsAnalyse(rest[0]!, rest[1]!, tag, refTag, values.grid as string, values.json as string | undefined);
+    }
+    if (verb === "apart" && rest.length === 1) {
+        return apartTerm(rest[0]!, tag, values.grid as string, values.json as string | undefined);
     }
     if (verb === "repeat" && rest.length === 3) {
         return repeat(rest[0]!, rest[1]!, rest[2]!, values.grid as string, values.json as string | undefined);

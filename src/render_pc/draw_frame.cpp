@@ -59,6 +59,7 @@
 #include "platform/frame_profile.h"
 #include "engine/gfx/screen.h"
 #include "render_pc/screen_fx.h"
+#include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "render_pc/shadow_base.h"
 #include "render_pc/texture_splats.h"
@@ -1110,8 +1111,13 @@ void draw_viewport(int index)
     set_render_state(RenderStateId::kZWrite, 0);
     rt_apart::set_particle_passes(true); // (not original - round PG: the particles' draws kept for the rays, rt_apart.h)
     rt::set_particles_drawing(true);
-    flexible_particle_manager()->render_systems(index > 0);
-    objects::particle_hub()->draw_particles();
+    // (not original - round HAZE: [debug] particles=0 draws none - neither the raster's nor the rays' (their capture is
+    // these draws), so a scene with and without them measures their own light; the systems still run in the step)
+    static build_info::LiveInt particles_drawn{"debug", "particles", 1};
+    if (particles_drawn.on()) {
+        flexible_particle_manager()->render_systems(index > 0);
+        objects::particle_hub()->draw_particles();
+    }
     rt::set_particles_drawing(false);
     rt_apart::set_particle_passes(false);
     set_render_state(RenderStateId::kZWrite, 1);
