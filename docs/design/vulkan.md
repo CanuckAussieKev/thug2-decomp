@@ -3286,6 +3286,18 @@ covers, its light the lamp model's; drawn with its albedo (the program's under v
 layer's light; and the same drawn into the transparency layer (forced) - 0 pixels off; with the mark read from the passes'
 flag again, 3 101 of 6 470 off.
 
+**Round GLOW: a paused world's particles stand still; a pool card's fitting within its cone.** The newflat particles
+emitted their frame's particles at the end of their draw (the original's): every frame drawn while the game was paused
+- a measurement's frozen world, `pt ref`'s hundreds of frames - added one frame's worth of unaged particles at the
+emitter (and drew from the game's random sequence), so Barcelona's fountain mist grew under a reference while its
+realtime frame had been copied at the start; a render-only frame of `[Graphics] max_fps` emitted again too. The emission
+is now `EmitterInstance::emit_after_draw`, run after a draw only when the frame steps the world (not paused, not a
+render-only frame) - the 60 Hz simulation's draws emit exactly as before. And a pool card - a light card lying on a
+floor, the pool a fitting throws - looks for its fitting within its cone (45 degrees from the vertical: rays, and the
+level's other lamps): the candidate most nearly straight over the pool wins; a surface is the mount (the lamp a
+fitting's size under it, facing the pool), another lamp means the card is that lamp's pool (no lamp of its own), and
+with neither it is no lamp - no lamp hangs in the air (relit data v26; `thug2_vulkan_rt_relit_check`).
+
 **Round POOL: one water material in the raster, the rays and the path tracer.** The path tracer meets the game's water as
 an interface (round LW): Fresnel's share mirrored, the rest into it - the sheet's drawn alpha (2 x the vertex alpha x the
 texel's) its own colour, a diffuse surface of the material's albedo, the remainder through to what is behind. The water
