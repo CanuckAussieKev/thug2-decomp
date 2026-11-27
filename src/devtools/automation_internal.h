@@ -105,6 +105,10 @@ struct Runner {
     // -run
     bool run_done_ = false;
     int ready_frames_ = 0;
+    // (round HAZE) `level`: the loading screens shown when it asked for its level (render::level_cover::loading_screens)
+    // - `waitfor level` then waits for a load begun since, and shown
+    bool level_asked_ = false;
+    uint64_t level_screens_ = 0;
     // the main menu: frames in a row it has been up, and whether that's a second
     int menu_frames_ = 0;
     bool menu_settled_ = false;

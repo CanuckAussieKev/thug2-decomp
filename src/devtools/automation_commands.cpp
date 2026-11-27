@@ -23,6 +23,7 @@
 #include "engine/ext/extension.h"
 #include "game/front_end/start_level.h"
 #include "game/rider/test_view.h"
+#include "engine/gfx/level_cover.h"
 #include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/render/coll_line.h"
@@ -114,7 +115,15 @@ bool condition_holds(const OrderCode& command)
 // camera, the skater set down - pass first), the others at once.
 bool condition_met(Runner& runner)
 {
-    if (!condition_holds(runner.command)) {
+    // (round HAZE) a level is there once its load is over: the loading screen down and its first frames shown (the cover
+    // - render_pc/load_cover.h - lifted; the simulation held under it), and, after a `level`, a load begun since - the
+    // level asked for again was "there" before its own load had begun (a measuring plan seeded the old level), and a
+    // level's load-script state and skater are up while its first frames are still covered (Training: 341 frames)
+    const bool level_shown =
+        runner.command.condition != Condition::kStageMap ||
+        (!loading_screen_up() && !render::level_cover::covered() &&
+         (!runner.level_asked_ || render::level_cover::loading_screens() > runner.level_screens_));
+    if (!level_shown || !condition_holds(runner.command)) {
         runner.counter = 0;
         return false;
     }
@@ -374,6 +383,8 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
     }
     case Op::kStageMap: {
         std::string failed;
+        runner.level_asked_ = true;
+        runner.level_screens_ = render::level_cover::loading_screens();
         if (begin_level::read_in(command.target.c_str(), &failed)) {
             get_finish(runner, "ok");
         } else {

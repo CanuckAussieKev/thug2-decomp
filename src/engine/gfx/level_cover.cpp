@@ -15,9 +15,18 @@ std::atomic<bool>& covered_flag()
     static std::atomic<bool> flag{false};
     return flag;
 }
+std::atomic<uint64_t>& screens_count()
+{
+    static std::atomic<uint64_t> count{0};
+    return count;
+}
 } // namespace
 
 void set_covered(bool covered) { covered_flag().store(covered); }
+
+void note_loading_screen() { screens_count().fetch_add(1); }
+
+uint64_t loading_screens() { return screens_count().load(); }
 
 bool covered() { return covered_flag().load(); }
 
