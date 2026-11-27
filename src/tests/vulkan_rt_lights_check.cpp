@@ -2715,7 +2715,12 @@ bool standing_point(int x, int y, double z, Vec3* at)
 
 // (round SKIN) kCover*: a quad alpha-blended over the floor that WRITES depth (a character's laces, a fence's soft edge -
 // engine/gfx/rt_coverage.h), its vertex alpha kCoverColour's at three heights
-enum class Over : uint8_t { kNothing, kGlass, kGlow, kLitGlow, kCoverFull, kCoverHigh, kCoverLow };
+// (round SKIN2) kLitPane: a lit object's see-through pane (alpha-blended, no depth written, wholly opaque by its alpha -
+// its pixels its own light) kPaneHeight over the floor beside the box, on the side away from the sun - the box's sun
+// shadow falls across part of it; lit by the one light (linear: its key the sun, nothing else)
+enum class Over : uint8_t { kNothing, kGlass, kGlow, kLitGlow, kCoverFull, kCoverHigh, kCoverLow, kLitPane };
+constexpr double kPaneHeight = 10.0;
+constexpr std::array<double, 4> kPane{-100.0, -14.0, -60.0, 60.0}; // x0, x1, z0, z1
 constexpr uint32_t kCoverColour = 0x00C08040U; // (rgb; the alpha per case: 0xFF, 0xC0 - 0.75 -, 0x40 - 0.25)
 
 // (round RG) A lit glow - an added quad drawn with the fixed-function light, normals and coordinates (a lit object's draw: lit per
@@ -2887,6 +2892,44 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
         gpu.set_vertex_format(kFvfColour);
         gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
         gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
+    } else if (over == Over::kLitPane) {
+        // (round SKIN2) the one light (render_pc's OneLightSent: linear light) - its key the sun alone
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, 0);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 1);
+        gpu.set_render_state(GpuRenderState::kSrcBlend, value::kBlendSrcAlpha);
+        gpu.set_render_state(GpuRenderState::kDestBlend, value::kBlendInvSrcAlpha);
+        gpu.set_render_state(GpuRenderState::kLighting, 1);
+        gpu.set_render_state(GpuRenderState::kLinearLights, 1);
+        gpu.set_render_state(GpuRenderState::kAmbient, 0x00000000U);
+        gpu.set_render_state(GpuRenderState::kDiffuseMaterialSource, value::kSourceColour1);
+        gpu.set_material({.diffuse = {1, 1, 1, 1}, .ambient = {}, .specular = {}, .emissive = {}, .power = 0});
+        const Vec3 toward = normalised({core::at(kStreamSun, 0), core::at(kStreamSun, 1), core::at(kStreamSun, 2)});
+        render::GpuLight light{};
+        light.type = value::kLightDirectional;
+        light.diffuse = {1, 1, 1, 1};
+        light.direction = {static_cast<float>(-x_of(toward)), static_cast<float>(-y_of(toward)), static_cast<float>(-z_of(toward))};
+        gpu.set_light(0, light);
+        gpu.enable_light(0, true);
+        gpu.set_vertex_format(kFvfColourNormal);
+        gpu.set_texture(0, lit_glow_draw().texture);
+        gpu.set_pixel_shader(lit_glow_draw().shader);
+        constexpr std::array<float, 4> kWhite{0.5F, 0.5F, 0.5F, 0.5F};
+        gpu.set_pixel_constants(0, kWhite.data(), 1);
+        std::vector<NormalVertex> quad;
+        for (const ColourVertex& corner : quad_at(kPaneHeight, core::at(kPane, 0), core::at(kPane, 1), core::at(kPane, 2),
+                                                  core::at(kPane, 3), 0x80FFFFFFU)) {
+            quad.push_back({.position = corner.position, .normal = {0.0F, 1.0F, 0.0F}, .colour = corner.colour});
+        }
+        gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(quad.size() / 3), quad.data(),
+                             sizeof(NormalVertex));
+        gpu.set_pixel_shader(nullptr);
+        gpu.set_texture(0, nullptr);
+        gpu.enable_light(0, false);
+        gpu.set_render_state(GpuRenderState::kLinearLights, 0);
+        gpu.set_render_state(GpuRenderState::kLighting, 0);
+        gpu.set_vertex_format(kFvfColour);
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
     } else if (over == Over::kCoverFull || over == Over::kCoverHigh || over == Over::kCoverLow) {
         // (round SKIN) blended by its alpha, its depth written - as the game draws such a surface
         const uint32_t alpha = over == Over::kCoverFull ? 0xFFU : (over == Over::kCoverHigh ? 0xC0U : 0x40U);
@@ -2947,6 +2990,7 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
 
 void run_decal_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally);
 void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally);
+bool floor_point(const Vec3& eye, int x, int y, double height, Vec3* at);
 void run_overlay_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally);
 
 void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
@@ -3352,6 +3396,64 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                                       "its colour's indirect share; worst %.1f %%)",
                                       vertex_colour & 0xFFU, sunlit, shaded, off_model, 100.0 * worst_share));
         }
+    }
+    // (round SKIN2 - ff_shaders.cpp kSurfaceSunGlsl) A lit object's see-through pane (its fragments neither the surface
+    // the inputs were made for - the floor is - nor a front layer's: none in this view) beside the box, the box's sun
+    // shadow across part of it: lit by its one light, the sun alone (no ambient, no fill, no lamps), so where the box
+    // hides the sun from the pane's point it is black, elsewhere lit. Before, such a fragment took its key light whole
+    // (light_seen's fallback 1): the pane lit through the box's shadow.
+    {
+        std::vector<uint8_t> pane;
+        bool drew = ok;
+        for (int pass = 0; drew && pass < 2; ++pass) { // (the second time round: the TLAS of the frame before built)
+            drew = draw_per_surface(gpu, targets, meshes, true, Over::kLitPane, frame++, &pane);
+        }
+        const Solid& box = core::at(kScene, 1);
+        const auto in_shadow = [&box, &toward](const Vec3& at) {
+            return intersect(box, step(at, {0.0, 1.0, 0.0}, 0.5), toward).distance < kNoHit;
+        };
+        const View view = view_from(kEye);
+        int sunlit = 0;
+        int shaded = 0;
+        int shaded_lit = 0;
+        int sunlit_dark = 0;
+        double darkest_lit = 1.0e9;
+        double brightest_shaded = 0.0;
+        constexpr double kPaneStep = 3.0; // (units: a point counted where it and its neighbours this far agree)
+        for (int y = 0; drew && y < kRows; ++y) {
+            for (int x = 0; x < kColumns; ++x) {
+                Vec3 at{};
+                if (!through_quad(x, y, kPaneHeight, core::at(kPane, 0), core::at(kPane, 1), core::at(kPane, 2),
+                                  core::at(kPane, 3)) ||
+                    !floor_point(kEye, x, y, kPaneHeight, &at) || seen_at(view, x + 0.5, y + 0.5).solid != 1) {
+                    continue;
+                }
+                const bool shadow = in_shadow(at);
+                bool clear = true;
+                for (const Vec3 d : {Vec3{kPaneStep, 0.0, 0.0}, Vec3{-kPaneStep, 0.0, 0.0}, Vec3{0.0, 0.0, kPaneStep},
+                                     Vec3{0.0, 0.0, -kPaneStep}}) {
+                    clear = clear && in_shadow(step(at, d, 1.0)) == shadow;
+                }
+                if (!clear) {
+                    continue;
+                }
+                const double light = luma_of(linear_pixel_at(pane, x, y));
+                if (shadow) {
+                    ++shaded;
+                    brightest_shaded = std::max(brightest_shaded, light);
+                    shaded_lit += light > kLinearTolerance ? 1 : 0;
+                } else {
+                    ++sunlit;
+                    darkest_lit = std::min(darkest_lit, light);
+                    sunlit_dark += light < 0.02 ? 1 : 0;
+                }
+            }
+        }
+        tally->check(drew && sunlit > 1000 && shaded > 300 && shaded_lit == 0 && sunlit_dark == 0,
+                     text::format("(round SKIN2) a lit object's see-through pane without light inputs traces its key light: "
+                                  "%d sunlit pixels (darkest %.4f, %d dark), %d in the box's sun shadow (brightest %.4f, "
+                                  "%d lit)",
+                                  sunlit, sunlit > 0 ? darkest_lit : 0.0, sunlit_dark, shaded, brightest_shaded, shaded_lit));
     }
     {
         render::vulkan::Backend& state = render::vulkan::backend();

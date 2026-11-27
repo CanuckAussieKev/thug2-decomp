@@ -776,7 +776,7 @@ CelDraw cel_draw(Backend& state, const GpuStateBlock& block, const ShaderKey& ke
     if (traced && cel_owns_shadows(state)) {
         std::array<float, 3> toward{};
         if (sun_toward(frame_view(state), &toward)) {
-            draw.flags = static_cast<uint8_t>(draw.flags | kSurfaceCelShadow);
+            draw.flags = static_cast<uint8_t>(draw.flags | kSurfaceSunTraced);
         }
     }
     return draw;
@@ -795,7 +795,7 @@ void count_cel_draw(uint8_t flags, bool hull)
     } else {
         ++counts.world_bake;
     }
-    counts.shadowed += (flags & kSurfaceCelShadow) != 0U ? 1U : 0U;
+    counts.shadowed += (flags & kSurfaceSunTraced) != 0U ? 1U : 0U;
     counts.hulls += hull ? 1U : 0U;
 }
 
@@ -804,6 +804,20 @@ VkBuffer cel_stream_buffer(Backend& state, Buffer* stream)
     BufferVersion& version = core::at(stream->versions, stream->current);
     version.last_use = state.frames.serial();
     return version.memory.buffer;
+}
+
+void fill_eye_to_world(const GpuStateBlock& block, std::array<Float4, 3>* rows)
+{
+    // camera space to the world: the view's inverse (row vectors: world = eye x V^-1), each row of the result one of
+    // the world's axes
+    *rows = {};
+    Float4x4 inverse{};
+    if (motion_inverse(core::at(block.transforms, kViewSlot), &inverse)) {
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            core::at(*rows, axis) = {core::at(inverse, (0 * kSide) + axis), core::at(inverse, (1 * kSide) + axis),
+                                     core::at(inverse, (2 * kSide) + axis), core::at(inverse, (3 * kSide) + axis)};
+        }
+    }
 }
 
 void fill_cel_uniforms(const Backend& state, const GpuStateBlock& block, CelUniforms* uniforms)
@@ -823,16 +837,7 @@ void fill_cel_uniforms(const Backend& state, const GpuStateBlock& block, CelUnif
     const float exposure = rt::frame_pre_exposure();
     uniforms->sun_light = {std::get<0>(view.world.sun) * exposure, std::get<1>(view.world.sun) * exposure,
                            std::get<2>(view.world.sun) * exposure, rt::kCelRimThreshold};
-    // camera space to the world: the view's inverse (row vectors: world = eye x V^-1), each row of the result one of
-    // the world's axes
-    Float4x4 inverse{};
-    if (motion_inverse(core::at(block.transforms, kViewSlot), &inverse)) {
-        for (std::size_t axis = 0; axis < 3; ++axis) {
-            core::at(uniforms->eye_to_world, axis) = {core::at(inverse, (0 * kSide) + axis), core::at(inverse, (1 * kSide) + axis),
-                                                      core::at(inverse, (2 * kSide) + axis),
-                                                      core::at(inverse, (3 * kSide) + axis)};
-        }
-    }
+    fill_eye_to_world(block, &uniforms->eye_to_world);
     uniforms->ray = {kRayOffset, kRayAlong, kRayLength, rt::kCelAmbientStops};
     uniforms->flatten = {rt::kCelFlattenBias, settings.flatten, rt::kCelResidualStep, 0.0F};
     const float height = static_cast<float>(std::max<uint32_t>(block.viewport.height, 1));

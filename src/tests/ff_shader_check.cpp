@@ -75,6 +75,7 @@
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_shaders.h"
 #include "gpu_vulkan/glsl_compiler.h"
+#include "gpu_vulkan/vulkan_rt_glsl.h"
 #include "tests/ff_shader_check_gpu.h"
 #include "tests/ff_shader_check_model.h"
 
@@ -167,6 +168,7 @@ struct Job {
     std::string name;
     std::string description;
     std::string source;
+    bool traced = false; // (round SKIN2: a fragment shader with ray queries - SPIR-V 1.4, compile_rt_glsl)
     std::vector<uint32_t> spirv;
     bool compiled = false;
     bool valid = false;
@@ -182,7 +184,7 @@ double seconds_since(std::chrono::steady_clock::time_point start)
 // SPIRV-Tools' validator for Vulkan 1.0 (one per thread).
 bool validate(Job& job)
 {
-    spvtools::SpirvTools tools(SPV_ENV_VULKAN_1_0);
+    spvtools::SpirvTools tools(job.traced ? SPV_ENV_VULKAN_1_2 : SPV_ENV_VULKAN_1_0); // (ray queries: SPIR-V 1.4)
     std::string messages;
     tools.SetMessageConsumer([&messages](spv_message_level_t, const char*, const spv_position_t&, const char* text) {
         messages += text;
@@ -206,7 +208,9 @@ void run_jobs(std::vector<Job>& jobs, int threads)
     const auto work = [&jobs, &next]() {
         for (std::size_t index = next++; index < jobs.size(); index = next++) {
             Job& job = core::at(jobs, index);
-            render::vulkan::CompiledShader compiled = render::vulkan::compile_glsl(job.stage, job.source);
+            render::vulkan::CompiledShader compiled =
+                job.traced ? render::vulkan::compile_rt_glsl(render::vulkan::RtShaderStage::kFragment, job.source)
+                           : render::vulkan::compile_glsl(job.stage, job.source);
             job.compiled = compiled.ok;
             job.log = compiled.log;
             job.spirv = std::move(compiled.spirv);
@@ -281,7 +285,8 @@ std::vector<Job> make_fragment_jobs(const std::vector<FragmentKey>& fragment_ord
         jobs.push_back({.stage = ShaderStage::kFragment,
                         .name = text::format("f%05u", static_cast<unsigned>(index)),
                         .description = render::vulkan::describe(key),
-                        .source = render::vulkan::fragment_shader_glsl(key)});
+                        .source = render::vulkan::fragment_shader_glsl(key),
+                        .traced = (key.surface & render::vulkan::kSurfaceSunTraced) != 0U});
     }
     return jobs;
 }
@@ -423,7 +428,7 @@ void add_character_keys(ff_check::KeySets& sets)
 
 // (added by cel shading) Each pair again with the bands (the world's bake, lit by lights, the outline's hull) - made into
 // pipelines with the rest -, and its halves with the relit world's stream (modules only: this check's pipelines have no
-// second stream). The ray-traced visibility (kSurfaceCelShadow) needs SPIR-V 1.4 and a ray-tracing device:
+// second stream). The ray-traced visibility (kSurfaceSunTraced) needs SPIR-V 1.4 and a ray-tracing device:
 // thug2_vulkan_cel_check makes those.
 void add_cel_keys(ff_check::KeySets& sets)
 {
@@ -559,6 +564,16 @@ void add_light_keys(ff_check::KeySets& sets)
                                                                                              : uint8_t{0};
         if (lit.fragment.light != 0U) {
             keys.push_back(lit);
+            if ((lit.fragment.surface & render::vulkan::kSurfaceLit) != 0U) {
+                // (round SKIN2: a see-through lit overlay - an object's glass, hair cards - reading the front layer where
+                // it is the nearest, else tracing its own sun - ff_shaders.cpp kSurfaceSunGlsl; modules only)
+                for (const uint8_t front : {uint8_t{0}, render::vulkan::kLightFront}) {
+                    FragmentKey traced = lit.fragment;
+                    traced.light = static_cast<uint8_t>(kLightInputs | front);
+                    traced.surface = static_cast<uint8_t>(traced.surface | render::vulkan::kSurfaceSunTraced);
+                    added += sets.fragment.insert(traced).second ? 1U : 0U;
+                }
+            }
             // (round SKIN - engine/gfx/rt_coverage.h: a blended draw that writes depth, shaded where its prepass kept it -
             // kLightDepthHalf - with Ray Reconstruction's guides, as the game draws it under RR; the guides' code is the
             // plain lit keys' as well)
@@ -597,6 +612,16 @@ void add_light_keys(ff_check::KeySets& sets)
             covered.light = static_cast<uint8_t>(kLightInputs | render::vulkan::kLightDepthHalf);
             if (sets.fragment.insert(covered).second) {
                 ++added;
+            }
+            // (round SKIN2: a see-through relit overlay - read the front layer where it is the nearest, else its own sun
+            // ray - ff_shaders.cpp kSurfaceSunGlsl; modules only)
+            for (const uint8_t front : {uint8_t{0}, render::vulkan::kLightFront}) {
+                FragmentKey traced = key;
+                traced.light = static_cast<uint8_t>(kLightInputs | front);
+                traced.surface = static_cast<uint8_t>(traced.surface | render::vulkan::kSurfaceSunTraced);
+                if (sets.fragment.insert(traced).second) {
+                    ++added;
+                }
             }
             // (round DECAL: a see-through overlay laid into its surface - its shaded draw and its laying)
             for (const uint8_t layer : {render::vulkan::kLightLayer,

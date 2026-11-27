@@ -101,8 +101,10 @@ public:
     // The set layout (push descriptors: the two uniform blocks and the stages' textures), the pipeline layout, and the
     // caches read from the files in `folder` (ending in a separator; empty: none kept).
     // (added by cel shading) `ray_queries`: the device has ray tracing - the layout gets the scene's binding
-    // (kCelSceneBinding) and fragment shaders that trace (kSurfaceCelShadow) can be made.
+    // (kCelSceneBinding) and fragment shaders that trace (kSurfaceSunTraced) can be made.
     bool init(VkDevice device, VkPhysicalDevice physical, const std::string& folder, bool ray_queries = false);
+    // (round SKIN2) whether fragment shaders that trace can be made (init's `ray_queries`)
+    [[nodiscard]] bool ray_queries() const { return ray_queries_; }
     // The caches written and everything destroyed (the device idle).
     void shutdown();
     // The caches written to disk (when something new was made since the last time) - by a thread of their own, never

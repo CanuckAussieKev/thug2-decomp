@@ -29,7 +29,7 @@ constexpr uint32_t kFirstTextureBinding = 2; // stage n's texture (combined imag
 constexpr uint32_t kSurfaceUniformsBinding = 6; // SurfaceUniforms
 constexpr uint32_t kSurfaceMapBinding = 7;      // stage 0's texture's surface map (kSurfaceMap)
 // (added by cel shading, vulkan_cel.h) read only by keys with kSurfaceCel (pushed only for their draws); the scene
-// only in the layout of a device with ray tracing (kSurfaceCelShadow)
+// only in the layout of a device with ray tracing (kSurfaceSunTraced)
 constexpr uint32_t kCelUniformsBinding = 8; // CelUniforms (vertex and fragment)
 constexpr uint32_t kCelSceneBinding = 9;    // the frame's top-level acceleration structure
 // (NOT ORIGINAL - [Graphics] rt_water, vulkan_water.h) the water's: read only by keys with FragmentKey::water (pushed
@@ -190,6 +190,9 @@ struct SurfaceUniforms {
     Float4 albedo{};    // (round MATALB) x: the factor the texture's colour takes to be the material's albedo
                         // (SurfaceDraw::albedo_scale); y, z: (round SKIN) a shine mask's coat - its strength and its
                         // mask passes packed (GpuStateBlock::surface_coat, rt_surface_class.h surface_coat); w: unused
+    // (NOT ORIGINAL - round SKIN2) camera space to the world (rows, w the offset - CelUniforms::eye_to_world's twin): set
+    // only for a key with kSurfaceSunTraced (its fragments' own sun rays), zero otherwise
+    std::array<Float4, 3> eye_to_world{};
 };
 
 // (added by cel shading) Binding 8 (vertex and fragment shaders): vulkan_cel.cpp fills it.
@@ -287,7 +290,7 @@ static_assert(offsetof(VertexUniforms, previous_clip) == offsetof(VertexUniforms
 static_assert(sizeof(VertexUniforms) == offsetof(VertexUniforms, previous_clip) + kMatrixBytes + (3 * kVectorBytes),
               "std140: no padding");
 static_assert(sizeof(FragmentUniforms) == kFragmentVectors * kVectorBytes, "std140: no padding");
-constexpr std::size_t kSurfaceVectors = (2 * kMaxLights) + 6;
+constexpr std::size_t kSurfaceVectors = (2 * kMaxLights) + 9;
 static_assert(sizeof(SurfaceUniforms) == kSurfaceVectors * kVectorBytes, "std140: no padding");
 constexpr std::size_t kCelVectors = 11;
 static_assert(sizeof(CelUniforms) == kCelVectors * kVectorBytes, "std140: no padding");

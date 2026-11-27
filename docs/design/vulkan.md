@@ -5337,7 +5337,7 @@ fragment shaders, where it is worked out; as the art style `cel` it has no post-
   residual_q the lamps' light in steps of 0.25 (hue kept in both), `sun` the relit model's sun light (a x the sun's
   colour, published by render_pc: `rt::set_cel_world`). A vertex the game animates carries the flag 0: its pixels are
   banded as the bake.
-- **Hard shadows.** With ray tracing the visibility is a ray query in the fragment shader (`kSurfaceCelShadow`; GLSL 4.60,
+- **Hard shadows.** With ray tracing the visibility is a ray query in the fragment shader (`kSurfaceSunTraced`; GLSL 4.60,
   SPIR-V 1.4; the frame's TLAS at `kCelSceneBinding` 9, only in a ray-tracing device's layout - the vulkan_rt_scene
   builder hands it over as it does the shadows'): from the pixel's world point (`eye_to_world`, the view's inverse) 2
   units off the surface along its face normal and 1 toward the sun, the level's opaque geometry (mask 0x01), terminated
