@@ -1134,6 +1134,7 @@ std::vector<Decl> declarations()
         debug("rt_opacity_micromaps", K::kSwitch, "1").need(ray_tracing()).restart(t::kRestartDevice),
         debug("rt_clutter", K::kSwitch, "1").need(ray_tracing()).live(O::kSelf),
         debug("rt_particles", K::kSwitch, "1").need(ray_tracing()).live(O::kSelf),
+        debug("particles", K::kSwitch, "1").live(O::kSelf), // (round HAZE: 0 - drawn and traced neither)
         debug("rt_lights_log", K::kSwitch, "0").need(is_not("rt_lights", {"0"})).live(E::kLights),
         debug("rt_water_view", K::kSwitch, "0").need(on("rt_water")).live(E::kWater),
         // (round FA - gpu_vulkan/vulkan_debug_view.h: one term of the light at a time, or the flicker as a heat map; the

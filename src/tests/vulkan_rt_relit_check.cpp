@@ -54,6 +54,7 @@
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_lights.h"
+#include "engine/gfx/rt_light_list.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_sky.h"
 #include "engine/gfx/rt_scene.h"
@@ -2792,6 +2793,93 @@ void check_indoor_lamps(Tally* tally)
                  "the high-bay's flux range holds a 400 W metal halide's 36 000 lm and a 150 W LED's 17 250 lm");
 }
 
+// (round HAZE) A light card lying on a floor - the pool of light the artists drew under a fitting - is the fitting that
+// throws it: mounted under the ceiling over it, a ceiling panel's luminous size, its flux kept. Training's hall lamps were
+// discs of their pools' size 7 m over them (no skater's shadow under one). A pool under the open sky stays where it
+// hangs (its pool's radius over it), a fitting's size too, its flux kept.
+void check_pool_cards(Tally* tally)
+{
+    constexpr float kSide = 600.0F;
+    constexpr float kHeight = 400.0F;
+    rt::RelitMesh hall;
+    // (the floor and a ceiling over it)
+    add_face(&hall, {.corner = {0.0F, 0.0F, 0.0F}, .across = {kSide, 0.0F, 0.0F}, .up = {0.0F, 0.0F, kSide}}, 8);
+    add_face(&hall, {.corner = {0.0F, kHeight, 0.0F}, .across = {0.0F, 0.0F, kSide}, .up = {kSide, 0.0F, 0.0F}}, 8);
+    hall.id = kCpuIds + 9;
+    const std::vector<rt::RelitMesh> meshes{hall};
+    CpuTracer cpu(meshes);
+    constexpr float kCardCore = 290.0F;
+    rt::RelitLamp card{.position = {kSide * 0.5F, kCardCore, kSide * 0.5F}, .size = 400.0F, .light = {1.0F, 1.0F, 1.0F},
+                       .core = kCardCore, .reach = 1500.0F, .shape = rt::EmitterShape::kPanel,
+                       .axis = {0.0F, 1.0F, 0.0F}, .kind = rt::EmitterKind::kGlow};
+    rt::RelitLamp open = card;
+    open.position = {5000.0F, kCardCore, 0.0F}; // (no ceiling over it)
+    std::vector<rt::RelitLamp> lamps{card, open};
+    const double flux_before = rt::lights::lamp_power({.position = card.position, .colour = {1.0F, 1.0F, 1.0F},
+                                                       .intensity = 1.0F, .reach = 1500.0F, .core = card.core,
+                                                       .shape = rt::EmitterShape::kPanel});
+    const std::size_t mounted = rt::mount_pool_cards(&lamps, cpu);
+    const rt::RelitLamp& hung = lamps.front();
+    const double flux_after = rt::lights::lamp_power({.position = hung.position, .colour = {1.0F, 1.0F, 1.0F},
+                                                      .intensity = std::get<0>(hung.light), .reach = 1500.0F, .core = hung.core,
+                                                      .shape = rt::EmitterShape::kPanel});
+    const bool under_ceiling = std::abs(rt::y_of(hung.position) - (kHeight - rt::kPoolMount)) <= 3.0F;
+    const bool small = hung.core < 40.0F;
+    const bool kept = std::abs(flux_after / flux_before - 1.0) <= 1e-3;
+    const bool open_kept = std::abs(rt::y_of(lamps.back().position) - kCardCore) <= 1e-3F &&
+                           std::abs(lamps.back().core - hung.core) <= 1e-3F &&
+                           std::abs(std::get<0>(lamps.back().light) - std::get<0>(hung.light)) <= 1e-6F * std::get<0>(hung.light);
+    tally->check(mounted == 1 && under_ceiling && small && kept && open_kept,
+                 text::format("a pool card's lamp: %zu mounted, at y %.1f (the ceiling %.0f), core %.1f (was %.0f), its flux x "
+                              "%.4f; the open sky's pool card left at y %.1f, core %.1f",
+                              mounted, static_cast<double>(rt::y_of(hung.position)), static_cast<double>(kHeight),
+                              static_cast<double>(hung.core), static_cast<double>(kCardCore), flux_after / flux_before,
+                              static_cast<double>(rt::y_of(lamps.back().position)),
+                              static_cast<double>(lamps.back().core)));
+}
+
+// (round HAZE) A glow lamp's head on its lit fitting: a triangle larger than the fitting's whole luminous area (the flux
+// at a lit fitting's dimmest face) is no part of it - Training's hanging glass boxes' 9 m^2 undersides were their lamps'
+// heads; here a floor's 174 m^2 triangles under the cards' column and a 40-unit diffuser over it.
+void check_fitting_heads(Tally* tally)
+{
+    rt::RelitLamp lamp;
+    lamp.position = {0.0F, 293.0F, 0.0F};
+    lamp.size = 577.0F;
+    lamp.kind = rt::EmitterKind::kGlow;
+    lamp.shape = rt::EmitterShape::kPanel;
+    lamp.axis = {0.0F, 1.0F, 0.0F};
+    lamp.lumens = 3600.0F;
+    constexpr uint32_t kFullBright = 0xFF808080U;
+    // the floor: a 523 x 1030 unit quad (two 174 m^2 triangles); the fitting: a 40 x 40 unit diffuser 500 units up
+    // (two 0.5 m^2 triangles) - both full-bright, both under the cards' column, both facing up
+    rt::RelitMesh floor;
+    floor.id = 1;
+    floor.positions = {{-261.5F, 0.0F, -515.0F}, {261.5F, 0.0F, -515.0F}, {261.5F, 0.0F, 515.0F}, {-261.5F, 0.0F, 515.0F}};
+    floor.colours.assign(floor.positions.size(), kFullBright);
+    floor.triangles = {{0U, 2U, 1U}, {0U, 3U, 2U}};
+    rt::RelitMesh fitting = floor;
+    fitting.id = 2;
+    fitting.positions = {{-20.0F, 500.0F, -20.0F}, {20.0F, 500.0F, -20.0F}, {20.0F, 500.0F, 20.0F}, {-20.0F, 500.0F, 20.0F}};
+    const std::vector<rt::RelitMesh> meshes{floor, fitting};
+    const std::array<float, 4> extent{-262.0F, -516.0F, 262.0F, 516.0F};
+    const std::vector<rt::FittingTriangle> found = rt::lit_fitting_triangles(meshes, {}, lamp, extent);
+    std::size_t on_floor = 0;
+    std::size_t on_fitting = 0;
+    for (const rt::FittingTriangle& each : found) {
+        (each.mesh == 0 ? on_floor : on_fitting) += 1;
+    }
+    const double most = rt::lit_fitting_area(lamp.lumens) / (39.37 * 39.37);
+    tally->check(on_floor == 0 && on_fitting == 2,
+                 text::format("a hanging lamp's head: %zu of the fitting's 2 triangles, %zu of the floor's 2 under its "
+                              "cards (a fitting's luminous area at most %.2f m^2 for 3600 lm; the floor's triangles 174 m^2)",
+                              on_fitting, on_floor, most));
+    // a light card's mesh is never a fitting
+    const std::vector<uint8_t> skipped{0, 1};
+    const std::vector<rt::FittingTriangle> without = rt::lit_fitting_triangles(meshes, skipped, lamp, extent);
+    tally->check(without.empty(), text::format("the fitting a light card's mesh: %zu triangles taken", without.size()));
+}
+
 // (round SL - the game's own lights) A light node's light becomes a lamp from the game's data alone, its head one owner
 // with it; a surface of another state no light takes, and a candidate the bake can't see lit with no light at it, stay
 // dark.
@@ -3043,6 +3131,8 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
     check_geometry_settings(tally);
     check_game_lights(tally);
+    check_fitting_heads(tally);
+    check_pool_cards(tally);
     check_round_l(tally);
     check_data_bounce(tally);
     check_lamp_solve(tally);

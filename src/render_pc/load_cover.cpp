@@ -55,6 +55,7 @@ double seconds_since(Clock::time_point then) { return std::chrono::duration<doub
 void screen_shown(bool kept, bool blank, bool dialog)
 {
     Cover& own = cover();
+    level_cover::note_loading_screen(); // (round HAZE: a load begun - automation's `waitfor level`)
     own.covering = false; // (a new loading screen: the last level's first frames are over)
     own.shown = !kept && !dialog;
     own.blank = blank;

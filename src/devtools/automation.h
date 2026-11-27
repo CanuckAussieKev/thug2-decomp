@@ -49,7 +49,9 @@ class Struct;
 //                                         once, the next menu came up under a loading logo that stayed), frontend (the front end's
 //                                         level loaded - SKATE NOW skates there too), ingame (a level other than the
 //                                         front end, with the skater, not paused), level <name> (the skate module's
-//                                         level is Load_<name>, with the skater) - those two for a second in a row,
+//                                         level is Load_<name>, with the skater, its loading screen down and its first
+//                                         frames shown - after a `level`, a load begun since: the same level asked for
+//                                         again too) - those two for a second in a row,
 //                                         past the level's first frames -, menu <id> (the element exists), focus <id>
 //                                         (the element is focused, or a focused menu's selected item)
 //   level <name>                          free skate in a level, as -level (game/front_end/start_level.h)

@@ -579,6 +579,24 @@ struct RelitLamp {
 // light); an emitter is one light's head at most (a second light at it stays a light of its own). A surface of another state no light takes is
 // no lamp (relit_lamp_models: the game never shows it lit). Returns how many lights became their heads.
 std::size_t relit_adopt_game_lights(std::vector<RelitLamp>* lamps);
+// (round FIXTURE; round HAZE) A glow lamp's head on the fitting the original drew lit: the triangles in its cards'
+// column (`extent`: x min, z min, x max, z max) within its size of it in height, whose every corner the original drew at
+// full brightness (kFullBrightByte), a panel's in its plane, of the meshes not `skipped` (a light card's) - each no larger
+// than the fitting's whole luminous area, lit_fitting_area (a triangle bigger than that sends the lamp's flux dimmer than
+// any lit fitting's face: Training's glass boxes' 9 m^2 undersides). `distance` the triangle's middle's from the lamp, squared;
+// `area` in world units^2. Unordered.
+struct FittingTriangle {
+    std::size_t mesh = 0;
+    std::array<uint32_t, 3> triangle{};
+    double distance = 0.0;
+    double area = 0.0;
+};
+[[nodiscard]] std::vector<FittingTriangle> lit_fitting_triangles(std::span<const RelitMesh> meshes,
+                                                                 std::span<const uint8_t> skipped, const RelitLamp& lamp,
+                                                                 const std::array<float, 4>& extent);
+// The most a lit fitting's luminous surface covers for a lamp of `lumens` (world units^2): its flux at the dimmest face
+// a lit fitting shows (lamp_fixtures.h kLitFittingLeast) - Phi / (pi L).
+[[nodiscard]] double lit_fitting_area(float lumens);
 // (round L) Where a lamp's light comes from.
 enum class RelitLampSource : uint8_t {
     kNone = 0,        // no light (a candidate the bake doesn't confirm)
@@ -728,6 +746,17 @@ struct PoolSearch {
                                                      std::span<const RelitVertices> light, const RelitLampLinks& links,
                                                      std::span<const RelitLamp> lamps, const RelitModel& model,
                                                      RayTracing& tracer, PoolSearch* report = nullptr);
+// (round HAZE - one rule for a pool of light) A glow lamp made from a light card lying flat and facing up - the pool of
+// light the artists drew on a floor under a fitting (rt_lights.cpp emitter_of: lifted by its card's radius, a panel the
+// size of the pool) - is the fitting that throws it, as find_pool_lamps' lamps are: a ray from the card up to its mount
+// (at least kPoolLeastMount over it), the lamp a panel kPoolMount under it, its reach by its pool's distance - with none
+// straight over it (an open sky, a roof opening) it stays where emitter_of put it, its pool's radius over the pool -;
+// either way its luminous area a ceiling panel's typical (lamp_fixtures.h: lumens / (pi L)), its intensity rescaled so
+// its flux (rt_light_list.h lamp_power) is the card's. Before, Training's hall lamps were
+// discs of their pools' 170 m^2 hanging 7 m over them - their light so broad that a skater under one cast no shadow.
+// Returns how many lamps were mounted under a fitting. Before the lamps are traced (their links, the solve and the models read them).
+std::size_t mount_pool_cards(std::vector<RelitLamp>* lamps, RayTracing& tracer);
+[[nodiscard]] bool pool_card_lamp(const RelitLamp& lamp);
 // Each vertex's L from its links and the lamps' intensities (building relief's made vertices from their sources) - with
 // all lamps on, or (`on`, one a lamp) each x how much it is on.
 void relit_lamp_light(std::span<const RelitMesh> meshes, std::span<RelitVertices> light, const RelitLampLinks& links,

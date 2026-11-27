@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 // NOT ORIGINAL - (round LS2) a level's first frames under the loading screen (render_pc/load_cover.h keeps it up over
 // them until the level is ready to be seen): what the rest of the engine reads of it.
 //
@@ -27,6 +29,11 @@ void set_covered(bool covered);
 // Whether the frame being drawn is covered: a view not shown yet - the camera's eye starts at its target on every one of
 // them (gpu_vulkan/vulkan_hdr.cpp's meter), as at a cut.
 [[nodiscard]] bool covered();
+// (round HAZE) The loading screens shown since the start (render_pc/load_cover's screen_shown notes each): a level's
+// load is under one, so a level asked for has loaded once this has grown and the cover is down - devtools/automation's
+// `waitfor level` after a `level` (the same level asked for again was "there" before its load had even begun).
+void note_loading_screen();
+[[nodiscard]] uint64_t loading_screens();
 // Whether the main loop holds this loop's simulation (asked once a loop, at its start): covered, not a network game,
 // and nothing owed by the simulation (above).
 [[nodiscard]] bool holds_simulation();

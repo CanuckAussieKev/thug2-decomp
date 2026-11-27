@@ -2,7 +2,16 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { kPlanSeed, kSceneSpots, parseSaved, planCommands, ratios, shotName } from "./scene_bias.ts";
+import {
+    apartCells,
+    apartTag,
+    kPlanSeed,
+    kSceneSpots,
+    parseSaved,
+    planCommands,
+    ratios,
+    shotName,
+} from "./scene_bias.ts";
 
 test("the plan seeds the random sequences, sets the time of day before the levels and names each reference", () => {
     const p1 = kSceneSpots.find((s) => s.name === "p1")!;
@@ -58,4 +67,26 @@ test("ratios leave out pixels far over the reference's 99th percentile", () => {
     assert.ok(r.whole > 100);
     assert.equal(r.trimmed, 0.5);
     assert.equal(r.kept, 0.999);
+});
+
+test("an apart plan measures each spot again without the particles, the world still frozen", () => {
+    const ba = kSceneSpots.find((s) => s.name === "ba")!;
+    const lines = planCommands([ba], ["noon"], 256, "h", true);
+    const first = lines.indexOf("console pt ref 256 as scene_h_ba_noon");
+    const off = lines.indexOf("console set particles 0");
+    const second = lines.indexOf(`console pt ref 256 as scene_${apartTag("h")}_ba_noon`);
+    assert.ok(first > 0 && off > first && second > off);
+    assert.ok(lines.indexOf("console set particles 1") > second);
+    assert.ok(lines.indexOf("console measure off") > lines.indexOf("console set particles 1"));
+    assert.ok(!planCommands([ba], ["noon"], 256, "h").includes("console set particles 0"));
+});
+
+test("apartCells lists the cells where the reference's term is a share of its light", () => {
+    // two cells + the whole: the first a mist (with 1.0, without 0.6 - 40 %), the second none
+    const cells = apartCells([0.8, 0.5, 0.65], [0.6, 0.5, 0.55], [1.0, 0.5, 0.75], [0.6, 0.5, 0.55], 0.05);
+    assert.equal(cells.length, 1);
+    assert.equal(cells[0]!.cell, 0);
+    assert.ok(Math.abs(cells[0]!.realtime - 0.2) < 1e-12);
+    assert.ok(Math.abs(cells[0]!.reference - 0.4) < 1e-12);
+    assert.ok(Math.abs(cells[0]!.share - 0.4) < 1e-12);
 });
