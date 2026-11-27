@@ -12,7 +12,9 @@ test("the plan seeds the random sequences, sets the time of day before the level
     assert.equal(lines[1], "console rt tod noon");
     assert.equal(lines[3], `console seed ${kPlanSeed}`);
     assert.equal(lines[4], "level bo");
-    assert.equal(lines.filter((l) => l === `console seed ${kPlanSeed}`).length, 4); // (before each spot's level)
+    // (before each spot's level, and again once it is loaded)
+    assert.equal(lines.filter((l) => l === `console seed ${kPlanSeed}`).length, 8);
+    assert.equal(lines[lines.indexOf("waitfor level bo 600") + 1], `console seed ${kPlanSeed}`);
     assert.ok(lines.includes("level bo"));
     assert.ok(lines.includes("level tr"));
     assert.ok(lines.includes("console pt ref 256 as scene_base_p1_noon"));

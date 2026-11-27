@@ -5,7 +5,8 @@
 //        [--out commands.txt]
 //     the automation commands of the session (run_game.ps1 -Commands (Get-Content commands.txt) in a workspace): for
 //     each time of day (`console rt tod <tod>` before the levels load), for each spot: the game's random sequences seeded
-//     (`console seed`, round MIST: the same world frozen on every run), the level, the skater teleported, the camera held at the spot's pose, `console measure on` (the world frozen, every frame drawn), kConvergeFrames frames
+//     (`console seed`, round MIST: the same world frozen on every run), the level (seeded again once loaded), the skater
+//     teleported, the camera held at the spot's pose, `console measure on` (the world frozen, every frame drawn), kConvergeFrames frames
 //     for the reservoirs, the radiance cache and Ray Reconstruction to settle, then `pt ref <samples> as
 //     scene_<tag>_<spot>_<tod>` - the reference and the realtime frame (Ray Reconstruction's output, linear, in the global
 //     unit) saved side by side.
@@ -88,11 +89,12 @@ export const kDefaultTods = ["noon", "night"];
 export const kConvergeFrames = 500;
 export const kDefaultSamples = 256;
 export const kTrimFactor = 20; // x the reference's 99th percentile
-// (round MIST) the game's random sequences seeded before each spot's level (the console's `seed`): the game seeds them from
-// the clock, so two runs froze different sprays and haze; and a paused world still draws from them while the reference
-// renders (its length is the device's); and the clocks start again with it (the water's waves at the same time) - seeded at
-// each level, every spot's world is the same frozen moment on every run,
-// whatever the plan measured before it
+// (round MIST) the game's random sequences seeded and its clocks started again (the console's `seed`) before each spot's
+// level and again once it is loaded: the game seeds them from the clock at start-up, so two runs froze different sprays
+// and haze; a paused world still draws from them while a reference renders (its length is the device's); the clocks count
+// every step since the start (the water's waves at another time after other levels); and a level's load takes a step or
+// two more or fewer (its files) - from the loaded level on, every spot's world is the same steps from the same state, the
+// same frozen moment on every run, whatever the plan measured before it
 export const kPlanSeed = 1;
 export const kTermFrames = 8; // (a term view: its frames averaged - one Ray Reconstruction frame keeps a few % of noise)
 
@@ -123,6 +125,7 @@ export function planCommands(spots: SceneSpot[], tods: string[], samples: number
                 `console seed ${kPlanSeed}`,
                 `level ${level}`,
                 `waitfor level ${level} 600`,
+                `console seed ${kPlanSeed}`,
                 "wait 120",
                 `teleport ${fixed(spot.skater, 1)} ${spot.heading}`,
                 "wait 90",
@@ -173,6 +176,7 @@ export function planTerms(
         "wait 5",
         `level ${level}`,
         `waitfor level ${level} 600`,
+        `console seed ${kPlanSeed}`,
         "wait 120",
         `teleport ${fixed(spot.skater, 1)} ${spot.heading}`,
         "wait 90",
