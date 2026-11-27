@@ -186,6 +186,12 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
 // caller's: the same lights, the same power and the same emission as ReSTIR DI's light_point, GI's next_event and the
 // reference path tracer.
 [[nodiscard]] std::string_view local_light_glsl();
+// (round PERF) GLSL: the radiance cache's writes - a point's entry claimed (cache_claim) and a sample of its bounce
+// (cache_add) or of its direct light (cache_add_direct) added to the entry's sums, which ReSTIR GI's resolve pass folds
+// into its light the next frame. After light_sample_glsl with LL_CACHE; the caller declares `cache[]` writable and defines
+// CACHE_SCALE (kRadianceCacheScale), LL_CACHE_FRAME (ReSTIR GI's frame count - FrameLightList::cache_frame: an entry's
+// last update, what the resolve pass frees it by) and LL_CACHE_EXPOSURE (the frame's pre-exposure).
+[[nodiscard]] std::string_view radiance_cache_write_glsl();
 
 // (round WF - path tracing, stage 7) The full list and the radiance cache as ReSTIR GI used them in the frame (vulkan_restir_gi.h
 // restir_gi_frame_lights): what the passes after it that light surfaces the prepass doesn't hold sample - one light list
@@ -194,6 +200,8 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
 inline constexpr uint32_t kRadianceCacheCapacity = 1U << 19U; // (entries: 8 uvec4 each - light_sample_glsl's CACHE_STRIDE)
 inline constexpr uint32_t kRadianceCacheProbes = 8;
 inline constexpr float kRadianceCacheCellLeast = 4.0F; // (world units: the cells' least side)
+// (round PERF) the fixed point the cache's sums are kept in (a sample's exposed light x this, rounded at random)
+inline constexpr float kRadianceCacheScale = 65536.0F;
 struct FrameLightList {
     uint64_t frame = 0; // (Backend::frame it was used in; 0: none)
     VkBuffer table = VK_NULL_HANDLE;
@@ -211,6 +219,7 @@ struct FrameLightList {
     float sky_dist = 0.0F;               // 1 / the sky grid's luminance integral (0: no sky)
     float cache_cells = 0.0F;            // the angle a cache cell spans from the camera (its least)
     std::array<float, 3> eye{};          // the camera the cache's cells were keyed from
+    uint32_t cache_frame = 0;            // (round PERF) ReSTIR GI's frame count (LL_CACHE_FRAME)
     // (round SK) the local lights' presampled pool as ReSTIR GI read it this frame (light_pool_reader_glsl's uvec4: its
     // address, 1 when there, the local group's share of the picks): its consumers resample the local lights as GI does
     std::array<uint32_t, 4> pool{};

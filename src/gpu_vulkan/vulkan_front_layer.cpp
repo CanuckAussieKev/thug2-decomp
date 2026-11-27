@@ -77,7 +77,8 @@ struct FrontBlock {
     std::array<float, 4> prev{};           // x this frame's pre-exposure over the last view's, y 1: history, z its frames
     std::array<int32_t, 4> rect{};         // the view: x, y, width, height (target pixels)
     std::array<uint32_t, 4> counts{};      // x the list's entries, y the frame, z the samples, w 1: the cache is read
-    std::array<uint32_t, 4> instances{};   // xy the TLAS instances' device address, z their count
+    std::array<uint32_t, 4> instances{};   // xy the TLAS instances' device address, z their count, (round PERF) w
+                                           // ReSTIR GI's frame count (the cache's writes - LL_CACHE_FRAME)
     std::array<float, 4> sun{};            // toward the disc, w the cosine of its radius (kNoDisc: none)
     std::array<float, 4> sun_radiance{};   // rgb its radiance, w its solid angle
     std::array<float, 4> sky{};            // x 1 / the sky grid's luminance integral; (round FA) y the light kept (0: a debug view without it)
@@ -127,7 +128,9 @@ layout(std430, set = 0, binding = 18) readonly buffer Membership { uint membersh
 layout(std430, set = 0, binding = 19) readonly buffer Slots { uint slots[]; };
 layout(std430, set = 0, binding = 20) readonly buffer SkyCells { vec4 sky_cells[]; };
 layout(std430, set = 0, binding = 21) readonly buffer SkyAlias { uvec2 sky_alias[]; };
-layout(std430, set = 0, binding = 22) readonly buffer Cache { uvec4 cache[]; };
+layout(std430, set = 0, binding = 22) buffer Cache { uvec4 cache[]; }; // (round PERF: written - the layer's update paths)
+#define LL_CACHE_FRAME pass.instances.w
+#define LL_CACHE_EXPOSURE pass.eye.w
 #define LIST_INSTANCE_ADDRESS pass.instances.xy
 #define LIST_INSTANCES pass.instances.z
 #define LL_COUNT pass.counts.x
@@ -445,9 +448,23 @@ void main()
         rest += incident * max(dot(n, toward), 0.0);
     }
     // (round LAYER) the bounce: the radiance cache's where it has a trusted cell there, else traced on (traced_bounce)
+    // (round PERF) ... and the traced bounce added to the point's own cell: a miss's (the cell fills - trusted after
+    // CACHE_TRUSTED_FRAMES, as an opaque surface's) and every pixel's of one tile in UPDATE_TILES a frame, each tile in
+    // turn (SHaRC's update paths - the trusted cells kept current; whole tiles: the work group traces together). Before,
+    // no path ever wrote a layer point's cell (the water's surface, the mist: no opaque surface's path ends there), so
+    // every layer pixel traced its bounce every frame (Barcelona's fountain at 1707 x 960: ~3 ms of the layer's ~6).
     vec3 bounce;
-    if (!cache_lookup(here, n, bounce)) {
-        bounce = traced_bounce(at, n, rng);
+    bool trusted = cache_lookup(here, n, bounce);
+    uint tile_turn = path_sequence_start(gl_WorkGroupID.x, gl_WorkGroupID.y, 0u, 0x46435550u);
+    bool update = LL_CACHE_ON && (tile_turn + pass.counts.y) % UPDATE_TILES == 0u;
+    if (!trusted || update) {
+        vec3 traced = traced_bounce(at, n, rng);
+        if (LL_CACHE_ON) {
+            cache_add(here, n, traced, rng);
+        }
+        if (!trusted) {
+            bounce = traced;
+        }
     }
     rest = rest / (PATH_PI * float(samples)) + bounce;
     // the disc: its visibility toward a point of its cone (the clouds' shadow with it), its light on a white diffuser
@@ -632,6 +649,8 @@ std::string shader_source(bool cloud_map)
     source += "const uint CACHE_CAPACITY = " + std::to_string(kRadianceCacheCapacity) + "u;\n";
     source += "const uint CACHE_PROBES = " + std::to_string(kRadianceCacheProbes) + "u;\n";
     source += "const float CACHE_CELL_LEAST = " + std::to_string(kRadianceCacheCellLeast) + ";\n";
+    source += "const float CACHE_SCALE = " + std::to_string(kRadianceCacheScale) + ";\n";
+    source += "const uint UPDATE_TILES = " + std::to_string(kFrontLayerUpdateTiles) + "u;\n";
     source += kCommon;
     source += light_instances_glsl();
     source += rt::lights::kLightListGlsl;
@@ -639,6 +658,7 @@ std::string shader_source(bool cloud_map)
     source += light_grid_reader_glsl("pass.grid"); // (round DO: ... from the light grid's cells inside it)
     source += local_light_glsl();
     source += light_sample_glsl();
+    source += radiance_cache_write_glsl(); // (round PERF: the layer's own cells - its update paths)
     source += kBody;
     return source;
 }
@@ -931,7 +951,7 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     block.counts = {list.entries, static_cast<uint32_t>(state.frame & 0xFFFFFFFFULL), kFrontLayerSamples,
                     list.cache_on ? 1U : 0U};
     block.instances = {static_cast<uint32_t>(scene.instances_address & 0xFFFFFFFFULL),
-                       static_cast<uint32_t>(scene.instances_address >> 32U), scene.instances, 0U};
+                       static_cast<uint32_t>(scene.instances_address >> 32U), scene.instances, list.cache_frame};
     block.sun = list.sun;
     block.sun_radiance = list.sun_radiance;
     block.sky = {list.sky_dist, (debug_terms() & debug_term::kFront) != 0U ? 1.0F : 0.0F, 0.0F, 0.0F};

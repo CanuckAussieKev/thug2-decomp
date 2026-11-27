@@ -167,7 +167,7 @@ constexpr uint32_t kCacheCapacity = kRadianceCacheCapacity; // (vulkan_light_lis
 constexpr uint32_t kCacheProbes = kRadianceCacheProbes;
 constexpr float kCacheCellLeast = kRadianceCacheCellLeast;
 constexpr double kCacheCellPixels = 12.0;
-constexpr float kCacheScale = 65536.0F;
+constexpr float kCacheScale = kRadianceCacheScale;
 constexpr float kCacheSamples = 64.0F;
 constexpr float kCacheFrames = 16.0F;
 constexpr uint32_t kCacheStale = 64;
@@ -1055,72 +1055,9 @@ Reservoir load_specular(bool history, uint i)
 }
 
 #if defined(PASS_CACHE) || defined(PASS_SAMPLE) || defined(PASS_CONTINUE)
-// (round MB) The cache's entry for a point (claimed if it has none yet: the probes' first free slot); false when the
-// probes are all taken by other cells (the sample is dropped).
-bool cache_claim(vec3 at, vec3 ng, out uint entry)
-{
-    uint slot;
-    uint check;
-    cache_key(at, ng, slot, check);
-    for (uint k = 0u; k < CACHE_PROBES; ++k) {
-        uint i = (slot + k) & (CACHE_CAPACITY - 1u);
-        uint there = atomicCompSwap(CACHE_KEY(i).x, 0u, check);
-        if (there == 0u || there == check) {
-            CACHE_KEY(i).y = pass.counts.z;
-            entry = i;
-            return true;
-        }
-    }
-    entry = 0u;
-    return false;
-}
-// One word of a 64-bit sum: the low word added, its carry into the high word (32-bit atomics alone).
-// (`low` the sums' low words' place in the entry: 1 the bounce's, 4 - round BUDGET2 - the direct light's; the high words
-// next to them)
-void cache_add_word(uint entry, uint low, uint channel, uint value)
-{
-    if (value == 0u) {
-        return;
-    }
-    uint at = entry * 8u + low;
-    uint before = channel == 0u ? atomicAdd(cache[at].x, value)
-                                : (channel == 1u ? atomicAdd(cache[at].y, value) : atomicAdd(cache[at].z, value));
-    if (before + value < before) {
-        if (channel == 0u) {
-            atomicAdd(cache[at + 1u].x, 1u);
-        } else if (channel == 1u) {
-            atomicAdd(cache[at + 1u].y, 1u);
-        } else {
-            atomicAdd(cache[at + 1u].z, 1u);
-        }
-    }
-}
-void cache_add_sums(uint entry, uint low, vec3 light, inout uint rng)
-{
-    vec3 fixed_point = clamp(good3(light) * pass.eye.w * CACHE_SCALE, vec3(0.0), vec3(4.0e9));
-    uvec3 words = uvec3(fixed_point + vec3(path_next(rng), path_next(rng), path_next(rng)));
-    cache_add_word(entry, low, 0u, words.r);
-    cache_add_word(entry, low, 1u, words.g);
-    cache_add_word(entry, low, 2u, words.b);
-    atomicAdd(cache[entry * 8u + low].w, 1u);
-}
-// A sample of a point's bounce added to its entry's sums: the frame's exposed light in fixed point, rounded at random
-// (unbiased however small the light).
-void cache_add(vec3 at, vec3 ng, vec3 light, inout uint rng)
-{
-    uint entry;
-    if (cache_claim(at, ng, entry)) {
-        cache_add_sums(entry, 1u, light, rng);
-    }
-}
-// (round BUDGET2) A sample of the direct light a white diffuser at a point gets (E / pi) added to its entry's other sums.
-void cache_add_direct(vec3 at, vec3 ng, vec3 light, inout uint rng)
-{
-    uint entry;
-    if (cache_claim(at, ng, entry)) {
-        cache_add_sums(entry, 4u, light, rng);
-    }
-}
+#define LL_CACHE_FRAME pass.counts.z
+#define LL_CACHE_EXPOSURE pass.eye.w
+@CACHE_WRITE@
 #endif
 
 #ifdef PASS_CACHE
@@ -2137,6 +2074,8 @@ std::string shader_source(Shader which, bool check, bool cloud_map, SkyGridSourc
         std::string body = kGiBody;
         const std::size_t at = body.find("@LIGHT_SAMPLE@");
         body.replace(at, std::string_view("@LIGHT_SAMPLE@").size(), light_sample_glsl());
+        const std::size_t write_at = body.find("@CACHE_WRITE@"); // (round PERF: the cache's writes, shared)
+        body.replace(write_at, std::string_view("@CACHE_WRITE@").size(), radiance_cache_write_glsl());
         source += body;
     }
     return source;
@@ -3473,6 +3412,7 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
         .sky_dist = core::at(block.sky_dist, 0),
         .cache_cells = core::at(block.cache_cells, 0),
         .eye = {core::at(view.camera.position, 0), core::at(view.camera.position, 1), core::at(view.camera.position, 2)},
+        .cache_frame = core::at(block.counts, 2), // (round PERF: the frame its cache writes are stamped with)
         .pool = block.pool, // (round SK: the pool its next-event estimation resampled from - the list's other consumers' too)
         .grid = block.grid}; // (round DO: ... and the light grid's picks)
     if (own.passes == 1 && first_report(state, kReportFirst)) {

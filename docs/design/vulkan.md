@@ -3313,6 +3313,19 @@ over the facade 0.22 - 0.66 of the reference's per cell before, 0.72 - 1.08 afte
 whole scene 0.933 -> 0.963. The 2026 alternative for a cloud deeper than its front layer - per-particle lighting from
 a translucency lighting volume (UE5 Lumen's translucency volume) - was not needed for this cloud.
 
+**Round PERF: the front layer's points in the radiance cache.** Traced on past a miss, the layer's bounce cost ~3 ms of
+the layer's ~6 at Barcelona's fountain (1707 x 960, the water's surface and the mist over half the picture): no path
+ever wrote those points' cells - the cache's update paths start at the prepass's surfaces and end where they meet
+surfaces, never on the water's surface or in the air - so they were a miss every frame for every pixel. The layer now
+writes its own cells as SHaRC's update paths do: a miss's traced bounce is added to the point's cell (`cache_add` - the
+cache's writes moved out of ReSTIR GI into `radiance_cache_write_glsl`, one copy for both), so the cell fills and is
+trusted after CACHE_TRUSTED_FRAMES as an opaque surface's is; and every pixel of one 8 x 8 tile in
+`kFrontLayerUpdateTiles` (16) traces and adds its bounce each frame, each tile in turn, so a trusted cell keeps taking
+samples (the cache frees an entry 64 frames after its last). Whole tiles rather than one pixel of each block: a lane that
+traces keeps its subgroup waiting - one pixel in 16 saved ~0.85 ms, whole tiles ~1.5 ms. The bounce a trusted layer
+point gets is its cell's average, the cache's stated compromise everywhere else (SHaRC). Front layer 5.9 -> 4.4 ms at the
+fountain, 4.9 -> 3.3 ms at the harbour (noon, 2560 x 1440 DLSS Quality + Ray Reconstruction).
+
 **Round POOL: one water material in the raster, the rays and the path tracer.** The path tracer meets the game's water as
 an interface (round LW): Fresnel's share mirrored, the rest into it - the sheet's drawn alpha (2 x the vertex alpha x the
 texel's) its own colour, a diffuse surface of the material's albedo, the remainder through to what is behind. The water
