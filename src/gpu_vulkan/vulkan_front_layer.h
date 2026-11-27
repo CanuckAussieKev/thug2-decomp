@@ -31,6 +31,10 @@
 //      depth takes the layer's light in place of its light store's (the sun's visibility, the rest as the lamps input,
 //      the store's environment without weight - the in-place reflections pass owns the glass's and the water's
 //      environment specular); the water's body is the texture's mean lit by it, its glitter by the disc's visibility.
+//   4. (round SHEETS) Where the layer faces up (the water's rest surface), its other side: the view's ray traced on past
+//      it to the surface a camera ray takes there, lit as the mirror's hit, x what the see-through surfaces crossed let
+//      through - the water's shading takes it as what is behind the water (not the frame copied before the view's first
+//      water draw, which lacks everything drawn after that copy), its distance the path through the water.
 // One owner per light: the list's lights reach the layer through this pass alone (the light store's light - sky K,
 // bounce B, its lamps - isn't read there; the lamps pass's lit set neither). Only in a view ReSTIR GI lit (its list);
 // elsewhere - the fallback tier, no ray tracing, a view not lit per surface - nothing changes.
