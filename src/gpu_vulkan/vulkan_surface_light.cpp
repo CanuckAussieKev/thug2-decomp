@@ -13,6 +13,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/enum_ops.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/surface_trail.h"
 #include "engine/gfx/water_surfaces.h"
@@ -1255,6 +1256,14 @@ bool surface_light_keep(Backend& state, const GpuStateBlock& block, const DrawCa
         return true;
     }
     kept.ready = true;
+    // (round CENSUS - the light energy audit's census, engine/gfx/rt_light_census.h) how the kept surface takes its light:
+    // without a light store lit per pixel by the rays' light, or its colour kept and taken by shares
+    const FragmentKey& kept_key = kept.prepared.key.shaders.fragment;
+    if ((kept_key.surface & kSurfaceLighting) != 0U && (kept_key.surface & (kSurfaceRelit | kSurfaceLit)) == 0U) {
+        rt::note_light_path(rt::LightPath::kSurfaceNoStore);
+    } else if ((kept_key.light & kLightShare) != 0U) {
+        rt::note_light_path(kept.particle ? rt::LightPath::kSurfaceParticle : rt::LightPath::kSurfaceShares);
+    }
     // The prepass: the nearest surface the light inputs are made for - every draw that writes depth but an added or
     // multiplied one, an alpha-blended one by its mostly opaque part - emitted at once from the same preparation with its
     // depth-only pipeline (no colour, no blend, no light inputs; the draws are shaded later over a cleared depth)
@@ -1275,7 +1284,6 @@ SurfaceDrawRole surface_draw_role() { return light_state().role; }
 
 void surface_light_force(const GpuStateBlock& block, bool relit, ShaderKey* shaders)
 {
-    (void)block;
     if (light_state().role == SurfaceDrawRole::kAsItComes) {
         return;
     }
@@ -1288,6 +1296,16 @@ void surface_light_force(const GpuStateBlock& block, bool relit, ShaderKey* shad
         fragment.surface = kSurfaceLighting; // (record_draw adds kSurfaceRelit with the store's words)
     } else if (vertex.lighting && vertex.light_count > 0 && (vertex.fvf & kFvfNormal) != 0U) {
         fragment.surface = kSurfaceLighting | kSurfaceLit;
+    } else if (!vertex.lighting && surface_draw(block) && !light_state().particle_now) {
+        // (NOT ORIGINAL - round CENSUS: the bake ratio retired) A surface drawn with its own colours and no light store -
+        // an unlit object's baked colours, a world mesh the relit data has no entry for (a day-only mesh of a level baked
+        // at night, one the mode can't relight, one shown before its light is written), a billboard - lit per pixel as
+        // the rays see it: its material lit by the sun's traced visibility and the light inputs (ff_shaders.cpp
+        // no_store_light). Before, its colour - the bake x the light field's now-over-bake ratio where it stands - was
+        // taken by shares (kLightShare), its direct share standing for the sun. Only the surfaces the inputs are made for
+        // (depth written, not added or multiplied); the particles keep the front layer's light on their colour
+        // (share_front); a program the per-pixel lighting can't take is cleared by normalised and keeps the shares.
+        fragment.surface = kSurfaceLighting;
     } else {
         return;
     }
