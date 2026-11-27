@@ -348,6 +348,14 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   --seconds 330`): the time of day set by hand four times, its clock started, the characters' shading changed six times
   (`console set <key> <value>`: any setting written to the ini and put to use as the Options screen does), then
   two minutes left alone with the clock running.
+  `--spots no,ba,bah,tr [--tods noon,night]` (round PERF - the bench every performance round uses): each scene_bias.ts
+  spot at each time of day (`[Graphics] tod` from the start: no relight inside the measured frames), the game's random
+  sequences seeded, the skater placed and the camera held at the spot's pose, 600 frames to settle (reservoirs, caches,
+  Ray Reconstruction), then --seconds measured between two `echo bench measure` marks; per run `<out>/<spot>_<tod>/run<k>/`
+  and in the report (its loops from the settled frames on - `report` with `--skip 840`) the device's time a pass over the
+  measured frames, own and inclusive, largest first (the log's `gpu pass:` lines between the marks). Use the main
+  install's [Graphics] at the size it plays at (`--set Graphics.ResolutionX=2560 --set Graphics.ResolutionY=1440`), with
+  no other GPU work running (a shader sweep, another game) - say so beside any number taken with it.
 - `node tools/game/soak_check.ts <game.log>` - whether a session stays as fast at its end as at its start: the
   renderer's windows (frame time, uploads, the ray-traced scene's BLAS builds and why they were asked for) over the level
   the session spent longest in, its last third against its first; exit 1 when one grew past 1.5 times (plus a little),
