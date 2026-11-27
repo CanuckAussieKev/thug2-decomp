@@ -368,9 +368,10 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
             std::get<3>(extent) = std::max(std::get<3>(extent), std::get<2>(corner));
         }
     }
-    const auto full_bright = [](uint32_t colour) {
-        return std::max({colour & 0xFFU, (colour >> 8U) & 0xFFU, (colour >> 16U) & 0xFFU}) >= rt::kFullBrightByte;
-    };
+    std::vector<uint8_t> card_meshes(meshes.size(), 0); // (by the bake's mesh: a light card's - never a fitting)
+    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+        core::at(card_meshes, mi) = cards.contains(core::at(meshes, mi).id) ? 1 : 0;
+    }
     std::size_t on_fittings = 0;
     for (std::size_t li = 0; li < lamps.size(); ++li) {
         const rt::RelitLamp& lamp = core::at(lamps, li);
@@ -446,41 +447,8 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
         if (const std::array<float, 4>& extent = core::at(card_extent, li);
             lamp.kind == rt::EmitterKind::kGlow && std::get<0>(extent) <= std::get<2>(extent)) {
             std::vector<Candidate> fitting;
-            for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
-                const rt::RelitMesh& mesh = core::at(meshes, mi);
-                if (cards.contains(mesh.id) || mesh.colours.size() < mesh.positions.size()) {
-                    continue;
-                }
-                for (const auto& [one, two, three] : mesh.triangles) {
-                    if (one >= mesh.positions.size() || two >= mesh.positions.size() || three >= mesh.positions.size()) {
-                        continue;
-                    }
-                    const auto over_card = [&](uint32_t vertex) {
-                        const rt::Vec3& at = core::at(mesh.positions, vertex);
-                        return full_bright(core::at(mesh.colours, vertex)) && rt::x_of(at) >= std::get<0>(extent) &&
-                               rt::x_of(at) <= std::get<2>(extent) && rt::z_of(at) >= std::get<1>(extent) &&
-                               rt::z_of(at) <= std::get<3>(extent) &&
-                               std::abs(rt::y_of(at) - rt::y_of(lamp.position)) <= lamp.size;
-                    };
-                    if (!over_card(one) || !over_card(two) || !over_card(three)) {
-                        continue;
-                    }
-                    const rt::Vec3& a = core::at(mesh.positions, one);
-                    const rt::Vec3 n = rt::cross(rt::minus(core::at(mesh.positions, two), a),
-                                                 rt::minus(core::at(mesh.positions, three), a));
-                    const float twice = std::sqrt(rt::dot(n, n));
-                    if (!(twice > 0.0F) ||
-                        (lamp.shape == rt::EmitterShape::kPanel && std::abs(rt::dot(n, lamp.axis)) < rt::kPanelFacing * twice)) {
-                        continue;
-                    }
-                    const rt::Vec3 middle = rt::scaled(
-                        rt::plus(rt::plus(a, core::at(mesh.positions, two)), core::at(mesh.positions, three)), 1.0F / 3.0F);
-                    const rt::Vec3 apart = rt::minus(middle, lamp.position);
-                    fitting.push_back({.mesh = mi,
-                                       .triangle = {one, two, three},
-                                       .distance = static_cast<double>(rt::dot(apart, apart)),
-                                       .area = 0.5 * static_cast<double>(twice)});
-                }
+            for (const rt::FittingTriangle& each : rt::lit_fitting_triangles(meshes, card_meshes, lamp, extent)) {
+                fitting.push_back({.mesh = each.mesh, .triangle = each.triangle, .distance = each.distance, .area = each.area});
             }
             // (and the fitting must hold the flux at its kind's brightest face: a few full-bright triangles of a sign or a
             // lantern's frame over a big lamp's card would send it at 10^7 cd/m^2 - no lit fitting's)
@@ -494,8 +462,7 @@ std::vector<std::vector<rt::RelitEmitting>> emitting_vertices(std::span<const rt
                                              : 0.0;
             if (!fitting.empty() && fitting_area >= least_fitting) {
                 candidates = std::move(fitting);
-                luminous = static_cast<double>(lamp.lumens) / (kPiD * static_cast<double>(rt::kLitFittingLeast)) *
-                           kUnitsPerMetre * kUnitsPerMetre;
+                luminous = rt::lit_fitting_area(lamp.lumens);
                 ++on_fittings;
             }
         }

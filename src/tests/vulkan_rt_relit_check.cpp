@@ -2792,6 +2792,49 @@ void check_indoor_lamps(Tally* tally)
                  "the high-bay's flux range holds a 400 W metal halide's 36 000 lm and a 150 W LED's 17 250 lm");
 }
 
+// (round HAZE) A glow lamp's head on its lit fitting is the fitting, never the floor its cards' column stands on:
+// Training's hanging lamps - cards over a hall floor of two 170 m^2 full-bright triangles, the cluster's middle 293 units
+// over it and its size 577 - took the floor as their head, and the lamps shone up from it (a skater on it cast no
+// shadow). A fitting's triangle is no larger than its whole luminous area (the flux at a lit fitting's dimmest face).
+void check_fitting_heads(Tally* tally)
+{
+    rt::RelitLamp lamp;
+    lamp.position = {0.0F, 293.0F, 0.0F};
+    lamp.size = 577.0F;
+    lamp.kind = rt::EmitterKind::kGlow;
+    lamp.shape = rt::EmitterShape::kPanel;
+    lamp.axis = {0.0F, 1.0F, 0.0F};
+    lamp.lumens = 3600.0F;
+    constexpr uint32_t kFullBright = 0xFF808080U;
+    // the floor: a 523 x 1030 unit quad (two 174 m^2 triangles); the fitting: a 40 x 40 unit diffuser 500 units up
+    // (two 0.5 m^2 triangles) - both full-bright, both under the cards' column, both facing up
+    rt::RelitMesh floor;
+    floor.id = 1;
+    floor.positions = {{-261.5F, 0.0F, -515.0F}, {261.5F, 0.0F, -515.0F}, {261.5F, 0.0F, 515.0F}, {-261.5F, 0.0F, 515.0F}};
+    floor.colours.assign(floor.positions.size(), kFullBright);
+    floor.triangles = {{0U, 2U, 1U}, {0U, 3U, 2U}};
+    rt::RelitMesh fitting = floor;
+    fitting.id = 2;
+    fitting.positions = {{-20.0F, 500.0F, -20.0F}, {20.0F, 500.0F, -20.0F}, {20.0F, 500.0F, 20.0F}, {-20.0F, 500.0F, 20.0F}};
+    const std::vector<rt::RelitMesh> meshes{floor, fitting};
+    const std::array<float, 4> extent{-262.0F, -516.0F, 262.0F, 516.0F};
+    const std::vector<rt::FittingTriangle> found = rt::lit_fitting_triangles(meshes, {}, lamp, extent);
+    std::size_t on_floor = 0;
+    std::size_t on_fitting = 0;
+    for (const rt::FittingTriangle& each : found) {
+        (each.mesh == 0 ? on_floor : on_fitting) += 1;
+    }
+    const double most = rt::lit_fitting_area(lamp.lumens) / (39.37 * 39.37);
+    tally->check(on_floor == 0 && on_fitting == 2,
+                 text::format("a hanging lamp's head: %zu of the fitting's 2 triangles, %zu of the floor's 2 under its "
+                              "cards (a fitting's luminous area at most %.2f m^2 for 3600 lm; the floor's triangles 174 m^2)",
+                              on_fitting, on_floor, most));
+    // a light card's mesh is never a fitting
+    const std::vector<uint8_t> skipped{0, 1};
+    const std::vector<rt::FittingTriangle> without = rt::lit_fitting_triangles(meshes, skipped, lamp, extent);
+    tally->check(without.empty(), text::format("the fitting a light card's mesh: %zu triangles taken", without.size()));
+}
+
 // (round SL - the game's own lights) A light node's light becomes a lamp from the game's data alone, its head one owner
 // with it; a surface of another state no light takes, and a candidate the bake can't see lit with no light at it, stay
 // dark.
@@ -3043,6 +3086,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
 {
     check_geometry_settings(tally);
     check_game_lights(tally);
+    check_fitting_heads(tally);
     check_round_l(tally);
     check_data_bounce(tally);
     check_lamp_solve(tally);

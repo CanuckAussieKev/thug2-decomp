@@ -107,8 +107,11 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // mesh of the data (no surface for rays, hidden while relit); a glow lamp with no surface of its own takes its head on
 // the full-bright fitting over its cards (relit_bake.cpp emitting_vertices, lamp_fixtures.h kLitFittingLeast). Older
 // files are not read.
-inline constexpr uint32_t kRelitDataVersion = 24;
-inline constexpr uint32_t kRelitDataOldestRead = 24;
+// v25 (round HAZE): a glow lamp's fitting takes no triangle larger than the fitting's whole luminous area (rt_relit.h
+// lit_fitting_triangles) - Training's hanging lamps took the hall floor under their cards as their head and shone up
+// from it. Older files are not read.
+inline constexpr uint32_t kRelitDataVersion = 25;
+inline constexpr uint32_t kRelitDataOldestRead = 25;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

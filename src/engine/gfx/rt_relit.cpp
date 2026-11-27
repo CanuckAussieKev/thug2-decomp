@@ -2858,6 +2858,60 @@ void trace_relit_lamps(std::span<const RelitMesh> meshes, std::span<const uint8_
     }
 }
 
+double lit_fitting_area(float lumens)
+{
+    constexpr double kUnitsPerMetre = 39.37; // (the world's units are inches)
+    constexpr double kPiD = 3.14159265358979323846;
+    return static_cast<double>(lumens) / (kPiD * static_cast<double>(kLitFittingLeast)) * kUnitsPerMetre * kUnitsPerMetre;
+}
+
+std::vector<FittingTriangle> lit_fitting_triangles(std::span<const RelitMesh> meshes, std::span<const uint8_t> skipped,
+                                                   const RelitLamp& lamp, const std::array<float, 4>& extent)
+{
+    std::vector<FittingTriangle> out;
+    const double most = lit_fitting_area(lamp.lumens);
+    const auto full_bright = [](uint32_t colour) {
+        return std::max({colour & 0xFFU, (colour >> 8U) & 0xFFU, (colour >> 16U) & 0xFFU}) >= kFullBrightByte;
+    };
+    for (std::size_t mi = 0; mi < meshes.size(); ++mi) {
+        const RelitMesh& mesh = core::at(meshes, mi);
+        if ((mi < skipped.size() && core::at(skipped, mi) != 0) || mesh.colours.size() < mesh.positions.size()) {
+            continue;
+        }
+        const auto over_card = [&](uint32_t vertex) {
+            const Vec3& at = core::at(mesh.positions, vertex);
+            return full_bright(core::at(mesh.colours, vertex)) && x_of(at) >= std::get<0>(extent) &&
+                   x_of(at) <= std::get<2>(extent) && z_of(at) >= std::get<1>(extent) && z_of(at) <= std::get<3>(extent) &&
+                   std::abs(y_of(at) - y_of(lamp.position)) <= lamp.size;
+        };
+        for (const auto& [one, two, three] : mesh.triangles) {
+            if (one >= mesh.positions.size() || two >= mesh.positions.size() || three >= mesh.positions.size() ||
+                !over_card(one) || !over_card(two) || !over_card(three)) {
+                continue;
+            }
+            const Vec3& a = core::at(mesh.positions, one);
+            const Vec3& b = core::at(mesh.positions, two);
+            const Vec3& c = core::at(mesh.positions, three);
+            const Vec3 n = cross(minus(b, a), minus(c, a));
+            const float twice = std::sqrt(dot(n, n));
+            // (round HAZE) no larger than the fitting's whole luminous area: before, the nearest candidate was taken
+            // whatever its area - under Training's hanging lamps the hall floor's two 170 m^2 triangles (full-bright
+            // 808080 under the cards' column, within a card cluster's 577-unit size of its middle) were the four lamps'
+            // heads: the lamps shone up from the floor at 7 cd/m^2, and a skater standing on it cast no shadow
+            if (!(twice > 0.0F) || 0.5 * static_cast<double>(twice) > most ||
+                (lamp.shape == EmitterShape::kPanel && std::abs(dot(n, lamp.axis)) < kPanelFacing * twice)) {
+                continue;
+            }
+            const Vec3 apart = minus(scaled(plus(plus(a, b), c), 1.0F / 3.0F), lamp.position);
+            out.push_back({.mesh = mi,
+                           .triangle = {one, two, three},
+                           .distance = static_cast<double>(dot(apart, apart)),
+                           .area = 0.5 * static_cast<double>(twice)});
+        }
+    }
+    return out;
+}
+
 std::size_t relit_adopt_game_lights(std::vector<RelitLamp>* lamps)
 {
     std::vector<RelitLamp>& list = *lamps;

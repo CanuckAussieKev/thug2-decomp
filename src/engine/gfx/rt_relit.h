@@ -579,6 +579,24 @@ struct RelitLamp {
 // light); an emitter is one light's head at most (a second light at it stays a light of its own). A surface of another state no light takes is
 // no lamp (relit_lamp_models: the game never shows it lit). Returns how many lights became their heads.
 std::size_t relit_adopt_game_lights(std::vector<RelitLamp>* lamps);
+// (round FIXTURE; round HAZE) A glow lamp's head on the fitting the original drew lit: the triangles in its cards'
+// column (`extent`: x min, z min, x max, z max) within its size of it in height, whose every corner the original drew at
+// full brightness (kFullBrightByte), a panel's in its plane, of the meshes not `skipped` (a light card's) - each no larger
+// than the fitting's whole luminous area, lit_fitting_area (a triangle bigger than that is a surface the lamp lights:
+// Training's hall floor under its hanging lamps' cards). `distance` the triangle's middle's from the lamp, squared;
+// `area` in world units^2. Unordered.
+struct FittingTriangle {
+    std::size_t mesh = 0;
+    std::array<uint32_t, 3> triangle{};
+    double distance = 0.0;
+    double area = 0.0;
+};
+[[nodiscard]] std::vector<FittingTriangle> lit_fitting_triangles(std::span<const RelitMesh> meshes,
+                                                                 std::span<const uint8_t> skipped, const RelitLamp& lamp,
+                                                                 const std::array<float, 4>& extent);
+// The most a lit fitting's luminous surface covers for a lamp of `lumens` (world units^2): its flux at the dimmest face
+// a lit fitting shows (lamp_fixtures.h kLitFittingLeast) - Phi / (pi L).
+[[nodiscard]] double lit_fitting_area(float lumens);
 // (round L) Where a lamp's light comes from.
 enum class RelitLampSource : uint8_t {
     kNone = 0,        // no light (a candidate the bake doesn't confirm)
