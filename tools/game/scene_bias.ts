@@ -3,9 +3,10 @@
 //
 //   node tools/game/scene_bias.ts plan [--spots no,p1,ba,au,tr,bah] [--tods noon,night] [--samples 256] [--tag t]
 //        [--out commands.txt]
-//     the automation commands of the session (run_game.ps1 -Commands (Get-Content commands.txt) in a workspace): for each
-//     time of day (`console rt tod <tod>` before the levels load), for each spot: the level, the skater teleported, the
-//     camera held at the spot's pose, `console measure on` (the world frozen, every frame drawn), kConvergeFrames frames
+//     the automation commands of the session (run_game.ps1 -Commands (Get-Content commands.txt) in a workspace): for
+//     each time of day (`console rt tod <tod>` before the levels load), for each spot: the game's random sequences seeded
+//     (`console seed`, round MIST: the same world frozen on every run), the level (seeded again once loaded), the skater
+//     teleported, the camera held at the spot's pose, `console measure on` (the world frozen, every frame drawn), kConvergeFrames frames
 //     for the reservoirs, the radiance cache and Ray Reconstruction to settle, then `pt ref <samples> as
 //     scene_<tag>_<spot>_<tod>` - the reference and the realtime frame (Ray Reconstruction's output, linear, in the global
 //     unit) saved side by side.
@@ -22,6 +23,10 @@
 //     the table: per spot and time of day the log's mean-luma ratio (realtime / reference, the `pt: saved` line) and,
 //     from the EXRs, the trimmed ratio - the pixels where either picture is over 20 x the reference's 99th percentile
 //     (emitters seen directly, sparks, spray: a few pixels that decide a whole-frame mean) left out of both.
+//   node tools/game/scene_bias.ts repeat <Screenshots folder> <tag a> <tag b> [--grid 4x3] [--json f]
+//     (round MIST) two runs of the same plan side by side: per spot and time of day both ratios and their difference, each
+//     picture's mean (reference / realtime) b against a, and the largest cell's difference - whether the measurement
+//     repeats (the plan's world frozen at the same moment: the log's `console: measuring on` lines say where).
 //
 // The spots: motion_error.ts kSpots (BO p1 / p2 / p3, BA's fountain, NO's street, AU's lamp pool), Training's (the
 // user's 2026-11-23 18-33-42 sidecar) and BA's harbour (round WATER: the user's 2026-11-25 17-16-26 - at dusk as well).
@@ -49,7 +54,8 @@ const USAGE =
     "usage: scene_bias.ts plan [--spots no,p1,ba,au,tr,bah] [--tods noon,night] [--samples 256] [--tag t] [--out file]\n" +
     "       scene_bias.ts terms <spot> [--tods night] [--samples 256] [--tag t] [--realtime-only] [--out file]\n" +
     "       scene_bias.ts terms-analyse <Screenshots folder> <spot> [--tag t] [--ref-tag r] [--grid CxR] [--json file]\n" +
-    "       scene_bias.ts analyse <thug2-decomp.log> [--screenshots folder] [--tag t] [--json out.json]";
+    "       scene_bias.ts analyse <thug2-decomp.log> [--screenshots folder] [--tag t] [--json out.json]\n" +
+    "       scene_bias.ts repeat <Screenshots folder> <tag a> <tag b> [--grid CxR] [--json file]";
 
 // A spot of the plan: motion_error.ts's, with the times of day it is measured at besides the plan's.
 export interface SceneSpot extends Spot {
@@ -83,6 +89,13 @@ export const kDefaultTods = ["noon", "night"];
 export const kConvergeFrames = 500;
 export const kDefaultSamples = 256;
 export const kTrimFactor = 20; // x the reference's 99th percentile
+// (round MIST) the game's random sequences seeded and its clocks started again (the console's `seed`) before each spot's
+// level and again once it is loaded: the game seeds them from the clock at start-up, so two runs froze different sprays
+// and haze; a paused world still draws from them while a reference renders (its length is the device's); the clocks count
+// every step since the start (the water's waves at another time after other levels); and a level's load takes a step or
+// two more or fewer (its files) - from the loaded level on, every spot's world is the same steps from the same state, the
+// same frozen moment on every run, whatever the plan measured before it
+export const kPlanSeed = 1;
 export const kTermFrames = 8; // (a term view: its frames averaged - one Ray Reconstruction frame keeps a few % of noise)
 
 function fixed(v: Vec3, digits: number): string {
@@ -109,8 +122,10 @@ export function planCommands(spots: SceneSpot[], tods: string[], samples: number
         for (const spot of here) {
             const level = spot.level ?? "bo";
             out.push(
+                `console seed ${kPlanSeed}`,
                 `level ${level}`,
                 `waitfor level ${level} 600`,
+                `console seed ${kPlanSeed}`,
                 "wait 120",
                 `teleport ${fixed(spot.skater, 1)} ${spot.heading}`,
                 "wait 90",
@@ -156,10 +171,12 @@ export function planTerms(
     const folder = `bias/${spot.name}${tag}`;
     const out: string[] = [
         "waitfor ready 600",
+        `console seed ${kPlanSeed}`,
         `console rt tod ${tod}`,
         "wait 5",
         `level ${level}`,
         `waitfor level ${level} 600`,
+        `console seed ${kPlanSeed}`,
         "wait 120",
         `teleport ${fixed(spot.skater, 1)} ${spot.heading}`,
         "wait 90",
@@ -343,6 +360,50 @@ function termsAnalyse(
     return 0;
 }
 
+// (round MIST) Two runs of a plan side by side (tags a and b): the shots both have.
+function repeat(folder: string, tagA: string, tagB: string, grid: string, json?: string): number {
+    const [cols, rows] = grid.split("x").map(Number) as [number, number];
+    const names = (tag: string) =>
+        new Set(
+            fs
+                .readdirSync(folder)
+                .filter((f) => f.startsWith(`scene_${tag}_`) && f.endsWith("_reference.exr"))
+                .map((f) => f.slice(`scene_${tag}_`.length, -"_reference.exr".length)),
+        );
+    const a = names(tagA);
+    const both = [...names(tagB)].filter((n) => a.has(n)).sort();
+    const mean = (v: Float64Array) => v.reduce((x, y) => x + (Number.isFinite(y) ? y : 0), 0) / Math.max(1, v.length);
+    const out: Record<string, unknown>[] = [];
+    print(`spot / tod        ratio a   ratio b   b - a     reference b/a   realtime b/a   worst cell b/a (realtime)`);
+    for (const key of both) {
+        const read = (tag: string, kind: string) =>
+            readExr(fs.readFileSync(path.join(folder, `scene_${tag}_${key}_${kind}.exr`)));
+        const ra = read(tagA, "realtime");
+        const rb = read(tagB, "realtime");
+        const fa = read(tagA, "reference");
+        const fb = read(tagB, "reference");
+        const ratioA = ratios(lumas(ra), lumas(fa)).whole;
+        const ratioB = ratios(lumas(rb), lumas(fb)).whole;
+        const ca = cellMeans(ra, cols, rows);
+        const cb = cellMeans(rb, cols, rows);
+        let worst = 1;
+        for (let i = 0; i < ca.length; i++) {
+            const r = ca[i]! > 0 ? cb[i]! / ca[i]! : 1;
+            if (Math.abs(r - 1) > Math.abs(worst - 1)) worst = r;
+        }
+        const refShift = mean(lumas(fb)) / mean(lumas(fa));
+        const rtShift = mean(lumas(rb)) / mean(lumas(ra));
+        print(
+            `${key.padEnd(16)} ${ratioA.toFixed(3).padStart(8)}  ${ratioB.toFixed(3).padStart(8)}  ` +
+                `${(ratioB - ratioA).toFixed(3).padStart(7)}   ${refShift.toFixed(4).padStart(12)}   ` +
+                `${rtShift.toFixed(4).padStart(12)}   ${worst.toFixed(4).padStart(10)}`,
+        );
+        out.push({ spot: key, ratioA, ratioB, refShift, rtShift, worstCell: worst });
+    }
+    if (json) fs.writeFileSync(json, JSON.stringify(out, null, 1));
+    return both.length > 0 ? 0 : 1;
+}
+
 function main(): number {
     const { values, positionals } = parseCli(USAGE, {
         options: {
@@ -401,6 +462,9 @@ function main(): number {
     if (verb === "terms-analyse" && rest.length === 2) {
         const refTag = (values["ref-tag"] as string | undefined) ?? tag;
         return termsAnalyse(rest[0]!, rest[1]!, tag, refTag, values.grid as string, values.json as string | undefined);
+    }
+    if (verb === "repeat" && rest.length === 3) {
+        return repeat(rest[0]!, rest[1]!, rest[2]!, values.grid as string, values.json as string | undefined);
     }
     if (verb === "analyse" && rest.length === 1) {
         const log = rest[0]!;

@@ -3558,6 +3558,18 @@ input there at most 1.2 (was 10^4), the lines gone; trq noon 1.135 -> 0.971 of t
 `thug2_vulkan_rt_lights_check`: the strip's post drawn whole by the raster but a cut-out the rays' alpha test removes -
 its 51 pixels lit by its own face (the drawn rule back in `depth_triangle`, mutation: 48 wrong).
 
+**Round MIST: one water surface for every ray.** Round WAVES gave the path tracer's water hits the water shader's
+waves, but only the path tracer bound the ripple texture and the waves' clock: every light ray through water (the
+sun's shadows on a pool's floor, the lamps', ReSTIR's visibility, the front layer's `seen_through`, the path tracer's
+own next-event rays) took the flat mesh's Fresnel - at a low sun the share a facet lets through differs from the plane's
+(0.630 against 0.674 at 12 degrees in the check's sea). The water's surface (`water_surface_normal` / `_facet`) now
+lives with `seen_through` in `cutout_rays_glsl`, so every ray pass has it: the ripple texture in the material table's
+reserved slot (`kWaterRipplesSlot` - the table is bound by every ray pass), and in each water record a fifth vec4 - the
+waves' clock (`FrameRecord::water_seconds`, the view's game seconds: `frame_interp::shown_game_clock_seconds`, the one
+clock), whether the ripples are in the slot, the rain's cell. A shadow ray crossing water takes the facet it meets there
+(seen from below, the waves' underside; a facet turned away, the plane). `thug2_vulkan_rt_check` "light through water":
+4096 rays up through a swell at 3.7 s, then with ripples, each against the processor's facet (worst 1e-5 / 3.5e-4).
+
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
 Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3
@@ -6022,6 +6034,21 @@ through the tone curve at that EV. `pt off` ends it.
   trimmed one (pixels over 20 x the reference's 99th percentile left out of both). `scene_bias.ts terms <spot>` takes a
   spot apart term by term (each debug view's 8 frames averaged, the references' `direct`, `bounces 2`, `nee`, `bsdf`,
   `only emit bounces 0`...); `terms-analyse` prints the table.
+- **The same world on every run** (round MIST): Barcelona's fountain at night moved 0.73 - 0.95 between runs and the
+  harbour 0.05 with no change to its code. The steps are deterministic (the particles age by the slow-motion step,
+  1/60 s, never by a drawn frame's length; `get_frame_length()` is always 1 vblank; the game clock counts steps, not real
+  time), but the game seeds the C runtime's random sequence from the clock at start-up (the original's), and the
+  particles' bursts, the pedestrians' choices... draw from it - and a paused world still draws from it while the
+  reference renders, for as many loops as the device takes. Shown by the console's `state` (the loop, the game clock,
+  the random sequence and a hash of the particles the last frame drew; `measure on` / `off` log it too): two runs of
+  the same plan, the same game clock at every spot, a different random state from the main menu on. And the clocks
+  count every step since the game started, so a spot measured after other levels froze its water's waves at another
+  time: the harbour 1.047 in the whole plan, 0.992 in a plan of Barcelona's two spots - the same code, the same
+  reference within 0.4 %. The plan now seeds the game's random sequences and starts the clocks again (`console seed
+  1`: the C runtime's sequence and the game's two streams seeded, the vblanks and the game clock set to 1 s - as a demo
+  puts back the ones it was recorded with) before each spot's level - every spot freezes the same moment whatever was
+  measured before it. `scene_bias.ts repeat
+  <Screenshots> <tag a> <tag b>` compares two runs (each ratio, each picture's mean, the worst cell).
 - What the reference showed by night in Boston (relit data v14, full moon, EV100 fixed): the frame 3.6 - 29 x the
   reference, varying from one load to the next. Two causes on the realtime side: (1) the meshes met after the
   lighting's cut (the night state's) kept the bake's afternoon bounce B (~0.1 in the unit), and the bounce passes

@@ -35,6 +35,9 @@ void end_frame();
 uint32_t shown_time_ms();
 // The game clock's seconds a frame shows (the sky's and the water's time), the same way.
 double shown_game_seconds(double seconds);
+// (round MIST) The game clock (frame_clock::game_clock_time) in seconds, as the frame shows it (shown_game_seconds): the
+// view's game_seconds and the rays' waves' clock (rt::FrameRecord::water_seconds) - one clock.
+double shown_game_clock_seconds();
 // A level or the loading screen came up: what was noted is dropped (nothing blended until two ticks are seen again).
 void forget();
 

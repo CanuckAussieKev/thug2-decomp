@@ -20,12 +20,14 @@
 #include <vector>
 
 #include "base/core/format.h"
+#include "base/maths/random.h"
 #include "devtools/compare_split.h"
 #include "devtools/demo.h"
 #include "devtools/demo_viewer.h"
 #include "engine/ext/extension.h"
 #include "engine/config/settings_live.h"
 #include "engine/gfx/paint_trails.h"
+#include "engine/gfx/rt_apart.h"
 #include "engine/gfx/rt_path.h"
 #include "engine/gfx/texture_sets.h"
 #include "engine/objects/entity.h"
@@ -34,10 +36,14 @@
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
 #include "engine/script/tokens.h"
+#include "engine/sys/game_clock.h"
+#include "engine/sys/mlp.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/ui/ui_backend.h"
 #include "engine/ui/ui_fonts.h"
 #include "game/front_end/front_end.h"
 #include "game/rider/test_view.h"
+#include "platform/crt.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "platform/screenshot_files.h"
@@ -201,7 +207,10 @@ constexpr const char* kHelp = "scripts [text]  the scripts running (names holdin
                               "                EXR (Screenshots\\<folder>: frame_NNNN.exr, frames.txt - each frame's camera)\n"
                               "pt off | status  the reference stopped / its progress\n"
                               "measure on | off  (round MV) the world frozen as the original's pause (no menu), every frame drawn once\n"
-                              "restart         the skater at the level's next restart (F8)\n"
+                              "state           (round MIST) the loop, the game clock, the random sequence, the particles' hash\n"
+                              "seed <n>        (round MIST) the game's random sequences started again from n, its clocks from 1 s (a\n"
+                              "                measuring plan's spot: the same frozen world on every run)\n"
+                              "restart        the skater at the level's next restart (F8)\n"
                               "textures [original | pbrify | seedvr2]  the texture set in use / switched (not saved)\n"
                               "paint [clear]   the paint trails' strokes and drops so far; clear: the paint wiped\n"
                               "set <key> <value>  a setting changed: section/key, [section]key or key;\n"
@@ -456,6 +465,21 @@ std::string settings_command(const std::string& command, const std::string& rest
     }
     return result.ok ? result.text : "refused: " + result.text;
 }
+// (round MIST) The world's state as a measurement freezes it: the loop's frames, the game clock, the game's random
+// sequence and the particles / billboards the last frame drew (rt_apart.h - hashed from the first `state` / `measure`
+// on). Two runs of a measuring plan froze the same world when these are the same.
+std::string world_state()
+{
+    render::rt::keep_apart_frames();
+    const render::rt::ApartFrame apart = render::rt::last_apart_frame();
+    const std::string hash =
+        apart.kept ? text::format("%016llX", static_cast<unsigned long long>(apart.hash)) : std::string("not kept yet");
+    return text::format("loop %u, game clock %d ms, rand %08X; drawn apart %llu triangles in %llu batches, hash %s",
+                        frame_loop::frames_run(), frame_clock::game_clock_time(), crt::game_rand_state(),
+                        static_cast<unsigned long long>(apart.triangles), static_cast<unsigned long long>(apart.batches),
+                        hash.c_str());
+}
+
 } // namespace
 
 bool is_switched_on() { return switched(); }
@@ -536,8 +560,40 @@ std::string run_command(const std::string& line)
         }
         front_end->get_pause_game(word == "on");
         frontend::test_view::set_measuring(word == "on");
-        get_log("console: measuring %s", word == "on" ? "on - the world frozen, every frame drawn" : "off");
+        get_log("console: measuring %s - %s", word == "on" ? "on - the world frozen, every frame drawn" : "off",
+                world_state().c_str());
         return word == "on" ? "frozen" : "running";
+    }
+    if (command == "seed") {
+        // (round MIST) The game seeds the C runtime's random sequence from the clock at start-up (app/winmain.cpp - the
+        // original's), and the particles' bursts, the pedestrians' choices... draw from it: two runs of a measuring plan
+        // froze different sprays, different haze (Barcelona's fountain: its night ratio 0.73 - 0.95 between rounds). And
+        // the clocks count every step since the game started, so a spot measured after other levels froze its water's
+        // waves at another time (the harbour 0.05 apart between plans). A plan seeds the sequences (and the game's two
+        // streams) and starts the clocks again at the same time before each spot's level, as a demo puts back the ones
+        // it was recorded with - the simulation then runs the same steps from the same state: the same world at every
+        // measurement, whatever the plan measured before it.
+        std::istringstream words(rest);
+        unsigned long long seed = 0;
+        if (!(words >> seed)) {
+            return "seed <n>";
+        }
+        crt::game_srand(static_cast<unsigned>(seed));
+        maths::seed_random(static_cast<uint32_t>(seed));
+        constexpr uint64_t kSeededVblanks = 60; // (a second in: the clocks' start for every seeded spot)
+        frame_clock::set_vblanks_since_reset(kSeededVblanks);
+        frame_clock::GameClockSnapshot clock = frame_clock::game_clock_snapshot();
+        clock.last_change = frame_clock::get_time();
+        clock.offset = 0;
+        frame_clock::set_game_clock_snapshot(clock);
+        get_log("console: the game's random sequences seeded with %llu, its clocks started again - %s", seed,
+                world_state().c_str());
+        return text::format("seeded with %llu", seed);
+    }
+    if (command == "state") {
+        const std::string state = world_state();
+        get_log("console: state - %s", state.c_str());
+        return state;
     }
     if (command == "restart") {
         return frontend::restart_tester::next_restart(); // (the light energy audit's level walk: F8's next restart)

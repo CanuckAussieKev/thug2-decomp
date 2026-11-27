@@ -2,14 +2,19 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { kSceneSpots, parseSaved, planCommands, ratios, shotName } from "./scene_bias.ts";
+import { kPlanSeed, kSceneSpots, parseSaved, planCommands, ratios, shotName } from "./scene_bias.ts";
 
-test("the plan sets the time of day before the levels and names each reference by tag, spot and time", () => {
+test("the plan seeds the random sequences, sets the time of day before the levels and names each reference", () => {
     const p1 = kSceneSpots.find((s) => s.name === "p1")!;
     const tr = kSceneSpots.find((s) => s.name === "tr")!;
     const lines = planCommands([p1, tr], ["noon", "night"], 256, "base");
     assert.equal(lines[0], "waitfor ready 600");
     assert.equal(lines[1], "console rt tod noon");
+    assert.equal(lines[3], `console seed ${kPlanSeed}`);
+    assert.equal(lines[4], "level bo");
+    // (before each spot's level, and again once it is loaded)
+    assert.equal(lines.filter((l) => l === `console seed ${kPlanSeed}`).length, 8);
+    assert.equal(lines[lines.indexOf("waitfor level bo 600") + 1], `console seed ${kPlanSeed}`);
     assert.ok(lines.includes("level bo"));
     assert.ok(lines.includes("level tr"));
     assert.ok(lines.includes("console pt ref 256 as scene_base_p1_noon"));

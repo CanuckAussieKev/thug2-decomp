@@ -23,6 +23,7 @@
 #include "base/core/no_destroy.h"
 #include "engine/gfx/gpu_markers.h"
 #include "engine/gfx/light_store.h"
+#include "engine/gfx/rain.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_coverage.h"
 #include "engine/gfx/rt_daylight.h"
@@ -53,6 +54,8 @@
 #include "gpu_vulkan/vulkan_frames.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
+#include "gpu_vulkan/vulkan_water.h"
+#include "gpu_vulkan/water_shader.h"
 #include "platform/run_log.h"
 
 namespace render::vulkan {
@@ -1765,11 +1768,23 @@ void write_instances(Backend& state, Scene& made, FrameScene& frame, const rt::F
     // (round WAVES) the water bodies' waves, each where its instances' rows point
     const std::size_t waters = std::min(record.water_surfaces.size(), static_cast<std::size_t>(frame.capacity));
     const std::span<float> water_floats(static_cast<float*>(frame.water_surfaces.mapped), waters * kWaterSurfaceFloats);
+    // (round MIST - one water surface for every ray) the waves' clock (the view's game seconds, as the water shader's),
+    // whether the ripple texture is in the material table's slot (kWaterRipplesSlot - the rays read it there), the rain's
+    // rings' cell (the water shader's: its rate's)
+    if (waters > 0) {
+        VkDescriptorImageInfo ripples{};
+        state.materials.set_water_ripples(water_ripples_descriptor_locked(state, &ripples) ? ripples.imageView
+                                                                                           : VK_NULL_HANDLE);
+    }
+    const double rain_rate = rain::settings().rate;
+    const std::array<float, 4> clock{static_cast<float>(record.water_seconds),
+                                     state.materials.water_ripples_shown() ? 1.0F : 0.0F,
+                                     rain_rate > 0.0 ? static_cast<float>(rain::ripples_of(rain_rate).cell) : 0.0F, 0.0F};
     for (std::size_t i = 0; i < waters; ++i) {
         const rt::WaterSurface& water = core::at(record.water_surfaces, i);
         std::size_t at = i * kWaterSurfaceFloats;
         const std::array<float, 4> last{core::at(water.wind, 0), core::at(water.wind, 1), water.rain, 0.0F};
-        for (const std::array<float, 4>* part : {&water.slopes, &water.speeds, &water.sea, &last}) {
+        for (const std::array<float, 4>* part : {&water.slopes, &water.speeds, &water.sea, &last, &clock}) {
             for (const float value : *part) {
                 core::at(water_floats, at++) = value;
             }
@@ -2705,6 +2720,71 @@ std::string_view scene_geometry_glsl()
     return made;
 }
 
+// (round MIST - one water surface for every ray; moved here from the path tracer, round WAVES) The water's surface where
+// a ray meets it - the raster water's (water_shader.h water_waves_glsl). Every ray pass reads it the same way: the waves
+// from the instance's row (GEOMETRY_WATER: the body its last draw was handed, with the waves' clock and the rain's cell),
+// the ripple texture from the material table's slot kept for it. Before, only the path tracer bound the ripples and the
+// clock, so a shadow ray crossed the flat mesh - its share through the water at a grazing sun the plane's Fresnel.
+constexpr const char* kWaterSurfaceGlsl = R"(
+vec4 water_surface_part(uvec2 address, uint part)
+{
+    uint at = part * 16u;
+    return vec4(uintBitsToFloat(geometry_word(address, at)), uintBitsToFloat(geometry_word(address, at + 4u)),
+                uintBitsToFloat(geometry_word(address, at + 8u)), uintBitsToFloat(geometry_word(address, at + 12u)));
+}
+// The waves' normal (world, facing up) where a ray meets water at world point x: its body's swell and ripples - and the
+// rain's rings - as the water shader takes them, at full detail (no fade by a footprint: a pixel's many rays resolve what
+// a fragment's derivatives average). False: no waves known (a body not measured, an object's mesh - the water shader
+// draws those still): the flat surface.
+bool water_surface_normal(uint instance, vec3 x, out vec3 n)
+{
+    n = vec3(0.0, 1.0, 0.0);
+    GeometryRecord g = geometry_record(instance);
+    if ((g.flags & GEOMETRY_LIVE) == 0u || (g.flags & GEOMETRY_WATER) == 0u) {
+        return false;
+    }
+    // (the vec4s read one by one: a local array of them takes the buffer's array stride - invalid SPIR-V)
+    vec4 slopes = water_surface_part(g.water_address, 0u);
+    vec4 speeds = water_surface_part(g.water_address, 1u);
+    vec4 sea_part = water_surface_part(g.water_address, 2u);
+    vec4 last = water_surface_part(g.water_address, 3u);  // the wind's way, the rain's share
+    vec4 clock = water_surface_part(g.water_address, 4u); // the waves' clock, the ripples there, the rain's cell
+    WaterSea sea = WaterSea(slopes, speeds, sea_part, last.xy);
+    float t = clock.x;
+    vec3 swell = water_swell(sea, x.xz, t, 0.0);
+    vec3 ripple = vec3(0.0);
+    if (clock.y > 0.5) {
+        vec2 a;
+        vec2 b;
+        water_ripple_places(sea, x.xz, t, a, b);
+        ripple = water_ripples_of(
+            sea,
+            textureLod(sampler2D(material_textures[WATER_RIPPLES_SLOT], material_samplers[WATER_RIPPLES_SAMPLER]), a, 0.0),
+            textureLod(sampler2D(material_textures[WATER_RIPPLES_SLOT], material_samplers[WATER_RIPPLES_SAMPLER]), b, 0.0));
+    }
+    if (clock.z > 0.0) {
+        ripple.xy += rain_ripple(x.xz, vec4(clock.z, RAIN_RIPPLE_LAYERS, t, RAIN_RIPPLE_LIFE)) * last.z;
+    }
+    n = water_wave_normal(swell, ripple.xy);
+    return true;
+}
+// The normal a ray crossing water's surface at a hit (the mesh's normal `normal`, travelling along `dir`) meets, facing the
+// ray: the waves' where the surface faces up (the water shader's rule: smoothstep(0.82, 0.94) of its facing - a
+// waterfall's sheet stays flat), seen from below their underside; a facet turned away from the ray (the far side of a
+// wave, hidden behind its crest) the plane's.
+vec3 water_surface_facet(uint instance, vec3 position, vec3 normal, vec3 dir)
+{
+    vec3 face = dot(normal, dir) < 0.0 ? normal : -normal;
+    vec3 up;
+    if (!water_surface_normal(instance, position, up)) {
+        return face;
+    }
+    float upward = smoothstep(0.82, 0.94, abs(normal.y));
+    vec3 n = normalize(mix(face, face.y >= 0.0 ? up : -up, upward));
+    return dot(n, dir) < 0.0 ? n : face;
+}
+)";
+
 std::string_view cutout_rays_glsl()
 {
     // (round PT-B) the glass's F0 (the material table's) and the display's gamma (rt_display.h - a filter's colour
@@ -2717,6 +2797,14 @@ std::string_view cutout_rays_glsl()
                            ";\nconst float HIT_BLEND_GAMMA = " + std::to_string(rt::kDisplayGamma) +
                            ";\nconst float RAY_LAYER_LIFT = " + std::to_string(kLayerLift) + ";\n"; // (round DECAL)
         text += rt::kCoverageGlsl; // (round SKIN: the prepass's threshold for a blended surface - coverage_least)
+        // (round MIST - one water surface for every ray) the water shader's waves and the rain's rings, then the water's
+        // surface where a ray meets it (water_surface_facet)
+        text += water_waves_glsl();
+        text += rain::glsl_constants();
+        text += rain::ripple_glsl();
+        text += "const uint WATER_RIPPLES_SLOT = " + std::to_string(kWaterRipplesSlot) +
+                "u;\nconst uint WATER_RIPPLES_SAMPLER = " + std::to_string(kMaterialLinearWrapSampler) + "u;\n";
+        text += kWaterSurfaceGlsl;
         text += R"(
 // (round PF - the path tracer's cost) What the tests of a candidate hit read, read once each: a ray's candidates on
 // cut-out and seen-through surfaces are most of the device's time in the light rays (every pass's ray_light), and each
@@ -3277,6 +3365,12 @@ vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach)
                 vec3 n = cross(w * vec4(v.position[1] - v.position[0], 0.0), w * vec4(v.position[2] - v.position[0], 0.0));
                 float l = length(n);
                 cos_theta = l > 0.0 ? dot(n / l, dir) : 1.0;
+                // (round MIST) water: the waves' facet the ray crosses there (the water shader's surface - the path
+                // tracer's own water hits meet the same one), not the flat mesh's
+                if (b.water && l > 0.0) {
+                    vec3 at = origin + dir * rayQueryGetIntersectionTEXT(query, false);
+                    cos_theta = dot(water_surface_facet(i, at, n / l, dir), dir);
+                }
             }
             through *= b.kind == HIT_SOLID ? (cutout_kept(i, p, m, bc) ? vec3(0.0) : vec3(1.0))
                                            : hit_blend_transmittance(b, cos_theta);

@@ -19,6 +19,19 @@ namespace {
 
 constexpr std::size_t kHashMix = 0x9E3779B97F4A7C15ULL;
 constexpr uint32_t kPositionBytes = 3 * sizeof(float);
+constexpr uint64_t kFnvBasis = 0xCBF29CE484222325ULL;
+constexpr uint64_t kFnvPrime = 0x100000001B3ULL;
+
+ApartFrame& last_frame()
+{
+    static ApartFrame frame;
+    return frame;
+}
+bool& keeping_frames()
+{
+    static bool keeping = false;
+    return keeping;
+}
 
 // The layout's parts a slot's buffer and mesh are made for: another one means a new slot.
 bool same_layout(const Geometry& a, const Geometry& b)
@@ -30,6 +43,9 @@ bool same_layout(const Geometry& a, const Geometry& b)
 }
 
 } // namespace
+
+void keep_apart_frames() { keeping_frames() = true; }
+ApartFrame last_apart_frame() { return last_frame(); }
 
 uint32_t apart_capacity(uint32_t vertices)
 {
@@ -60,10 +76,24 @@ void ApartStore::commit(std::span<const Batch> batches, Gpu& gpu, RayTracing& rt
 {
     ++round_;
     meshes->clear();
+    const bool keeping = keeping_frames();
+    ApartFrame noted{.hash = kFnvBasis, .triangles = 0, .batches = batches.size(), .kept = keeping};
     for (const Batch& batch : batches) {
         const uint32_t stride = batch.layout.vertex_stride;
         const auto count = stride > 0 ? static_cast<uint32_t>(batch.vertices.size() / stride) : 0U;
         const uint32_t triangles_vertices = count - (count % 3);
+        if (keeping) { // (a word at a time; the tail's bytes last)
+            const std::size_t words = batch.vertices.size() / sizeof(uint64_t);
+            for (std::size_t i = 0; i < words; ++i) {
+                uint64_t word = 0;
+                std::memcpy(&word, batch.vertices.subspan(i * sizeof(uint64_t), sizeof(uint64_t)).data(), sizeof(word));
+                noted.hash = (noted.hash ^ word) * kFnvPrime;
+            }
+            for (const uint8_t byte : batch.vertices.subspan(words * sizeof(uint64_t))) {
+                noted.hash = (noted.hash ^ byte) * kFnvPrime;
+            }
+        }
+        noted.triangles += triangles_vertices / 3;
         if (triangles_vertices == 0 || stride < kPositionBytes || batch.layout.position_offset + kPositionBytes > stride) {
             meshes->push_back(0);
             continue;
@@ -128,6 +158,7 @@ void ApartStore::commit(std::span<const Batch> batches, Gpu& gpu, RayTracing& rt
         }
         meshes->push_back(slot.id);
     }
+    last_frame() = noted;
     for (auto it = slots_.begin(); it != slots_.end();) {
         if (it->second.round + kKeepRounds <= round_) {
             release(it->second, gpu, &rt);
