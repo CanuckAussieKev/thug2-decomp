@@ -197,9 +197,15 @@ uint hash(uint x)
     return x;
 }
 
-// The pixel's surface normal from the nearer neighbours' depths, facing the camera (toward it where there is none).
+// The pixel's surface normal: (round SHEETS - vulkan_rt_scene.h camera_face) the face of the triangle the camera ray
+// meets at the depth's point; where no traced triangle lies there (ReSTIR DI's primary's rule), from the nearer
+// neighbours' depths, facing the camera (toward it where there is none).
 vec3 surface_normal(ivec2 p, float d, vec3 here, vec3 to_camera, float distance)
 {
+    vec3 face;
+    if (camera_face(pc.camera.xyz, here, face)) {
+        return face;
+    }
     vec3 normal = cross(surface_step(p, d, here, ivec2(1, 0)), surface_step(p, d, here, ivec2(0, 1)));
     float normal_length = length(normal);
     normal = normal_length > 1e-20 ? normal / normal_length : to_camera / max(distance, 1e-6);

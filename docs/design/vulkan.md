@@ -3508,6 +3508,38 @@ Fresnel mix weighed encoded colours (Barcelona's harbour water 0.45 - 0.75 of th
 display-referred frame) is unchanged. `thug2_vulkan_water_check`: the calm case in a linear frame against the
 processor's linear arithmetic (33 600 pixels, 100 % within 0.004; the display arithmetic - mutation - 0 %).
 
+**Round SHEETS: what lies under the water traced; one normal for every pass that starts at the camera's surface.** The
+water's refraction read a copy of the frame made before the view's first water draw. Everything the game draws after
+that copy is missing from it - and the game draws its water first among the transparencies (Barcelona: ~115 water draws
+a view, all blended with depth written), then the see-through and cut-out surfaces, among them what lies in the water:
+the harbour's submerged slope under sheet 24A285AC, the fountain's coins - hidden by the water's depth or replaced by
+its refraction of the copy (alpha x 4 of each sheet replaced what was under it, a sheet over another the same). The
+front layer (Round FL) now traces the rest surface's other side where it faces up: the view's ray goes on past the
+surface (the path tracer's thin interface goes straight on) to the surface a camera ray takes there (`camera_surface` -
+cut-outs by their alpha, the blended layer lying on it laid into its material), lit as the mirror's hit is (`hit_lit`),
+times what the see-through surfaces it crosses let through (a lower sheet, glass: `seen_through`); its distance with it
+(the light input `kLightFrontBehindBinding`; negative where a blended layer lies on the hit). Where the front layer is
+the water, the sheet is a whole interface (its alpha 1 there, as the path tracer meets every water hit) and what is
+behind it is the copy where the trace meets the very surface the copy holds (its depth within 0.2 % + 0.25 units - that
+surface lit by the view's own ReSTIR passes, the refraction's shift kept: screen space first), else the trace - the
+slope, the coins a unit over the floor, a layer on the hit, a lower sheet - with the path through the water its
+distance; elsewhere (no ray tracing, a wall of water) the copy as before. Ray-traced
+translucency of this kind (the trace standing for the screen's copy) is what 2026's path-traced and Lumen-lit games do
+for refractive water. `thug2_vulkan_rt_lights_check`: the glass pane's other side meets the floor under it at every
+pixel (worst 0.95 units), its light 0.980 x the floor's albedo x its lamps input; nothing traced (mutation) fails both.
+Two grazing approximations the reference doesn't make are gone from the water shader: the waves' tilt cut to 0.3 at a
+grazing view (the reference averages the facets' reflections over the pixel, never flattens them; the waves' fade by the
+pixel's footprint - the normal's mip filtering - stays) and Fresnel's grazing reflectance held to 1 - the slope; a
+reflection a facet sends into the water is mirrored by the plane, as the path tracer's, not held over the horizon.
+The direct-light passes (the sun's shadows, the lamps pass, the occlusion and the bounce) took each pixel's normal from
+its neighbours' depths. On a strip one or two pixels wide both neighbours across it are other surfaces, so the strip
+took its background's normal - its facing test and its rays' start, pushed off along that normal, were the background's
+(Training's glass box: the panes' frames lit through the box's walls). They now take the geometric normal of the
+triangle the camera ray meets at the depth's point (`camera_face`: `trace_drawn`, ReSTIR DI's primary's surface and
+match); the depth's own normal only where no traced triangle lies there. `thug2_vulkan_rt_lights_check`: a thin post 1 -
+2 pixels wide, a lamp in front of it - its 51 pixels lit by its own face as the processor's (the depth's normal: 36
+wrong).
+
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
 Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3

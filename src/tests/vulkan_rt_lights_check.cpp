@@ -18,6 +18,8 @@
 //   - the floor has a lit part and a part in the box's shadow (both a few hundred pixels);
 //   - a red-textured lamp (an emitter whose material's texture is red) lights the floor red (its texture's mean);
 //   - two lamps, one traced (rt_lights_shadowed=1): the other's light in the share of the traced one's that got through;
+//   - (round SHEETS) a strip 1 - 2 pixels wide (a thin post, a lamp in front of it): lit by its own face (the camera
+//     ray's triangle - vulkan_rt_scene.h camera_face), not by the floor's round it;
 //   - (added for the cut-outs) the box made an alpha-tested caster: its texels' alpha 0 - the lamp's light goes through
 //     it (no floor shadowed, as without it); alpha 255 - shadowed as the solid box;
 //   - rt_lights off, or no lamp in view: every pixel exactly as drawn (no pass);
@@ -1401,6 +1403,16 @@ Compared compare(const std::vector<uint8_t>& texels, const View& view, std::span
                             !core::at(answers, other).close;
                 }
             }
+            // (round SHEETS) A box drawn where the rays have none (cut out everywhere - the case's raster draws it whole):
+            // where the camera ray, past it, meets the floor within the pass's match of the depth's point (vulkan_rt_scene.h
+            // camera_face: 1 + 2 % of the distance - ReSTIR DI's primary's), the pass's surface there is the floor's, not
+            // the box's the case drew - the scene contradicts itself there (the box's front face's lowest row, a unit over
+            // the floor); not a clear-cut pixel
+            if (clear && here.solid == 2 && box_through() >= 1.0) {
+                const Vec3 ray = normalised(minus(here.point, view.eye));
+                const Hit floor = intersect(core::at(kScene, 0), view.eye, ray);
+                clear = !(std::abs(floor.distance - here.distance) <= 1.0 + (0.02 * here.distance));
+            }
             if (!clear) {
                 continue;
             }
@@ -1527,6 +1539,129 @@ void run_two(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
     tally->check(passes == 1 && got.clear_cut > 3000 && got.wrong == 0,
                  text::format("%d clear-cut pixels as the processor's, %d wrong (worst %.2f of 255)", got.clear_cut,
                               got.wrong, got.worst));
+}
+
+// (round SHEETS - vulkan_rt_scene.h camera_face: one normal for every pass that starts rays from the camera's surface)
+// A thin post standing on the floor, 1 - 2 pixels wide on the screen, a lamp low in front of it: the post's face toward
+// the camera faces the lamp, the floor round it (seen on both sides of the strip) faces up - away from a lamp below the
+// post's middle. The lamps' light on the strip's pixels must be the processor's for the post's own face. Before, the pass
+// took the normal from the neighbouring depths: on a strip one pixel wide both neighbours across it are the floor behind,
+// so the post took a normal of the floor's (the pixels a lamp lights by its face got little or nothing - Training's glass
+// box: the panes' frames, 1 - 2 pixels wide, lit by the background's normal).
+const Solid kPost{.low = {59.6, 0.0, 59.6}, .high = {60.4, 50.0, 60.4}, .albedo = {0.7, 0.7, 0.7}, .drawn = 0xFF303030};
+constexpr Vec3 kPostLampAt{60.0, 12.0, 150.0};
+constexpr double kPostLampLight = 2.0;
+
+// What a ray meets among the floor, the box and the post: the solid (1, 2 the scene's, 3 the post) and its face.
+Seen seen_with_post(const View& view, double px, double py)
+{
+    Seen seen = seen_at(view, px, py);
+    const double ndc_x = (2.0 * px / kTargetWidth) - 1.0;
+    const double ndc_y = 1.0 - (2.0 * py / kTargetHeight);
+    const Vec3 direction = normalised(
+        step(step(step(Vec3{}, view.right, ndc_x * view.half_width), view.up, ndc_y * view.half_height), view.back, -1.0));
+    const Hit hit = intersect(kPost, view.eye, direction);
+    if (hit.distance < (seen.solid == kNoSurface ? kNoHit : seen.distance)) {
+        seen = {.solid = kScene.size() + 1, .normal = hit.normal, .point = step(view.eye, direction, hit.distance),
+                .distance = hit.distance};
+    }
+    return seen;
+}
+
+// The lamp's light added on the post's surface at `seen` taken with `normal` (strength x linear albedo x light).
+double post_added(const Seen& seen, const Vec3& normal, std::size_t channel)
+{
+    const Vec3 to = minus(kPostLampAt, seen.point);
+    const double dist = length_of(to);
+    const double facing = dot(normal, normalised(to));
+    if (!(facing > 0.0)) {
+        return 0.0;
+    }
+    constexpr double kReach = 400.0;
+    const double light = kPostLampLight * falloff(dist, static_cast<double>(rt::kPointCoreShare) * kReach, kReach) * facing;
+    return static_cast<double>(kStrength) * render::rt::linear_from_display(core::at(kPost.albedo, channel)) * light;
+}
+
+void run_strip(render::Gpu& gpu, std::span<const SceneMesh> scene, Tally* tally)
+{
+    text::print("a strip one or two pixels wide (a thin post, a lamp in front of it):\n");
+    SceneMesh post;
+    if (!make_solid(gpu, kPost, &post)) {
+        tally->check(false, "the post made");
+        release_solid(gpu, &post);
+        return;
+    }
+    std::vector<SceneMesh> meshes(scene.begin(), scene.end());
+    meshes.push_back(post);
+    render::vulkan::set_rt_light_settings(settings_for(true, 4));
+    rt::set_level_emitters({});
+    const auto light = static_cast<float>(kPostLampLight);
+    const std::array<rt::Light, 1> points{{{.kind = rt::Light::Kind::kPoint,
+                                            .colour = {light, light, light},
+                                            .position = floats(kPostLampAt),
+                                            .radius = 400.0F}}};
+    Targets targets;
+    std::vector<uint8_t> texels;
+    uint64_t passes = 0;
+    bool read = false;
+    if (make_targets(gpu, 0, &targets)) {
+        passes = draw_frame(gpu, targets, meshes, points, 1);
+        read = read_colour(gpu, targets, &texels);
+    }
+    release_targets(gpu, targets);
+    release_solid(gpu, &post);
+    const View view = view_from(kEye);
+    const Vec3 up{0.0, 1.0, 0.0};
+    constexpr double kInside = 0.25; // (a pixel counts where its centre's neighbourhood is all on the post's face)
+    int strip = 0;
+    int widest = 0;
+    int wrong = 0;
+    int telling = 0; // (pixels where a normal of the floor's would be off by far more than the tolerance)
+    double worst = 0.0;
+    for (int y = 0; read && y < kRows; ++y) {
+        int in_row = 0;
+        for (int x = 0; x < kColumns; ++x) {
+            const Seen here = seen_with_post(view, x, y);
+            if (here.solid != kScene.size() + 1) {
+                continue;
+            }
+            bool inside = true;
+            for (const std::array<double, 2>& o : {std::array<double, 2>{-kInside, 0.0}, {kInside, 0.0}, {0.0, -kInside},
+                                                   {0.0, kInside}}) {
+                const Seen beside = seen_with_post(view, x + o[0], y + o[1]);
+                inside = inside && beside.solid == here.solid && beside.normal == here.normal;
+            }
+            ++in_row;
+            if (!inside) {
+                continue;
+            }
+            ++strip;
+            const Rgb drawn = drawn_colour(kPost.drawn);
+            const Rgb got = pixel_at(texels, x, y);
+            bool bad = false;
+            bool tells = false;
+            for (std::size_t c = 0; c < 3; ++c) {
+                const double added = post_added(here, here.normal, c);
+                const double expected = std::min(1.0, core::at(drawn, c) + added);
+                const double error = std::abs(core::at(got, c) - expected) * kByteRange;
+                worst = std::max(worst, error);
+                bad = bad || error > kTolerance;
+                tells = tells || std::abs(added - post_added(here, up, c)) * kByteRange > 4.0 * kTolerance;
+            }
+            wrong += bad ? 1 : 0;
+            telling += tells ? 1 : 0;
+        }
+        widest = std::max(widest, in_row);
+    }
+    constexpr int kLeastStrip = 30;
+    constexpr int kMostWide = 3;
+    tally->check(read && passes == 1 && strip >= kLeastStrip && widest <= kMostWide && telling >= kLeastStrip,
+                 text::format("the strip: %d pixels well on the post's face (at most %d across a row), %d of them where "
+                              "the floor's normal would be off",
+                              strip, widest, telling));
+    tally->check(read && strip > 0 && wrong == 0,
+                 text::format("the lamp's light on the strip by the post's own face: %d of %d wrong (worst %.2f of 255)",
+                              wrong, strip, worst));
 }
 
 // (added for the cut-outs - the one lighting path's ray test, vulkan_rt_scene.h cutout_rays_glsl) The box made a cut-out
@@ -2472,6 +2607,14 @@ Rgb linear_pixel_at(const std::vector<uint8_t>& texels, int x, int y)
         core::at(out, c) = half_to_double(half);
     }
     return out;
+}
+
+// (round SHEETS) the alpha channel of an RGBA16F image's pixel
+double half_alpha_at(const std::vector<uint8_t>& texels, int x, int y)
+{
+    constexpr std::size_t kHalfPixelBytes = 8;
+    const std::size_t at = (((static_cast<std::size_t>(y) * kTargetWidth) + static_cast<std::size_t>(x)) * kHalfPixelBytes) + 6;
+    return half_to_double(static_cast<uint16_t>(core::at(texels, at) | (core::at(texels, at + 1) << 8U)));
 }
 
 Rgb linear_of(uint32_t argb)
@@ -3638,6 +3781,11 @@ constexpr double kFrontLeast = 0.02;    // (pixels compared where the expected l
 constexpr double kFrontMargin = 4.0;    // (units kept off the quads' and the box's edges)
 constexpr double kFrontRatioLow = 0.93;  // the device's light over the model's, its mean over the pixels
 constexpr double kFrontRatioHigh = 1.07;
+// (round SHEETS) the light the layer's other side finds on the floor over the floor's albedo x its lamps input: the hit is
+// lit through its material's whole BSDF (the painted kind's specular lobe too) and the radiance cache's bounce, the input
+// is a white diffuser's (measured 0.98)
+constexpr double kBehindRatioLow = 0.93;
+constexpr double kBehindRatioHigh = 1.07;
 constexpr double kFrontGlassAlpha = 2.0 * 64.0 / 255.0; // (the pane's vertex alpha 0x40: the program's x 2 on v0.a x t0.a)
 // (round FRONT2) the same pane as a particle: vertex alpha 0x40, its colour 0x20 grey (the game's light on it - never its
 // albedo), the pass colour 0.25: its albedo the program's under v0 0.5 - 4 x 0.5 x the white texel x 0.25 = 0.5 (display)
@@ -3647,7 +3795,8 @@ constexpr float kParticleFrontC0 = 0.25F;
 // A frame of the view: the floor, the glass over it or not; `front` / `lamps` read (RGBA16F each) when given.
 bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, std::span<const rt::Light> points,
                 bool glass, uint64_t frame, std::vector<uint8_t>* front, std::vector<uint8_t>* lamps,
-                std::vector<uint8_t>* colour = nullptr, bool particle = false, std::vector<uint8_t>* layer = nullptr)
+                std::vector<uint8_t>* colour = nullptr, bool particle = false, std::vector<uint8_t>* layer = nullptr,
+                std::vector<uint8_t>* behind = nullptr)
 {
     using render::GpuRenderState;
     rt::FrameRecord& record = rt::frame_record();
@@ -3745,6 +3894,10 @@ bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneM
             lamps->resize(bytes);
             read = state.memory.read_image_level(lamps_image, 0, lamps);
         }
+        if (read && behind != nullptr) { // (round SHEETS: what the layer lets through from behind it)
+            behind->resize(bytes);
+            read = state.memory.read_image_level(images.behind.front(), 0, behind);
+        }
     }
     if (layer != nullptr) { // (round FRONT2: Ray Reconstruction's transparency layer as the transparencies drew it)
         render::vulkan::Backend& state = render::vulkan::backend();
@@ -3814,10 +3967,11 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     std::vector<uint8_t> lamps;
     std::vector<uint8_t> with_glass;
     std::vector<uint8_t> without_glass;
+    std::vector<uint8_t> behind;
     for (int k = 0; ok && k < kFrontFrames; ++k) {
         const bool last = k + 1 == kFrontFrames;
         ok = draw_front(gpu, targets, meshes, points, true, frame++, last ? &front : nullptr, last ? &lamps : nullptr,
-                        last ? &with_glass : nullptr);
+                        last ? &with_glass : nullptr, false, nullptr, last ? &behind : nullptr);
     }
     ok = ok && draw_front(gpu, targets, meshes, points, false, frame++, nullptr, nullptr, &without_glass);
     const uint64_t lit = vk::front_layer_stats().passes - passes_before;
@@ -3845,6 +3999,10 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     const Solid& box = core::at(kScene, 1);
     double glass_got = 0.0;
     double glass_want = 0.0;
+    double behind_got = 0.0;  // (round SHEETS) the layer's other side's light, and the floor's there
+    double behind_want = 0.0;
+    int behind_far = 0;       // ... pixels whose traced distance isn't the floor's
+    double behind_worst = 0.0;
     double floor_got = 0.0;
     double floor_want = 0.0;
     int glass_pixels = 0;
@@ -3867,6 +4025,19 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                     continue;
                 }
                 const double layer = luma_of(linear_pixel_at(front, x, y));
+                // (round SHEETS) the pane's other side traced on along the view: the floor under it, its distance from the
+                // pane the view's to the floor, its light the floor's own there - its albedo x the lamps' light on it (the
+                // same pixel's lamps input: the floor is the prepass's surface there)
+                Vec3 floor_at{};
+                if (floor_point(kEye, x, y, 0.0, &floor_at) && std::abs(x_of(floor_at)) < kFloorHalf - kEdgeMargin &&
+                    std::abs(z_of(floor_at)) < kFloorHalf - kEdgeMargin) {
+                    const double expected_travel = length_of(minus(floor_at, at));
+                    const double travel = half_alpha_at(behind, x, y);
+                    behind_worst = std::max(behind_worst, std::abs(travel - expected_travel));
+                    behind_far += std::abs(travel - expected_travel) > 0.01 * expected_travel + 0.5 ? 1 : 0;
+                    behind_got += luma_of(linear_pixel_at(behind, x, y));
+                    behind_want += render::rt::linear_from_display(0.8) * luma_of(linear_pixel_at(lamps, x, y));
+                }
                 glass_got += layer;
                 glass_want += want;
                 ++glass_pixels;
@@ -3906,6 +4077,14 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
         }
     }
     const double glass_ratio = glass_want > 0.0 ? glass_got / glass_want : 0.0;
+    const double behind_ratio = behind_want > 0.0 ? behind_got / behind_want : 0.0;
+    tally->check(ok && glass_pixels > 500 && behind_far == 0,
+                 text::format("  (round SHEETS) the pane's other side traced on along the view: its hit the floor under it at "
+                              "every pixel within the floor - %d of %d off (worst %.3f units)",
+                              behind_far, glass_pixels, behind_worst));
+    tally->check(ok && glass_pixels > 500 && behind_ratio >= kBehindRatioLow && behind_ratio <= kBehindRatioHigh,
+                 text::format("  ... its light the floor's there (its albedo x the lamps' light on it): %.4f x",
+                              behind_ratio));
     const double floor_ratio = floor_want > 0.0 ? floor_got / floor_want : 0.0;
     tally->check(ok && emitter && glass_pixels > 500 && glass_ratio >= kFrontRatioLow && glass_ratio <= kFrontRatioHigh,
                  text::format("  the glass pane (the front layer) under the lamp: %d pixels, its light %.4f x the lamp "
@@ -4303,6 +4482,7 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         run_point(gpu, meshes, kFourSamples, tally);
         run_emitter(gpu, meshes, red, tally);
         run_two(gpu, meshes, tally);
+        run_strip(gpu, meshes, tally); // (round SHEETS)
         run_cutout(gpu, meshes, tally); // (added for the cut-outs)
         run_blended(gpu, meshes, tally); // (round PT-B: blended surfaces in every ray)
         run_off(gpu, meshes, tally);

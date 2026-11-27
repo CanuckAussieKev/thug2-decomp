@@ -48,7 +48,7 @@ constexpr uint32_t kBlendSourceAlpha = 5;  // D3DBLEND_SRCALPHA
 constexpr uint32_t kBlendInverseAlpha = 6; // D3DBLEND_INVSRCALPHA
 constexpr uint32_t kBlendOpAdd = 1;        // D3DBLENDOP_ADD
 constexpr uint32_t kGroupSide = 8;
-constexpr uint32_t kBeginBindings = 13;
+constexpr uint32_t kBeginBindings = 14;
 constexpr std::size_t kMostKept = 16384; // (a view's world draws: a few hundred; past this, drawn as they come)
 
 // The inputs begun: the prepass's depth copied (read as the depth surface's), the visibility "not traced", nothing
@@ -68,6 +68,7 @@ layout(set = 0, binding = 9, r32f) uniform writeonly image2D o_front_depth;
 layout(set = 0, binding = 10, rgba16f) uniform writeonly image2D o_front_light;
 layout(set = 0, binding = 11, rgba16f) uniform writeonly image2D o_front_sun;
 layout(set = 0, binding = 12, rgba16f) uniform writeonly image2D o_front_reflect;
+layout(set = 0, binding = 13, rgba16f) uniform writeonly image2D o_front_behind;
 layout(push_constant) uniform Pass { ivec4 rect; } pc;
 void main()
 {
@@ -88,6 +89,7 @@ void main()
     imageStore(o_front_light, p, vec4(0.0));
     imageStore(o_front_sun, p, vec4(0.0));
     imageStore(o_front_reflect, p, vec4(0.0));
+    imageStore(o_front_behind, p, vec4(0.0));
 }
 )";
 
@@ -169,6 +171,7 @@ struct LightState {
     std::array<Image, 2> front_light;
     std::array<Image, 2> front_sun;
     std::array<Image, 2> front_reflect; // (round LW)
+    std::array<Image, 2> front_behind;  // (round SHEETS)
     std::size_t front_now = 0;
     bool front_on = false;      // this view's see-through draws read the front layer (ReSTIR GI lights the view)
     bool front_history = false; // the other images hold the last view's lit layer
@@ -398,7 +401,7 @@ std::array<Image*, kLightInputCount> input_images()
     const std::size_t now = own.front_now;
     return {&own.visibility, &own.lamps,   &own.lamps_on, &own.depth_copy, &own.decals, &own.guides, &own.specular,
             &own.layer_material, &core::at(own.front_depth, now), &core::at(own.front_light, now),
-            &core::at(own.front_sun, now), &core::at(own.front_reflect, now)};
+            &core::at(own.front_sun, now), &core::at(own.front_reflect, now), &core::at(own.front_behind, now)};
 }
 
 // (round FL) The front layer's depth attachment: the view's depth surface's format, size and samples (the kept draws'
@@ -471,7 +474,8 @@ VkDescriptorSet light_view_set(Backend& state)
     static_assert(kLightVisibilityBinding == 0 && kLightLampsBinding == 1 && kLightLampsOnBinding == 2 &&
                       kLightDepthBinding == 3 && kLightDecalsBinding == 4 && kLightGuidesBinding == 5 &&
                       kLightSpecularBinding == 6 && kLightLayerBinding == 7 && kLightFrontDepthBinding == 8 &&
-                      kLightFrontBinding == 9 && kLightFrontSunBinding == 10 && kLightFrontReflectBinding == 11,
+                      kLightFrontBinding == 9 && kLightFrontSunBinding == 10 && kLightFrontReflectBinding == 11 &&
+                      kLightFrontBehindBinding == 12,
                   "the images in the bindings' order");
     std::array<VkImageView, kLightInputCount> views{};
     for (std::size_t i = 0; i < images.size(); ++i) {
@@ -560,6 +564,8 @@ bool make_inputs(Backend& state)
                      ensure_image(state, &core::at(own.front_sun, k), kHdrFormat, extent,
                                   kUsage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT) &&
                      ensure_image(state, &core::at(own.front_reflect, k), kHdrFormat, extent,
+                                  kUsage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT) &&
+                     ensure_image(state, &core::at(own.front_behind, k), kHdrFormat, extent,
                                   kUsage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
     }
     if (!front_made) {
@@ -979,6 +985,7 @@ bool begin_inputs(Backend& state)
         {.sampler = VK_NULL_HANDLE, .imageView = core::at(own.front_light, now).view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
         {.sampler = VK_NULL_HANDLE, .imageView = core::at(own.front_sun, now).view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
         {.sampler = VK_NULL_HANDLE, .imageView = core::at(own.front_reflect, now).view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
+        {.sampler = VK_NULL_HANDLE, .imageView = core::at(own.front_behind, now).view, .imageLayout = VK_IMAGE_LAYOUT_GENERAL},
     }};
     std::array<VkWriteDescriptorSet, kBeginBindings> writes{};
     for (uint32_t binding = 0; binding < kBeginBindings; ++binding) {
@@ -1150,7 +1157,7 @@ void release_surface_light(Backend& state)
                          &own.guides, &own.specular, &own.layer.image, &own.front.image, &own.front_depth.front(),
                          &own.front_depth.back(), &own.front_light.front(), &own.front_light.back(),
                          &own.front_sun.front(), &own.front_sun.back(), &own.front_reflect.front(),
-                         &own.front_reflect.back()}) {
+                         &own.front_reflect.back(), &own.front_behind.front(), &own.front_behind.back()}) {
         if (image->image != VK_NULL_HANDLE) {
             state.memory.destroy_image(image);
         }
@@ -1456,6 +1463,7 @@ bool surface_light_front_prepass(Backend& state, FrontLayerImages* out)
     out->light = {&core::at(own.front_light, now), &core::at(own.front_light, before)};
     out->sun = {&core::at(own.front_sun, now), &core::at(own.front_sun, before)};
     out->reflect = {&core::at(own.front_reflect, now), &core::at(own.front_reflect, before)};
+    out->behind = {&core::at(own.front_behind, now), &core::at(own.front_behind, before)};
     out->history = own.front_history;
     out->draws = drawn;
     return true;
@@ -1478,6 +1486,7 @@ bool surface_light_front_images(FrontLayerImages* out)
     out->light = {&core::at(own.front_light, now), &core::at(own.front_light, before)};
     out->sun = {&core::at(own.front_sun, now), &core::at(own.front_sun, before)};
     out->reflect = {&core::at(own.front_reflect, now), &core::at(own.front_reflect, before)};
+    out->behind = {&core::at(own.front_behind, now), &core::at(own.front_behind, before)};
     out->history = own.front_lit;
     return true;
 }

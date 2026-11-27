@@ -3108,6 +3108,51 @@ bool trace_drawn(vec3 origin, vec3 dir, float reach, float expected, out uint in
     return trace_drawn_layered(origin, dir, reach, expected, instance, primitive, id, barycentrics, t, to_world, layered, li,
                                lp, lid, lb, lw);
 }
+// (round SHEETS - one normal for every pass that starts a ray from the camera's surface) The face of the surface a pixel
+// shows: the triangle a camera ray from `eye` toward the depth's point `here` meets there (trace_drawn - the prepass's
+// surface, ReSTIR DI's primary), its geometric normal in the world, turned toward the eye. False where no traced triangle
+// lies at the depth's point (within the depth's precision: a surface drawn without a ray-traced copy). Before, the sun's
+// shadows, the lamps pass and the occlusion / bounce built the normal from the neighbouring pixels' depths: on a strip one
+// or two pixels wide both neighbours are other surfaces, so the strip took the background's normal - its facing test and
+// its rays' start (pushed off along that normal) were the background's (Training's glass box: the panes' frames lit
+// through the box's walls).
+bool camera_face(vec3 eye, vec3 here, out vec3 face)
+{
+    face = vec3(0.0);
+    vec3 to = here - eye;
+    float distance = length(to);
+    if (!(distance > 0.0)) {
+        return false;
+    }
+    vec3 dir = to / distance;
+    uint instance;
+    uint primitive;
+    uint id;
+    vec2 barycentrics;
+    float t;
+    mat4x3 to_world;
+    // (the ray starts within the match of the depth's point: a see-through surface in front of it - a glass pane the
+    // prepass kept no depth of, over a frame seen through it - is not the pixel's surface)
+    float match = 1.0 + 0.02 * distance;
+    float start = max(distance - match, 0.0);
+    if (!trace_drawn(eye + dir * start, dir, distance + match - start, distance - start, instance, primitive, id,
+                     barycentrics, t, to_world) ||
+        abs(t + start - distance) > match) {
+        return false;
+    }
+    HitVertices v;
+    if (!hit_vertices(instance, primitive, v)) {
+        return false;
+    }
+    vec3 n = cross(to_world * vec4(v.position[1] - v.position[0], 0.0), to_world * vec4(v.position[2] - v.position[0], 0.0));
+    float l = length(n);
+    if (!(l > 0.0) || any(isnan(n))) {
+        return false;
+    }
+    n /= l;
+    face = dot(n, dir) > 0.0 ? -n : n;
+    return true;
+}
 
 // (round PT-B - the one light through the seen-through surfaces) The light that gets through the seen-through instances
 // (mask 0x80: rt_surface_class.h kSeenThrough) between `origin` and `reach` - each one's expected share

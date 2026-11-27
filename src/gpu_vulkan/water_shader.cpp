@@ -384,14 +384,16 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
         ripple.xy += rain_ripple(rest.xz, vec4(water.misc.y, RAIN_RIPPLE_LAYERS, t, RAIN_RIPPLE_LIFE)) * water.misc.w;
     }
     vec3 n = water_wave_normal(swell, ripple.xy);
-    // the reflection's normal: the waves' tilt lessened where the water is seen at a grazing angle (a pixel there spans
-    // many facets, whose mean is flatter - the reflection is stretched along the water, not broken up), and Fresnel's
-    // grazing reflectance held below 1 by the waves' slope (rough water never mirrors fully)
-    float facing = clamp(dot(face, v), 0.0, 1.0);
-    vec3 n_mirror = normalize(face + (n - face) * mix(0.3, 1.0, smoothstep(0.05, 0.45, facing)));
-    float slope = clamp(length(n - face) * 1.5, 0.0, 0.5);
+    // the reflection's normal: the waves' own facet, as the path tracer meets it (vulkan_path_reference.cpp
+    // path_water_facet) - a facet turned away from the eye is the plane's; Fresnel (Schlick) at that facet.
+    // (round SHEETS) Two grazing approximations the reference doesn't make removed: the waves' tilt cut to 0.3 at a
+    // grazing view ("a pixel spans many facets, whose mean is flatter" - the reference averages the facets' reflections
+    // over the pixel, it never flattens them; the footprint's fade of the waves - water_wave_fade, the normal's mip
+    // filtering - stays), and Fresnel's grazing reflectance held to 1 - the slope ("rough water never mirrors fully" -
+    // the reference's facets reflect by Fresnel to 1 at grazing).
+    vec3 n_mirror = dot(n, v) > 0.0 ? n : face;
     float cos_v = clamp(dot(n_mirror, v), 0.0, 1.0);
-    float fresnel = kWaterF0 + (max(1.0 - slope, kWaterF0) - kWaterF0) * pow(1.0 - cos_v, 5.0);
+    float fresnel = kWaterF0 + (1.0 - kWaterF0) * pow(1.0 - cos_v, 5.0);
 
     // the water's colours: the scattering seen in deep water, from the tint (or the texture's own) at the light the game
     // gave the surface here (the program's brightness over its texel's: the bake, the pass colours)
@@ -472,6 +474,35 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
         under = water_light_of(water_scene_at(bent_uv));
         behind = bent;
     }
+    bool seen_behind = copied;
+    bool traced_through = false; // (round SHEETS: what is behind traced - the sheet a whole interface)
+#ifdef LIGHT_FRONT
+    // (NOT ORIGINAL - round SHEETS) where the front layer is this water, what is behind it is the layer's traced other
+    // side (vulkan_front_layer.h): the view's ray gone on past the rest surface to what it meets - the path tracer's thin
+    // interface, straight on - lit by the light list, through the see-through surfaces it crossed; its distance from the
+    // surface the path through the water. Not the copy made before the view's first water draw: whatever was drawn after
+    // that copy - a sheet under this one, a slope or the coins lying in the water among the transparencies - is missing
+    // from it (each sheet replaced what was under it). Nothing met: deep water (the body's colour alone).
+    // Where the trace meets the very surface the copy holds there (its depth along the view within the depth's precision
+    // of the copy's, 0.2 % + 0.25 units: the coins a unit over the fountain's floor are not the floor), the copy is
+    // kept: that surface lit by the view's own passes (ReSTIR's - not one light sample a frame), and the refraction's shift - screen space first, the trace where the screen lacks what is behind (as 2026's hybrid
+    // screen / ray-traced translucency and reflections do).
+    vec4 traced_behind = light_front_behind_at(ivec2(gl_FragCoord.xy));
+    if (traced_behind.a != 0.0) {
+        traced_through = true;
+        // (a: the hit's distance - negative where a blended layer lies on it, whose raster draw may come after the copy:
+        // the trace then; -65504: nothing met)
+        bool met = traced_behind.a > -65000.0;
+        bool layer_on_it = traced_behind.a < 0.0 && met;
+        float traced_w = met ? surface_w * (1.0 + abs(traced_behind.a) / dist) : kWaterFar * 10.0;
+        float copy_w = copied ? textureLod(water_depth, gl_FragCoord.xy * water.target.xy, 0.0).r : -1.0;
+        if (layer_on_it || !(copied && abs(traced_w - copy_w) <= 0.002 * copy_w + 0.25)) {
+            under = met ? water_light_of(display_from_linear(max(traced_behind.rgb, vec3(0.0)))) : deep;
+            behind = traced_w;
+            seen_behind = true;
+        }
+    }
+#endif
     float path = max(behind - surface_w, 0.0) * dist / surface_w;
     float depth_down = path * clamp(v.y, 0.0, 1.0);
     vec3 sigma = water_extinction(hue, water.waves.y);
@@ -480,12 +511,17 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
     vec3 refracted = under * through * lit_below + deep * (1.0 - through);
     // (round POOL) the covered share the body's own colour; without the copy the blend over what is behind is the game's
     // alpha's (the draw keeps it), so the colour is the body's alone
-    refracted = copied ? mix(refracted, body, cover) : body;
+    refracted = seen_behind ? mix(refracted, body, cover) : body;
 
     // 2. the reflection along the wave normal: on the screen where the ray finds something, else the sky - as the
     // screen shows it toward that direction, or as the level's sky was captured
     vec3 r = reflect(-v, n_mirror);
-    r = normalize(vec3(r.x, max(r.y, 0.02), r.z));
+    // (round SHEETS) a reflection the facet sends into the water meets the next wave's face and leaves upward - mirrored
+    // by the plane, as the path tracer's (before: held at 0.02 over the horizon)
+    if (dot(r, face) <= 0.0) {
+        r = reflect(r, face);
+    }
+    r = normalize(r);
     vec3 r_eye = (water.world_to_eye * vec4(r, 0.0)).xyz;
     vec3 sky = water.sky.w > 0.5 ? water_capture(r) : water.sky.rgb;
     if (copied) {
@@ -566,7 +602,10 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
     }
     shaded = max(shaded, vec3(0.0));
     // where the game drew any water it is all shaded here (what is behind is in it); where it drew none, still none
-    alpha = mix(colour.a, copied ? clamp(colour.a * 4.0, 0.0, 1.0) : colour.a, weight);
+    // (round SHEETS) where what is behind was traced the sheet is the whole interface, as the path tracer meets it -
+    // its coverage the body's share above, the rest what the trace found: nothing of what was drawn under it is kept
+    // (before, alpha x 4 of it replaced and the rest let the frame show - the frame without what was drawn after the copy)
+    alpha = mix(colour.a, traced_through ? 1.0 : (copied ? clamp(colour.a * 4.0, 0.0, 1.0) : colour.a), weight);
     return vec4(mix(colour.rgb, shaded, weight), colour.a);
 })";
 
