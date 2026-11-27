@@ -157,15 +157,17 @@ void FlexibleParticleManager::render_systems(bool force)
     }
     crt::get_qsort(static_cast<void*>(systems.data()), static_cast<size_t>(count), sizeof(EmitterInstance*),
                    &compare_distance); // (the game's qsort)
-    const bool always = force || objects::simulation_halted();
-    // (not original: a render-only frame of [Graphics] max_fps draws again what its tick's frame drew, clearing nothing -
-    // engine/sys/frame_blend.h)
+    const bool halted = objects::simulation_halted();
+    const bool always = force || halted;
+    // (not original: a render-only frame of [Graphics] max_fps draws again what its tick's frame drew, clearing nothing
+    // and emitting nothing - engine/sys/frame_blend.h; a paused world's draws emit nothing either - round GLOW,
+    // EmitterInstance::emit_after_draw)
     const bool extra = frame_blend::frame().extra;
     for (int i = 0; i < count; ++i) {
         if (extra) {
             core::at(systems, i)->render_again(always);
         } else {
-            core::at(systems, i)->render_if_visible(always);
+            core::at(systems, i)->render_if_visible(always, !halted);
         }
     }
 }

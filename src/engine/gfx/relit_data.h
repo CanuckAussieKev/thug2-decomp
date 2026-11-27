@@ -112,8 +112,11 @@ inline constexpr uint32_t kRelitDataMagic = 0x44523254U; // "T2RD"
 // lamp's fitting takes no triangle larger than the fitting's whole luminous area (lit_fitting_triangles). Training's
 // hall lamps were discs of their pools' 170 m^2 hanging 7 m over them, with their heads on the glass boxes' 9 m^2
 // undersides: a skater under one cast no shadow. Older files are not read.
-inline constexpr uint32_t kRelitDataVersion = 25;
-inline constexpr uint32_t kRelitDataOldestRead = 25;
+// v26 (round GLOW): a pool card's fitting is looked for within the pool's cone - the surface or the other lamp most
+// nearly straight over it; a card that is another lamp's pool, or has no fitting within its cone, is no lamp (it hung in
+// the air at its pool's radius). Older files are not read.
+inline constexpr uint32_t kRelitDataVersion = 26;
+inline constexpr uint32_t kRelitDataOldestRead = 26;
 inline constexpr const char* kRelitDataFolder = "thug2-decomp-relit";
 // A level's data matches it when its meshes holding at least this share of the world's vertices are found in it (the
 // rest - a script's mesh made later - keep their bake); under it the data is out of date.

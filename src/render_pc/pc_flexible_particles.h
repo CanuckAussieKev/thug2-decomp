@@ -48,9 +48,12 @@ public:
                        int segments, float unknown);
     // 0x004BD610 (0x004BDC40 the scalar deleting destructor; 0x004BD390 through the node): the material freed, then the engine's.
     ~PcNewFlatParticles() override;
-    // 0x004BD680 (vtable slot 1): the particles drawn, then emitted for the frame. While a draw fills the vertex
-    // buffer to within a quad of its room, the original stops - those particles and the rest aren't drawn.
+    // 0x004BD680 (vtable slot 1): the particles drawn. While a draw fills the vertex buffer to within a quad of its room,
+    // the original stops - those particles and the rest aren't drawn. (Not original: the frame's emission that ended it
+    // is emit_after_draw.)
     void render() override;
+    // NOT ORIGINAL - 0x004BD680's tail: the emit rate's particles for a frame (1/60 s), the fraction kept in `emitted`.
+    void emit_after_draw() override;
 };
 
 // The type 0x3D56A7A6 (its name unknown - a flat ribbon trail; 0x144 bytes, vtable 0x0064A528;

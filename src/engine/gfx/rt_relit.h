@@ -748,14 +748,30 @@ struct PoolSearch {
                                                      RayTracing& tracer, PoolSearch* report = nullptr);
 // (round HAZE - one rule for a pool of light) A glow lamp made from a light card lying flat and facing up - the pool of
 // light the artists drew on a floor under a fitting (rt_lights.cpp emitter_of: lifted by its card's radius, a panel the
-// size of the pool) - is the fitting that throws it, as find_pool_lamps' lamps are: a ray from the card up to its mount
-// (at least kPoolLeastMount over it), the lamp a panel kPoolMount under it, its reach by its pool's distance - with none
-// straight over it (an open sky, a roof opening) it stays where emitter_of put it, its pool's radius over the pool -;
-// either way its luminous area a ceiling panel's typical (lamp_fixtures.h: lumens / (pi L)), its intensity rescaled so
-// its flux (rt_light_list.h lamp_power) is the card's. Before, Training's hall lamps were
-// discs of their pools' 170 m^2 hanging 7 m over them - their light so broad that a skater under one cast no shadow.
-// Returns how many lamps were mounted under a fitting. Before the lamps are traced (their links, the solve and the models read them).
-std::size_t mount_pool_cards(std::vector<RelitLamp>* lamps, RayTracing& tracer);
+// size of the pool) - is the fitting that throws it, as find_pool_lamps' lamps are: its mount a surface at least
+// kPoolLeastMount over it, the lamp a panel kPoolMount short of it, facing the pool, its reach by its pool's distance;
+// its luminous area a ceiling panel's typical (lamp_fixtures.h: lumens / (pi L)), its intensity rescaled so its flux
+// (rt_light_list.h lamp_power) is the card's. Before, Training's hall lamps were discs of their pools' 170 m^2 hanging
+// 7 m over them - their light so broad that a skater under one cast no shadow.
+// (round GLOW) The fitting is looked for within the pool's cone - kPoolConeDegrees from the vertical, the angle round
+// HAZE hung an unmounted card's lamp at (its pool's radius over it): a street lamp's head on its arm, a wall bracket, is
+// seldom straight over the pool's centre. The candidate most nearly straight over the pool wins: a surface (a ray of the
+// cone - the vertical and kPoolConeRings rings of kPoolConeAzimuths - meeting it at least kPoolLeastMount up), or another
+// lamp already in the list (not a pool card: the game's own light, a lit head's card) that reaches the pool unblocked -
+// then the card is that lamp's pool, its picture of that light, and no lamp of its own. With neither (an open sky over
+// the pool) it is no lamp: no lamp hangs in the air (find_pool_lamps' rule). Before (HAZE), such a card stayed a fitting
+// hanging in the air at its pool's radius - TR 10, BA 38, NO 100 of them. The cards that are no lamp leave the list.
+// Before the lamps are traced (their links, the solve and the models read them).
+inline constexpr double kPoolConeDegrees = 45.0;
+inline constexpr std::size_t kPoolConeRings = 9;     // (every 5 degrees)
+inline constexpr std::size_t kPoolConeAzimuths = 64; // (a ring's step at 45 degrees: 7 units in 100 up - a lamp arm's width at 3 m)
+struct PoolCards {
+    std::size_t cards = 0;   // the pool cards
+    std::size_t mounted = 0; // ... mounted at the surface over them
+    std::size_t theirs = 0;  // ... another lamp's pools (left the list)
+    std::size_t unlit = 0;   // ... with no fitting within their cone (left the list)
+};
+PoolCards mount_pool_cards(std::vector<RelitLamp>* lamps, RayTracing& tracer);
 [[nodiscard]] bool pool_card_lamp(const RelitLamp& lamp);
 // Each vertex's L from its links and the lamps' intensities (building relief's made vertices from their sources) - with
 // all lamps on, or (`on`, one a lamp) each x how much it is on.

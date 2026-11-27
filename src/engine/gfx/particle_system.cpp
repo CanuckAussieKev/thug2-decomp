@@ -404,11 +404,14 @@ void EmitterInstance::run_emit_script()
 }
 
 // 0x00496FA0
-void EmitterInstance::render_if_visible(bool force)
+void EmitterInstance::render_if_visible(bool force, bool advance)
 {
     drawn_last_ = (unknown12f_ && unknown130_) || force; // (not original: for render_again)
     if (drawn_last_) {
         render();
+        if (advance) {
+            emit_after_draw(); // (not original: split from the newflat type's draw - see emit_after_draw)
+        }
         flag_bits_ &= ~1U;
         unknown12f_ = false;
     }

@@ -4043,30 +4043,87 @@ bool pool_card_lamp(const RelitLamp& lamp)
            lamp.core > 0.0F;
 }
 
-std::size_t mount_pool_cards(std::vector<RelitLamp>* lamps, RayTracing& tracer)
+namespace {
+
+// (round GLOW) a pool card's cone: straight up, then kPoolConeRings rings of kPoolConeAzimuths directions out to
+// kPoolConeDegrees from the vertical
+std::vector<Vec3> pool_cone_directions()
 {
-    std::vector<std::size_t> which;
-    std::vector<ProbeRequest> rays;
-    for (std::size_t li = 0; li < lamps->size(); ++li) {
-        const RelitLamp& lamp = core::at(*lamps, li);
-        if (!pool_card_lamp(lamp)) {
-            continue;
+    std::vector<Vec3> out{{0.0F, 1.0F, 0.0F}};
+    for (std::size_t ring = 1; ring <= kPoolConeRings; ++ring) {
+        const double tilt = kPoolConeDegrees * kRadiansPerDegree * static_cast<double>(ring) /
+                            static_cast<double>(kPoolConeRings);
+        for (std::size_t k = 0; k < kPoolConeAzimuths; ++k) {
+            const double turn = 2.0 * kPi * static_cast<double>(k) / static_cast<double>(kPoolConeAzimuths);
+            out.push_back({static_cast<float>(std::sin(tilt) * std::cos(turn)), static_cast<float>(std::cos(tilt)),
+                           static_cast<float>(std::sin(tilt) * std::sin(turn))});
         }
+    }
+    return out;
+}
+
+} // namespace
+
+PoolCards mount_pool_cards(std::vector<RelitLamp>* lamps, RayTracing& tracer)
+{
+    PoolCards result;
+    const std::vector<Vec3> cone = pool_cone_directions();
+    const auto least_up = static_cast<float>(std::cos(kPoolConeDegrees * kRadiansPerDegree));
+    // the pool cards, and every other lamp - a fitting's head another light already is
+    std::vector<std::size_t> cards;
+    for (std::size_t li = 0; li < lamps->size(); ++li) {
+        if (pool_card_lamp(core::at(*lamps, li))) {
+            cards.push_back(li);
+        }
+    }
+    result.cards = cards.size();
+    if (cards.empty()) {
+        return result;
+    }
+    // per card: its cone's rays, then a ray to each other lamp within its cone (the light must reach the pool)
+    std::vector<ProbeRequest> rays;
+    struct Heads {
+        std::size_t first = 0;
+        std::vector<std::pair<std::size_t, float>> lamps; // (the lamp, the cosine of its tilt)
+    };
+    std::vector<Heads> heads(cards.size());
+    for (std::size_t c = 0; c < cards.size(); ++c) {
+        const RelitLamp& lamp = core::at(*lamps, core::at(cards, c));
         // (the card's own plane: emitter_of lifted the lamp by its core)
         const Vec3 card = minus(lamp.position, Vec3{0.0F, lamp.core, 0.0F});
-        which.push_back(li);
-        rays.push_back({.origin = plus(card, Vec3{0.0F, kRelitOffset, 0.0F}),
-                        .direction = {0.0F, 1.0F, 0.0F},
-                        .max_distance = kEmitterMaxReach,
-                        .cull_mask = kRelitWorldMask,
-                        .cutouts = false});
+        const Vec3 origin = plus(card, Vec3{0.0F, kRelitOffset, 0.0F});
+        for (const Vec3& direction : cone) {
+            rays.push_back({.origin = origin,
+                            .direction = direction,
+                            .max_distance = kEmitterMaxReach,
+                            .cull_mask = kRelitWorldMask,
+                            .cutouts = false});
+        }
+        Heads& own = core::at(heads, c);
+        own.first = rays.size();
+        for (std::size_t li = 0; li < lamps->size(); ++li) {
+            const RelitLamp& other = core::at(*lamps, li);
+            if (pool_card_lamp(other)) {
+                continue;
+            }
+            const Vec3 to = minus(other.position, origin);
+            const float distance = std::sqrt(dot(to, to));
+            if (!(distance > 0.0F) || y_of(to) < kPoolLeastMount || y_of(to) < least_up * distance ||
+                distance > std::max(other.reach, 0.0F)) {
+                continue;
+            }
+            own.lamps.emplace_back(li, y_of(to) / distance);
+            rays.push_back({.origin = origin,
+                            .direction = scaled(to, 1.0F / distance),
+                            .max_distance = std::max(distance - std::max(other.size, kRelitOffset), kRelitOffset),
+                            .cull_mask = kRelitWorldMask,
+                            .cutouts = false});
+        }
     }
     std::vector<ProbeResult> answers;
-    if (!rays.empty()) {
-        tracer.probe_many(rays, &answers);
-    }
+    tracer.probe_many(rays, &answers);
     if (answers.size() != rays.size()) {
-        return 0;
+        return result;
     }
     // (a ceiling's fitting: its typical luminous area - find_pool_lamps')
     const FixtureValues& panel = fixture_values(LampFixture::kPanel);
@@ -4074,29 +4131,65 @@ std::size_t mount_pool_cards(std::vector<RelitLamp>* lamps, RayTracing& tracer)
     const float core = emitter_core(
         static_cast<float>(static_cast<double>(panel.lumens) / (kPi * static_cast<double>(panel.luminance))) *
         kSquareUnitsPerSquareMetre);
-    std::size_t mounted = 0;
-    for (std::size_t k = 0; k < rays.size(); ++k) {
-        const ProbeResult& answer = core::at(answers, k);
-        RelitLamp& lamp = core::at(*lamps, core::at(which, k));
+    std::vector<uint8_t> drop(lamps->size(), 0);
+    for (std::size_t c = 0; c < cards.size(); ++c) {
+        RelitLamp& lamp = core::at(*lamps, core::at(cards, c));
+        const Heads& own = core::at(heads, c);
+        const std::size_t first_ray = own.first - cone.size();
+        // the surface most nearly straight over the pool, a fitting's least height up
+        float surface_up = -1.0F;
+        std::size_t surface = 0;
+        for (std::size_t k = 0; k < cone.size(); ++k) {
+            const ProbeResult& answer = core::at(answers, first_ray + k);
+            const Vec3& direction = core::at(cone, k);
+            if (answer.hit && answer.distance * y_of(direction) >= kPoolLeastMount && y_of(direction) > surface_up) {
+                surface_up = y_of(direction);
+                surface = k;
+            }
+        }
+        // the other lamp most nearly straight over it that sees it
+        float lamp_up = -1.0F;
+        for (std::size_t k = 0; k < own.lamps.size(); ++k) {
+            if (!core::at(answers, own.first + k).hit && core::at(own.lamps, k).second > lamp_up) {
+                lamp_up = core::at(own.lamps, k).second;
+            }
+        }
+        if (lamp_up >= surface_up && lamp_up > 0.0F) {
+            core::at(drop, core::at(cards, c)) = 1; // (that lamp throws this pool: the card is its light's picture)
+            ++result.theirs;
+            continue;
+        }
+        if (surface_up <= 0.0F) {
+            core::at(drop, core::at(cards, c)) = 1; // (no fitting within its cone: no lamp hangs in the air)
+            ++result.unlit;
+            continue;
+        }
         // (its luminous disc a fitting's, the same flux from it: a panel's is 2 pi^2 I core^2 - rt_light_list.h
         // lamp_power - wherever it hangs)
         const float ratio = (lamp.core * lamp.core) / (core * core);
         lamp.light = scaled(lamp.light, ratio);
         lamp.core = core;
-        if (!answer.hit || answer.distance < kPoolLeastMount) {
-            // (no mount straight over it - an open sky, a roof opening, between the trusses - or one lower than a
-            // fitting's least height: it stays where its pool puts it, its pool's radius over it - a 45-degree cone)
-            continue;
-        }
-        const ProbeRequest& ray = core::at(rays, k);
-        const Vec3 mount = plus(ray.origin, Vec3{0.0F, answer.distance, 0.0F});
-        lamp.position = minus(mount, Vec3{0.0F, kPoolMount, 0.0F});
+        const Vec3& toward = core::at(cone, surface);
+        const ProbeRequest& ray = core::at(rays, first_ray + surface);
+        const float distance = core::at(answers, first_ray + surface).distance;
+        const Vec3 mount = plus(ray.origin, scaled(toward, distance));
+        lamp.position = minus(mount, scaled(toward, kPoolMount));
         lamp.size = kPoolMount;
-        lamp.reach = std::clamp(kPoolReachPerDistance * answer.distance, kEmitterMinReach, kEmitterMaxReach);
-        lamp.axis = {0.0F, 1.0F, 0.0F};
-        ++mounted;
+        lamp.reach = std::clamp(kPoolReachPerDistance * distance, kEmitterMinReach, kEmitterMaxReach);
+        // (as find_pool_lamps': a fitting over its pool faces down on it - a panel; one beside it lights across - a point)
+        const bool over = std::abs(y_of(toward)) >= kVerticalPanel;
+        lamp.shape = over ? EmitterShape::kPanel : EmitterShape::kPoint;
+        lamp.axis = over ? toward : Vec3{0.0F, 1.0F, 0.0F};
+        ++result.mounted;
     }
-    return mounted;
+    std::size_t kept = 0;
+    for (std::size_t li = 0; li < lamps->size(); ++li) {
+        if (core::at(drop, li) == 0U) {
+            core::at(*lamps, kept++) = core::at(*lamps, li);
+        }
+    }
+    lamps->resize(kept);
+    return result;
 }
 
 void relit_to_unit(RelitModel* model, std::span<RelitVertices> light, std::span<RelitLamp> lamps)

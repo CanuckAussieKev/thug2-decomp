@@ -424,8 +424,11 @@ void PcNewFlatParticles::render()
             renderer().count_draw(quads * 2);
         }
     }
-    emit_for_frame(*this, emitted);
+    // (the original emitted the frame's particles here - emit_after_draw, called after the draw when the world steps)
 }
+
+// Not original - 0x004BD680's tail on its own (EmitterInstance::emit_after_draw): the rate's particles for the frame.
+void PcNewFlatParticles::emit_after_draw() { emit_for_frame(*this, emitted); }
 
 // --- the flat ribbon (0x3D56A7A6) ---
 
