@@ -96,6 +96,7 @@ namespace {
 using render::GpuSurface;
 namespace value = render::gpu_value;
 namespace rt = render::rt;
+namespace brdf = render::rt::brdf;
 using Vec3 = std::array<double, 3>;
 using Rgb = std::array<double, 3>;
 
@@ -2751,10 +2752,21 @@ public:
     int marked = 0;
 };
 
+// (round CENSUS) `textured_floor` non-zero: the floor drawn as an unlit surface without a light store - its own colours
+// (this vertex colour), stage 0's white texture through the lit glow's material program (lit_glow_draw; its pass colour
+// kNoStorePass), opaque - as the game draws an unlit prop or a world mesh the relit data has no entry for.
+constexpr float kNoStorePass = 0.25F; // (c0: the material's colour - x 4 with the neutral v0 0.5: display 0.5)
+struct TexturedVertex {
+    std::array<float, 3> position{};
+    uint32_t colour = 0;
+    std::array<float, 2> uv{};
+};
+constexpr uint32_t kFvfColourTexture = 0x142; // XYZ | DIFFUSE | TEX1
+
 // A frame of the view lit per surface: the floor (blended first pass) before or after the box, and what is over it.
 bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, bool floor_first,
                       Over over, uint64_t frame, std::vector<uint8_t>* texels, std::vector<uint8_t>* guides = nullptr,
-                      std::vector<uint8_t>* layer = nullptr)
+                      std::vector<uint8_t>* layer = nullptr, uint32_t textured_floor = 0)
 {
     using render::GpuRenderState;
     rt::FrameRecord& record = rt::frame_record();
@@ -2786,12 +2798,33 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
         gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(vertices.size() / 3),
                              vertices.data(), sizeof(ColourVertex));
     };
+    const auto draw_floor = [&gpu, &draw_solid, textured_floor] {
+        if (textured_floor == 0) {
+            draw_solid(core::at(kScene, 0), true);
+            return;
+        }
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
+        gpu.set_vertex_format(kFvfColourTexture);
+        gpu.set_texture(0, lit_glow_draw().texture);
+        gpu.set_pixel_shader(lit_glow_draw().shader);
+        constexpr std::array<float, 4> kPass{kNoStorePass, kNoStorePass, kNoStorePass, 0.5F};
+        gpu.set_pixel_constants(0, kPass.data(), 1);
+        std::vector<TexturedVertex> quad;
+        for (const ColourVertex& corner : quad_at(0.0, -kFloorHalf, kFloorHalf, -kFloorHalf, kFloorHalf, textured_floor)) {
+            quad.push_back({.position = corner.position, .colour = corner.colour});
+        }
+        gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(quad.size() / 3), quad.data(),
+                             sizeof(TexturedVertex));
+        gpu.set_pixel_shader(nullptr);
+        gpu.set_texture(0, nullptr);
+        gpu.set_vertex_format(kFvfColour);
+    };
     if (floor_first) {
-        draw_solid(core::at(kScene, 0), true);
+        draw_floor();
         draw_solid(core::at(kScene, 1), false);
     } else {
         draw_solid(core::at(kScene, 1), false);
-        draw_solid(core::at(kScene, 0), true);
+        draw_floor();
     }
     if (over == Over::kLitGlow) {
         gpu.set_render_state(GpuRenderState::kZWriteEnable, 0);
@@ -3227,6 +3260,69 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                                   "worst %.4f)",
                                   glass_case ? "glass" : "glow", pixels_in, colour_wrong, layer_wrong, composed_wrong,
                                   layer_worst));
+    }
+    // (round CENSUS - the bake ratio retired) The floor as an unlit surface without a light store (its own colours: two
+    // vertex colours - the bake's light, 3 x apart): lit per pixel as the rays see it - its material (the texel x the
+    // pass colour under the neutral light) lit by the sun's traced visibility on the light model, the colour keeping only
+    // its indirect share x the indirect visibility (1 here: no occlusion, no GI). So in the sun its light differs from
+    // the shadow's by the light model's sun alone, whatever the vertex colour. Before, the colour was taken by shares:
+    // its direct share (the bake x the field's ratio) stood for the sun - 3 x apart between the two colours.
+    {
+        const View view = view_from(kEye);
+        const brdf::Rgb albedo{static_cast<float>(rt::linear_from_display(2.0 * kNoStorePass)),
+                               static_cast<float>(rt::linear_from_display(2.0 * kNoStorePass)),
+                               static_cast<float>(rt::linear_from_display(2.0 * kNoStorePass))};
+        brdf::Material m;
+        m.albedo = albedo;
+        const float painted_f0 = std::get<0>(rt::material_f0(rt::MaterialKind::kPainted));
+        m.f0 = {painted_f0, painted_f0, painted_f0};
+        m.roughness = rt::material_values(rt::MaterialKind::kPainted).roughness;
+        const float exposure = rt::frame_pre_exposure();
+        const brdf::Vec3 up{0.0F, 1.0F, 0.0F};
+        const brdf::Vec3 l{static_cast<float>(x_of(toward)), static_cast<float>(y_of(toward)), static_cast<float>(z_of(toward))};
+        for (const uint32_t vertex_colour : {0xFF404040U, 0xFFC0C0C0U}) {
+            std::vector<uint8_t> shot;
+            bool drew = ok;
+            for (int pass = 0; drew && pass < 2; ++pass) {
+                drew = draw_per_surface(gpu, targets, meshes, true, Over::kNothing, frame++, &shot, nullptr, nullptr,
+                                        vertex_colour);
+            }
+            const float bake = static_cast<float>(
+                rt::linear_from_display(2.0 * static_cast<double>(vertex_colour & 0xFFU) / 255.0));
+            int sunlit = 0;
+            int shaded = 0;
+            int wrong = 0;
+            double worst = 0.0;
+            for (const FloorPixel& pixel : pixels) {
+                if (!drew) {
+                    break;
+                }
+                const Seen seen = seen_at(view, pixel.x + 0.5, pixel.y + 0.5);
+                const brdf::Vec3 v = brdf::normalise({static_cast<float>(x_of(kEye) - x_of(seen.point)),
+                                                      static_cast<float>(y_of(kEye) - y_of(seen.point)),
+                                                      static_cast<float>(z_of(kEye) - z_of(seen.point))});
+                const float nv = std::max(brdf::dot(up, v), brdf::kLeastCosine);
+                const brdf::Rgb kept = brdf::ambient(m, nv, {bake, bake, bake}, {bake, bake, bake});
+                const float sun = pixel.shadowed ? 0.0F : exposure;
+                const brdf::Rgb direct = brdf::direct(m, up, v, l, {sun, sun, sun});
+                const Rgb got = linear_pixel_at(shot, pixel.x, pixel.y);
+                bool bad = false;
+                for (std::size_t c = 0; c < 3; ++c) {
+                    const double want = (static_cast<double>(core::at(kept, c)) * (1.0 - kShareDirect)) +
+                                        static_cast<double>(core::at(direct, c));
+                    const double error = std::abs(core::at(got, c) - want);
+                    worst = std::max(worst, error / std::max(want, 1e-3));
+                    bad = bad || error > kLinearTolerance + (0.02 * want);
+                }
+                wrong += bad ? 1 : 0;
+                (pixel.shadowed ? shaded : sunlit) += 1;
+            }
+            tally->check(drew && sunlit > 1000 && shaded > 300 && wrong == 0,
+                         text::format("a surface without a light store (its own colours 0x%02X) lit by the rays' light: "
+                                      "%d sunlit and %d shadowed pixels, %d off the light model (the sun on its material, "
+                                      "its colour's indirect share; worst %.1f %%)",
+                                      vertex_colour & 0xFFU, sunlit, shaded, wrong, 100.0 * worst));
+        }
     }
     {
         render::vulkan::Backend& state = render::vulkan::backend();

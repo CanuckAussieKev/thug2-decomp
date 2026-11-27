@@ -3298,6 +3298,30 @@ level's other lamps): the candidate most nearly straight over the pool wins; a s
 fitting's size under it, facing the pool), another lamp means the card is that lamp's pool (no lamp of its own), and
 with neither it is no lamp - no lamp hangs in the air (relit data v26; `thug2_vulkan_rt_relit_check`).
 
+**Round CENSUS: the bake ratio retired - a surface without a light store takes the rays' light.** What the relit data
+gives no light store - an unlit object's own baked colours (one the relit level doesn't list: it moves, it stands at
+another place), a world mesh with no entry (a day-only mesh of a level baked in its night state - New Orleans' 230 at
+noon -, one the mode can't relight, one shown before its light is written), a billboard - was drawn with its colour x
+the light field's now-over-bake ratio where it stands (`rt_relit_world.h unlit_object_colour` / `unlit_world_colour`,
+held to a byte), and in a view lit per surface that colour was taken by shares (`kLightShare`): its direct share x the
+sun's traced visibility stood for the sun. Its sun was the bake's sun at the level's own time scaled by a ratio that
+explodes where the bake was dark, on an albedo that is the original's light, while every ray (`hit_surface_at`: a mesh
+without a store is its material alone, no light of its own), ReSTIR's traced albedo and the reference saw the material.
+Now such a draw is lit per pixel (`vulkan_surface_light.cpp surface_light_force`: every kept draw that writes depth,
+unlit by the game's lights and not a particle; `ff_shaders.cpp no_store_light`): its material - the texel x the
+pass colour under the neutral light, as a surface with a store - lit by the sun's or the moon's direct light on the
+light model x the traced visibility, the lamps input and GI's specular, as every surface; its colour keeps only its
+indirect share x the indirect visibility, which is 0 wherever ReSTIR GI lit the pixel (its samples are then its
+indirect light) - the colour is no light at all under ReSTIR GI, and with GI off its indirect share stands in for the
+store's environment estimate it doesn't have. A relit mesh's vertex without a store word takes the same rule (it was the
+front layer's alone). Where the sun's visibility wasn't traced (no shadows pass, a fragment that isn't the surface the
+inputs were made for) the colour is taken by shares as before. The particles keep the front layer's light on their colour
+(`share_front`); a program the per-pixel lighting can't take, or a lit draw without normals, keeps the shares - `rt
+census` counts the kept draws each way ("surface draws without a store (the rays' light)", "... by shares", "particle
+draws"). No relit data change. `thug2_vulkan_rt_lights_check`: an unlit, textured floor with no store, its vertex
+colour 0x40 and 0xC0 (the bake's light 3 x apart) - every floor pixel the light model's sun on its material x the traced
+visibility plus its colour's indirect share, whatever the vertex colour.
+
 **Round POOL: one water material in the raster, the rays and the path tracer.** The path tracer meets the game's water as
 an interface (round LW): Fresnel's share mirrored, the rest into it - the sheet's drawn alpha (2 x the vertex alpha x the
 texel's) its own colour, a diffuse surface of the material's albedo, the remainder through to what is behind. The water

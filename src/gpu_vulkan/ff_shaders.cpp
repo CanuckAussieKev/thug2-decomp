@@ -1271,6 +1271,32 @@ void surface_coat_layer(std::string& out, const FragmentKey& key, uint32_t sampl
               num(rt::material_values(rt::MaterialKind::kLacquer).roughness), ", surface_coat);\n    }"});
 }
 
+// (NOT ORIGINAL - round CENSUS: the bake ratio retired) A surface lit per pixel without a light store (an unlit object's
+// own baked colours, a world mesh the relit data has no entry for, a relit mesh's vertex without a store word): `light`
+// names its colour as light - the original's bake x the light field's now-over-bake ratio where it stands (the instance
+// colour, surface_tint_light). Without the light inputs, or where the sun's visibility wasn't traced (surface_li.r < 0),
+// that light by shares as before (light_share). Where it was traced - the light inputs of a view lit per surface, the
+// front layer's -, the surface takes the light the rays give every surface, as one with a store does and as the rays see
+// it (vulkan_rt_scene.cpp hit_surface_at: a mesh without a store is its material alone, no light of its own): the sun's
+// or the moon's direct light by the light model on its material x the traced visibility, the lamps input, GI's specular
+// (after); the colour keeps only its indirect share (1 - the direct share) x the indirect visibility - 0 where ReSTIR GI
+// lit the pixel, whose samples are then its indirect light. Before, the colour's direct share (the bake's sun x the
+// field's ratio, held to a byte) stood for the sun: the bake's light at its own time scaled by a ratio that explodes
+// where the bake was dark, on an albedo that isn't the material's.
+std::string no_store_light(const std::string& light, const std::string& indent, bool inputs, bool relief)
+{
+    const std::string ambient = indent + "surface_out = brdf_ambient(surface_m, surface_nv, " + light + " * surface_hemi, " +
+                                light + " * surface_env) * ";
+    const std::string lamps = " + brdf_ambient(surface_m, surface_nv, surface_lamps, vec3(0.0));\n";
+    if (!inputs) {
+        return ambient + "light_share(surface_li)" + lamps;
+    }
+    return ambient + "(surface_li.r >= 0.0 ? (1.0 - surface_li.g) * surface_li.b : light_share(surface_li))" + lamps +
+           indent + "if (surface_li.r >= 0.0 && s.sun.w > 0.5 && dot(surface_geo, s.sun.xyz) > 0.0) {\n" + indent +
+           "    surface_out += brdf_direct(surface_m, surface_n, surface_v, s.sun.xyz, s.sun_light.rgb * surface_li.r" +
+           (relief ? " * relief_shadow" : "") + ");\n" + indent + "}\n";
+}
+
 void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
 {
     // (round ALBEDO) the game's colour on the geometry (pass_tint_of: the time of day's sector colour, an object's light
@@ -1414,22 +1440,17 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
                   "        surface_out += brdf_ambient(surface_m, surface_nv, surface_lamps, vec3(0.0));\n"
                   "    } else {\n",
                   layer_m_inner,
-                  "        vec3 light = linear_from_display(v_diffuse.rgb * surface_word) * surface_tint_light;\n"
-                  "        surface_out = brdf_ambient(surface_m, surface_nv, light * surface_hemi, light * surface_env) * "
-                  "light_share(surface_li) + brdf_ambient(surface_m, surface_nv, surface_lamps, vec3(0.0));\n",
+                  "        vec3 light = linear_from_display(v_diffuse.rgb * surface_word) * surface_tint_light;\n",
                   // (round FL: on the front layer the vertex's light has no share - the disc's light by the light model, as
-                  // with a store)
-                  front ? "        if (light_front_at && s.sun.w > 0.5 && dot(surface_geo, s.sun.xyz) > 0.0) {\n"
-                          "            surface_out += brdf_direct(surface_m, surface_n, surface_v, s.sun.xyz, s.sun_light.rgb * "
-                          "surface_li.r);\n        }\n"
-                        : "",
-                  "    }"});
+                  // with a store; round CENSUS: wherever the sun's visibility was traced - no_store_light)
+                  no_store_light("light", "        ", inputs, relief), "    }"});
     } else {
         // the bake: its light (the vertex colour doubled, display-referred) as the environment's (round V: its light not
-        // separated - taken by shares, light_share)
-        add(out, {layer_m, "    vec3 surface_bake = linear_from_display(v_diffuse.rgb * 2.0) * surface_tint_light;\n"
-                  "    surface_out = brdf_ambient(surface_m, surface_nv, surface_bake * surface_hemi, surface_bake * surface_env) "
-                  "* light_share(surface_li) + brdf_ambient(surface_m, surface_nv, surface_lamps, vec3(0.0));"});
+        // separated - taken by shares, light_share; round CENSUS: where the sun was traced, no_store_light)
+        const bool relief = (key.detail & kDetailRelief) != 0U && (key.surface & kSurfaceMap) != 0U;
+        std::string lit = no_store_light("surface_bake", "    ", inputs, relief);
+        lit.pop_back(); // (add ends the line)
+        add(out, {layer_m, "    vec3 surface_bake = linear_from_display(v_diffuse.rgb * 2.0) * surface_tint_light;\n", lit});
     }
     if (inputs) {
         // (path tracing, stage 5 - ReSTIR GI: the environment's specular traced, on the material's specular albedo - in
