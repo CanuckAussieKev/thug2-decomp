@@ -642,11 +642,6 @@ uint cache_hash(uint x)
     x ^= x >> 16;
     return x;
 }
-// (round PERF) Whose cells a lookup or a write is in: 0 the surfaces' (every path vertex - the prepass's surfaces and
-// what rays meet), 1 the front layer's own points (the water's surface, a pane, the mist - vulkan_front_layer.cpp: a cell
-// of their own, so the layer's samples never move an opaque surface's cell that lies in the same place and faces the
-// same way, nor take its light). A caller sets it around its own point's lookups and writes.
-uint ll_cache_kind = 0u;
 // The table's slot a point's cell starts its probes at and its check word (another hash of the cell - never 0).
 void cache_key(vec3 at, vec3 ng, out uint slot, out uint check)
 {
@@ -656,7 +651,7 @@ void cache_key(vec3 at, vec3 ng, out uint slot, out uint check)
     vec3 a = abs(ng);
     uint axis = a.x >= a.y && a.x >= a.z ? 0u : (a.y >= a.z ? 1u : 2u);
     float along = axis == 0u ? ng.x : (axis == 1u ? ng.y : ng.z);
-    uint w = uint(level) | ((axis * 2u + (along < 0.0 ? 1u : 0u)) << 8) | (ll_cache_kind << 12);
+    uint w = uint(level) | ((axis * 2u + (along < 0.0 ? 1u : 0u)) << 8);
     uvec3 u = uvec3(c);
     slot = cache_hash(u.x ^ cache_hash(u.y ^ cache_hash(u.z ^ cache_hash(w)))) & (CACHE_CAPACITY - 1u);
     check = cache_hash(u.z ^ cache_hash(u.y + cache_hash(u.x ^ cache_hash(w ^ 0x9E3779B9u))));
