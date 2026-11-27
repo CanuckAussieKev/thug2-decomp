@@ -2853,10 +2853,10 @@ void check_pool_cards(Tally* tally)
     const bool under_ceiling = std::abs(rt::y_of(hung.position) - (kHeight - rt::kPoolMount)) <= 3.0F;
     const bool small = hung.core < 40.0F;
     const bool kept = std::abs(flux_after / flux_before - 1.0) <= 1e-3;
-    tally->check(cards.cards == 3 && cards.mounted == 2 && under_ceiling && small && kept,
-                 text::format("a pool card's lamp: %zu mounted, at y %.1f (the ceiling %.0f), core %.1f (was %.0f), its "
+    tally->check(cards.cards == 4 && cards.mounted == 2 && under_ceiling && small && kept,
+                 text::format("a pool card's lamp: %zu of %zu mounted, at y %.1f (the ceiling %.0f), core %.1f (was %.0f), its "
                               "flux x %.4f",
-                              cards.mounted, static_cast<double>(rt::y_of(hung.position)), static_cast<double>(kHeight),
+                              cards.mounted, cards.cards, static_cast<double>(rt::y_of(hung.position)), static_cast<double>(kHeight),
                               static_cast<double>(hung.core), static_cast<double>(kCardCore), flux_after / flux_before));
     // the street lamp's: at its head (within a ring's step of the line to it), facing the pool, the same flux
     const rt::RelitLamp& head = lamps.at(1);
