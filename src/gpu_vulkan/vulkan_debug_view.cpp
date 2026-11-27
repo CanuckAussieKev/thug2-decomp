@@ -30,12 +30,13 @@ struct ViewName {
     DebugView view;
     const char* name;
 };
-constexpr std::array<ViewName, 11> kNames{{{.view = DebugView::kOff, .name = "off"},
+constexpr std::array<ViewName, 12> kNames{{{.view = DebugView::kOff, .name = "off"},
                                            {.view = DebugView::kLamps, .name = "lamps"},
                                            {.view = DebugView::kLampsSpecular, .name = "lamps_specular"},
                                            {.view = DebugView::kGi, .name = "gi"},
                                            {.view = DebugView::kGiSpecular, .name = "gi_specular"},
                                            {.view = DebugView::kSky, .name = "sky"},
+                                           {.view = DebugView::kSun, .name = "sun"},
                                            {.view = DebugView::kReflections, .name = "reflections"},
                                            {.view = DebugView::kFog, .name = "fog"},
                                            {.view = DebugView::kFront, .name = "front"},
@@ -162,7 +163,8 @@ uint32_t debug_view_terms(DebugView view)
     case DebugView::kLampsSpecular: return debug_term::kLampsSpecular;
     case DebugView::kGi: return debug_term::kGiDiffuse;
     case DebugView::kGiSpecular: return debug_term::kGiSpecular;
-    case DebugView::kSky: return debug_term::kSky;
+    case DebugView::kSky: return debug_term::kSky | debug_term::kSun;
+    case DebugView::kSun: return debug_term::kSun;
     case DebugView::kReflections: return debug_term::kReflections;
     case DebugView::kFog: return debug_term::kFog;
     case DebugView::kFront: return debug_term::kFront;

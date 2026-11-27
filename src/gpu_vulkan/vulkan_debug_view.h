@@ -21,6 +21,8 @@
 //   gi             ReSTIR GI's diffuse from surfaces: the bounce, with the radiance cache's further bounces
 //   gi_specular    ReSTIR GI's specular from surfaces (its own GGX ray a pixel)
 //   sky            the sun's or the moon's direct light (the shadows' visibility) and GI's samples that saw the sky
+//   sun            (round PANES) the sun's or the moon's direct light alone: the disc's visibility the shading takes
+//                  (`sky` less the sky's light - which of the two lights a pixel)
 //   reflections    the reflections pass: the game's shine, glass and mirrors - its rays' hits lit by the light list
 //   fog            the volumetric fog's in-scattered light (the light list's lamps and the sun in the air)
 //   front          the front layer: the nearest see-through surface's light (vulkan_front_layer.h)
@@ -43,6 +45,7 @@ enum class DebugView : uint8_t {
     kFront,
     kEmission,
     kFlicker,
+    kSun, // (round PANES)
 };
 
 // The terms a view lets into the frame (bits).
@@ -55,7 +58,8 @@ inline constexpr uint32_t kSky = 1U << 4U;
 inline constexpr uint32_t kReflections = 1U << 5U;
 inline constexpr uint32_t kFog = 1U << 6U;
 inline constexpr uint32_t kFront = 1U << 7U;
-inline constexpr uint32_t kAll = 0xFFU;
+inline constexpr uint32_t kSun = 1U << 8U; // (round PANES) the disc's direct light (the visibility); `sky` lets it in too
+inline constexpr uint32_t kAll = 0x1FFU;
 } // namespace debug_term
 
 inline constexpr uint32_t kFlickerFrames = 60;   // the flicker view's window (a running mean and variance over it)

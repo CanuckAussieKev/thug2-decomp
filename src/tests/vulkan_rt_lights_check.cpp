@@ -19,7 +19,8 @@
 //   - a red-textured lamp (an emitter whose material's texture is red) lights the floor red (its texture's mean);
 //   - two lamps, one traced (rt_lights_shadowed=1): the other's light in the share of the traced one's that got through;
 //   - (round SHEETS) a strip 1 - 2 pixels wide (a thin post, a lamp in front of it): lit by its own face (the camera
-//     ray's triangle - vulkan_rt_scene.h camera_face), not by the floor's round it;
+//     ray's triangle - vulkan_rt_scene.h camera_face), not by the floor's round it; (round PANES) the same where the
+//     rays' drawn rule leaves the post out (a cut-out for the rays, alpha 0.38 under its 0.5) - the depth's triangle;
 //   - (added for the cut-outs) the box made an alpha-tested caster: its texels' alpha 0 - the lamp's light goes through
 //     it (no floor shadowed, as without it); alpha 255 - shadowed as the solid box;
 //   - rt_lights off, or no lamp in view: every pixel exactly as drawn (no pass);
@@ -1582,14 +1583,37 @@ double post_added(const Seen& seen, const Vec3& normal, std::size_t channel)
     return static_cast<double>(kStrength) * render::rt::linear_from_display(core::at(kPost.albedo, channel)) * light;
 }
 
-void run_strip(render::Gpu& gpu, std::span<const SceneMesh> scene, Tally* tally)
+bool make_cutout_material(render::Gpu& gpu, uint32_t texel, const Rgb& albedo, render::GpuTexture** texture,
+                          rt::MaterialId* material);
+
+// (round PANES - vulkan_rt_scene.h depth_triangle) `thin_cover`: the post drawn by the raster as before but a cut-out for
+// the rays whose texels' alpha is under its alpha test's reference - the rays' drawn rule leaves it out where the raster
+// drew it (Training's glass box: a pane's border where the two decide differently). Its face is still the triangle the
+// depth's point lies on (no opacity micromap in the check: the triangle is a candidate).
+void run_strip(render::Gpu& gpu, std::span<const SceneMesh> scene, Tally* tally, bool thin_cover)
 {
-    text::print("a strip one or two pixels wide (a thin post, a lamp in front of it):\n");
+    if (thin_cover) {
+        text::print("the strip where the rays' drawn rule leaves the post out (a cut-out, alpha 0.38 under 0.5):\n");
+    } else {
+        text::print("a strip one or two pixels wide (a thin post, a lamp in front of it):\n");
+    }
     SceneMesh post;
     if (!make_solid(gpu, kPost, &post)) {
         tally->check(false, "the post made");
         release_solid(gpu, &post);
         return;
+    }
+    render::GpuTexture* cover_texture = nullptr;
+    rt::MaterialId cover = 0;
+    if (thin_cover) {
+        constexpr uint32_t kThinWhite = 0x60FFFFFFU; // alpha 96: 0.376 - under the alpha test's reference, 0.5
+        if (!make_cutout_material(gpu, kThinWhite, kPost.albedo, &cover_texture, &cover)) {
+            tally->check(false, "the post's cut-out material made");
+            release_solid(gpu, &post);
+            return;
+        }
+        post.material = cover;
+        post.flags = rt::kWorld | rt::kAlphaTested | rt::kCastsShadow;
     }
     std::vector<SceneMesh> meshes(scene.begin(), scene.end());
     meshes.push_back(post);
@@ -1610,6 +1634,10 @@ void run_strip(render::Gpu& gpu, std::span<const SceneMesh> scene, Tally* tally)
     }
     release_targets(gpu, targets);
     release_solid(gpu, &post);
+    if (cover != 0) {
+        rt::ray_tracing()->remove_material(cover);
+        gpu.release_texture(cover_texture);
+    }
     const View view = view_from(kEye);
     const Vec3 up{0.0, 1.0, 0.0};
     constexpr double kInside = 0.25; // (a pixel counts where its centre's neighbourhood is all on the post's face)
@@ -4482,7 +4510,8 @@ int run(const Options& options, SDL_Window* window, Tally* tally)
         run_point(gpu, meshes, kFourSamples, tally);
         run_emitter(gpu, meshes, red, tally);
         run_two(gpu, meshes, tally);
-        run_strip(gpu, meshes, tally); // (round SHEETS)
+        run_strip(gpu, meshes, tally, false); // (round SHEETS)
+        run_strip(gpu, meshes, tally, true);  // (round PANES)
         run_cutout(gpu, meshes, tally); // (added for the cut-outs)
         run_blended(gpu, meshes, tally); // (round PT-B: blended surfaces in every ray)
         run_off(gpu, meshes, tally);

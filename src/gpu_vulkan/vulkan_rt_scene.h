@@ -212,10 +212,14 @@ std::string_view scene_geometry_glsl();
 //        distance; negative: unknown) is the blended one's own (a layer that writes depth, kept by the prepass)
 //   float layer_gap(uint instance, uint primitive, mat4x3 to_world, vec3 dir, float t, float t_behind) - how far a
 //        triangle met at t lies from the point at t_behind along its own normal
+//   bool depth_triangle(uint mask, vec3 eye, vec3 dir, float expected, out instance, primitive, id, barycentrics, t,
+//        to_world) - (round PANES) the triangle the depth's point lies on: the instances `mask` picks (not the passes apart)
+//        candidate within the depth's match (1 unit + 2 % of `expected`) of the distance, the nearest it - whatever
+//        drawn_kept decides (the raster decided the surface it drew); false: none there (a surface without a ray copy)
 //   bool camera_face(vec3 eye, vec3 here, out vec3 face) - (round SHEETS) the geometric normal (world, unit, toward the
-//        eye) of the triangle trace_drawn meets at the depth's point `here`; false where none lies there. The one normal
-//        of every pass that starts rays from the camera's surface (sun shadows, lamps, occlusion, bounce) - never the
-//        neighbouring depths' (a 1 - 2 pixel strip took its background's)
+//        eye) of the triangle at the depth's point `here` (round PANES: depth_triangle); false where none lies there.
+//        The one normal of every pass that starts rays from the camera's surface (sun shadows, lamps, occlusion,
+//        bounce) - never the neighbouring depths' (a 1 - 2 pixel strip took its background's)
 // (round PT-B - one light ray: engine/gfx/rt_surface_class.h) Every light ray's visibility:
 //   vec3 seen_through(uint mask, vec3 origin, vec3 dir, float reach) - what the seen-through instances (0x80) of the
 //        kinds `mask` picks (world 0x01 / 0x04, objects 0x02) let through before `reach`: their hit_blend_transmittance

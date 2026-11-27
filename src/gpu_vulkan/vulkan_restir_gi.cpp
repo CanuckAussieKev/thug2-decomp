@@ -140,6 +140,9 @@ constexpr uint32_t kFlagSpecularOnly = 256U;  // (round WS - the check's) the su
 constexpr uint32_t kFlagNoDiffuse = 512U;
 constexpr uint32_t kFlagNoSpecular = 1024U;
 constexpr uint32_t kFlagNoSky = 2048U;
+// (round PANES) a debug view without the disc's direct light (the visibility the shading takes: `lamps`, ... - not `sky`
+// or `sun`)
+constexpr uint32_t kFlagNoSun = 8192U;
 constexpr uint32_t kFlagCacheEnds = 4096U; // (round BUDGET2) paths end at trusted cache cells (RestirGiOverrides::cache_ends)
 // (round WS) The specular reservoir's reuse in the game: OFF. The check measures it unbiased and its estimate's noise
 // halved (the specular alone, a still or orbiting camera), but in the game under Ray Reconstruction (BO at night, the
@@ -341,6 +344,7 @@ const uint FLAG_SPECULAR_ONLY = 256u;
 const uint FLAG_NO_DIFFUSE = 512u;
 const uint FLAG_NO_SPECULAR = 1024u;
 const uint FLAG_NO_SKY = 2048u;
+const uint FLAG_NO_SUN = 8192u;
 const uint MOST_SPATIAL = 4u;
 const uint LIGHT_RAYS = 15u;          // world, objects, alpha-tested, drawn apart (round PG) - the reference's rays
 const uint LIGHT_RAYS_ON_OBJECT = 13u; // (an object's pixel: the world's and what is drawn apart - its low-poly body
@@ -605,7 +609,16 @@ Surface primary(ivec2 p)
 #ifndef CHECK
     ray_drawn_least = coverage_least(uvec2(p), pass.cache_cells.y); // (round SKIN: the prepass's threshold here)
 #endif
-    if (!camera_surface(eye, dir, reach, expected, no_cone(), instance, primitive, id, bary, t, to_world, h) || h.hidden) {
+    bool found = camera_surface(eye, dir, reach, expected, no_cone(), instance, primitive, id, bary, t, to_world, h) &&
+                 !h.hidden;
+#ifndef CHECK
+    // (round PANES - ReSTIR DI's primary's rule: the triangle the depth's point lies on where the drawn rule disagrees)
+    if (!found) {
+        found = depth_triangle(RAY_DRAWN, eye, dir, expected, instance, primitive, id, bary, t, to_world) &&
+                hit_surface_at(instance, primitive, id, bary, to_world, dir, no_cone(), h) && !h.hidden;
+    }
+#endif
+    if (!found) {
 #ifdef CHECK
         return no_surface();
 #else
@@ -1681,8 +1694,8 @@ void put_result(ivec2 p, uint i, Surface s, vec3 diffuse, vec3 specular, float h
     if (s.valid) {
         // (the store's environment gone where this lit the surface: its sky and bounce are these samples)
         vec4 vis = imageLoad(io_visibility, p);
-        // (round FA - a debug view without the sky: nor the disc's direct light)
-        imageStore(io_visibility, p, vec4((pass.counts.w & FLAG_NO_SKY) != 0u ? 0.0 : vis.r, vis.g, 0.0, vis.a));
+        // (round FA - a debug view without the disc's direct light: round PANES, `sky` and `sun` keep it)
+        imageStore(io_visibility, p, vec4((pass.counts.w & FLAG_NO_SUN) != 0u ? 0.0 : vis.r, vis.g, 0.0, vis.a));
         vec3 exposed = min(diffuse * pass.eye.w, vec3(65504.0));
         imageStore(io_lamps, p, vec4(min(imageLoad(io_lamps, p).rgb + exposed, vec3(65504.0)), 0.0));
         imageStore(io_lamps_on, p, vec4(min(imageLoad(io_lamps_on, p).rgb + exposed * s.albedo, vec3(65504.0)), 0.0));
@@ -2034,8 +2047,8 @@ void main()
     }
     // (the store's environment gone where this lit the surface: its sky and bounce are these samples)
     vec4 vis = imageLoad(io_visibility, p);
-    // (round FA - a debug view without the sky: nor the disc's direct light)
-    imageStore(io_visibility, p, vec4((pass.counts.w & FLAG_NO_SKY) != 0u ? 0.0 : vis.r, vis.g, 0.0, vis.a));
+    // (round FA - a debug view without the disc's direct light: round PANES, `sky` and `sun` keep it)
+    imageStore(io_visibility, p, vec4((pass.counts.w & FLAG_NO_SUN) != 0u ? 0.0 : vis.r, vis.g, 0.0, vis.a));
     vec3 exposed = min(good3(diffuse) * pass.eye.w, vec3(65504.0));
     imageStore(io_lamps, p, vec4(min(imageLoad(io_lamps, p).rgb + exposed, vec3(65504.0)), 0.0));
     imageStore(io_lamps_on, p, vec4(min(imageLoad(io_lamps_on, p).rgb + exposed * s.albedo, vec3(65504.0)), 0.0));
@@ -2354,7 +2367,7 @@ uint32_t debug_flags(bool check)
     const uint32_t terms = check ? debug_term::kAll : debug_terms();
     return ((terms & debug_term::kGiDiffuse) == 0U ? kFlagNoDiffuse : 0U) |
            ((terms & debug_term::kGiSpecular) == 0U ? kFlagNoSpecular : 0U) |
-           ((terms & debug_term::kSky) == 0U ? kFlagNoSky : 0U);
+           ((terms & debug_term::kSky) == 0U ? kFlagNoSky : 0U) | ((terms & debug_term::kSun) == 0U ? kFlagNoSun : 0U);
 }
 
 class GiListener final : public rt::ViewListener {

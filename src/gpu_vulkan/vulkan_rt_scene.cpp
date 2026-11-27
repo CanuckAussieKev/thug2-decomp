@@ -3108,9 +3108,58 @@ bool trace_drawn(vec3 origin, vec3 dir, float reach, float expected, out uint in
     return trace_drawn_layered(origin, dir, reach, expected, instance, primitive, id, barycentrics, t, to_world, layered, li,
                                lp, lid, lb, lw);
 }
+// (round PANES) The triangle the depth's point lies on: of the triangles of the instances `mask` picks (RAY_DRAWN: every
+// drawn one; the passes apart are never taken - they write no depth) that a camera ray from `eye` along `dir` meets within the match of the depth's distance
+// `expected` (1 unit + 2 % of it - the depth's precision), the one nearest that distance - whatever the drawn rule
+// (drawn_kept) would decide about it. The raster decided which surface it drew there and wrote its depth: the rays take
+// that one, not their own decision again. Before, a pixel where the two decisions differ - a blended pane's border where
+// its alpha crosses the prepass's coverage threshold, a cut-out's texel edge - found no surface (trace_drawn stopped at
+// the pane in front, or passed the edge), and every pass fell back to a normal built from the neighbouring depths: on a
+// strip one or two pixels wide, another surface's (Training's glass box: the panes' frames lit by the sky through the
+// hall's roof - ReSTIR GI's irradiance x 10 000, its strips bright under Ray Reconstruction). Cut-out holes keep no
+// candidate where an opacity micromap marks them transparent; elsewhere the nearest distance decides (a fence over its
+// wall: the depth is the wall's).
+bool depth_triangle(uint mask, vec3 eye, vec3 dir, float expected, out uint instance, out uint primitive, out uint id,
+                    out vec2 barycentrics, out float t, out mat4x3 to_world)
+{
+    instance = 0u;
+    primitive = 0u;
+    id = 0u;
+    barycentrics = vec2(0.0);
+    t = expected;
+    to_world = mat4x3(1.0);
+    float match = 1.0 + 0.02 * expected;
+    float best = match;
+    bool found = false;
+    rayQueryEXT query;
+    // (every triangle a candidate - none confirmed: the window is a few units deep)
+    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoOpaqueEXT, mask, eye, max(expected - match, 0.0), dir,
+                          expected + match);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) != gl_RayQueryCandidateIntersectionTriangleEXT) {
+            continue;
+        }
+        uint i = rayQueryGetIntersectionInstanceIdEXT(query, false);
+        if ((geometry_record(i).instance_flags & RAY_INSTANCE_APART) != 0u) {
+            continue;
+        }
+        float ct = rayQueryGetIntersectionTEXT(query, false);
+        if (abs(ct - expected) <= best) {
+            best = abs(ct - expected);
+            found = true;
+            instance = i;
+            primitive = rayQueryGetIntersectionPrimitiveIndexEXT(query, false);
+            id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, false);
+            barycentrics = rayQueryGetIntersectionBarycentricsEXT(query, false);
+            t = ct;
+            to_world = rayQueryGetIntersectionObjectToWorldEXT(query, false);
+        }
+    }
+    return found;
+}
 // (round SHEETS - one normal for every pass that starts a ray from the camera's surface) The face of the surface a pixel
-// shows: the triangle a camera ray from `eye` toward the depth's point `here` meets there (trace_drawn - the prepass's
-// surface, ReSTIR DI's primary), its geometric normal in the world, turned toward the eye. False where no traced triangle
+// shows: the triangle a camera ray from `eye` toward the depth's point `here` meets there (round PANES: depth_triangle,
+// the raster's surface), its geometric normal in the world, turned toward the eye. False where no traced triangle
 // lies at the depth's point (within the depth's precision: a surface drawn without a ray-traced copy). Before, the sun's
 // shadows, the lamps pass and the occlusion / bounce built the normal from the neighbouring pixels' depths: on a strip one
 // or two pixels wide both neighbours are other surfaces, so the strip took the background's normal - its facing test and
@@ -3131,13 +3180,9 @@ bool camera_face(vec3 eye, vec3 here, out vec3 face)
     vec2 barycentrics;
     float t;
     mat4x3 to_world;
-    // (the ray starts within the match of the depth's point: a see-through surface in front of it - a glass pane the
-    // prepass kept no depth of, over a frame seen through it - is not the pixel's surface)
-    float match = 1.0 + 0.02 * distance;
-    float start = max(distance - match, 0.0);
-    if (!trace_drawn(eye + dir * start, dir, distance + match - start, distance - start, instance, primitive, id,
-                     barycentrics, t, to_world) ||
-        abs(t + start - distance) > match) {
+    // (round PANES) the triangle at the depth's point (depth_triangle - a see-through surface in front of it, a glass
+    // pane over a frame seen through it, lies outside the match: not the pixel's surface)
+    if (!depth_triangle(RAY_DRAWN, eye, dir, distance, instance, primitive, id, barycentrics, t, to_world)) {
         return false;
     }
     HitVertices v;

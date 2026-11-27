@@ -221,32 +221,27 @@ vec4 surface_albedo(vec3 here, float distance, float footprint, out bool object,
     world = NO_WORLD_LIGHT;
     vec3 eye = pc.camera.xyz;
     vec3 view = (here - eye) / max(distance, 1e-6);
-    rayQueryEXT query;
-    rayQueryInitializeEXT(query, u_scene, gl_RayFlagsOpaqueEXT, u_lights.count.w & 0xFFu, eye, 0.0, view,
-                          distance * 1.05 + 1.0);
-    while (rayQueryProceedEXT(query)) {
-    }
-    if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
+    // (round PANES - vulkan_rt_scene.h depth_triangle) the triangle the depth's point lies on, of the pass's kinds (a
+    // seen-through one's lamps are another owner's) - the surface the raster drew there, as camera_face takes it
+    uint instance;
+    uint primitive;
+    uint id;
+    vec2 bary;
+    float t;
+    mat4x3 to_world;
+    if (!depth_triangle(u_lights.count.w & 0xFFu, eye, view, distance, instance, primitive, id, bary, t, to_world)) {
         return vec4(0.0);
     }
-    float t = rayQueryGetIntersectionTEXT(query, true);
-    if (abs(t - distance) > 1.0 + 0.02 * distance) {
-        return vec4(0.0);
-    }
-    uint id = rayQueryGetIntersectionInstanceCustomIndexEXT(query, true);
-    uint instance = rayQueryGetIntersectionInstanceIdEXT(query, true);
     object = (geometry_record(instance).instance_flags & OBJECT_FLAG) != 0u;
-    relit = !object && hit_world_light(instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
-                                       rayQueryGetIntersectionBarycentricsEXT(query, true), world);
+    relit = !object && hit_world_light(instance, primitive, bary, world);
     HitVertices v;
-    if (!hit_vertices(instance, rayQueryGetIntersectionPrimitiveIndexEXT(query, true), v)) {
+    if (!hit_vertices(instance, primitive, v)) {
         return vec4(material_albedo(id, linear_from_display(min(material(id).colour.rgb, vec3(1.0)))), 1.0);
     }
-    mat4x3 to_world = rayQueryGetIntersectionObjectToWorldEXT(query, true);
     vec3 a = to_world * vec4(v.position[0], 1.0);
     vec3 b = to_world * vec4(v.position[1], 1.0);
     vec3 c = to_world * vec4(v.position[2], 1.0);
-    vec2 uv = hit_uv(v, rayQueryGetIntersectionBarycentricsEXT(query, true));
+    vec2 uv = hit_uv(v, bary);
     vec3 albedo = (material_texel_lod(id, uv, level_for(id, v, a, b, c, footprint)) * material(id).colour).rgb;
     // (round MATALB: the material's albedo - calibrated, material_albedo - in linear light)
     return vec4(material_albedo(id, linear_from_display(min(albedo, vec3(1.0)))), 1.0);
