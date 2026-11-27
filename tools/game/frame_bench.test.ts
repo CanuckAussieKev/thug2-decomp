@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { measured, parseFrames, parseSamples, percentile, scenario, summarise } from "./frame_bench.ts";
+import {
+    kMeasureBegin,
+    kMeasureEnd,
+    measured,
+    parseFrames,
+    parseSamples,
+    passTimes,
+    percentile,
+    scenario,
+    spotScenario,
+    summarise,
+} from "./frame_bench.ts";
+import { kSceneSpots } from "./scene_bias.ts";
 
 // A run: two loading loops, then four measured loops (skip 1) - drawn, drawn, skipped, drawn - and the closing five.
 const loop = (f: number, d: number, l: number, t: number, w: number, p: number[]): string =>
@@ -103,4 +115,34 @@ test("the scenario: the level waited for, a five-second step per five seconds as
     assert.equal(commands[0], "waitfor level BO 300");
     assert.equal(commands.filter((c) => c.startsWith("hold up")).length, 2);
     assert.equal(commands.at(-1), "quit");
+});
+
+test("(round PERF) a spot's bench: the time of day, seeded, placed, held, warmed up, then measured between the marks", () => {
+    const spot = kSceneSpots.find((s) => s.name === "no")!;
+    const commands = spotScenario(spot, "night", 20);
+    assert.equal(commands[0], "waitfor level no 600");
+    assert.ok(commands.includes("console rt tod night"));
+    assert.ok(commands.some((c) => c.startsWith("console seed ")));
+    const begin = commands.indexOf(`echo ${kMeasureBegin}`);
+    assert.ok(commands.slice(0, begin).some((c) => c.startsWith("camera ")));
+    assert.equal(commands[begin + 1], "wait 1200");
+    assert.equal(commands[begin + 2], `echo ${kMeasureEnd}`);
+    assert.equal(commands.at(-1), "quit");
+});
+
+test("(round PERF) the pass times: the reports inside the marks but the first, weighted by their frames", () => {
+    const report = (frames: number, ms: number): string =>
+        `gpu passes: ${frames} frames timed (own time)\ngpu pass: the Gpu: stream ${ms} ms (own ${ms}) a frame, 1.00 calls a frame`;
+    const log = [
+        report(300, 9),
+        `automation: echo ${kMeasureBegin}`,
+        report(300, 8), // (covers frames before the mark)
+        report(300, 2),
+        report(100, 6),
+        `automation: echo ${kMeasureEnd}`,
+        report(300, 9),
+    ].join("\n");
+    const times = passTimes(log);
+    assert.equal(times.frames, 400);
+    assert.equal(times.passes.get("the Gpu: stream")!.own, 3);
 });
