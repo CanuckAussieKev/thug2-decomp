@@ -161,6 +161,11 @@ struct FrameLightList; // (vulkan_light_list.h)
 // (round WF - path tracing, stage 7) The full light list and the radiance cache this frame's view was lit with (false: GI
 // didn't light it): the reflections' hits (vulkan_rt_reflections.h) light what they meet by them. The caller holds the lock.
 bool restir_gi_frame_lights(const Backend& state, FrameLightList* out);
+// (round SKIN2 - the checks') The radiance cache's entries as they are now (the frame's work finished first; kRadianceCacheCapacity
+// entries of 8 uvec4 - light_sample_glsl's layout: the key word x the cell's check, y the frame it was claimed, z its
+// samples, w its frames) and the last list it was used with (its eye and cell angle key the cells). False: none yet.
+// The caller holds the lock.
+bool restir_gi_read_cache(Backend& state, std::vector<uint8_t>* entries, FrameLightList* list);
 // The specular ray's hit distance (R16F, world units; the colour target's size, the view at its rect) written for the
 // view being drawn - Ray Reconstruction's specular hit distance guide; null when this frame's view has none.
 [[nodiscard]] Image* restir_gi_specular_hit(Backend& state);

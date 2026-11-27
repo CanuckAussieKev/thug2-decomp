@@ -642,6 +642,7 @@ constexpr const char* kSurfaceBlock = R"(layout(set = 0, binding = 6, std140) un
     vec4 params;
     vec4 sheen;
     vec4 albedo;
+    vec4 eye_to_world[3];
 } s;
 // (NOT ORIGINAL - round O) the lit paths' colour: with the one light (v_surface_base.w -1) linear light summed on the
 // surface's colour and encoded once; else Direct3D's sum, held to 0 - 1
@@ -658,7 +659,7 @@ vec4 one_light_v0(vec4 base, vec4 cd, vec3 light)
 // its light in bands where surface_lighting builds surface_v0:
 //   - the world, with the cel stream (kSurfaceCelStream: the relit decomposition - ambient a, N.L, tint t, the sun's
 //     share, residual r): q = the sun's light N.L x the visibility in bands (c.bands.x steps, crisp - the edge one
-//     pixel wide from the derivatives -, the visibility a ray query toward the sun with kSurfaceCelShadow, else the
+//     pixel wide from the derivatives -, the visibility a ray query toward the sun with kSurfaceSunTraced, else the
 //     vertex's share), then t x (a in whole stops x mix(shadow colour, 1, q) + the sun's light x q) + r in steps;
 //     a pixel whose stream is missing (an animated vertex) is banded as the bake;
 //   - the world without it: the bake's luminance in steps of c.bands.w stops, its hue kept, the shadow colour over
@@ -694,6 +695,46 @@ float cel_visible(vec3 eye, vec3 eye_normal, uint mask)
     return rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
 })";
 
+// (NOT ORIGINAL - round SKIN2: a see-through fragment's own sun ray) A see-through draw lit per pixel (glass, hair cards,
+// a blended overlay - kSurfaceSunTraced without kSurfaceCel) has light inputs only where it is the surface they were
+// made for or the front layer's (the nearest see-through surface): a second pane behind the first, a strand card behind
+// another, had none, and its key light - the sun or the moon - went on it unshadowed (light_seen's fallback 1). Such a
+// fragment traces that light's visibility itself: an inline ray query (VK_KHR_ray_query - DXR 1.1's inline tracing in
+// the forward translucency pass, the per-pixel shadow test ray-traced renderers give translucent surfaces; its cost is
+// its own fragments', nothing in a view without them) from its point toward the light through the frame's TLAS
+// (kCelSceneBinding). The world's casters - an object's fragment takes the world's shadows, never the objects' (the
+// shadows pass's own rule); a relit world's fragment both. Solid casters only: the cut-out casters' holes and the
+// seen-through casters' transmittance are the shadows pass's (it reads the geometry tables), not this ray's - as the
+// cel shading's, the grass's and the snow's sun rays: the stated compromise.
+constexpr const char* kSurfaceSunGlsl = R"(layout(set = 0, binding = 9) uniform accelerationStructureEXT surface_scene;
+const float SURFACE_RAY_OFF = 2.0;   // (world units off the surface along its normal - the cel ray's)
+const float SURFACE_RAY_ALONG = 1.0; // ... and along the light
+const float SURFACE_RAY_LENGTH = 1.0e6;
+float surface_sun_traced(vec3 eye, vec3 eye_normal, vec3 eye_toward, uint mask)
+{
+    vec4 p = vec4(eye, 1.0);
+    vec3 world = vec3(dot(s.eye_to_world[0], p), dot(s.eye_to_world[1], p), dot(s.eye_to_world[2], p));
+    vec3 n = vec3(dot(s.eye_to_world[0].xyz, eye_normal), dot(s.eye_to_world[1].xyz, eye_normal),
+                  dot(s.eye_to_world[2].xyz, eye_normal));
+    vec3 to = vec3(dot(s.eye_to_world[0].xyz, eye_toward), dot(s.eye_to_world[1].xyz, eye_toward),
+                   dot(s.eye_to_world[2].xyz, eye_toward));
+    if (!(dot(to, to) > 1.0e-12)) {
+        return 1.0;
+    }
+    to = normalize(to);
+    if (dot(n, to) < 0.0) n = -n;
+    rayQueryEXT q;
+    rayQueryInitializeEXT(q, surface_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask,
+                          world + n * SURFACE_RAY_OFF + to * SURFACE_RAY_ALONG, 0.0, to, SURFACE_RAY_LENGTH);
+    while (rayQueryProceedEXT(q)) {
+    }
+    return rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
+})";
+bool surface_sun_key(const FragmentKey& key)
+{
+    return (key.surface & kSurfaceSunTraced) != 0U && (key.surface & kSurfaceCel) == 0U;
+}
+
 void cel_declarations(std::string& out, const FragmentKey& key)
 {
     add(out, {kCelBlock});
@@ -701,14 +742,14 @@ void cel_declarations(std::string& out, const FragmentKey& key)
         add(out, {kCelVaryingsIn});
     }
     add(out, {kCelFunctions});
-    if ((key.surface & kSurfaceCelShadow) != 0U) {
+    if ((key.surface & kSurfaceSunTraced) != 0U) {
         add(out, {kCelVisibility});
     }
 }
 
 void cel_lighting(std::string& out, const FragmentKey& key)
 {
-    const bool shadow = (key.surface & kSurfaceCelShadow) != 0U;
+    const bool shadow = (key.surface & kSurfaceSunTraced) != 0U;
     if ((key.surface & kSurfaceLit) != 0U) {
         add(out, {"    float cel_vis = 1.0;"});
         if (shadow) {
@@ -1115,6 +1156,10 @@ void surface_declarations(std::string& out, const FragmentKey& key)
     if ((key.surface & kSurfaceCel) != 0U) {
         cel_declarations(out, key); // (added by cel shading)
     }
+    if (surface_sun_key(key)) {
+        static_assert(kCelSceneBinding == 9, "kSurfaceSunGlsl names it");
+        add(out, {kSurfaceSunGlsl}); // (round SKIN2)
+    }
     if ((key.surface & kSurfaceRelit) != 0U && (key.surface & kSurfaceCel) == 0U && (key.trails & kTrailSnowTint) == 0U) {
         add(out, {kCelVaryingsIn}); // (round M: the relit world's light store, its words 0 - 2)
     }
@@ -1347,6 +1392,19 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
         add(out, {"    if (light_front_at) {\n        surface_li = vec4(light_front_sun_now().a, 0.0, 0.0, 1.0);\n"
                   "        surface_lamps = light_front_now().rgb;\n        surface_specular_in = vec3(0.0);\n    }"});
     }
+    // (NOT ORIGINAL - round SKIN2: kSurfaceSunGlsl) where neither the light inputs nor the front layer are this fragment's,
+    // its key light's visibility traced here (-1: not traced - the fallbacks stand)
+    add(out, {"    float surface_traced = -1.0;"});
+    if (surface_sun_key(key) && inputs) {
+        const std::string unseen = std::string("!light_here()") + (front ? " && !light_front_at" : "");
+        if ((key.surface & kSurfaceLit) != 0U) {
+            add(out, {"    if (", unseen, " && v_surface_base.w < -0.5 && dot(s.light_toward[0].xyz, s.light_toward[0].xyz) > 0.0) {\n"
+                      "        surface_traced = surface_sun_traced(surface_eye, surface_geo, s.light_toward[0].xyz, 0x01u);\n    }"});
+        } else {
+            add(out, {"    if (", unseen, " && s.sun.w > 0.5) {\n"
+                      "        surface_traced = surface_sun_traced(surface_eye, surface_geo, s.sun.xyz, 0x03u);\n    }"});
+        }
+    }
     // (round DB: the decals' material layers - the environment's weight above stays the surface's own roughness's: what
     // the reflections pass, which sees the surface and not its decals, takes over; the layered material weighs the rest)
     std::string layer_m;
@@ -1404,7 +1462,8 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
                   "* surface_game_light;\n"
                   // (round V: the one light's key - light 0 - is the sun or the moon: its visibility at the pixel; the
                   // others its indirect light's parts - the indirect visibility, as the ambient)
-                  "        if (surface_one) light *= i == 0 ? light_seen(surface_li, 1.0) : surface_li.b;"});
+                  "        if (surface_one) light *= i == 0 ? light_seen(surface_li, surface_traced >= 0.0 ? surface_traced : 1.0) : "
+                  "surface_li.b;"});
         if (hair) {
             add(out, {"        if (surface_fibre) {\n"
                       "            surface_out += brdf_hair_direct(surface_lit.albedo, surface_rough, surface_strand, surface_v, l, "
@@ -1434,7 +1493,7 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
                   "        surface_out = brdf_ambient(surface_m, surface_nv, env * surface_hemi, env * surface_env) * surface_li.b;\n"
                   "        if (s.sun.w > 0.5 && dot(surface_geo, s.sun.xyz) > 0.0) {\n"
                   "            surface_out += brdf_direct(surface_m, surface_n, surface_v, s.sun.xyz, s.sun_light.rgb * "
-                  "light_seen(surface_li, v_cel_tint.a)",
+                  "light_seen(surface_li, surface_traced >= 0.0 ? surface_traced : v_cel_tint.a)",
                   relief ? " * relief_shadow" : "", ");\n        }\n"
                   "        surface_out += v_cel_emit.rgb * surface_emission;\n"
                   "        surface_out += brdf_ambient(surface_m, surface_nv, surface_lamps, vec3(0.0));\n"
@@ -2185,7 +2244,7 @@ std::string fragment_shader_glsl(const FragmentKey& key)
 {
     const uint32_t sampled = sampled_stages(key);
     // (added by cel shading: the sun's visibility per pixel - ray queries are GLSL 4.60's)
-    const bool traced = (key.surface & kSurfaceCelShadow) != 0U; // (round W: the snow's reach is the map's, no ray query)
+    const bool traced = (key.surface & kSurfaceSunTraced) != 0U; // (round W: the snow's reach is the map's, no ray query)
     std::string out = std::string(traced ? "#version 460\n" : "#version 450\n") + "// generated: " + describe(key) + "\n";
     if (traced) {
         out += "#extension GL_EXT_ray_query : require\n";

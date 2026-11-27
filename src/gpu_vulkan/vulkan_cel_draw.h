@@ -37,6 +37,9 @@ struct CelDraw {
 [[nodiscard]] CelDraw cel_draw(Backend& state, const GpuStateBlock& block, const ShaderKey& key, const DrawCall& call);
 // The draw's CelUniforms (its view's camera; the scene's sun).
 void fill_cel_uniforms(const Backend& state, const GpuStateBlock& block, CelUniforms* uniforms);
+// The draw's camera space to the world (its view's inverse: rows, w the offset - CelUniforms::eye_to_world; round SKIN2:
+// SurfaceUniforms::eye_to_world too). Zero where the view can't be inverted.
+void fill_eye_to_world(const GpuStateBlock& block, std::array<Float4, 3>* rows);
 // The stream's buffer and offset to bind (the current version's).
 [[nodiscard]] VkBuffer cel_stream_buffer(Backend& state, Buffer* stream);
 // The frame's top-level acceleration structure (the scene's builder sets it each frame; VK_NULL_HANDLE: none).

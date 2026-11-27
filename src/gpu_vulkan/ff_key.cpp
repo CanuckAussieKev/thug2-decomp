@@ -409,7 +409,10 @@ ShaderKey normalised(const ShaderKey& key)
     // draw (not lit by lights)
     uint8_t& surface = result.fragment.surface;
     if ((surface & kSurfaceCel) == 0U) {
-        surface = static_cast<uint8_t>(surface & ~(kSurfaceCelStream | kSurfaceCelShadow | kSurfaceCelHull));
+        // (round SKIN2) the traced sun kept on a see-through draw lit per pixel that reads the light inputs
+        const bool traced = (surface & kSurfaceLighting) != 0U && (surface & (kSurfaceLit | kSurfaceRelit)) != 0U &&
+                            (result.fragment.light & kLightInputs) != 0U && (result.fragment.light & kLightDepthOnly) == 0U;
+        surface = static_cast<uint8_t>(surface & ~(kSurfaceCelStream | kSurfaceCelHull | (traced ? 0U : kSurfaceSunTraced)));
     }
     if ((result.vertex.fvf & kFvfNormal) == 0U) {
         surface = static_cast<uint8_t>(surface & ~kSurfaceCelHull);

@@ -675,7 +675,7 @@ VkShaderModule Pipelines::module(bool vertex, const ShaderKey& key, std::string*
     const std::string source = vertex ? vertex_shader_glsl(key.vertex) : fragment_shader_glsl(key.fragment);
     // (added by cel shading) a fragment shader with ray queries needs SPIR-V 1.4 (the ray-tracing work's compiler);
     // none on a device without them
-    const bool ray_query = !vertex && (key.fragment.surface & kSurfaceCelShadow) != 0U; // (round W: the snow's reach the map's)
+    const bool ray_query = !vertex && (key.fragment.surface & kSurfaceSunTraced) != 0U; // (round W: the snow's reach the map's)
     if (ray_query && !ray_queries_) {
         if (error != nullptr) {
             *error = "a ray query on a device without ray tracing";

@@ -149,14 +149,17 @@ constexpr uint8_t kSurfaceRelit = 0x08;
 // (added by cel shading - [Graphics] rt_cel, engine/gfx/rt_cel.h, vulkan_cel.h) with kSurfaceLighting: the light put in
 // bands per pixel (CelUniforms at kCelUniformsBinding) - the world's vertex colour banded, or with kSurfaceLit the
 // draw's lights; kSurfaceCelStream: the relit world's decomposition read from the cel stream (binding 2, kCelLocation);
-// kSurfaceCelShadow: the sun's visibility traced per pixel (a ray query through kCelSceneBinding); kSurfaceCelHull: the
+// kSurfaceSunTraced: the sun's visibility traced per pixel (a ray query through kCelSceneBinding - the frame's TLAS); kSurfaceCelHull: the
 // draw's outline - an inverted hull, its colour the ink.
+// (NOT ORIGINAL - round SKIN2) kSurfaceSunTraced without kSurfaceCel, on a see-through draw lit per pixel (kSurfaceLit or
+// kSurfaceRelit, with kLightInputs): a fragment that is neither the surface the light inputs were made for nor the front
+// layer's traces its key light's (the sun's or the moon's) visibility itself - ff_shaders.cpp surface_sun_traced.
 constexpr uint8_t kSurfaceCel = 0x10;
 constexpr uint8_t kSurfaceCelStream = 0x20;
-constexpr uint8_t kSurfaceCelShadow = 0x40;
+constexpr uint8_t kSurfaceSunTraced = 0x40;
 constexpr uint8_t kSurfaceCelHull = 0x80;
 constexpr uint8_t kSurfaceKnown = kSurfaceLighting | kSurfaceMap | kSurfaceLit | kSurfaceRelit | kSurfaceCel |
-                                  kSurfaceCelStream | kSurfaceCelShadow | kSurfaceCelHull;
+                                  kSurfaceCelStream | kSurfaceSunTraced | kSurfaceCelHull;
 // VertexKey::surface's bits (1 alone: rt_pbr's inputs, as before cel shading).
 constexpr uint8_t kVertexSurfaceInputs = 0x01;
 constexpr uint8_t kVertexCelStream = 0x02; // the cel stream's three words read and handed on

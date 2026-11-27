@@ -2864,6 +2864,16 @@ bool restir_gi_frame_lights(const Backend& state, FrameLightList* out)
     return true;
 }
 
+bool restir_gi_read_cache(Backend& state, std::vector<uint8_t>* entries, FrameLightList* list)
+{
+    GiState& own = gi_state();
+    if (own.cache.buffer == VK_NULL_HANDLE || own.frame_list.frame == 0 || !finish_work(state)) {
+        return false;
+    }
+    *list = own.frame_list;
+    return state.memory.read_buffer(own.cache, 0, VkDeviceSize{kCacheCapacity} * kCacheEntryBytes, entries);
+}
+
 Image* restir_gi_specular_hit(Backend& state)
 {
     GiState& own = gi_state();

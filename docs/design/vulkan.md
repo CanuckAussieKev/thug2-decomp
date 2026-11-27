@@ -3330,6 +3330,26 @@ update tiles, they held few samples each, and one bright sample lit a whole cell
 night +4.9 % on the whole picture, a cell +24 %; scene_bias.ts). Front layer 5.9 -> 4.4 ms at the
 fountain, 4.9 -> 3.3 ms at the harbour (noon, 2560 x 1440 DLSS Quality + Ray Reconstruction).
 
+**Round SKIN2: a see-through fragment's own sun ray.** A see-through draw lit per pixel (an object's glass, a
+character's alpha-blended hair or strap cards, the relit world's blended overlays) has light inputs only where its
+fragment is the prepass's surface or the front layer's - the nearest see-through surface. A second pane behind the
+first, a strand card behind another, or every such fragment where the view has no front layer had none, and its key
+light - the sun or the moon - went on it whole (`light_seen`'s fallback 1 for a lit object; the light store's vertex
+visibility for the relit world). Such a key now carries `kSurfaceSunTraced` (the cel bands' traced-sun bit, renamed:
+both are "the sun's visibility traced per pixel through the frame's TLAS"): where neither the inputs nor the front layer
+are the fragment's, it traces its key light's visibility itself - an inline ray query in the forward translucency pass
+(VK_KHR_ray_query, DXR 1.1's inline tracing: the per-pixel shadow test ray-traced renderers give translucent surfaces),
+from its point (`SurfaceUniforms::eye_to_world`) toward the light; the world's casters for an object's fragment (the
+shadows pass's rule: objects don't shadow objects), the world's and the objects' for the relit world's. Chosen over a
+translucency lighting volume (UE's: a froxel grid lit every frame, the surfaces sampling it) by cost at 1440p: the ray
+costs only the fragments that need it - none in a view without them -, where the volume is a fixed pass every frame
+(the fog's froxel light alone is 0.25 - 0.95 ms) and its shadows are a froxel wide. Compromise (the cel shading's, the
+grass's and the snow's sun rays make it too): solid casters only - a cut-out caster's holes and a seen-through caster's
+transmittance are the shadows pass's, which reads the geometry tables; this ray doesn't. Not changed: such a fragment
+takes no lamp light (the lamps reach a surface through the inputs or the front layer alone) - a translucency volume or
+the light list sampled in the forward pass is the technique for that. Check: `thug2_vulkan_rt_lights_check` "a lit
+object's see-through pane without light inputs traces its key light".
+
 **Round CENSUS: the bake ratio retired - a surface without a light store takes the rays' light.** What the relit data
 gives no light store - an unlit object's own baked colours (one the relit level doesn't list: it moves, it stands at
 another place), a world mesh with no entry (a day-only mesh of a level baked in its night state - New Orleans' 230 at
@@ -5354,7 +5374,7 @@ fragment shaders, where it is worked out; as the art style `cel` it has no post-
   residual_q the lamps' light in steps of 0.25 (hue kept in both), `sun` the relit model's sun light (a x the sun's
   colour, published by render_pc: `rt::set_cel_world`). A vertex the game animates carries the flag 0: its pixels are
   banded as the bake.
-- **Hard shadows.** With ray tracing the visibility is a ray query in the fragment shader (`kSurfaceCelShadow`; GLSL 4.60,
+- **Hard shadows.** With ray tracing the visibility is a ray query in the fragment shader (`kSurfaceSunTraced`; GLSL 4.60,
   SPIR-V 1.4; the frame's TLAS at `kCelSceneBinding` 9, only in a ray-tracing device's layout - the vulkan_rt_scene
   builder hands it over as it does the shadows'): from the pixel's world point (`eye_to_world`, the view's inverse) 2
   units off the surface along its face normal and 1 toward the sun, the level's opaque geometry (mask 0x01), terminated

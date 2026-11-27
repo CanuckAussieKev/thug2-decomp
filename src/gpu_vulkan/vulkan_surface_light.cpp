@@ -878,6 +878,7 @@ void lay_layers(Backend& state)
         PipelineKey key = draw.prepared.key;
         FragmentKey& fragment = key.shaders.fragment;
         fragment.light = static_cast<uint8_t>((fragment.light & ~(kLightGuides | kLightFront)) | kLightLayerWrite);
+        fragment.surface = static_cast<uint8_t>(fragment.surface & ~kSurfaceSunTraced); // (round SKIN2: it lights nothing)
         fragment.motion = 0;
         key.motion = 0;
         key.layer = 0;
@@ -1378,6 +1379,13 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
     if (own.front_on && (overlay || particle)) {
         fragment.light = static_cast<uint8_t>(fragment.light | kLightFront);
     }
+    // (round SKIN2 - ff_shaders.cpp kSurfaceSunGlsl) such an overlay's fragments that are neither the inputs' surface nor
+    // the front layer's (a second pane behind the first, a strand card behind another) trace their key light's
+    // visibility themselves, through the frame's TLAS - one rule for every see-through fragment lit per pixel. Not
+    // where the device can't trace from a fragment shader or no TLAS was built this frame (the fallbacks stand).
+    if (overlay && state.pipelines.ray_queries() && cel_scene() != VK_NULL_HANDLE) {
+        fragment.surface = static_cast<uint8_t>(fragment.surface | kSurfaceSunTraced);
+    }
     // (round DECAL - UE's DBuffer decals) such an overlay of the relit world is a material layer of the surface it lies
     // on: laid into the decals' inputs before the shading (lay_layers) and discarded there by its shaded draw. Not a
     // draw whose stages read an environment map (the game's painted reflections on glass and chrome: a reflection is no
@@ -1389,7 +1397,6 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
         own.layer_material.image != VK_NULL_HANDLE) {
         fragment.light = static_cast<uint8_t>(fragment.light | kLightLayer);
     }
-    (void)state;
 }
 
 bool surface_light_front_prepass(Backend& state, FrontLayerImages* out)

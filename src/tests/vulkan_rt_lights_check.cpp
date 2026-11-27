@@ -82,8 +82,10 @@
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_context.h"
 #include "gpu_vulkan/vulkan_front_layer.h"
+#include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_memory.h"
+#include "gpu_vulkan/vulkan_restir_gi.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
 #include "gpu_vulkan/vulkan_rt_lights.h"
 #include "gpu_vulkan/vulkan_rt_shadows.h"
@@ -2715,7 +2717,12 @@ bool standing_point(int x, int y, double z, Vec3* at)
 
 // (round SKIN) kCover*: a quad alpha-blended over the floor that WRITES depth (a character's laces, a fence's soft edge -
 // engine/gfx/rt_coverage.h), its vertex alpha kCoverColour's at three heights
-enum class Over : uint8_t { kNothing, kGlass, kGlow, kLitGlow, kCoverFull, kCoverHigh, kCoverLow };
+// (round SKIN2) kLitPane: a lit object's see-through pane (alpha-blended, no depth written, wholly opaque by its alpha -
+// its pixels its own light) kPaneHeight over the floor beside the box, on the side away from the sun - the box's sun
+// shadow falls across part of it; lit by the one light (linear: its key the sun, nothing else)
+enum class Over : uint8_t { kNothing, kGlass, kGlow, kLitGlow, kCoverFull, kCoverHigh, kCoverLow, kLitPane };
+constexpr double kPaneHeight = 10.0;
+constexpr std::array<double, 4> kPane{-100.0, -14.0, -60.0, 60.0}; // x0, x1, z0, z1
 constexpr uint32_t kCoverColour = 0x00C08040U; // (rgb; the alpha per case: 0xFF, 0xC0 - 0.75 -, 0x40 - 0.25)
 
 // (round RG) A lit glow - an added quad drawn with the fixed-function light, normals and coordinates (a lit object's draw: lit per
@@ -2887,6 +2894,44 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
         gpu.set_vertex_format(kFvfColour);
         gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
         gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
+    } else if (over == Over::kLitPane) {
+        // (round SKIN2) the one light (render_pc's OneLightSent: linear light) - its key the sun alone
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, 0);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 1);
+        gpu.set_render_state(GpuRenderState::kSrcBlend, value::kBlendSrcAlpha);
+        gpu.set_render_state(GpuRenderState::kDestBlend, value::kBlendInvSrcAlpha);
+        gpu.set_render_state(GpuRenderState::kLighting, 1);
+        gpu.set_render_state(GpuRenderState::kLinearLights, 1);
+        gpu.set_render_state(GpuRenderState::kAmbient, 0x00000000U);
+        gpu.set_render_state(GpuRenderState::kDiffuseMaterialSource, value::kSourceColour1);
+        gpu.set_material({.diffuse = {1, 1, 1, 1}, .ambient = {}, .specular = {}, .emissive = {}, .power = 0});
+        const Vec3 toward = normalised({core::at(kStreamSun, 0), core::at(kStreamSun, 1), core::at(kStreamSun, 2)});
+        render::GpuLight light{};
+        light.type = value::kLightDirectional;
+        light.diffuse = {1, 1, 1, 1};
+        light.direction = {static_cast<float>(-x_of(toward)), static_cast<float>(-y_of(toward)), static_cast<float>(-z_of(toward))};
+        gpu.set_light(0, light);
+        gpu.enable_light(0, true);
+        gpu.set_vertex_format(kFvfColourNormal);
+        gpu.set_texture(0, lit_glow_draw().texture);
+        gpu.set_pixel_shader(lit_glow_draw().shader);
+        constexpr std::array<float, 4> kWhite{0.5F, 0.5F, 0.5F, 0.5F};
+        gpu.set_pixel_constants(0, kWhite.data(), 1);
+        std::vector<NormalVertex> quad;
+        for (const ColourVertex& corner : quad_at(kPaneHeight, core::at(kPane, 0), core::at(kPane, 1), core::at(kPane, 2),
+                                                  core::at(kPane, 3), 0x80FFFFFFU)) {
+            quad.push_back({.position = corner.position, .normal = {0.0F, 1.0F, 0.0F}, .colour = corner.colour});
+        }
+        gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(quad.size() / 3), quad.data(),
+                             sizeof(NormalVertex));
+        gpu.set_pixel_shader(nullptr);
+        gpu.set_texture(0, nullptr);
+        gpu.enable_light(0, false);
+        gpu.set_render_state(GpuRenderState::kLinearLights, 0);
+        gpu.set_render_state(GpuRenderState::kLighting, 0);
+        gpu.set_vertex_format(kFvfColour);
+        gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
+        gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
     } else if (over == Over::kCoverFull || over == Over::kCoverHigh || over == Over::kCoverLow) {
         // (round SKIN) blended by its alpha, its depth written - as the game draws such a surface
         const uint32_t alpha = over == Over::kCoverFull ? 0xFFU : (over == Over::kCoverHigh ? 0xC0U : 0x40U);
@@ -2947,6 +2992,7 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
 
 void run_decal_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally);
 void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally);
+bool floor_point(const Vec3& eye, int x, int y, double height, Vec3* at);
 void run_overlay_layers(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally);
 
 void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally* tally)
@@ -3352,6 +3398,64 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                                       "its colour's indirect share; worst %.1f %%)",
                                       vertex_colour & 0xFFU, sunlit, shaded, off_model, 100.0 * worst_share));
         }
+    }
+    // (round SKIN2 - ff_shaders.cpp kSurfaceSunGlsl) A lit object's see-through pane (its fragments neither the surface
+    // the inputs were made for - the floor is - nor a front layer's: none in this view) beside the box, the box's sun
+    // shadow across part of it: lit by its one light, the sun alone (no ambient, no fill, no lamps), so where the box
+    // hides the sun from the pane's point it is black, elsewhere lit. Before, such a fragment took its key light whole
+    // (light_seen's fallback 1): the pane lit through the box's shadow.
+    {
+        std::vector<uint8_t> pane;
+        bool drew = ok;
+        for (int pass = 0; drew && pass < 2; ++pass) { // (the second time round: the TLAS of the frame before built)
+            drew = draw_per_surface(gpu, targets, meshes, true, Over::kLitPane, frame++, &pane);
+        }
+        const Solid& box = core::at(kScene, 1);
+        const auto in_shadow = [&box, &toward](const Vec3& at) {
+            return intersect(box, step(at, {0.0, 1.0, 0.0}, 0.5), toward).distance < kNoHit;
+        };
+        const View view = view_from(kEye);
+        int sunlit = 0;
+        int shaded = 0;
+        int shaded_lit = 0;
+        int sunlit_dark = 0;
+        double darkest_lit = 1.0e9;
+        double brightest_shaded = 0.0;
+        constexpr double kPaneStep = 3.0; // (units: a point counted where it and its neighbours this far agree)
+        for (int y = 0; drew && y < kRows; ++y) {
+            for (int x = 0; x < kColumns; ++x) {
+                Vec3 at{};
+                if (!through_quad(x, y, kPaneHeight, core::at(kPane, 0), core::at(kPane, 1), core::at(kPane, 2),
+                                  core::at(kPane, 3)) ||
+                    !floor_point(kEye, x, y, kPaneHeight, &at) || seen_at(view, x + 0.5, y + 0.5).solid != 1) {
+                    continue;
+                }
+                const bool shadow = in_shadow(at);
+                bool clear = true;
+                for (const Vec3 d : {Vec3{kPaneStep, 0.0, 0.0}, Vec3{-kPaneStep, 0.0, 0.0}, Vec3{0.0, 0.0, kPaneStep},
+                                     Vec3{0.0, 0.0, -kPaneStep}}) {
+                    clear = clear && in_shadow(step(at, d, 1.0)) == shadow;
+                }
+                if (!clear) {
+                    continue;
+                }
+                const double light = luma_of(linear_pixel_at(pane, x, y));
+                if (shadow) {
+                    ++shaded;
+                    brightest_shaded = std::max(brightest_shaded, light);
+                    shaded_lit += light > kLinearTolerance ? 1 : 0;
+                } else {
+                    ++sunlit;
+                    darkest_lit = std::min(darkest_lit, light);
+                    sunlit_dark += light < 0.02 ? 1 : 0;
+                }
+            }
+        }
+        tally->check(drew && sunlit > 1000 && shaded > 300 && shaded_lit == 0 && sunlit_dark == 0,
+                     text::format("(round SKIN2) a lit object's see-through pane without light inputs traces its key light: "
+                                  "%d sunlit pixels (darkest %.4f, %d dark), %d in the box's sun shadow (brightest %.4f, "
+                                  "%d lit)",
+                                  sunlit, sunlit > 0 ? darkest_lit : 0.0, sunlit_dark, shaded, brightest_shaded, shaded_lit));
     }
     {
         render::vulkan::Backend& state = render::vulkan::backend();
@@ -3958,6 +4062,72 @@ constexpr double kCardLeast = 0.002;                          // (pixels compare
 constexpr double kCardRatioLow = 0.90;
 constexpr double kCardRatioHigh = 1.10;
 
+// (round SKIN2) The radiance cache's cell of a point (vulkan_light_list.cpp cache_key's twin: the hash grid's level by
+// the distance from the eye the cells were keyed from, the cell, the normal's main axis and side) and whether the cache
+// holds it trusted - claimed, with CACHE_TRUSTED_SAMPLES samples or CACHE_TRUSTED_FRAMES frames since (cache_lookup's
+// test). `entries`: restir_gi_read_cache's.
+uint32_t cache_hash_cpu(uint32_t x)
+{
+    x ^= x >> 16U;
+    x *= 0x7FEB352DU;
+    x ^= x >> 15U;
+    x *= 0x846CA68BU;
+    x ^= x >> 16U;
+    return x;
+}
+struct CacheCell {
+    bool found = false;
+    uint32_t samples = 0;
+    uint32_t frames = 0;
+};
+CacheCell cache_cell_at(const std::vector<uint8_t>& entries, const render::vulkan::FrameLightList& list, const Vec3& at,
+                        const Vec3& n)
+{
+    namespace vk = render::vulkan;
+    constexpr uint32_t kStrideWords = 32; // (8 uvec4 an entry)
+    const std::array<float, 3> p{static_cast<float>(x_of(at)), static_cast<float>(y_of(at)), static_cast<float>(z_of(at))};
+    const float dx = core::at(p, 0) - core::at(list.eye, 0);
+    const float dy = core::at(p, 1) - core::at(list.eye, 1);
+    const float dz = core::at(p, 2) - core::at(list.eye, 2);
+    const float distance = std::sqrt((dx * dx) + (dy * dy) + (dz * dz));
+    const float level =
+        std::max(std::floor(std::log2(std::max(distance * list.cache_cells / vk::kRadianceCacheCellLeast, 1.0F))), 0.0F);
+    const float side = vk::kRadianceCacheCellLeast * std::exp2(level);
+    std::array<uint32_t, 3> u{};
+    for (std::size_t c = 0; c < 3; ++c) {
+        core::at(u, c) = static_cast<uint32_t>(static_cast<int32_t>(std::floor(core::at(p, c) / side)));
+    }
+    const std::array<double, 3> a{std::abs(x_of(n)), std::abs(y_of(n)), std::abs(z_of(n))};
+    const uint32_t axis = core::at(a, 0) >= core::at(a, 1) && core::at(a, 0) >= core::at(a, 2) ? 0U
+                          : core::at(a, 1) >= core::at(a, 2)                                    ? 1U
+                                                                                                : 2U;
+    const double along = axis == 0U ? x_of(n) : (axis == 1U ? y_of(n) : z_of(n));
+    const uint32_t w = static_cast<uint32_t>(level) | (((axis * 2U) + (along < 0.0 ? 1U : 0U)) << 8U);
+    const uint32_t slot =
+        cache_hash_cpu(core::at(u, 0) ^ cache_hash_cpu(core::at(u, 1) ^ cache_hash_cpu(core::at(u, 2) ^ cache_hash_cpu(w)))) &
+        (vk::kRadianceCacheCapacity - 1U);
+    uint32_t check = cache_hash_cpu(core::at(u, 2) ^ cache_hash_cpu(core::at(u, 1) + cache_hash_cpu(core::at(u, 0) ^
+                                                                                                    cache_hash_cpu(w ^ 0x9E3779B9U))));
+    check = check == 0U ? 1U : check;
+    CacheCell cell;
+    for (uint32_t k = 0; k < vk::kRadianceCacheProbes; ++k) {
+        const std::size_t i = (slot + k) & (vk::kRadianceCacheCapacity - 1U);
+        std::array<uint32_t, 4> key{};
+        if ((i + 1U) * kStrideWords * sizeof(uint32_t) > entries.size()) {
+            break;
+        }
+        std::memcpy(key.data(), &core::at(entries, i * kStrideWords * sizeof(uint32_t)), sizeof(key));
+        if (core::at(key, 0) == check) {
+            cell = {.found = true, .samples = core::at(key, 2), .frames = core::at(key, 3)};
+            break;
+        }
+        if (core::at(key, 0) == 0U) {
+            break;
+        }
+    }
+    return cell;
+}
+
 // A frame of the view: the floor, the glass over it or not; `front` / `lamps` read (RGBA16F each) when given.
 bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, std::span<const rt::Light> points,
                 bool glass, uint64_t frame, std::vector<uint8_t>* front, std::vector<uint8_t>* lamps,
@@ -4415,6 +4585,42 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                               "bounce (traced on past the radiance cache's miss) - %d pixels, %.4f x the floor's integral "
                               "(mean %.4g)",
                               card_pixels, card_ratio, card_pixels > 0 ? card_want / card_pixels : 0.0));
+    // (round SKIN2 - round PERF's writes) the card stands in the air: no surface's path ever meets its points, so their
+    // radiance cache cells are the layer's own update paths' alone (SHaRC's: a miss's traced bounce added to its point's
+    // cell, and each tile's in turn). After the card's frames every point of it has its cell claimed and trusted (as an
+    // opaque surface's after CACHE_TRUSTED_FRAMES) - before round PERF none was ever written (each layer pixel a miss
+    // every frame, its bounce traced again).
+    {
+        std::vector<uint8_t> entries;
+        vk::FrameLightList list;
+        bool read = false;
+        {
+            vk::Backend& state = vk::backend();
+            const std::scoped_lock lock(state.mutex);
+            read = vk::restir_gi_read_cache(state, &entries, &list);
+        }
+        constexpr double kCellStep = 4.0;
+        constexpr uint32_t kTrustedSamples = 32; // (vulkan_light_list.cpp CACHE_TRUSTED_SAMPLES / _FRAMES)
+        constexpr uint32_t kTrustedFrames = 16;
+        int points = 0;
+        int trusted = 0;
+        int claimed = 0;
+        for (double x = core::at(kCard, 0) + kFrontMargin; read && x <= core::at(kCard, 1) - kFrontMargin; x += kCellStep) {
+            for (double y = core::at(kCard, 2) + kFrontMargin; y <= core::at(kCard, 3) - kFrontMargin; y += kCellStep) {
+                CacheCell cell = cache_cell_at(entries, list, Vec3{x, y, kCardZ}, Vec3{0.0, 0.0, 1.0});
+                if (!cell.found) {
+                    cell = cache_cell_at(entries, list, Vec3{x, y, kCardZ}, Vec3{0.0, 0.0, -1.0});
+                }
+                ++points;
+                claimed += cell.found ? 1 : 0;
+                trusted += cell.found && (cell.samples >= kTrustedSamples || cell.frames >= kTrustedFrames) ? 1 : 0;
+            }
+        }
+        tally->check(read && list.cache_on && points > 20 && trusted == points,
+                     text::format("  (round SKIN2) the card's points in the radiance cache - written by the front layer's "
+                                  "update paths alone (round PERF): %d points, %d cells claimed, %d trusted",
+                                  points, claimed, trusted));
+    }
     vk::set_rt_gi_settings({.indirect = vk::RtIndirectLight::kPasses});
     vk::set_rt_light_settings({});
     rt::set_level_emitters({});

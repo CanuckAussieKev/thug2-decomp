@@ -501,7 +501,7 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
     const bool same = bound.descriptors_set && same_buffer_info(bound.pushed_vertex_block, draw.vertex_block) &&
                       same_buffer_info(bound.pushed_fragment_block, draw.fragment_block) &&
                       std::ranges::equal(images, bound.images, same_image_info) && same_surface && !surface.cel &&
-                      !surface.detail;
+                      !surface.detail && surface.scene == VK_NULL_HANDLE;
     if (same && !water.on && !snow.on && !paint.on && !wet.on) {
         return;
     }
@@ -560,12 +560,12 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
         block.dstBinding = kCelUniformsBinding;
         block.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         block.pBufferInfo = &surface.cel_block;
-        if (surface.scene != VK_NULL_HANDLE) {
-            VkWriteDescriptorSet& traced = core::at(writes, count++);
-            traced.pNext = &scene;
-            traced.dstBinding = kCelSceneBinding;
-            traced.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-        }
+    }
+    if (surface.scene != VK_NULL_HANDLE) { // (a cel draw's, or - round SKIN2 - a see-through surface's own sun rays)
+        VkWriteDescriptorSet& traced = core::at(writes, count++);
+        traced.pNext = &scene;
+        traced.dstBinding = kCelSceneBinding;
+        traced.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     }
     if (water.on) { // (NOT ORIGINAL - rt_water: the water's block, the copy behind it, the sky, the ripples)
         VkWriteDescriptorSet& block = core::at(writes, count++);
@@ -644,7 +644,7 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
     bound.pushed_vertex_block = draw.vertex_block;
     bound.pushed_fragment_block = draw.fragment_block;
     // (added by cel shading: the next draw pushes again - its block is per draw; so the detail layer's)
-    bound.descriptors_set = !surface.cel && !surface.detail;
+    bound.descriptors_set = !surface.cel && !surface.detail && surface.scene == VK_NULL_HANDLE; // (round SKIN2: the scene too)
     bound.surface_pushed = surface.on;
     bound.pushed_surface_block = surface.block;
     bound.pushed_surface_map = surface.map;
@@ -652,10 +652,14 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
 }
 
 // (NOT ORIGINAL - rt_pbr) The draw's SurfaceUniforms into the ring (the vertex block's lights as just filled).
-bool set_surface_uniforms(Backend& state, const GpuStateBlock& block, const SurfaceDraw& draw, VkDescriptorBufferInfo* where)
+bool set_surface_uniforms(Backend& state, const GpuStateBlock& block, const SurfaceDraw& draw, uint8_t flags,
+                          VkDescriptorBufferInfo* where)
 {
     SurfaceUniforms uniforms{};
     fill_surface_uniforms(block, state.bound.vertex_uniforms, draw, state.frames.serial(), &uniforms);
+    if ((flags & kSurfaceSunTraced) != 0U && (flags & kSurfaceCel) == 0U) {
+        fill_eye_to_world(block, &uniforms.eye_to_world); // (round SKIN2: its fragments' own sun rays start in the world)
+    }
     // (round M) the roughest texel whose environment the reflections pass traces for this surface (0: it traces none -
     // the light store's estimate stands everywhere)
     std::get<1>(uniforms.params) = draw.traced && rt_reflections_active(state) ? kReflectionRoughest : 0.0F;
@@ -695,7 +699,7 @@ bool set_cel_descriptors(Backend& state, const GpuStateBlock& block, uint8_t sur
     }
     descriptors->cel = true;
     descriptors->cel_block = {.buffer = span->buffer, .offset = span->offset, .range = sizeof(cel_uniforms)};
-    if ((surface & kSurfaceCelShadow) != 0U) {
+    if ((surface & kSurfaceSunTraced) != 0U) {
         descriptors->scene = cel_scene();
     }
     return true;
@@ -743,7 +747,7 @@ bool surface_descriptors_for(Backend& state, const GpuStateBlock& block, const S
         return true;
     }
     out->on = true;
-    if (!set_surface_uniforms(state, block, source.surface, &out->block)) {
+    if (!set_surface_uniforms(state, block, source.surface, source.flags, &out->block)) {
         return false;
     }
     if ((source.flags & kSurfaceMap) != 0U) {
@@ -760,6 +764,9 @@ bool surface_descriptors_for(Backend& state, const GpuStateBlock& block, const S
     }
     if (!set_detail_descriptors(state, source, out)) { // (added by the detail materials)
         return false;
+    }
+    if ((source.flags & kSurfaceSunTraced) != 0U && (source.flags & kSurfaceCel) == 0U) {
+        out->scene = cel_scene(); // (round SKIN2: a see-through surface's fragments trace their own sun - the frame's TLAS)
     }
     return set_cel_descriptors(state, block, source.flags, out); // (added by cel shading)
 }
