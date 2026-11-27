@@ -72,6 +72,12 @@ struct EmitterInstance : objects::SharedBase {
     // Vtable slot 1: the particles drawn. The engine's (the types' too, but the model type's) prints "STUB:
     // plat_render" (0x004A1040, shared with the weather's).
     virtual void render();
+    // NOT ORIGINAL - the part of a type's draw that is the system's step, not its picture: the newflat type emitted its
+    // particles for the frame at the end of its draw (0x004BD680). Split off so a draw that is not a step of the world
+    // - a render-only frame of [Graphics] max_fps, a frame drawn while the game is paused (a measurement's frozen world)
+    // - draws without emitting (round GLOW). render_if_visible calls it when the frame steps the world. Nothing by
+    // default.
+    virtual void emit_after_draw() {}
     // Slot 2: the vertex lists - history steps - a particle has. 0x004968A0 (not a Ghidra function): "STUB:
     // plat_get_num_vertex_lists" printed, 0.
     virtual int get_num_vertex_lists();
@@ -235,10 +241,14 @@ public:
     // 0x00496F60: the emit script run on; once it ends, deleted.
     void run_emit_script();
     // 0x00496FA0: when shown and updated this frame (unknown12f_, unknown130_), or when `force`: render, and flag 1
-    // and unknown12f_ cleared.
-    void render_if_visible(bool force);
+    // and unknown12f_ cleared. (Not original: `advance` - the world steps this frame - also runs emit_after_draw, the
+    // draw's emission; false while the game is paused, so a paused world's particles stand still as everything else.
+    // Original behaviour: the paused game's draws emitted, the new particles piling up unaged at the emitter, one
+    // frame's worth for every frame drawn - and drawing from the game's random sequence.)
+    void render_if_visible(bool force, bool advance);
     // NOT ORIGINAL - a render-only frame's ([Graphics] max_fps - engine/sys/frame_blend.h): drawn again when it was
-    // updated and shown this tick (unknown130_), or when `force`; nothing cleared (its tick's frame already drew it).
+    // updated and shown this tick (unknown130_), or when `force`; nothing cleared (its tick's frame already drew it)
+    // and nothing emitted (its tick's frame did).
     void render_again(bool force);
     // 0x00497790 / 0x00497900: the emit / update script: `script` (on a CScript of its own) with the shared
     // parameters plus `params`, on `object`; 0: the script deleted.

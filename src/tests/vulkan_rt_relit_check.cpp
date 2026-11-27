@@ -2793,18 +2793,30 @@ void check_indoor_lamps(Tally* tally)
                  "the high-bay's flux range holds a 400 W metal halide's 36 000 lm and a 150 W LED's 17 250 lm");
 }
 
-// (round HAZE) A light card lying on a floor - the pool of light the artists drew under a fitting - is the fitting that
+/// (round HAZE) A light card lying on a floor - the pool of light the artists drew under a fitting - is the fitting that
 // throws it: mounted under the ceiling over it, a ceiling panel's luminous size, its flux kept. Training's hall lamps were
-// discs of their pools' size 7 m over them (no skater's shadow under one). A pool under the open sky stays where it
-// hangs (its pool's radius over it), a fitting's size too, its flux kept.
+// discs of their pools' size 7 m over them (no skater's shadow under one). (Round GLOW) The fitting is the one most nearly
+// straight over the pool within its cone: a lamp head on an arm off to the side (no ceiling) mounts the card there, a
+// panel facing the pool; a card with the game's own light over it is that light's pool - no lamp of its own, the light
+// kept; a pool under the open sky with nothing within its cone is no lamp (it hung in the air at its pool's radius).
 void check_pool_cards(Tally* tally)
 {
     constexpr float kSide = 600.0F;
     constexpr float kHeight = 400.0F;
+    constexpr float kPost = 10000.0F;    // (a street: a lamp head on an arm, nothing else over the pool)
+    constexpr float kHeadUp = 300.0F;    // its head's underside 7.6 m over the pool ...
+    constexpr float kHeadAside = 120.0F; // ... 3 m to one side of its centre (22 degrees off the vertical)
+    constexpr float kHead = 30.0F;
     rt::RelitMesh hall;
     // (the floor and a ceiling over it)
     add_face(&hall, {.corner = {0.0F, 0.0F, 0.0F}, .across = {kSide, 0.0F, 0.0F}, .up = {0.0F, 0.0F, kSide}}, 8);
     add_face(&hall, {.corner = {0.0F, kHeight, 0.0F}, .across = {0.0F, 0.0F, kSide}, .up = {kSide, 0.0F, 0.0F}}, 8);
+    // (the street lamp's head: its underside, 30 units square)
+    add_face(&hall,
+             {.corner = {kPost + kHeadAside - (kHead * 0.5F), kHeadUp, -kHead * 0.5F},
+              .across = {0.0F, 0.0F, kHead},
+              .up = {kHead, 0.0F, 0.0F}},
+             1);
     hall.id = kCpuIds + 9;
     const std::vector<rt::RelitMesh> meshes{hall};
     CpuTracer cpu(meshes);
@@ -2813,29 +2825,65 @@ void check_pool_cards(Tally* tally)
                        .core = kCardCore, .reach = 1500.0F, .shape = rt::EmitterShape::kPanel,
                        .axis = {0.0F, 1.0F, 0.0F}, .kind = rt::EmitterKind::kGlow};
     rt::RelitLamp open = card;
-    open.position = {5000.0F, kCardCore, 0.0F}; // (no ceiling over it)
-    std::vector<rt::RelitLamp> lamps{card, open};
+    open.position = {5000.0F, kCardCore, 0.0F}; // (no ceiling over it, nothing within its cone)
+    rt::RelitLamp post = card;
+    post.position = {kPost, kCardCore, 0.0F};
+    rt::RelitLamp lit = card;
+    lit.position = {-5000.0F, kCardCore, 0.0F};
+    constexpr uint32_t kGameLight = 0x1234U;
+    const rt::RelitLamp light{.position = {-5000.0F + 60.0F, 320.0F, 0.0F}, .light = {1.0F, 1.0F, 1.0F}, .core = 10.0F,
+                              .reach = 900.0F, .kind = rt::EmitterKind::kPoint, .game_light = kGameLight};
+    std::vector<rt::RelitLamp> lamps{card, open, post, lit, light};
     const double flux_before = rt::lights::lamp_power({.position = card.position, .colour = {1.0F, 1.0F, 1.0F},
                                                        .intensity = 1.0F, .reach = 1500.0F, .core = card.core,
                                                        .shape = rt::EmitterShape::kPanel});
-    const std::size_t mounted = rt::mount_pool_cards(&lamps, cpu);
-    const rt::RelitLamp& hung = lamps.front();
+    const rt::PoolCards cards = rt::mount_pool_cards(&lamps, cpu);
+    const bool listed = lamps.size() == 3 && rt::x_of(lamps.at(0).position) == kSide * 0.5F &&
+                        rt::x_of(lamps.at(1).position) > kPost - 1.0F && lamps.at(2).game_light == kGameLight;
+    if (!listed) {
+        tally->check(false, text::format("pool cards: %zu lamps left (the hall's, the street lamp's and the game's light "
+                                         "wanted); %zu mounted, %zu another lamp's, %zu no fitting",
+                                         lamps.size(), cards.mounted, cards.theirs, cards.unlit));
+        return;
+    }
+    const rt::RelitLamp& hung = lamps.at(0);
     const double flux_after = rt::lights::lamp_power({.position = hung.position, .colour = {1.0F, 1.0F, 1.0F},
-                                                      .intensity = std::get<0>(hung.light), .reach = 1500.0F, .core = hung.core,
-                                                      .shape = rt::EmitterShape::kPanel});
+                                                      .intensity = std::get<0>(hung.light), .reach = 1500.0F,
+                                                      .core = hung.core, .shape = rt::EmitterShape::kPanel});
     const bool under_ceiling = std::abs(rt::y_of(hung.position) - (kHeight - rt::kPoolMount)) <= 3.0F;
     const bool small = hung.core < 40.0F;
     const bool kept = std::abs(flux_after / flux_before - 1.0) <= 1e-3;
-    const bool open_kept = std::abs(rt::y_of(lamps.back().position) - kCardCore) <= 1e-3F &&
-                           std::abs(lamps.back().core - hung.core) <= 1e-3F &&
-                           std::abs(std::get<0>(lamps.back().light) - std::get<0>(hung.light)) <= 1e-6F * std::get<0>(hung.light);
-    tally->check(mounted == 1 && under_ceiling && small && kept && open_kept,
-                 text::format("a pool card's lamp: %zu mounted, at y %.1f (the ceiling %.0f), core %.1f (was %.0f), its flux x "
-                              "%.4f; the open sky's pool card left at y %.1f, core %.1f",
-                              mounted, static_cast<double>(rt::y_of(hung.position)), static_cast<double>(kHeight),
-                              static_cast<double>(hung.core), static_cast<double>(kCardCore), flux_after / flux_before,
-                              static_cast<double>(rt::y_of(lamps.back().position)),
-                              static_cast<double>(lamps.back().core)));
+    tally->check(cards.cards == 3 && cards.mounted == 2 && under_ceiling && small && kept,
+                 text::format("a pool card's lamp: %zu mounted, at y %.1f (the ceiling %.0f), core %.1f (was %.0f), its "
+                              "flux x %.4f",
+                              cards.mounted, static_cast<double>(rt::y_of(hung.position)), static_cast<double>(kHeight),
+                              static_cast<double>(hung.core), static_cast<double>(kCardCore), flux_after / flux_before));
+    // the street lamp's: at its head (within a ring's step of the line to it), facing the pool, the same flux
+    const rt::RelitLamp& head = lamps.at(1);
+    const Vec3 card_at{kPost, 0.0F, 0.0F};
+    const Vec3 to_head = rt::minus(Vec3{kPost + kHeadAside, kHeadUp, 0.0F}, card_at);
+    const float to_length = std::sqrt(rt::dot(to_head, to_head));
+    const Vec3 from_card = rt::minus(head.position, card_at);
+    const float along = rt::dot(from_card, to_head) / to_length;
+    const Vec3 off = rt::minus(from_card, rt::scaled(to_head, along / to_length));
+    const float aside = std::sqrt(rt::dot(off, off));
+    const bool at_head = rt::y_of(head.position) < kHeadUp &&
+                         rt::y_of(head.position) > kHeadUp - (2.0F * rt::kPoolMount) && aside <= kHead &&
+                         rt::x_of(head.position) > kPost + 60.0F;
+    const bool facing = head.shape == rt::EmitterShape::kPanel && rt::y_of(head.axis) > 0.85F &&
+                        rt::y_of(head.axis) < 0.99F && rt::x_of(head.axis) > 0.2F;
+    tally->check(at_head && facing && std::abs(head.core - hung.core) <= 1e-3F &&
+                     std::abs(std::get<0>(head.light) - std::get<0>(hung.light)) <= 1e-6F * std::get<0>(hung.light),
+                 text::format("a street lamp's pool card: mounted at its head on the arm (%.1f %.1f %.1f; %.1f off the "
+                              "line to it), facing the pool (axis %.2f %.2f %.2f)",
+                              static_cast<double>(rt::x_of(head.position)), static_cast<double>(rt::y_of(head.position)),
+                              static_cast<double>(rt::z_of(head.position)), static_cast<double>(aside),
+                              static_cast<double>(rt::x_of(head.axis)), static_cast<double>(rt::y_of(head.axis)),
+                              static_cast<double>(rt::z_of(head.axis))));
+    tally->check(cards.theirs == 1 && cards.unlit == 1,
+                 text::format("a pool card under the game's own light is that light's pool, one under the open sky no "
+                              "lamp: %zu another lamp's, %zu with no fitting (1 and 1)",
+                              cards.theirs, cards.unlit));
 }
 
 // (round HAZE) A glow lamp's head on its lit fitting: a triangle larger than the fitting's whole luminous area (the flux
