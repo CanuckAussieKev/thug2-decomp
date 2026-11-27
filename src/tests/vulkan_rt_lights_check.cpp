@@ -3307,7 +3307,7 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
         m.f0 = {painted_f0, painted_f0, painted_f0};
         m.roughness = rt::material_values(rt::MaterialKind::kPainted).roughness;
         const float exposure = rt::frame_pre_exposure();
-        const brdf::Vec3 up{0.0F, 1.0F, 0.0F};
+        const brdf::Vec3 floor_up{0.0F, 1.0F, 0.0F};
         const brdf::Vec3 l{static_cast<float>(x_of(toward)), static_cast<float>(y_of(toward)), static_cast<float>(z_of(toward))};
         for (const uint32_t vertex_colour : {0xFF404040U, 0xFFC0C0C0U}) {
             std::vector<uint8_t> shot;
@@ -3320,8 +3320,8 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                 rt::linear_from_display(2.0 * static_cast<double>(vertex_colour & 0xFFU) / 255.0));
             int sunlit = 0;
             int shaded = 0;
-            int wrong = 0;
-            double worst = 0.0;
+            int off_model = 0;
+            double worst_share = 0.0;
             for (const FloorPixel& pixel : pixels) {
                 if (!drew) {
                     break;
@@ -3330,27 +3330,27 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                 const brdf::Vec3 v = brdf::normalise({static_cast<float>(x_of(kEye) - x_of(seen.point)),
                                                       static_cast<float>(y_of(kEye) - y_of(seen.point)),
                                                       static_cast<float>(z_of(kEye) - z_of(seen.point))});
-                const float nv = std::max(brdf::dot(up, v), brdf::kLeastCosine);
+                const float nv = std::max(brdf::dot(floor_up, v), brdf::kLeastCosine);
                 const brdf::Rgb kept = brdf::ambient(m, nv, {bake, bake, bake}, {bake, bake, bake});
                 const float sun = pixel.shadowed ? 0.0F : exposure;
-                const brdf::Rgb direct = brdf::direct(m, up, v, l, {sun, sun, sun});
+                const brdf::Rgb direct = brdf::direct(m, floor_up, v, l, {sun, sun, sun});
                 const Rgb got = linear_pixel_at(shot, pixel.x, pixel.y);
                 bool bad = false;
                 for (std::size_t c = 0; c < 3; ++c) {
                     const double want = (static_cast<double>(core::at(kept, c)) * (1.0 - kShareDirect)) +
                                         static_cast<double>(core::at(direct, c));
                     const double error = std::abs(core::at(got, c) - want);
-                    worst = std::max(worst, error / std::max(want, 1e-3));
+                    worst_share = std::max(worst_share, error / std::max(want, 1e-3));
                     bad = bad || error > kLinearTolerance + (0.02 * want);
                 }
-                wrong += bad ? 1 : 0;
+                off_model += bad ? 1 : 0;
                 (pixel.shadowed ? shaded : sunlit) += 1;
             }
-            tally->check(drew && sunlit > 1000 && shaded > 300 && wrong == 0,
+            tally->check(drew && sunlit > 1000 && shaded > 300 && off_model == 0,
                          text::format("a surface without a light store (its own colours 0x%02X) lit by the rays' light: "
                                       "%d sunlit and %d shadowed pixels, %d off the light model (the sun on its material, "
                                       "its colour's indirect share; worst %.1f %%)",
-                                      vertex_colour & 0xFFU, sunlit, shaded, wrong, 100.0 * worst));
+                                      vertex_colour & 0xFFU, sunlit, shaded, off_model, 100.0 * worst_share));
         }
     }
     {
