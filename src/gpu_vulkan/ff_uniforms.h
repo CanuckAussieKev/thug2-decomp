@@ -89,7 +89,11 @@ constexpr uint32_t kLightFrontSunBinding = 10;  // RGBA16F: rgb the disc's (the 
 // its normal, its hit lit by the light list (or the sky) - pre-exposed; a the hit's distance (65504: the
 // sky; 0: none traced there)
 constexpr uint32_t kLightFrontReflectBinding = 11;
-constexpr uint32_t kLightInputCount = 12;
+// (round SHEETS) RGBA16F: rgb what the layer's rest surface lets through from behind it - the view's ray traced on past
+// it, its hit lit by the light list, x what the see-through surfaces it crosses on the way let through (lower water
+// sheets, glass) - pre-exposed; a the hit's distance from the surface (0: none traced there or nothing met - deep water)
+constexpr uint32_t kLightFrontBehindBinding = 12;
+constexpr uint32_t kLightInputCount = 13;
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.

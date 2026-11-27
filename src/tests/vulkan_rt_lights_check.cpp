@@ -2609,6 +2609,14 @@ Rgb linear_pixel_at(const std::vector<uint8_t>& texels, int x, int y)
     return out;
 }
 
+// (round SHEETS) the alpha channel of an RGBA16F image's pixel
+double half_alpha_at(const std::vector<uint8_t>& texels, int x, int y)
+{
+    constexpr std::size_t kHalfPixelBytes = 8;
+    const std::size_t at = (((static_cast<std::size_t>(y) * kTargetWidth) + static_cast<std::size_t>(x)) * kHalfPixelBytes) + 6;
+    return half_to_double(static_cast<uint16_t>(core::at(texels, at) | (core::at(texels, at + 1) << 8U)));
+}
+
 Rgb linear_of(uint32_t argb)
 {
     const Rgb display = drawn_colour(argb);
@@ -3773,6 +3781,11 @@ constexpr double kFrontLeast = 0.02;    // (pixels compared where the expected l
 constexpr double kFrontMargin = 4.0;    // (units kept off the quads' and the box's edges)
 constexpr double kFrontRatioLow = 0.93;  // the device's light over the model's, its mean over the pixels
 constexpr double kFrontRatioHigh = 1.07;
+// (round SHEETS) the light the layer's other side finds on the floor over the floor's albedo x its lamps input: the hit is
+// lit through its material's whole BSDF (the painted kind's specular lobe too) and the radiance cache's bounce, the input
+// is a white diffuser's (measured 0.98)
+constexpr double kBehindRatioLow = 0.93;
+constexpr double kBehindRatioHigh = 1.07;
 constexpr double kFrontGlassAlpha = 2.0 * 64.0 / 255.0; // (the pane's vertex alpha 0x40: the program's x 2 on v0.a x t0.a)
 // (round FRONT2) the same pane as a particle: vertex alpha 0x40, its colour 0x20 grey (the game's light on it - never its
 // albedo), the pass colour 0.25: its albedo the program's under v0 0.5 - 4 x 0.5 x the white texel x 0.25 = 0.5 (display)
@@ -3782,7 +3795,8 @@ constexpr float kParticleFrontC0 = 0.25F;
 // A frame of the view: the floor, the glass over it or not; `front` / `lamps` read (RGBA16F each) when given.
 bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, std::span<const rt::Light> points,
                 bool glass, uint64_t frame, std::vector<uint8_t>* front, std::vector<uint8_t>* lamps,
-                std::vector<uint8_t>* colour = nullptr, bool particle = false, std::vector<uint8_t>* layer = nullptr)
+                std::vector<uint8_t>* colour = nullptr, bool particle = false, std::vector<uint8_t>* layer = nullptr,
+                std::vector<uint8_t>* behind = nullptr)
 {
     using render::GpuRenderState;
     rt::FrameRecord& record = rt::frame_record();
@@ -3880,6 +3894,10 @@ bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneM
             lamps->resize(bytes);
             read = state.memory.read_image_level(lamps_image, 0, lamps);
         }
+        if (read && behind != nullptr) { // (round SHEETS: what the layer lets through from behind it)
+            behind->resize(bytes);
+            read = state.memory.read_image_level(images.behind.front(), 0, behind);
+        }
     }
     if (layer != nullptr) { // (round FRONT2: Ray Reconstruction's transparency layer as the transparencies drew it)
         render::vulkan::Backend& state = render::vulkan::backend();
@@ -3949,10 +3967,11 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     std::vector<uint8_t> lamps;
     std::vector<uint8_t> with_glass;
     std::vector<uint8_t> without_glass;
+    std::vector<uint8_t> behind;
     for (int k = 0; ok && k < kFrontFrames; ++k) {
         const bool last = k + 1 == kFrontFrames;
         ok = draw_front(gpu, targets, meshes, points, true, frame++, last ? &front : nullptr, last ? &lamps : nullptr,
-                        last ? &with_glass : nullptr);
+                        last ? &with_glass : nullptr, false, nullptr, last ? &behind : nullptr);
     }
     ok = ok && draw_front(gpu, targets, meshes, points, false, frame++, nullptr, nullptr, &without_glass);
     const uint64_t lit = vk::front_layer_stats().passes - passes_before;
@@ -3980,6 +3999,10 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     const Solid& box = core::at(kScene, 1);
     double glass_got = 0.0;
     double glass_want = 0.0;
+    double behind_got = 0.0;  // (round SHEETS) the layer's other side's light, and the floor's there
+    double behind_want = 0.0;
+    int behind_far = 0;       // ... pixels whose traced distance isn't the floor's
+    double behind_worst = 0.0;
     double floor_got = 0.0;
     double floor_want = 0.0;
     int glass_pixels = 0;
@@ -4002,6 +4025,19 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                     continue;
                 }
                 const double layer = luma_of(linear_pixel_at(front, x, y));
+                // (round SHEETS) the pane's other side traced on along the view: the floor under it, its distance from the
+                // pane the view's to the floor, its light the floor's own there - its albedo x the lamps' light on it (the
+                // same pixel's lamps input: the floor is the prepass's surface there)
+                Vec3 floor_at{};
+                if (floor_point(kEye, x, y, 0.0, &floor_at) && std::abs(x_of(floor_at)) < kFloorHalf - kEdgeMargin &&
+                    std::abs(z_of(floor_at)) < kFloorHalf - kEdgeMargin) {
+                    const double expected_travel = length_of(minus(floor_at, at));
+                    const double travel = half_alpha_at(behind, x, y);
+                    behind_worst = std::max(behind_worst, std::abs(travel - expected_travel));
+                    behind_far += std::abs(travel - expected_travel) > 0.01 * expected_travel + 0.5 ? 1 : 0;
+                    behind_got += luma_of(linear_pixel_at(behind, x, y));
+                    behind_want += render::rt::linear_from_display(0.8) * luma_of(linear_pixel_at(lamps, x, y));
+                }
                 glass_got += layer;
                 glass_want += want;
                 ++glass_pixels;
@@ -4041,6 +4077,14 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
         }
     }
     const double glass_ratio = glass_want > 0.0 ? glass_got / glass_want : 0.0;
+    const double behind_ratio = behind_want > 0.0 ? behind_got / behind_want : 0.0;
+    tally->check(ok && glass_pixels > 500 && behind_far == 0,
+                 text::format("  (round SHEETS) the pane's other side traced on along the view: its hit the floor under it at "
+                              "every pixel within the floor - %d of %d off (worst %.3f units)",
+                              behind_far, glass_pixels, behind_worst));
+    tally->check(ok && glass_pixels > 500 && behind_ratio >= kBehindRatioLow && behind_ratio <= kBehindRatioHigh,
+                 text::format("  ... its light the floor's there (its albedo x the lamps' light on it): %.4f x",
+                              behind_ratio));
     const double floor_ratio = floor_want > 0.0 ? floor_got / floor_want : 0.0;
     tally->check(ok && emitter && glass_pixels > 500 && glass_ratio >= kFrontRatioLow && glass_ratio <= kFrontRatioHigh,
                  text::format("  the glass pane (the front layer) under the lamp: %d pixels, its light %.4f x the lamp "
