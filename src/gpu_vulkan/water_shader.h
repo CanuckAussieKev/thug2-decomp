@@ -17,6 +17,11 @@
 // handed on -; the fragment shader's declarations are then water_declarations_glsl(true): it shades the rest point.
 namespace render::vulkan {
 
+// (round WAVES) The water's surface alone - struct WaterSea (a body's waves), water_wave / water_swell (the swell at a rest
+// point, faded by a footprint - 0: none), water_ripple_places / water_ripples_of (the ripple texture's two reads, the
+// includer reads them), water_wave_normal - the text both declarations above start with; the rays that meet water (the
+// reference path tracer) include it too: one water surface.
+[[nodiscard]] std::string_view water_waves_glsl();
 [[nodiscard]] std::string water_declarations_glsl(bool moving);
 [[nodiscard]] std::string water_vertex_declarations_glsl();
 [[nodiscard]] std::string_view water_vertex_move_glsl();

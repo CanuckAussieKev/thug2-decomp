@@ -67,7 +67,10 @@
 #include "render_pc/scatter_world.h"
 #include "render_pc/sub_mesh.h"
 #include "render_pc/vertex_buffers.h"
+#include "render_pc/water_bodies.h"
 #include "render_pc/water_materials.h"
+#include "engine/gfx/water_surfaces.h"
+#include "engine/gfx/wind.h"
 
 namespace render::rt_record {
 
@@ -1015,6 +1018,31 @@ rt::SurfaceClass surface_class_of(const MeshRef* mesh, const rt::Material& mater
     return rt::surface_class(material, rt::vertex_alpha_counts(material) ? least_vertex_alpha(mesh) : 1.0F);
 }
 
+// (round WAVES) A level water mesh's waves in the record (rt::Instance::water): its body's as the water shader draws them
+// (water_bodies.h body_of - the body its last draw was handed), so the rays meet the same surface; one entry for a run of
+// meshes of the same body. kNoWaterSurface: not water, an object's mesh, or no body measured (drawn still).
+uint32_t water_surface_of(const MeshRef* mesh, uint32_t kind, rt::FrameRecord* record)
+{
+    const MaterialRef* material = mesh->material();
+    if ((kind & rt::kWorld) == 0U || material == nullptr || !water::wanted() || !water_materials::is_water(material)) {
+        return rt::kNoWaterSurface;
+    }
+    const water::WaterBody body = water_bodies::body_of(core::at(mesh->index_buffers(), 0));
+    if (!body.known) {
+        return rt::kNoWaterSurface;
+    }
+    const water::SeaWaves& sea = body.waves;
+    const rt::WaterSurface surface{.slopes = sea.slopes,
+                                   .speeds = sea.speeds,
+                                   .sea = {sea.height, sea.wavelength, sea.ripples, sea.whitecaps},
+                                   .wind = wind::kDirection,
+                                   .rain = body.sky};
+    if (record->water_surfaces.empty() || !(record->water_surfaces.back() == surface)) {
+        record->water_surfaces.push_back(surface);
+    }
+    return static_cast<uint32_t>(record->water_surfaces.size() - 1);
+}
+
 // One instance of a mesh with a world transform (a Direct3D matrix); `light`: its object's lights in the record
 // (rt::Instance::light); `skin`: the drawing instance and its bones, for a mesh skinned on the processor (its pose).
 void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, rt::RayTracing& rt,
@@ -1051,11 +1079,13 @@ void add_instance(const MeshRef* mesh, uint32_t kind, const maths::Mat4& world, 
         flags |= rt::kSkinned;
     }
     log_object_mesh(mesh, skinned ? &layout : nullptr, id, flags, material);
-    rt::frame_record().instances.push_back({.mesh = id,
-                                            .material = material,
-                                            .flags = flags,
-                                            .object_to_world = rt::object_to_world_rows(world.floats()),
-                                            .light = light});
+    rt::FrameRecord& record = rt::frame_record();
+    record.instances.push_back({.mesh = id,
+                                .material = material,
+                                .flags = flags,
+                                .object_to_world = rt::object_to_world_rows(world.floats()),
+                                .light = light,
+                                .water = water_surface_of(mesh, kind, &record)});
 }
 
 // The loaded scenes' meshes but the sky's (draw_viewport's world passes; the world transform is the identity).
@@ -2681,6 +2711,7 @@ void record_frame()
     record.game_lights.clear();
     record.cameras.clear();
     record.object_lights.clear();
+    record.water_surfaces.clear(); // (round WAVES)
     record.poses_key = kFnvBasis;
     // (the objects' shadows: an instance not drawn for a while forgotten - its address may be another's next)
     std::erase_if(st.object_lights, [&st](const auto& kept) { return kept.second.frame + 2 < st.frame; });

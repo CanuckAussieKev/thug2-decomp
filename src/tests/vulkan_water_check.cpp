@@ -38,7 +38,10 @@
 //     Pierson-Moskowitz, the depth's limit, no waves below the onset wind, the four waves' energy within the spectrum's;
 //     the bodies measured from geometry (engine/gfx/water_bodies.h): a small puddle in a closed room - no sky, no wind,
 //     still; the same puddle in the open - millimetre ripples at most; a lake 1 km along the wind - its fetch the
-//     distance to the upwind shore and its waves the fetch-limited sea's; water running off the world's edge - open.
+//     distance to the upwind shore and its waves the fetch-limited sea's; water running off the world's edge - open;
+//   - (round WAVES) on the processor: the waves' mirror image (water_mirror_image - where the water shader reads the front
+//     layer's traced mirror): the flat mirror's ray at the image point passes through the wave's hit, the sky's leaves
+//     along the wave's reflection, at a grazing and a steeper view, tilts toward, away from and across the view.
 //   thug2_vulkan_water_check [--device N] [--display N] [--no-validation] [--perf]
 // --perf also times a frame of full-screen water at 2560 x 1440 with rt_water off and on (reported, not checked).
 // Exit code: 0 when every check passed, 1 when one failed, 2 when this machine has no Vulkan for this process.
@@ -68,6 +71,7 @@
 #include "engine/gfx/gpu.h"
 #include "engine/gfx/gpu_context.h"
 #include "engine/gfx/gpu_handles.h"
+#include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/smooth_tess.h"
 #include "engine/gfx/water_bodies.h"
@@ -270,6 +274,14 @@ bool& right_handed_views()
 {
     static bool right_handed = false;
     return right_handed;
+}
+
+// (round WAVES) The frames drawn linear (the ray-traced lighting's: the draws' colours decoded to linear light at their
+// output, Backend::linear_phase - the tone mapping's listener opens it in the game) rather than display-referred.
+bool& linear_frames()
+{
+    static bool linear = false;
+    return linear;
 }
 
 // The view (world -> camera, Direct3D's row vectors) and the projection.
@@ -483,6 +495,11 @@ void draw_frame(render::Gpu& gpu, const Scene& scene, double seconds, bool marke
     gpu.set_viewport({.x = 0, .y = 0, .width = scene.width, .height = scene.height, .min_z = 0.0F, .max_z = 1.0F});
     gpu.clear(0, nullptr, value::kClearTarget | value::kClearDepth, kBlackOpaque, 1.0F, 0);
     render::rt::view_begins(view);
+    if (linear_frames()) {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        state.linear_phase = true;
+    }
     common_states(gpu, scene);
     gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
     gpu.set_render_state(GpuRenderState::kZWriteEnable, 1);
@@ -522,6 +539,11 @@ void draw_frame(render::Gpu& gpu, const Scene& scene, double seconds, bool marke
     render::water::set_current(nullptr, 0);
     render::rt::opaque_view_drawn(view);
     render::rt::world_view_drawn(view);
+    {
+        vk::Backend& state = vk::backend();
+        const std::scoped_lock lock(state.mutex);
+        state.linear_phase = false;
+    }
     gpu.set_render_target(0, nullptr);
     gpu.set_depth_surface(nullptr);
     gpu.end_scene();
@@ -647,23 +669,31 @@ bool expected_calm(uint32_t px, uint32_t py, Vec3* out, float* depth_down, bool 
     if (*depth_down < kEdgeDepth) {
         return false;
     }
-    const Vec3 tint = as_bytes(kTint);
+    // (round WAVES) in a linear frame every colour the water's arithmetic takes is decoded to linear light first, and the
+    // result is linear (the frame's)
+    const bool linear = linear_frames();
+    const auto light_of = [linear](const Vec3& display) {
+        return linear ? Vec3{render::rt::linear_from_display(core::at(display, 0)), render::rt::linear_from_display(core::at(display, 1)),
+                             render::rt::linear_from_display(core::at(display, 2))}
+                      : display;
+    };
+    constexpr float kProgramGain = 2.0F * 128.0F / kByteMax; // (4 v0 c0: v0 the vertex colour 128 / 255, c0 0.5)
+    const Vec3 tint = light_of(scale(as_bytes(kTint), kProgramGain)); // (the program's colour: the texture x 4 v0 c0)
     const float most = std::max({core::at(tint, 0), core::at(tint, 1), core::at(tint, 2)});
     const Vec3 hue = scale(tint, 1.0F / most);
-    constexpr float kProgramGain = 2.0F * 128.0F / kByteMax; // (4 v0 c0: v0 the vertex colour 128 / 255, c0 0.5)
-    const float light = dot(tint, kLuma) * kProgramGain;
+    const float light = dot(tint, kLuma);
     const Vec3 deep_hue{core::at(hue, 0) * core::at(hue, 0), core::at(hue, 1) * core::at(hue, 1), core::at(hue, 2) * core::at(hue, 2)};
     const Vec3 deep = scale(deep_hue, light * 0.65F / dot(deep_hue, kLuma));
-    const Vec3 sand = as_bytes(kSand);
-    const Vec3 reflected = shows_wall == 1 ? scale(as_bytes(kWallColour), kProgramGain) : kFog;
+    const Vec3 sand = light_of(as_bytes(kSand));
+    const Vec3 reflected = light_of(shows_wall == 1 ? scale(as_bytes(kWallColour), kProgramGain) : kFog);
     const float fresnel = 0.02F + (0.98F * std::pow(1.0F - core::at(v, 1), 5.0F));
     for (std::size_t channel = 0; channel < 3; ++channel) {
         const float sigma = (3.0F / kVisibility) * (0.2F + (1.6F * (1.0F - core::at(hue, channel))));
         const float through = std::exp(-sigma * path);
         const float below = std::exp(-sigma * *depth_down);
         const float seen = (core::at(sand, channel) * through * below) + (core::at(deep, channel) * (1.0F - through));
-        // (round POOL) the covered share the body's own colour: the program's (the texture x 4 v0 c0)
-        const float refracted = std::lerp(seen, core::at(tint, channel) * kProgramGain, cover);
+        // (round POOL) the covered share the body's own colour: the program's
+        const float refracted = std::lerp(seen, core::at(tint, channel), cover);
         out->at(channel) = std::lerp(refracted, core::at(reflected, channel), fresnel);
     }
     return true;
@@ -689,9 +719,11 @@ void set_water(bool on, float waves, float foam, bool hdr = true)
     (void)hdr; // (round F: the glitter has one peak)
 }
 
-void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally, bool blended, bool right_handed = false)
+void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally, bool blended, bool right_handed = false,
+                bool linear = false)
 {
     right_handed_views() = right_handed;
+    linear_frames() = linear;
     set_water(true, 0.0F, 0.0F);
     Scene drawn = scene;
     if (blended) {
@@ -699,7 +731,8 @@ void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally, bool blended
     }
     draw_frame(gpu, drawn, 1.0, true, blended);
     const Picture got = read_picture(scene.colour, kWidth, kHeight);
-    const char* how = right_handed ? "calm water blended, a right-handed view (camera z negative - the game's)"
+    const char* how = linear         ? "calm water blended, a linear frame (the water's arithmetic in linear light)"
+                      : right_handed ? "calm water blended, a right-handed view (camera z negative - the game's)"
                       : blended    ? "calm water blended (alpha a half)"
                                    : "calm water (opaque)";
     // (round POOL) the body's coverage: the drawn alpha (the texture's) when blended, all of it opaque
@@ -743,6 +776,7 @@ void check_calm(render::Gpu& gpu, const Scene& scene, Tally* tally, bool blended
                               worst > kTolerance ? worst_at.c_str() : ""));
     tally->check(all_finite(got), text::format("%s: every pixel finite", how));
     right_handed_views() = false;
+    linear_frames() = false;
 }
 
 // The pictures' bytes equal over the pixels `where` says.
@@ -1496,6 +1530,68 @@ void check_bodies(Tally* tally)
                  "the sheltered puddle still, the open lake wavy: the waves follow the body, not the level");
 }
 
+// (round WAVES) The waves' mirror image (vulkan_water.h water_mirror_image - the water shader's twin): where the calm
+// surface's mirror - the front layer's traced image - shows what a wave's reflected ray meets. For a camera over the
+// water at a grazing and a steeper view, waves tilted toward and away from the eye and across, and hits near, far and
+// at the sky's distance: the camera ray toward the image point, reflected by the flat plane where it meets it, passes
+// through the wave's hit (its distance from that ray under 1e-6 of the hit's distance) and, for the sky, leaves along
+// the wave's reflected direction. Beside it, how far on the screen the image moved (degrees of view) against what the
+// old move by the tilt's part across the screen gave - the grazing view's toward-the-eye tilt moves the image by twice the
+// tilt's angle, not a sixth of it.
+void check_mirror_image(Tally* tally)
+{
+    using D3 = std::array<double, 3>;
+    const auto sub = [](const D3& a, const D3& b) { return D3{a[0] - b[0], a[1] - b[1], a[2] - b[2]}; };
+    const auto add = [](const D3& a, const D3& b) { return D3{a[0] + b[0], a[1] + b[1], a[2] + b[2]}; };
+    const auto mul = [](const D3& a, double s) { return D3{a[0] * s, a[1] * s, a[2] * s}; };
+    const auto dot = [](const D3& a, const D3& b) { return (a[0] * b[0]) + (a[1] * b[1]) + (a[2] * b[2]); };
+    const auto unit = [&dot, &mul](const D3& a) { return mul(a, 1.0 / std::sqrt(dot(a, a))); };
+    const auto reflect = [&dot, &sub, &mul](const D3& d, const D3& n) { return sub(d, mul(n, 2.0 * dot(d, n))); };
+    const D3 face{0.0, 1.0, 0.0};
+    double worst = 0.0;
+    double worst_sky = 0.0;
+    double grazing_moved = 0.0;
+    int cases = 0;
+    for (const double eye_height : {40.0, 400.0}) {
+        const D3 eye{0.0, eye_height, 0.0};
+        const D3 surface{0.0, 0.0, 600.0};
+        const D3 view = unit(sub(surface, eye));
+        for (const D3& tilt : {D3{0.0, 0.0, -0.12}, D3{0.0, 0.0, 0.12}, D3{0.1, 0.0, 0.0}, D3{0.07, 0.0, -0.05}}) {
+            const D3 n = unit(add(face, tilt));
+            D3 r = reflect(view, n);
+            r = unit(D3{r[0], std::max(r[1], 0.02), r[2]}); // (the shader's: never below the horizon)
+            for (const double distance : {150.0, 2000.0, 65504.0}) {
+                const D3 image = vk::water_mirror_image(surface, face, r, distance);
+                const D3 hit = add(surface, mul(r, distance));
+                // the camera's ray toward the image, met by the plane, mirrored
+                const D3 toward = unit(sub(image, eye));
+                const D3 met = add(eye, mul(toward, -eye[1] / toward[1]));
+                const D3 mirrored = reflect(toward, face);
+                const D3 off = sub(hit, met);
+                const D3 across = sub(off, mul(mirrored, dot(off, mirrored)));
+                worst = std::max(worst, std::sqrt(dot(across, across)) / distance);
+                if (distance > 60000.0) {
+                    worst_sky = std::max(worst_sky, 1.0 - dot(mirrored, r));
+                }
+                ++cases;
+            }
+            if (eye_height < 100.0 && tilt[2] < 0.0 && tilt[0] == 0.0) {
+                const D3 toward = unit(sub(vk::water_mirror_image(surface, face, r, 65504.0), eye));
+                grazing_moved = std::acos(std::clamp(dot(toward, view), -1.0, 1.0)) * 180.0 / std::numbers::pi;
+            }
+        }
+    }
+    // the old move: 2 x the tilt's part across the screen (its eye-space y) - the grazing view's toward-the-eye tilt
+    const double elevation = std::atan2(40.0, 600.0);
+    const double old_moved = 2.0 * std::sin(elevation) * std::asin(0.12 / std::sqrt(1.0 + (0.12 * 0.12))) * 180.0 / std::numbers::pi;
+    tally->check(cases == 24 && worst < 1.0e-6 && worst_sky < 1.0e-4, // (the sky 65504 units off: parallel within the view's size over it)
+                 text::format("the waves' mirror image: the flat mirror's ray at the image point passes through the wave's "
+                              "hit (worst %.2g of its distance over %d cases), the sky's along the wave's reflection "
+                              "(1 - cos %.2g); the grazing view's image moved %.2f degrees (the old move by the tilt's "
+                              "part across the screen %.2f)",
+                              worst, cases, worst_sky, grazing_moved, old_moved));
+}
+
 int run(const Options& options, SDL_Window* window)
 {
     if (!open_device(options, window)) {
@@ -1522,10 +1618,12 @@ int run(const Options& options, SDL_Window* window)
         render::water::set_level_water({.level = 1, .visibility = kVisibility});
         check_wind_sea(&tally);
         check_bodies(&tally);
+        check_mirror_image(&tally); // (round WAVES)
         check_off(gpu, scene, &tally);
         check_calm(gpu, scene, &tally, false);
         check_calm(gpu, scene, &tally, true);
         check_calm(gpu, scene, &tally, true, true); // (round WATER)
+        check_calm(gpu, scene, &tally, true, true, true); // (round WAVES)
         check_reflection(gpu, scene, &tally);
         check_foam(gpu, scene, &tally);
         check_waves(gpu, scene, &tally);

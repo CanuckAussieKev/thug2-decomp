@@ -1143,6 +1143,31 @@ WaterBodyMedium water_body_medium_locked(const Backend& state)
             .tint = settings.tint};
 }
 
+std::array<double, 3> water_mirror_image(const std::array<double, 3>& surface, const std::array<double, 3>& face,
+                                         const std::array<double, 3>& reflected, double distance)
+{
+    double along = 0.0;
+    for (std::size_t axis = 0; axis < face.size(); ++axis) {
+        along += 2.0 * core::at(reflected, axis) * core::at(face, axis);
+    }
+    std::array<double, 3> out{};
+    for (std::size_t axis = 0; axis < out.size(); ++axis) {
+        core::at(out, axis) = core::at(surface, axis) + ((core::at(reflected, axis) - (along * core::at(face, axis))) * distance);
+    }
+    return out;
+}
+
+bool water_ripples_descriptor_locked(Backend& state, VkDescriptorImageInfo* out)
+{
+    std::string error;
+    if (!ensure_objects(state, &error) || !make_waves(state, &error)) {
+        return false;
+    }
+    const WaterState& own = water_state();
+    *out = {.sampler = own.repeat_mipped, .imageView = own.waves.view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    return true;
+}
+
 WaterStats water_stats()
 {
     const std::scoped_lock lock(backend().mutex);

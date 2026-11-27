@@ -113,6 +113,12 @@ struct WaterView {
 // four floats each (slope along x, slope along z, height 0 - 1, the foam's pattern 0 - 1).
 [[nodiscard]] std::vector<std::array<float, 4>> water_waves_reference(uint32_t level);
 
+// (round WAVES) water_shader.cpp water_mirror_image's twin: where the calm surface's mirror shows the point a ray
+// reflected by the waves at `surface` along `reflected` meets `distance` on - that point mirrored by the rest plane
+// (normal `face`). The water shader reads the front layer's traced mirror image there.
+[[nodiscard]] std::array<double, 3> water_mirror_image(const std::array<double, 3>& surface, const std::array<double, 3>& face,
+                                                       const std::array<double, 3>& reflected, double distance);
+
 // (round MEDIUM) The water's body as the shader takes it (rt_volume_light.h kWaterMediumGlsl): how far one sees into the
 // level's water (world units: the level's visibility x rt_water_clarity) and its hue's source - the water's own colour
 // (tint_auto), else the set tint. For the reference path tracer's water medium. The caller holds the lock.
@@ -123,6 +129,11 @@ struct WaterBodyMedium {
     std::array<float, 3> tint{};
 };
 [[nodiscard]] WaterBodyMedium water_body_medium_locked(const Backend& state);
+
+// (round WAVES) The ripple texture as the water shader samples it (water_shader.h water_waves_glsl's reads), for the rays
+// that meet the water's surface (the reference path tracer) - made now if no water has been drawn yet; false: it couldn't
+// be made. The caller holds the lock, outside a render pass.
+bool water_ripples_descriptor_locked(Backend& state, VkDescriptorImageInfo* out);
 
 // Counts for the log and the checks.
 struct WaterStats {

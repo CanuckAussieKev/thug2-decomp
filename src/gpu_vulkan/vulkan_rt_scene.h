@@ -126,8 +126,11 @@ struct GeometryRecord {
     // (round SUBPIX) the material table's slot of the mesh's emission map (rt::RayTracing::set_emission_map - engine/gfx/
     // rt_emission_map.h), what its light store's emission is multiplied by (0: none - it emits nothing)
     uint32_t emission_slot = 0;
+    // (round WAVES) its water body's waves (rt::WaterSurface: kWaterSurfaceFloats floats, the frame's own buffer - with
+    // kGeometryWater)
+    std::array<uint32_t, 2> water_address{};
 };
-inline constexpr std::size_t kGeometryRecordBytes = 88;
+inline constexpr std::size_t kGeometryRecordBytes = 96;
 static_assert(sizeof(GeometryRecord) == kGeometryRecordBytes);
 inline constexpr uint32_t kGeometryLive = 1U << 0;    // its mesh is built (else every other field is 0)
 inline constexpr uint32_t kGeometryIndex32 = 1U << 1; // 32-bit indices (else 16-bit)
@@ -136,6 +139,10 @@ inline constexpr uint32_t kGeometryColour = 1U << 3;
 inline constexpr uint32_t kGeometryNormal = 1U << 4; // (added for the skater's smooth shading) the vertex normals
 inline constexpr uint32_t kGeometryLight = 1U << 5;  // (added by the light energy audit) the light stream
 inline constexpr uint32_t kGeometryObjectLight = 1U << 6; // (the objects' shadows) its object's lights
+inline constexpr uint32_t kGeometryWater = 1U << 7;       // (round WAVES) its water body's waves
+// (round WAVES) A water body's waves as the shaders read them: rt::WaterSurface's slopes, speeds, sea (four each), the
+// wind's way (two), the rain's share and a zero.
+inline constexpr std::size_t kWaterSurfaceFloats = 16;
 // (the objects' shadows) An object's lights as the shaders read them: rt::ObjectLight's seven colours / directions,
 // three floats each, in its order; then (round O) its `linear` (1 or 0) and two zeros.
 inline constexpr std::size_t kObjectLightFloats = 24;

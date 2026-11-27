@@ -25,6 +25,7 @@
 #include "base/core/format.h"
 #include "engine/file/disk.h"
 #include "engine/gfx/light_store.h"
+#include "engine/gfx/rain.h"
 #include "engine/gfx/rt_brdf.h"
 #include "engine/gfx/rt_cel.h"
 #include "engine/gfx/rt_daylight.h"
@@ -53,6 +54,7 @@
 #include "gpu_vulkan/vulkan_surface_light.h"
 #include "gpu_vulkan/vulkan_upscale.h"
 #include "gpu_vulkan/vulkan_water.h"
+#include "gpu_vulkan/water_shader.h"
 #include "platform/run_log.h"
 #include "platform/screenshot_files.h"
 
@@ -65,6 +67,7 @@ constexpr uint64_t kReportNoScene = 0x50540001U;
 constexpr uint64_t kReportTargets = 0x50540002U;
 constexpr uint64_t kReportPipeline = 0x50540003U;
 constexpr uint64_t kReportBuffers = 0x50540004U;
+constexpr uint64_t kReportRipples = 0x5054000FU; // (round WAVES)
 constexpr uint64_t kReportNoMaterials = 0x50540005U;
 constexpr uint64_t kReportList = 0x50540006U;
 
@@ -85,7 +88,8 @@ constexpr uint32_t kBindingCloudMap = 13;   // the clouds' shadow map (the sun's
 constexpr uint32_t kBindingSlots = 14;      // per traced triangle: its place in the emitters' list + 1 (0: not listed)
 constexpr uint32_t kBindingCloudNoise = 15; // .. 17: the clouds' noise (the sky's march)
 constexpr uint32_t kCloudNoiseTextures = 3;
-constexpr uint32_t kBindingCount = 18;
+constexpr uint32_t kBindingWaterRipples = 18; // (round WAVES) the water shader's ripple texture
+constexpr uint32_t kBindingCount = 19;
 constexpr uint32_t kMaterialSet = 1;
 constexpr uint32_t kGroupSide = 8;  // the trace's and the output's work groups: 8 x 8 pixels
 constexpr uint32_t kScanGroup = 64; // the emitters' scan: 64 triangles a group
@@ -137,8 +141,11 @@ struct PathBlock {
     std::array<uint32_t, 4> layer_phase{};
     std::array<float, 4> water{};      // x clarity, y 1: its own colour, z 1: a body
     std::array<float, 4> water_tint{};
+    // (round WAVES) the water's surface: x the game's seconds (the waves' clock), y 1: the ripple texture bound, z the rain's
+    // rings' cell (units; 0: no rain)
+    std::array<float, 4> water_waves{};
 };
-static_assert(sizeof(PathBlock) == 33 * 16);
+static_assert(sizeof(PathBlock) == 34 * 16);
 
 // --- the shaders -------------------------------------------------------------------------------------------------------
 
@@ -173,6 +180,7 @@ layout(std140, set = 0, binding = 3) uniform PathBlock {
     uvec4 layer_phase; // 0 Rayleigh's, 1 the aerosol's
     vec4 water;       // x how far one sees into the water (world units), y 1: its own colour, z 1: a body
     vec4 water_tint;
+    vec4 water_waves; // (round WAVES) x the game's seconds, y 1: the ripple texture bound, z the rain's rings' cell
 } pass;
 layout(std430, set = 0, binding = 4) buffer Emitters {
     uint emitter_count;
@@ -819,13 +827,20 @@ vec3 trace_path(vec3 origin, vec3 dir, inout uint rng)
         HitBlend blend = hit_blend(instance, primitive, id, bary);
         // (round LW) the game's water: its whole surface an interface - Fresnel's share reflected as a mirror (water's F0),
         // the rest into it: its texture's coverage the water's own colour (a surface, below), else seen through
-        if (blend.water && path_next(rng) < hit_dielectric_reflectance(dot(s.normal, dir), blend.f0)) {
+        // (round WAVES) at the waves' facet there - the water shader's surface (path_water_facet); a reflection sent into
+        // the water by a steep facet meets the next wave's face and leaves upward (mirrored by the plane: the second
+        // reflection of grazing light between waves, which Fresnel's reflectance there nearly keeps whole)
+        vec3 water_facet = blend.water ? path_water_facet(instance, s.position, s.normal, dir) : s.normal;
+        if (blend.water && path_next(rng) < hit_dielectric_reflectance(dot(water_facet, dir), blend.f0)) {
             if (depth == pass.frame.z) {
                 break; // (a bounce, as glass's reflection is)
             }
             vec3 up = dot(s.normal, dir) < 0.0 ? s.normal : -s.normal;
             origin = s.position + up * ray_offset(s.position);
-            dir = reflect(dir, up);
+            dir = reflect(dir, water_facet);
+            if (dot(dir, up) <= 0.0) {
+                dir = reflect(dir, up);
+            }
             last_pdf = PATH_DELTA_PDF;
             continue;
         }
@@ -963,6 +978,67 @@ void main()
 }
 )";
 
+// (round WAVES) The water's surface where a path meets it - the raster water's (water_shader.h water_waves_glsl: one water
+// surface). Before, a path met the flat mesh: a calm mirror of the horizon at grazing angles where the water shader draws
+// the waves tilting the mirror up into the sky and turning its facets toward the eye (BA's harbour: the reference's sea
+// brighter than the realtime's at dusk).
+constexpr const char* kWaterSurfaceGlsl = R"(
+layout(set = 0, binding = 18) uniform sampler2D path_water_ripples;
+vec4 path_water_part(uvec2 address, uint part)
+{
+    uint at = part * 16u;
+    return vec4(uintBitsToFloat(geometry_word(address, at)), uintBitsToFloat(geometry_word(address, at + 4u)),
+                uintBitsToFloat(geometry_word(address, at + 8u)), uintBitsToFloat(geometry_word(address, at + 12u)));
+}
+// The waves' normal (world, facing up) where a path meets water at world point x: its body's swell and ripples - and the
+// rain's rings - as the water shader takes them (its instance's row: GEOMETRY_WATER, the body its last draw was handed),
+// at full detail: no fade by a footprint - a pixel's many paths resolve what a fragment's derivatives average. False: no
+// waves known (a body not measured, an object's mesh - the water shader draws those still): the flat surface.
+bool path_water_normal(uint instance, vec3 x, out vec3 n)
+{
+    n = vec3(0.0, 1.0, 0.0);
+    GeometryRecord g = geometry_record(instance);
+    if ((g.flags & GEOMETRY_LIVE) == 0u || (g.flags & GEOMETRY_WATER) == 0u) {
+        return false;
+    }
+    // (four vec4s read one by one: a local array of them takes the buffer's array stride - invalid SPIR-V)
+    vec4 slopes = path_water_part(g.water_address, 0u);
+    vec4 speeds = path_water_part(g.water_address, 1u);
+    vec4 sea_part = path_water_part(g.water_address, 2u);
+    vec4 last = path_water_part(g.water_address, 3u); // the wind's way, the rain's share
+    WaterSea sea = WaterSea(slopes, speeds, sea_part, last.xy);
+    float t = pass.water_waves.x;
+    vec3 swell = water_swell(sea, x.xz, t, 0.0);
+    vec3 ripple = vec3(0.0);
+    if (pass.water_waves.y > 0.5) {
+        vec2 a;
+        vec2 b;
+        water_ripple_places(sea, x.xz, t, a, b);
+        ripple = water_ripples_of(sea, textureLod(path_water_ripples, a, 0.0), textureLod(path_water_ripples, b, 0.0));
+    }
+    if (pass.water_waves.z > 0.0) {
+        ripple.xy += rain_ripple(x.xz, vec4(pass.water_waves.z, RAIN_RIPPLE_LAYERS, t, RAIN_RIPPLE_LIFE)) * last.z;
+    }
+    n = water_wave_normal(swell, ripple.xy);
+    return true;
+}
+// The normal a path crossing water's surface at a hit (normal `normal`, travelling along `dir`) meets, facing the path:
+// the waves' where the surface faces up (the water shader's rule: smoothstep(0.82, 0.94) of its facing - a waterfall's
+// sheet stays flat), seen from below their underside; a facet turned away from the path (the far side of a wave, hidden
+// behind its crest) the plane's.
+vec3 path_water_facet(uint instance, vec3 position, vec3 normal, vec3 dir)
+{
+    vec3 face = dot(normal, dir) < 0.0 ? normal : -normal;
+    vec3 up;
+    if (!path_water_normal(instance, position, up)) {
+        return face;
+    }
+    float upward = smoothstep(0.82, 0.94, abs(normal.y));
+    vec3 n = normalize(mix(face, face.y >= 0.0 ? up : -up, upward));
+    return dot(n, dir) < 0.0 ? n : face;
+}
+)";
+
 // The output: each pixel's mean x the frame's pre-exposure, into the image copied over the viewport.
 constexpr const char* kOutputBody = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
@@ -1026,6 +1102,10 @@ std::string shader_source(Shader which, SkySource sky, bool cloud_map)
         source += sky_grid_glsl();
         break;
     case Shader::kTrace:
+        source += water_waves_glsl(); // (round WAVES: the water's surface - the raster water's)
+        source += render::rain::glsl_constants();
+        source += render::rain::ripple_glsl();
+        source += kWaterSurfaceGlsl;
         source += kTraceBody;
         break;
     case Shader::kOutput:
@@ -1283,6 +1363,7 @@ bool ensure_pipelines(Backend& state, SkySource sky, bool cloud_map, std::string
             } else if (binding == kBindingOut) {
                 type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
             } else if (binding == kBindingTransmittance || binding == kBindingSkyView || binding == kBindingCloudMap ||
+                       binding == kBindingWaterRipples ||
                        (binding >= kBindingCloudNoise && binding < kBindingCloudNoise + kCloudNoiseTextures)) {
                 type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             }
@@ -2527,6 +2608,19 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
     }
     block.water = {own.water.clarity, own.water.tint_auto ? 1.0F : 0.0F, own.water.on ? 1.0F : 0.0F, 0.0F};
     block.water_tint = {core::at(own.water.tint, 0), core::at(own.water.tint, 1), core::at(own.water.tint, 2), 0.0F};
+    // (round WAVES) the water's surface: the waves' clock, the ripple texture, the rain's rings (as the water shader's
+    // block - vulkan_water.cpp water_uniforms)
+    VkDescriptorImageInfo ripples_info{};
+    if (!water_ripples_descriptor_locked(state, &ripples_info)) {
+        if (first_report(state, kReportRipples)) {
+            get_log("pt: the water's ripple texture couldn't be made - no reference");
+        }
+        publish_status(own, "no ripple texture");
+        return false;
+    }
+    const double rain_rate = rain::settings().rate;
+    block.water_waves = {static_cast<float>(view.game_seconds), 1.0F,
+                         rain_rate > 0.0 ? static_cast<float>(rain::ripples_of(rain_rate).cell) : 0.0F, 0.0F};
     std::array<uint8_t, sizeof(PathBlock)> block_bytes{};
     std::memcpy(block_bytes.data(), &block, sizeof(block));
     const std::optional<RingSpan> block_span = state.ring.copy(block_bytes, kUniformAlignment);
@@ -2685,6 +2779,8 @@ bool record_path_reference_pass(Backend& state, const rt::ViewDrawn& view)
         if (own.cloud_map) {
             write(kBindingCloudMap, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &cloud_map.image, nullptr);
         }
+        // (round WAVES) the water shader's ripple texture
+        write(kBindingWaterRipples, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &ripples_info, nullptr);
         push();
         vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, core::at(own.trace, own.cloud_map ? 1U : 0U));
         vkCmdDispatch(commands, (own.width + kGroupSide - 1) / kGroupSide, (own.height + kGroupSide - 1) / kGroupSide,
