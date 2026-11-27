@@ -1047,10 +1047,10 @@ bool open_device(const Options& options, SDL_Window* window)
 void check_debug_views(Tally* tally)
 {
     using vk::DebugView;
-    const std::array<DebugView, 11> all{DebugView::kOff,         DebugView::kLamps, DebugView::kLampsSpecular,
-                                        DebugView::kGi,          DebugView::kGiSpecular, DebugView::kSky,
+    const std::array<DebugView, 12> all{DebugView::kOff,         DebugView::kLamps, DebugView::kLampsSpecular,
+                                        DebugView::kGi,          DebugView::kGiSpecular, DebugView::kSun,
                                         DebugView::kReflections, DebugView::kFog,   DebugView::kFront,
-                                        DebugView::kEmission,    DebugView::kFlicker};
+                                        DebugView::kEmission,    DebugView::kFlicker, DebugView::kSky};
     bool names = true;
     uint32_t terms_seen = 0;
     bool one_each = true;
@@ -1062,6 +1062,11 @@ void check_debug_views(Tally* tally)
             one_each = one_each && terms == vk::debug_term::kAll;
         } else if (view == DebugView::kEmission) {
             one_each = one_each && terms == 0U;
+        } else if (view == DebugView::kSky) {
+            // (round PANES) the sky's view keeps the disc's direct light with the sky's: its own term and `sun`'s
+            one_each = one_each && terms == (vk::debug_term::kSky | vk::debug_term::kSun) &&
+                       (terms_seen & vk::debug_term::kSky) == 0U && (terms_seen & vk::debug_term::kSun) != 0U;
+            terms_seen |= terms;
         } else {
             one_each = one_each && terms != 0U && (terms & (terms - 1U)) == 0U && (terms & terms_seen) == 0U;
             terms_seen |= terms;
@@ -1069,8 +1074,8 @@ void check_debug_views(Tally* tally)
     }
     DebugView unknown = DebugView::kOff;
     tally->check(names && one_each && terms_seen == vk::debug_term::kAll && !vk::parse_debug_view("lamp", &unknown),
-                 "the debug views: each name read back, each term view one term of its own (all eight between them), "
-                 "emission none, off and flicker all; an unknown name refused");
+                 "the debug views: each name read back, each term view one term of its own (all nine between them; "
+                 "sky with the sun's), emission none, off and flicker all; an unknown name refused");
 }
 
 int run(const Options& options, SDL_Window* window)

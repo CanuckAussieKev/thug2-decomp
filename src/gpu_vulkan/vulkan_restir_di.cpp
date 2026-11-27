@@ -518,7 +518,19 @@ Surface primary(ivec2 p)
 #ifndef CHECK
     ray_drawn_least = coverage_least(uvec2(p), pass.cone.z); // (round SKIN: the prepass's threshold here)
 #endif
-    if (!camera_surface(eye, dir, reach, expected, cone, instance, primitive, id, bary, t, to_world, h) || h.hidden) {
+    bool found = camera_surface(eye, dir, reach, expected, cone, instance, primitive, id, bary, t, to_world, h) && !h.hidden;
+#ifndef CHECK
+    // (round PANES - vulkan_rt_scene.h depth_triangle) where the rays' drawn rule decides otherwise than the raster did (a
+    // pane's border at the coverage threshold, a cut-out's texel edge), the triangle the depth's point lies on - the
+    // surface the raster drew there, its material known. Before, such a pixel took the depth's own surface: a normal
+    // from its neighbours' depths, another surface's on a strip one or two pixels wide (Training's glass box: its frames'
+    // strips lit by the sky through the hall's roof, ReSTIR GI's irradiance there x 10 000).
+    if (!found) {
+        found = depth_triangle(RAY_DRAWN, eye, dir, expected, instance, primitive, id, bary, t, to_world) &&
+                hit_surface_at(instance, primitive, id, bary, to_world, dir, cone, h) && !h.hidden;
+    }
+#endif
+    if (!found) {
 #ifdef CHECK
         return shared_primary(p, no_surface(), false, vec3(0.0), 1.0, PRIMARY_NONE);
 #else

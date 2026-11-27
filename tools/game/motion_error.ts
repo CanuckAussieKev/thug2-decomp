@@ -1134,6 +1134,7 @@ export const kTermViews = [
     "gi",
     "gi_specular",
     "sky",
+    "sun", // (round PANES) the disc's direct light alone (sky less it: the sky's light)
     "reflections",
     "fog",
     "front",

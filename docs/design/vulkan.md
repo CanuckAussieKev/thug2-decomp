@@ -3540,6 +3540,24 @@ match); the depth's own normal only where no traced triangle lies there. `thug2_
 2 pixels wide, a lamp in front of it - its 51 pixels lit by its own face as the processor's (the depth's normal: 36
 wrong).
 
+**Round PANES: the surface at the depth's point is the one the raster drew.** Training's glass box showed bright lines
+along its panes' frames (the `sky` view; the round's `sun` view - the disc's direct light alone - showed none). Read back
+over 24 frames (`pt frames ... inputs`), Ray Reconstruction's input held spikes there: the lamps input (ReSTIR GI's
+irradiance) 2 x 10^4 against 0.5 round it, in one frame of three, where ReSTIR DI's primary was the depth's own surface
+(`depth_surface`): the camera ray's drawn rule (`trace_drawn` - a blended surface kept over the prepass's coverage
+threshold, a cut-out by its alpha) decided otherwise than the raster had at the pane's border, so no surface was found
+and the pixel took a normal built from its neighbours' depths - on a strip one or two pixels wide another surface's,
+and the bounce's rays left from there into the sky through the hall's roof. Ray Reconstruction kept the spikes as
+detail. The raster has decided which surface it drew there and written its depth, so the rays now take that one:
+`depth_triangle` - of the drawn instances' triangles a camera ray meets within the depth's match of its distance (1 unit
++ 2 %), the one nearest it, whatever the drawn rule says (every candidate enumerated, none confirmed - the window is a
+few units deep). ReSTIR DI's and GI's primaries take it where `camera_surface` finds nothing (its material known);
+`camera_face` (the direct-light passes' normal) and the lamps pass's surface take it always. The depth's own surface
+stays only where no triangle lies there (a surface drawn without a ray-traced copy). At the spot: Ray Reconstruction's
+input there at most 1.2 (was 10^4), the lines gone; trq noon 1.135 -> 0.971 of the reference (the same reference).
+`thug2_vulkan_rt_lights_check`: the strip's post drawn whole by the raster but a cut-out the rays' alpha test removes -
+its 51 pixels lit by its own face (the drawn rule back in `depth_triangle`, mutation: 48 wrong).
+
 ### Round DECAL: the game's overlay cards laid into their surfaces (DBuffer decals)
 
 Boston's walls carry the art's painted overlays - tree shadows, grime and stain cards: 4- and 10-vertex quads 2.7 - 3.3
@@ -6581,7 +6599,7 @@ One light list, one way to sample it:
   console or the automation channel) - as UE5's Lumen / path tracer visualisations and RTXDI's debug outputs, one term of
   the frame's light at a time through the whole chain (shading, Ray Reconstruction, tone mapping): `lamps` (ReSTIR DI's
   diffuse), `lamps_specular`, `gi` (GI's diffuse from surfaces), `gi_specular`, `sky` (the disc's visibility and GI's
-  samples that saw the sky), `reflections`, `fog` (the in-scattered light), `front` (the front layer), `emission` (none
+  samples that saw the sky), `sun` (round PANES: the disc's visibility alone), `reflections`, `fog` (the in-scattered light), `front` (the front layer), `emission` (none
   of them). Every other producer writes nothing into the frame (DI's and GI's put_result by their flags, the
   reflections' apply by its push constant, the fog's composite and the front layer by a block word); the surfaces' own
   emission stays in every view (the shading adds it, no producer carries it); the exposure is held at the whole frame's
