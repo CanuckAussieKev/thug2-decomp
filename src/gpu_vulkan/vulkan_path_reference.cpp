@@ -2041,6 +2041,13 @@ void save_upscaler_inputs(Backend& state, const LinearFrames& own, const rt::Vie
     if (read_input_image(state, guides.normals, width, height, &rough, true)) {
         write_file(text::format("%sinputs_%04u_roughness.exr", own.folder.c_str(), number), exr_bytes(width, height, rough));
     }
+    // (round PANES) the transparency layer's alpha - how much of what is behind it Ray Reconstruction's composite hides -
+    // in all three channels
+    std::vector<std::array<float, 3>> opacity;
+    if (read_input_image(state, guides.transparency, width, height, &opacity, true)) {
+        write_file(text::format("%sinputs_%04u_transparency_alpha.exr", own.folder.c_str(), number),
+                   exr_bytes(width, height, opacity));
+    }
     // (round NOBIAS3) the view's light inputs as the shading read them (pre-exposed: the lamps' light a white diffuser
     // gets, on the traced albedo, the lights' specular over E) and ReSTIR DI's primary surface per pixel - its traced albedo
     // and which surface it is (di_kind: red the camera ray's traced surface, green the depth's own, black none)
