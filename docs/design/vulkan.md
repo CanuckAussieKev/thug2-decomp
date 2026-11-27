@@ -3313,6 +3313,23 @@ over the facade 0.22 - 0.66 of the reference's per cell before, 0.72 - 1.08 afte
 whole scene 0.933 -> 0.963. The 2026 alternative for a cloud deeper than its front layer - per-particle lighting from
 a translucency lighting volume (UE5 Lumen's translucency volume) - was not needed for this cloud.
 
+**Round PERF: the front layer's points in the radiance cache.** Traced on past a miss, the layer's bounce cost ~3 ms of
+the layer's ~6 at Barcelona's fountain (1707 x 960, the water's surface and the mist over half the picture): no path
+ever wrote those points' cells - the cache's update paths start at the prepass's surfaces and end where they meet
+surfaces, never on the water's surface or in the air - so they were a miss every frame for every pixel. The layer now
+writes its own cells as SHaRC's update paths do: a miss's traced bounce is added to the point's cell (`cache_add` - the
+cache's writes moved out of ReSTIR GI into `radiance_cache_write_glsl`, one copy for both), so the cell fills and is
+trusted after CACHE_TRUSTED_FRAMES as an opaque surface's is; and every pixel of one 8 x 8 tile in
+`kFrontLayerUpdateTiles` (16) traces and adds its bounce each frame, each tile in turn, so a trusted cell keeps taking
+samples (the cache frees an entry 64 frames after its last). Whole tiles rather than one pixel of each block: a lane that
+traces keeps its subgroup waiting - one pixel in 16 saved ~0.85 ms, whole tiles ~1.5 ms. The bounce a trusted layer
+point gets is its cell's average, the cache's stated compromise everywhere else (SHaRC). The layer shares the cells
+with the surfaces (a pane or the water lying where a wall or the bed has its cell takes and feeds that cell, as before
+for a trusted one): cells of the layer's own (a kind bit in the key) were tried and dropped - fed only by the layer's
+update tiles, they held few samples each, and one bright sample lit a whole cell for frames (Barcelona's fountain at
+night +4.9 % on the whole picture, a cell +24 %; scene_bias.ts). Front layer 5.9 -> 4.4 ms at the
+fountain, 4.9 -> 3.3 ms at the harbour (noon, 2560 x 1440 DLSS Quality + Ray Reconstruction).
+
 **Round CENSUS: the bake ratio retired - a surface without a light store takes the rays' light.** What the relit data
 gives no light store - an unlit object's own baked colours (one the relit level doesn't list: it moves, it stands at
 another place), a world mesh with no entry (a day-only mesh of a level baked in its night state - New Orleans' 230 at

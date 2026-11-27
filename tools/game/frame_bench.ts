@@ -19,6 +19,11 @@
 // report: per level and run, the loops from --skip after the last loading screen to the end of the scenario - and
 // (round PERF4) the frames presented: each one's time and the time it shows (the loop's "s" - render-only frames too),
 // their spacing and how far the motion each shows is off that spacing (the judder an even frame rate can still have).
+// (round PERF) --spots no,ba,tr [--tods noon,night]: the bench procedure every perf round uses - each scene_bias.ts spot
+// (its level, skater and camera; kSceneSpots) at each time of day, the game's random sequences seeded, the camera held,
+// kSpotWarmupFrames to settle (reservoirs, caches, Ray Reconstruction, the clocks), then --seconds measured between two
+// `echo bench` marks; the report adds the device's time a pass over the measured frames (the log's "gpu pass:" lines
+// between the marks). Gathered into <out>/<spot>_<tod>/run<k>/; its report's --skip defaults to kSpotSkip.
 // Workspaces only; muted (workspace_ini.ts).
 
 import { spawn } from "node:child_process";
@@ -29,11 +34,13 @@ import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converte
 import { clearAutomationFiles } from "./edit_level.ts";
 import { graphicsOf } from "./first_frame_check.ts";
 import { iniFor } from "./renderer_parity.ts";
+import { kPlanSeed, kSceneSpots, type SceneSpot } from "./scene_bias.ts";
 import { ensureWorkspaceMuted, isWorkspace } from "./workspace_ini.ts";
 
 const USAGE = `usage: frame_bench.ts run --game <workspace> --out <folder> [--build <folder>] [--settings <ini>] [--scenario <file>]
                       [--levels BO,AU,z_dt,sch,foun] [--seconds 30] [--runs 1] [--samples] [--no-lock]
                       [--owner name] [--set S.key=v]...
+       frame_bench.ts run --game <workspace> --out <folder> --spots no,ba,tr [--tods noon,night] [--seconds 30] ...
        frame_bench.ts report <folder> [--skip 120]
        frame_bench.ts compare <before folder> <after folder> [--skip 120]
 
@@ -64,6 +71,94 @@ export function scenarioFrom(level: string, text: string): string[] {
         .map((line) => line.trim())
         .filter((line) => line !== "" && !line.startsWith("#"));
     return [`waitfor level ${level} 300`, ...lines, "quit"];
+}
+
+// (round PERF) The bench at a spot: the level (started with -level) waited for, the time of day set, the random
+// sequences seeded, the skater placed and the camera held there, kSpotWarmupFrames to settle, then `seconds` measured
+// between the marks kMeasureBegin / kMeasureEnd.
+export const kSpotWarmupFrames = 600;
+export const kMeasureBegin = "bench measure begin";
+export const kMeasureEnd = "bench measure end";
+// (the loops before the measured ones: the waits before the warm-up's end, with a margin for the commands' own frames)
+export const kSpotSkip = 120 + 90 + kSpotWarmupFrames + 30;
+export function spotScenario(spot: SceneSpot, tod: string, seconds: number): string[] {
+    const level = spot.level ?? "bo";
+    const v = (p: { x: number; y: number; z: number }, digits: number): string =>
+        `${p.x.toFixed(digits)} ${p.y.toFixed(digits)} ${p.z.toFixed(digits)}`;
+    return [
+        `waitfor level ${level} 600`,
+        `console rt tod ${tod}`,
+        `console seed ${kPlanSeed}`,
+        "wait 120",
+        `teleport ${v(spot.skater, 1)} ${spot.heading}`,
+        "wait 90",
+        `camera ${v(spot.camera, 5)} ${v(spot.direction, 6)}`,
+        `wait ${kSpotWarmupFrames}`,
+        `echo ${kMeasureBegin}`,
+        `wait ${Math.round(seconds * 60)}`,
+        `echo ${kMeasureEnd}`,
+        "camera off",
+        "quit",
+    ];
+}
+
+// (round PERF) The device's time a pass over the measured frames: the log's "gpu passes:" reports (each over the
+// frames since the one before) that begin and end between the marks, weighted by their frames. Pass name -> own and
+// inclusive ms a frame, and the frames counted.
+export interface PassTimes {
+    frames: number;
+    passes: Map<string, { own: number; inclusive: number; calls: number }>;
+}
+export function passTimes(log: string): PassTimes {
+    let inside = false;
+    let reports = 0; // (reports since the begin mark: the first covers frames from before it)
+    let counting = false;
+    let blockFrames = 0;
+    let frames = 0;
+    const sums = new Map<string, { own: number; inclusive: number; calls: number }>();
+    for (const line of log.split(/\r?\n/)) {
+        if (line.includes(`echo ${kMeasureBegin}`)) {
+            inside = true;
+            reports = 0;
+        } else if (line.includes(`echo ${kMeasureEnd}`)) {
+            inside = false;
+        }
+        const head = /^gpu passes: (\d+) frames timed/.exec(line);
+        if (head) {
+            counting = inside && reports++ > 0;
+            blockFrames = Number(head[1]);
+            if (counting) frames += blockFrames;
+            continue;
+        }
+        const pass = /^gpu pass: (.*) ([\d.]+) ms \(own ([\d.]+)\) a frame, ([\d.]+) calls a frame/.exec(line);
+        if (pass && counting) {
+            const sum = sums.get(pass[1]!) ?? { own: 0, inclusive: 0, calls: 0 };
+            sum.inclusive += Number(pass[2]) * blockFrames;
+            sum.own += Number(pass[3]) * blockFrames;
+            sum.calls += Number(pass[4]) * blockFrames;
+            sums.set(pass[1]!, sum);
+        }
+    }
+    const passes = new Map<string, { own: number; inclusive: number; calls: number }>();
+    for (const [name, sum] of sums) {
+        passes.set(name, { own: sum.own / frames, inclusive: sum.inclusive / frames, calls: sum.calls / frames });
+    }
+    return { frames, passes };
+}
+
+// The pass table: own ms a frame, largest first (passes under 0.02 ms left out), and their sum.
+export function passTableText(times: PassTimes): string {
+    if (!times.frames) return "    gpu passes: none measured (frame_profile off, or no marks)";
+    const rows = [...times.passes].sort((a, b) => b[1].own - a[1].own);
+    const total = rows.reduce((sum, [, t]) => sum + t.own, 0);
+    const lines = [`    gpu passes over ${times.frames} frames: ${total.toFixed(2)} ms own in all`];
+    for (const [name, t] of rows) {
+        if (t.own < 0.02) continue;
+        lines.push(
+            `      ${t.own.toFixed(3).padStart(7)} ms (incl ${t.inclusive.toFixed(3)}, ${t.calls.toFixed(2)} calls) ${name}`,
+        );
+    }
+    return lines.join("\n");
 }
 
 // --- reading a run ---------------------------------------------------------------------------------------------------
@@ -287,6 +382,9 @@ export function reportFolder(folder: string, skip: number): string {
     for (const { level, run, file } of runsOf(folder)) {
         const s = summarise(parseFrames(fs.readFileSync(file, "utf8")), skip);
         lines.push(summaryText(`${level} ${run}`, s));
+        const log = path.join(path.dirname(file), "game.log");
+        const times = fs.existsSync(log) ? passTimes(fs.readFileSync(log, "utf8")) : null;
+        if (times?.frames) lines.push(passTableText(times));
     }
     const text = lines.join("\n");
     fs.writeFileSync(path.join(folder, "report.txt"), `${text}\n`);
@@ -478,9 +576,16 @@ interface RunOptions {
     set: Record<string, string>;
     skip: number;
     scenario: string | null; // (--scenario's commands, read)
+    spots: SceneSpot[]; // (round PERF) --spots: the bench at these spots instead of --levels
+    tods: string[];
 }
 
-async function runLevel(options: RunOptions, level: string, folder: string): Promise<string> {
+async function runLevel(
+    options: RunOptions,
+    level: string,
+    folder: string,
+    spotCommands: string[] | null = null,
+): Promise<string> {
     const { game } = options;
     clearAutomationFiles(game);
     const log = path.join(game, "thug2-decomp.log");
@@ -490,7 +595,8 @@ async function runLevel(options: RunOptions, level: string, folder: string): Pro
     const args = ["-Game", game, "-Arch", "x64", "-Seconds", String(options.seconds + 400), "-HangSeconds", "120"];
     args.push("-Shot", level, "-ShotDir", folder, "-Level", level);
     const commands =
-        options.scenario !== null ? scenarioFrom(level, options.scenario) : scenario(level, options.seconds);
+        spotCommands ??
+        (options.scenario !== null ? scenarioFrom(level, options.scenario) : scenario(level, options.seconds));
     args.push("-Commands", commands.join(";"));
     const result = await powershell("run_game.ps1", args);
     fs.mkdirSync(folder, { recursive: true });
@@ -513,7 +619,11 @@ async function runLevel(options: RunOptions, level: string, folder: string): Pro
         );
         fs.writeFileSync(path.join(folder, "samples-named.txt"), `${named}\n`);
     }
-    return `exit ${result.code}\n${summaryText(level, summary)}`;
+    const log2 = path.join(folder, "game.log");
+    const passes =
+        spotCommands && fs.existsSync(log2) ? `\n${passTableText(passTimes(fs.readFileSync(log2, "utf8")))}` : "";
+    const label = spotCommands ? path.basename(path.dirname(folder)) : level;
+    return `exit ${result.code}\n${summaryText(label, summary)}${passes}`;
 }
 
 async function runAll(options: RunOptions): Promise<number> {
@@ -559,7 +669,23 @@ async function runAll(options: RunOptions): Promise<number> {
         const profile = { "debug.frame_profile": options.samples ? "2" : "1" };
         fs.writeFileSync(ini, iniFor(base, [graphics, options.set, profile], "vulkan"), "utf8");
         ensureWorkspaceMuted(game);
-        for (const level of options.levels) {
+        for (const spot of options.spots) {
+            for (const tod of options.tods) {
+                // (the time of day from the start: set once the level is up, the level's light is made again - its
+                // relight's work then lands in the measured frames)
+                fs.writeFileSync(
+                    ini,
+                    iniFor(base, [graphics, options.set, profile, { "Graphics.tod": tod }], "vulkan"),
+                    "utf8",
+                );
+                for (let run = 1; run <= options.runs; run++) {
+                    const folder = path.join(out, `${spot.name}_${tod}`, `run${run}`);
+                    const commands = spotScenario(spot, tod, options.seconds);
+                    note(await runLevel(options, spot.level ?? "bo", folder, commands));
+                }
+            }
+        }
+        for (const level of options.spots.length ? [] : options.levels) {
             for (let run = 1; run <= options.runs; run++) {
                 note(await runLevel(options, level, path.join(out, level, `run${run}`)));
             }
@@ -598,11 +724,18 @@ async function main(): Promise<number> {
             set: { type: "string", multiple: true },
             skip: { type: "string", default: "120" },
             scenario: { type: "string" },
+            spots: { type: "string" },
+            tods: { type: "string", default: "noon" },
         },
         allowPositionals: true,
     });
     const [command, first, second] = positionals;
-    const skip = Number(values.skip);
+    // (a spot bench's loops measured from the warm-up's end unless --skip says otherwise)
+    const skip = values.spots && values.skip === "120" ? kSpotSkip : Number(values.skip);
+    const spots = (values.spots ?? "")
+        .split(",")
+        .filter((name) => name !== "")
+        .map((name) => kSceneSpots.find((spot) => spot.name === name) ?? exitWith(`no spot ${name} (scene_bias.ts)`));
     const set: Record<string, string> = {};
     for (const s of values.set ?? []) {
         const eq = s.indexOf("=");
@@ -633,6 +766,8 @@ async function main(): Promise<number> {
             set,
             skip,
             scenario: values.scenario ? fs.readFileSync(path.resolve(values.scenario), "utf8") : null,
+            spots,
+            tods: values.tods.split(","),
         });
     }
     print(USAGE);

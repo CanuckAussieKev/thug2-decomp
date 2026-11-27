@@ -25,7 +25,10 @@
 //      visibility on an opaque surface -; the rest of the list on a white diffuser (x cos / pi) + the radiance cache's
 //      bounce (SHaRC - every further bounce; (round LAYER) where the cache has no trusted cell - a point in the air, a
 //      particle cloud's - one ray along the cosine lobe to the surface it meets, lit there: SHaRC's query rule, the path
-//      traced on past a miss): a white diffuser's radiance, the lamps input's unit, pre-exposed.
+//      traced on past a miss; (round PERF) that bounce added to the layer point's own cell - and, so the cells stay
+//      current once trusted, every pixel of one tile in kFrontLayerUpdateTiles (in turn) traces and adds it too: SHaRC's
+//      update paths for the points no opaque surface's path claims - the water's surface, the mist in the air):
+//      a white diffuser's radiance, the lamps input's unit, pre-exposed.
 //      Accumulated over frames (the layer's point taken back through the last view's camera, its depth there within 2 %
 //      of the distance: at most kHistoryFrames, as a moving average) - Ray Reconstruction denoises the frame, not its
 //      transparency layer, where the see-through surfaces are drawn (NVIDIA's DLSS-RR guide 3.4.10).
@@ -46,6 +49,12 @@ struct Backend;
 
 // The light samples a layer pixel takes a frame (one light, one ray each), and the most frames a pixel's history weighs.
 inline constexpr uint32_t kFrontLayerSamples = 2;
+// (round PERF) The layer's update paths into the radiance cache (SHaRC's update - ReSTIR GI's cache pass is the opaque
+// surfaces'): a frame, every pixel of one 8 x 8 tile in this many traces its bounce and adds it to its cell - each tile
+// in turn, every this many frames (a trusted cell is freed after the cache's 64 frames without a sample). Whole tiles,
+// not one pixel of each block: a pixel's trace keeps its whole subgroup waiting (1 lane of 16 tracing cost ~0.8 ms of
+// the 1 a whole one did at Barcelona's fountain, 1707 x 960).
+inline constexpr uint32_t kFrontLayerUpdateTiles = 16;
 inline constexpr float kFrontLayerHistoryFrames = 16.0F;
 
 void install_front_layer();
