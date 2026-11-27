@@ -397,9 +397,10 @@ bool MaterialTable::init(Backend& state, const Options& options)
     device_ = state.context.device();
     const uint32_t limit = device_slot_limit(state.context.physical_device());
     slot_count_ = std::min(options.texture_slots != 0 ? options.texture_slots : kDefaultTextureSlots, limit);
-    first_slot_ = std::clamp<uint32_t>(options.first_slot, 1, slot_count_ > 1 ? slot_count_ - 1 : 1);
+    constexpr uint32_t kFirstFree = kWaterRipplesSlot + 1;
+    first_slot_ = std::clamp<uint32_t>(options.first_slot, kFirstFree, slot_count_ > kFirstFree ? slot_count_ - 1 : kFirstFree);
     next_slot_ = first_slot_;
-    bool made = slot_count_ > 1;
+    bool made = slot_count_ > kFirstFree;
     for (uint32_t index = 0; made && index < kMaterialSamplerCount; ++index) {
         const uint32_t per_filter = kMaterialAddressModes * kMaterialAddressModes;
         const bool linear = index >= per_filter;
@@ -462,8 +463,8 @@ bool MaterialTable::init(Backend& state, const Options& options)
     slot_users_.assign(slot_count_, {});
     made = made && make_generation(state, std::max<uint32_t>(options.first_rows, 1), &current_);
     if (made) {
-        // (slot 0: the white texture, in the first set for good)
-        write_slots(state, current_.set, {0});
+        // (slot 0: the white texture, in the first set for good; the water's ripples' slot white until they are made)
+        write_slots(state, current_.set, {0, kWaterRipplesSlot});
     }
     if (!made) {
         get_log("vulkan: the ray-tracing material table could not be made");
@@ -514,6 +515,8 @@ void MaterialTable::shutdown(Backend& state)
     free_slots_.clear();
     retired_slots_.clear();
     slots_to_write_.clear();
+    water_ripples_ = VK_NULL_HANDLE;
+    water_ripples_shown_ = false;
     slot_count_ = 0;
     device_ = nullptr;
 }
@@ -621,8 +624,13 @@ void MaterialTable::write_slots(Backend& state, VkDescriptorSet set, const std::
         const Texture* const texture = core::at(slot_textures_, slot);
         const bool shown = texture != nullptr && state.textures.contains(texture) && slot_worthy(*texture);
         const Image& image = shown ? texture->image : state.blank;
+        // (round MIST) the water's ripples' slot: their image, else white
+        const bool ripples = slot == kWaterRipplesSlot && water_ripples_ != VK_NULL_HANDLE;
+        if (slot == kWaterRipplesSlot) {
+            water_ripples_shown_ = ripples;
+        }
         images.push_back({.sampler = VK_NULL_HANDLE,
-                          .imageView = image.view,
+                          .imageView = ripples ? water_ripples_ : image.view,
                           .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
         writes.push_back({.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                           .pNext = nullptr,
@@ -875,7 +883,7 @@ bool MaterialTable::make_visible(Backend& state)
             destroy_generation(state, &grown);
             return false;
         }
-        std::vector<uint32_t> slots{0};
+        std::vector<uint32_t> slots{0, kWaterRipplesSlot};
         for (uint32_t slot = first_slot_; slot < next_slot_; ++slot) {
             slots.push_back(slot);
         }
@@ -924,6 +932,22 @@ uint32_t MaterialTable::texture_slot(GpuTexture* texture)
     const std::scoped_lock lock(mutex_);
     Texture* const found = texture != nullptr ? object(texture) : nullptr;
     return layout_ != VK_NULL_HANDLE && found != nullptr ? slot_for(found) : 0;
+}
+
+void MaterialTable::set_water_ripples(VkImageView view)
+{
+    const std::scoped_lock lock(mutex_);
+    if (layout_ == VK_NULL_HANDLE || view == water_ripples_) {
+        return;
+    }
+    water_ripples_ = view;
+    slots_to_write_.push_back(kWaterRipplesSlot);
+}
+
+bool MaterialTable::water_ripples_shown() const
+{
+    const std::scoped_lock lock(mutex_);
+    return water_ripples_shown_;
 }
 
 uint32_t MaterialTable::slot_of(GpuTexture* texture) const

@@ -16,6 +16,7 @@
 #include "base/maths/transform_blend.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/sys/frame_blend.h"
+#include "engine/sys/game_clock.h"
 #include "engine/sys/stopwatch.h"
 #include "platform/run_log.h"
 #include "render_pc/geom.h"
@@ -265,6 +266,12 @@ double shown_game_seconds(double seconds)
     }
     constexpr double kTickSeconds = 1.0 / frame_pacing::kTicksPerSecond;
     return seconds - ((1.0 - static_cast<double>(frame.alpha)) * kTickSeconds);
+}
+
+double shown_game_clock_seconds()
+{
+    constexpr double kSecondsPerMillisecond = 0.001;
+    return shown_game_seconds(static_cast<double>(frame_clock::game_clock_time()) * kSecondsPerMillisecond);
 }
 
 void forget()

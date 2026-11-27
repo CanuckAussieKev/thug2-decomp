@@ -41,6 +41,7 @@
 #include "engine/gfx/gpu_handles.h"
 #include "engine/gfx/rt_apart.h"
 #include "engine/gfx/rt_display.h"
+#include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_poses.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_surface_class.h"
@@ -52,6 +53,7 @@
 #include "gpu_vulkan/vulkan_loader.h"
 #include "gpu_vulkan/vulkan_rt_micromaps.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
+#include "gpu_vulkan/vulkan_water.h"
 
 namespace {
 
@@ -1543,6 +1545,193 @@ TracedRay apart_ray(float x, float z, float u, float v, uint32_t mask, bool cuto
 // meet them, a camera ray's kinds never; the next frame's quads somewhere else (more of them) are where the rays meet
 // them. And a clutter item (a can, turned, tilted, sized): its parts' meshes (scatter::ray_part_triangles) placed by
 // scatter::ray_item_transform, rays toward it compared with the processor's trace of the same triangles.
+// --- (round MIST) a light ray through the water: the waves' facet ---------------------------------------------------
+
+// The water shader's waves (gpu_vulkan/water_shader.cpp water_wave / water_swell, no fade - a ray's footprint 0) at rest
+// point (x, z), time t: the swell's normal parts (x and z the slope, y the crests' sharpening).
+std::array<double, 3> twin_swell(const rt::WaterSurface& s, double x, double z, double t)
+{
+    constexpr std::array<double, 4> kLengths{1.0, 0.63, 0.41, 0.27};
+    constexpr std::array<double, 4> kTurns{0.0, 0.42, -0.57, 1.05};
+    constexpr double kSharpness = 0.6;
+    constexpr double kPhaseStep = 1.913;
+    constexpr double kTwoPi = 6.2831853;
+    std::array<double, 3> sum{};
+    for (std::size_t i = 0; i < kLengths.size(); ++i) {
+        const double k = kTwoPi / std::max(core::at(kLengths, i) * static_cast<double>(core::at(s.sea, 1)), 0.05);
+        const double c = std::cos(core::at(kTurns, i));
+        const double n = std::sin(core::at(kTurns, i));
+        const double dx = (core::at(s.wind, 0) * c) - (core::at(s.wind, 1) * n);
+        const double dz = (core::at(s.wind, 0) * n) + (core::at(s.wind, 1) * c);
+        const double a = core::at(s.slopes, i);
+        const double phase = (k * ((dx * x) + (dz * z) - (core::at(s.speeds, i) * t))) + (static_cast<double>(i) * kPhaseStep);
+        sum = {sum[0] + (dx * a * std::cos(phase)), sum[1] + (kSharpness * a * std::sin(phase)),
+               sum[2] + (dz * a * std::cos(phase))};
+    }
+    return sum;
+}
+
+// The ripple texture (vulkan_water.h water_waves_reference, level 0) read as a linear sampler that wraps reads it.
+std::array<double, 4> twin_ripple_texel(const std::vector<std::array<float, 4>>& texels, double u, double v)
+{
+    const auto side = static_cast<int>(render::vulkan::kWaterWavesSize);
+    const double fx = (u * side) - 0.5;
+    const double fy = (v * side) - 0.5;
+    const double x0 = std::floor(fx);
+    const double y0 = std::floor(fy);
+    const double ax = fx - x0;
+    const double ay = fy - y0;
+    const auto wrap = [side](double c) { return static_cast<std::size_t>(((static_cast<int64_t>(c) % side) + side) % side); };
+    std::array<double, 4> out{};
+    for (int j = 0; j < 2; ++j) {
+        for (int i = 0; i < 2; ++i) {
+            const double w = (i == 0 ? 1.0 - ax : ax) * (j == 0 ? 1.0 - ay : ay);
+            const std::array<float, 4>& texel = core::at(texels, (wrap(y0 + j) * static_cast<std::size_t>(side)) + wrap(x0 + i));
+            for (std::size_t c = 0; c < out.size(); ++c) {
+                core::at(out, c) += w * core::at(texel, c);
+            }
+        }
+    }
+    return out;
+}
+
+// What a light ray going up along `dir` through the water at rest point (x, z) takes through it: 1 - Fresnel (Schlick,
+// water's F0) at the facet it crosses (vulkan_rt_scene.h water_surface_facet: seen from below, the waves' underside; a
+// facet turned away the plane's) - `waves` false: the flat mesh's.
+double twin_water_share(const rt::WaterSurface& s, const std::vector<std::array<float, 4>>& texels, bool waves, double x,
+                        double z, double t, const std::array<double, 3>& dir)
+{
+    std::array<double, 3> n{0.0, -1.0, 0.0}; // (the face toward the ray: it comes from below)
+    if (waves) {
+        const std::array<double, 3> swell = twin_swell(s, x, z, t);
+        double rx = 0.0;
+        double rz = 0.0;
+        if (core::at(s.sea, 2) != 0.0F) {
+            const double ax = core::at(s.wind, 0);
+            const double az = core::at(s.wind, 1);
+            const double qx = (x * ax) + (z * az);
+            const double qy = (x * -az) + (z * ax);
+            const std::array<double, 4> a = twin_ripple_texel(texels, (qx / 263.0) + (t * 0.031), qy / 263.0);
+            const std::array<double, 4> b =
+                twin_ripple_texel(texels, (qx / 97.0) + (t * 0.083) + 0.37, (qy / 97.0) + (t * 0.019) + 0.71);
+            const double sx = ((a[0] * 0.55) + (b[0] * 0.45)) * core::at(s.sea, 2);
+            const double sy = ((a[1] * 0.55) + (b[1] * 0.45)) * core::at(s.sea, 2);
+            rx = (ax * sx) + (-az * sy);
+            rz = (az * sx) + (ax * sy);
+        }
+        std::array<double, 3> up{-(swell[0] + rx), std::max(1.0 - swell[1], 0.2), -(swell[2] + rz)};
+        const double l = std::sqrt((up[0] * up[0]) + (up[1] * up[1]) + (up[2] * up[2]));
+        const std::array<double, 3> under{-up[0] / l, -up[1] / l, -up[2] / l};
+        if ((under[0] * dir[0]) + (under[1] * dir[1]) + (under[2] * dir[2]) < 0.0) {
+            n = under;
+        }
+    }
+    const double f0 = std::get<0>(rt::material_f0(rt::MaterialKind::kWater));
+    const double c = std::clamp(1.0 - std::abs((n[0] * dir[0]) + (n[1] * dir[1]) + (n[2] * dir[2])), 0.0, 1.0);
+    return 1.0 - (f0 + ((1.0 - f0) * c * c * c * c * c));
+}
+
+// (round MIST - one water surface for every ray) A light ray through a water plane takes the waves' facet it crosses
+// there - the water shader's surface, the one the path tracer's own water hits meet - not the flat mesh's: rays from below
+// up toward a low sun (12 degrees) through a water plane (the game's water class, no colour of its own: all of it an
+// interface) with a swell, at a clock not 0 (the record's water_seconds), then with the ripples too (the material table's
+// ripple slot). Each ray's share against the processor's (the same waves at the same point and time), and the case's
+// mean required to differ from the flat mesh's (the case tells them apart).
+void check_water_shadow(render::Gpu& gpu, Tally* tally, std::mt19937& random, uint64_t* frame)
+{
+    rt::RayTracing* const backend = rt::ray_tracing();
+    MicroMesh water;
+    if (!make_micro_mesh(gpu, &water)) {
+        tally->check(false, "light through water: the mesh made");
+        return;
+    }
+    constexpr uint32_t kBlendFixedAlpha = 6;
+    rt::Material surface;
+    surface.colour = {1.0F, 1.0F, 1.0F, 0.0F};
+    surface.blend = kBlendFixedAlpha; // (a fixed alpha of 0: no coverage - the whole surface an interface)
+    surface.reflection_class = rt::kReflectWater;
+    surface.flags = rt::kTransparent;
+    const rt::MaterialId id = rt::next_material_id();
+    backend->set_material(id, surface);
+    constexpr float kScale = 100.0F; // (the 16-unit mesh made 1600 units a side: many wavelengths)
+    rt::Instance instance;
+    instance.mesh = water.id;
+    instance.material = id;
+    instance.flags = rt::kWorld | rt::kTransparent;
+    instance.water = 0;
+    instance.object_to_world = {{{kScale, 0.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F, 0.0F}, {0.0F, 0.0F, kScale, 0.0F}}};
+    rt::WaterSurface waves;
+    waves.slopes = {0.30F, 0.22F, 0.16F, 0.10F};
+    waves.speeds = {40.0F, 32.0F, 26.0F, 21.0F};
+    waves.sea = {20.0F, 400.0F, 0.0F, 0.0F};
+    waves.wind = {0.8F, 0.6F};
+    constexpr double kClock = 3.7; // seconds
+    constexpr double kElevation = 12.0 * 3.14159265358979 / 180.0;
+    const std::array<double, 3> dir{std::cos(kElevation) * 0.6, std::sin(kElevation), std::cos(kElevation) * -0.8};
+    const std::vector<std::array<float, 4>> texels = render::vulkan::water_waves_reference(0);
+    constexpr float kReach = 200.0F;
+    constexpr int kRays = 4096;
+    constexpr double kMostOff = 2.0e-3; // (float arithmetic, the sampler's filtering)
+    std::uniform_real_distribution<double> place(200.0, (kMicroSize * kScale) - 200.0);
+    for (const float ripples : {0.0F, 0.6F}) {
+        waves.sea[2] = ripples;
+        rt::FrameRecord record;
+        record.instances = {instance};
+        record.water_surfaces = {waves};
+        record.water_seconds = kClock;
+        // (twice: the ripple texture is made at the first frame with water and in the table's slot from the next)
+        for (int i = 0; i < 3; ++i) {
+            record.frame = (*frame)++;
+            backend->begin_frame(record);
+            gpu.begin_scene();
+            gpu.end_scene();
+            gpu.present();
+        }
+        std::vector<TracedRay> rays;
+        std::vector<std::array<double, 2>> points;
+        for (int i = 0; i < kRays; ++i) {
+            const double x = place(random);
+            const double z = place(random);
+            points.push_back({x, z});
+            rays.push_back({.origin = {static_cast<float>(x - (dir[0] * kReach * 0.5)),
+                                       static_cast<float>(-dir[1] * kReach * 0.5),
+                                       static_cast<float>(z - (dir[2] * kReach * 0.5))},
+                            .direction = {static_cast<float>(dir[0]), static_cast<float>(dir[1]), static_cast<float>(dir[2])},
+                            .t_min = 0.0F,
+                            .t_max = kReach,
+                            .cull_mask = kMaskWorld,
+                            .cutouts = true});
+        }
+        std::vector<TracedHit> hits;
+        const bool traced = render::vulkan::trace_rays_now(rays, &hits) == render::vulkan::TraceResult::kTraced &&
+                            hits.size() == rays.size();
+        double worst = 0.0;
+        double got_mean = 0.0;
+        double want_mean = 0.0;
+        double flat_mean = 0.0;
+        for (std::size_t i = 0; traced && i < rays.size(); ++i) {
+            const double want = twin_water_share(waves, texels, true, points[i][0], points[i][1], kClock, dir);
+            const double got = core::at(hits, i).seen_through;
+            worst = std::max(worst, std::abs(got - want));
+            got_mean += got;
+            want_mean += want;
+            flat_mean += twin_water_share(waves, texels, false, points[i][0], points[i][1], kClock, dir);
+        }
+        got_mean /= kRays;
+        want_mean /= kRays;
+        flat_mean /= kRays;
+        tally->check(traced && worst <= kMostOff && std::abs(flat_mean - want_mean) > 0.02,
+                     text::format("light through water at a 12-degree sun, %s: %d rays, the share at the waves' facet "
+                                  "%.4f (the processor's %.4f, worst ray %.5f off); the flat mesh's %.4f",
+                                  ripples > 0.0F ? "swell and ripples" : "swell", kRays, got_mean, want_mean, worst,
+                                  flat_mean));
+    }
+    backend->remove_mesh(water.id);
+    backend->remove_material(id);
+    gpu.release_vertex_buffer(water.vertices);
+    gpu.release_index_buffer(water.indices);
+}
+
 void check_drawn_apart(render::Gpu& gpu, Tally* tally, uint64_t* frame)
 {
     rt::RayTracing* const backend = rt::ray_tracing();
@@ -2137,6 +2326,7 @@ void run_checks(render::Gpu& gpu, const Options& options, Tally* tally)
     check_poses(gpu, tally, random, &frame);
     check_micromaps(gpu, tally, random, &frame); // (round OM)
     check_drawn_apart(gpu, tally, &frame);       // (round PG)
+    check_water_shadow(gpu, tally, random, &frame); // (round MIST)
     check_frame_lifetime(gpu, tally, random, &frame); // (round GF)
 
     // everything removed and released: the meshes' structures destroyed once their frames have run

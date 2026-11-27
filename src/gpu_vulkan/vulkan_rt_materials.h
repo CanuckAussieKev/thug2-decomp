@@ -50,6 +50,12 @@ struct Texture;
 // The samplers of binding 1, by index: sampler_index(address u, address v, linear).
 inline constexpr uint32_t kMaterialAddressModes = 4; // wrap, mirror, clamp, border
 inline constexpr uint32_t kMaterialSamplerCount = kMaterialAddressModes * kMaterialAddressModes * 2;
+// (round MIST) the linear filter's sampler that wraps both ways (the linear ones follow the nearest ones; wrap is mode 0)
+inline constexpr uint32_t kMaterialLinearWrapSampler = kMaterialAddressModes * kMaterialAddressModes;
+// (round MIST - one water surface for every ray) The textures[] slot kept for the water's ripple texture (vulkan_water.cpp's
+// waves image - the water shader's): every ray pass that binds the table reads the waves' ripples from it
+// (vulkan_rt_scene.h water_facet). White until the image is made; the slots handed out to textures start after it.
+inline constexpr uint32_t kWaterRipplesSlot = 1;
 inline constexpr uint32_t kMaterialRecordsBinding = 0;
 inline constexpr uint32_t kMaterialSamplersBinding = 1;
 inline constexpr uint32_t kMaterialTexturesBinding = 2;
@@ -176,7 +182,7 @@ public:
     struct Options {
         uint32_t texture_slots = 0;                // the textures[] count (0: kDefaultTextureSlots, within the limit)
         uint32_t first_rows = kDefaultFirstRows;   // the records' first buffer
-        uint32_t first_slot = 1;                   // where new slots are handed out from (the checks: near the top)
+        uint32_t first_slot = kWaterRipplesSlot + 1; // where new slots are handed out from (the checks: near the top)
     };
     // The most textures[] may hold, whatever the device allows (some allow billions: the table keeps a word or two per slot).
     static constexpr uint32_t kMostTextureSlots = 1U << 20U;
@@ -216,6 +222,11 @@ public:
     // (round SUBPIX) A texture's slot, taken when it has none - a mesh's emission map (vulkan_rt_scene.cpp's geometry rows
     // name it: GeometryRecord::emission_slot); 0 when every slot is used or the table isn't made.
     [[nodiscard]] uint32_t texture_slot(GpuTexture* texture);
+
+    // (round MIST) The water's ripple texture in kWaterRipplesSlot (the backend's lock held; VK_NULL_HANDLE: white again) -
+    // written into the set at the next make_visible; water_ripples_shown: written there (the rays may read it).
+    void set_water_ripples(VkImageView view);
+    [[nodiscard]] bool water_ripples_shown() const;
 
     // For the checks.
     [[nodiscard]] uint32_t texture_slots() const { return slot_count_; }
@@ -265,7 +276,7 @@ private:
     std::array<VkSampler, kMaterialSamplerCount> samplers_{};
     VkDescriptorSetLayout layout_ = VK_NULL_HANDLE;
     uint32_t slot_count_ = 0;
-    uint32_t first_slot_ = 1;
+    uint32_t first_slot_ = kWaterRipplesSlot + 1;
     Generation current_;
     std::vector<RetiredGeneration> retired_generations_;
 
@@ -280,7 +291,9 @@ private:
     std::vector<std::vector<rt::MaterialId>> slot_users_; // by slot: the materials set with it (some since changed)
     std::vector<uint32_t> free_slots_;
     std::vector<RetiredSlot> retired_slots_;
-    uint32_t next_slot_ = 1;
+    uint32_t next_slot_ = kWaterRipplesSlot + 1;
+    VkImageView water_ripples_ = VK_NULL_HANDLE; // (round MIST) kWaterRipplesSlot's image (null: white)
+    bool water_ripples_shown_ = false;           // ... written into the current set
     std::vector<uint32_t> slots_to_write_;          // slots whose descriptor changed since the last make_visible
     bool full_reported_ = false;
     uint64_t changes_ = 0; // (round OM)

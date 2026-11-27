@@ -141,8 +141,9 @@ inline constexpr uint32_t kGeometryLight = 1U << 5;  // (added by the light ener
 inline constexpr uint32_t kGeometryObjectLight = 1U << 6; // (the objects' shadows) its object's lights
 inline constexpr uint32_t kGeometryWater = 1U << 7;       // (round WAVES) its water body's waves
 // (round WAVES) A water body's waves as the shaders read them: rt::WaterSurface's slopes, speeds, sea (four each), the
-// wind's way (two), the rain's share and a zero.
-inline constexpr std::size_t kWaterSurfaceFloats = 16;
+// wind's way (two), the rain's share and a zero; (round MIST) then the waves' clock (the frame record's water_seconds),
+// 1 when the ripple texture is in the material table's kWaterRipplesSlot, the rain's rings' cell (0: no rain) and a zero.
+inline constexpr std::size_t kWaterSurfaceFloats = 20;
 // (the objects' shadows) An object's lights as the shaders read them: rt::ObjectLight's seven colours / directions,
 // three floats each, in its order; then (round O) its `linear` (1 or 0) and two zeros.
 inline constexpr std::size_t kObjectLightFloats = 24;
@@ -226,7 +227,15 @@ std::string_view scene_geometry_glsl();
 //        multiplied, whatever their order (the caller has found nothing solid there); (round DECAL) a blended world layer
 //        lying on the ray's own surface (within RAY_LAYER_LIFT of the origin along its normal) lets it all through - it
 //        is that surface's material, laid in its albedo
+//        (round MIST) a water surface it crosses by the waves' facet there (water_surface_facet), not the flat mesh's
 //   vec3 ray_light(uint mask, vec3 origin, vec3 direction, float reach) - 0 when ray_blocked, else seen_through
+// (round MIST - one water surface for every ray: water_shader.h water_waves_glsl and the rain's rings are in it)
+//   bool water_surface_normal(uint instance, vec3 x, out vec3 n) - the waves' normal (world, up) at world point x of a
+//        water instance (its row's GEOMETRY_WATER record: its body's swell, the ripples from the material table's
+//        WATER_RIPPLES_SLOT, the rain's rings, at the record's clock) at full detail; false: no waves known (flat)
+//   vec3 water_surface_facet(uint instance, vec3 position, vec3 normal, vec3 dir) - the normal a ray along `dir` crossing
+//        the water's mesh (normal `normal`) at `position` meets, facing the ray: the waves' where the mesh faces up
+//        (smoothstep(0.82, 0.94) - the water shader's), seen from below their underside; a facet turned away the plane's
 //   float ray_light_share(...) - the same as one share (the mean of the three channels), for a pass that keeps one
 std::string_view cutout_rays_glsl();
 // (path tracing, stage 1 - P1: one hit surface) What every ray that shades its hit reads there, from one function: after

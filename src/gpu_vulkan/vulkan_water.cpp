@@ -1211,6 +1211,7 @@ bool read_water_waves(Backend& state, uint32_t level, std::vector<uint16_t>* hal
 void release_water(Backend& state)
 {
     WaterState& own = water_state();
+    state.materials.set_water_ripples(VK_NULL_HANDLE); // (round MIST: the rays' slot white again - its image goes)
     const VkDevice device = state.context.device();
     if (device != nullptr) {
         for (VkPipeline pipeline : {own.waves_pipeline, core::at(own.linear, 0), core::at(own.linear, 1)}) {

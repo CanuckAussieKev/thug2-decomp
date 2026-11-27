@@ -528,8 +528,11 @@ Ripples ripples_of(double rate)
 
 const char* ripple_glsl()
 {
-    // (mix_bits' twin; the rings: no block read - the water's shader takes them too)
+    // (mix_bits' twin; the rings: no block read - the water's shader takes them too). (round MIST) Guarded: every ray pass
+    // has it (vulkan_rt_scene.h cutout_rays_glsl - the water's surface), and some add it again for their own use.
     return R"(
+#ifndef RAIN_RIPPLE_GLSL
+#define RAIN_RIPPLE_GLSL
 uint rain_mix(uint x)
 {
     x ^= x >> 16u;
@@ -567,6 +570,7 @@ vec2 rain_ripple(vec2 xz, vec4 ripple)
     }
     return slope;
 }
+#endif
 )";
 }
 

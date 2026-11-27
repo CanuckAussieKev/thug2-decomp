@@ -293,6 +293,10 @@ struct FrameRecord {
     // (engine/gfx/rt_poses.h - each one's bones hashed). The same key and the same instances: the same triangles.
     uint64_t poses_key = 0;
     std::vector<WaterSurface> water_surfaces; // (round WAVES) Instance::water's
+    // (round MIST) The waves' clock: the game clock in seconds as the frame shows it (render_pc frame_interp
+    // shown_game_clock_seconds - the water shader's and the sky's, ViewDrawn::game_seconds). Every ray that meets the
+    // water reads the waves at this time.
+    double water_seconds = 0.0;
 };
 
 inline constexpr uint32_t kAllMasks = 0xFF; // a ray that can hit every instance

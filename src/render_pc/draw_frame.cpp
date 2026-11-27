@@ -806,9 +806,8 @@ rt::ViewDrawn view_drawn(int index)
         view.focus_known = view.focus_distance > 0.0F;
     }
     // (the game clock: what moves with the game - a backend's clouds - follows it)
-    constexpr double kSecondsPerMillisecond = 0.001;
     // (not original either: [Graphics] max_fps - the part of a tick a blended frame is behind taken off: frame_interp.h)
-    view.game_seconds = frame_interp::shown_game_seconds(static_cast<double>(frame_clock::game_clock_time()) * kSecondsPerMillisecond);
+    view.game_seconds = frame_interp::shown_game_clock_seconds();
     // (not original either - the fisheye lens the view was widened for)
     view.lens = view_lens_state().drawn;
     return view;

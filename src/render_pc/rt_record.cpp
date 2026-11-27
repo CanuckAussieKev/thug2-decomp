@@ -57,6 +57,7 @@
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "render_pc/bitmap_texture.h"
+#include "render_pc/frame_interp.h"
 #include "render_pc/geom.h"
 #include "render_pc/mesh_list.h"
 #include "render_pc/mesh_pass.h"
@@ -2712,6 +2713,7 @@ void record_frame()
     record.cameras.clear();
     record.object_lights.clear();
     record.water_surfaces.clear(); // (round WAVES)
+    record.water_seconds = frame_interp::shown_game_clock_seconds(); // (round MIST: the waves' clock)
     record.poses_key = kFnvBasis;
     // (the objects' shadows: an instance not drawn for a while forgotten - its address may be another's next)
     std::erase_if(st.object_lights, [&st](const auto& kept) { return kept.second.frame + 2 < st.frame; });
