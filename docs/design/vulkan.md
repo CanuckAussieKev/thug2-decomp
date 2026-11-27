@@ -3335,7 +3335,12 @@ inputs were made for) the colour is taken by shares as before. The particles kee
 census` counts the kept draws each way ("surface draws without a store (the rays' light)", "... by shares", "particle
 draws"). No relit data change. `thug2_vulkan_rt_lights_check`: an unlit, textured floor with no store, its vertex
 colour 0x40 and 0xC0 (the bake's light 3 x apart) - every floor pixel the light model's sun on its material x the traced
-visibility plus its colour's indirect share, whatever the vertex colour.
+visibility plus its colour's indirect share, whatever the vertex colour (within 0.1 %; the old shares 26 - 70 % off).
+Measured: the census over each level's restarts (light_audit.ts walk at noon and at night) - drawn by the rays' light
+without a store 28 - 199 draws a frame (Barcelona's 155 world meshes without an entry at either time, New Orleans' 180
+billboards at night), by shares 0 - 20 (Australia's 20); the plan's spots against the reference (noon, dusk, night) moved
+by -0.007 to +0.018 of the reference's light (Boston at night 0.918 -> 0.936, New Orleans at night 0.937 -> 0.946); New
+Orleans at 2560 x 1440, DLSS Quality + RR: the device 11.16 -> 11.27 ms a drawn loop.
 
 **Round POOL: one water material in the raster, the rays and the path tracer.** The path tracer meets the game's water as
 an interface (round LW): Fresnel's share mirrored, the rest into it - the sheet's drawn alpha (2 x the vertex alpha x the
