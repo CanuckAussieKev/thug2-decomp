@@ -23,7 +23,9 @@
 //      to its own ray (LL_NO_DISC): the disc's visibility traced toward a point of it (its cone; the clouds' shadow map)
 //      - the shading puts the sun's or the moon's light through the light model with it, as the shadows pass's
 //      visibility on an opaque surface -; the rest of the list on a white diffuser (x cos / pi) + the radiance cache's
-//      bounce (SHaRC - every further bounce): a white diffuser's radiance, the lamps input's unit, pre-exposed.
+//      bounce (SHaRC - every further bounce; (round LAYER) where the cache has no trusted cell - a point in the air, a
+//      particle cloud's - one ray along the cosine lobe to the surface it meets, lit there: SHaRC's query rule, the path
+//      traced on past a miss): a white diffuser's radiance, the lamps input's unit, pre-exposed.
 //      Accumulated over frames (the layer's point taken back through the last view's camera, its depth there within 2 %
 //      of the distance: at most kHistoryFrames, as a moving average) - Ray Reconstruction denoises the frame, not its
 //      transparency layer, where the see-through surfaces are drawn (NVIDIA's DLSS-RR guide 3.4.10).

@@ -50,6 +50,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <numbers>
 #include <span>
 #include <string>
 #include <string_view>
@@ -2683,6 +2684,34 @@ bool through_quad(int x, int y, double height, double x0, double x1, double z0, 
     return x_of(at) > x0 + 2.0 && x_of(at) < x1 - 2.0 && z_of(at) > z0 + 2.0 && z_of(at) < z1 - 2.0;
 }
 
+// (round LAYER) A standing quad at z = `z` over x in [x0, x1], y in [y0, y1], facing +z (two triangles).
+std::vector<ColourVertex> standing_quad_at(double z, double x0, double x1, double y0, double y1, uint32_t colour)
+{
+    const auto f = [](double v) { return static_cast<float>(v); };
+    const std::array<std::array<float, 3>, 4> corners{
+        {{f(x0), f(y0), f(z)}, {f(x1), f(y0), f(z)}, {f(x1), f(y1), f(z)}, {f(x0), f(y1), f(z)}}};
+    std::vector<ColourVertex> out;
+    for (const std::size_t i : {0U, 1U, 2U, 0U, 2U, 3U}) {
+        out.push_back({.position = core::at(corners, i), .colour = colour});
+    }
+    return out;
+}
+
+// (round LAYER) Where the eye's ray through the pixel crosses the plane z = `z` (false: it doesn't, going away from it).
+bool standing_point(int x, int y, double z, Vec3* at)
+{
+    const View view = view_from(kEye);
+    const double ndc_x = (2.0 * (x + 0.5) / kTargetWidth) - 1.0;
+    const double ndc_y = 1.0 - (2.0 * (y + 0.5) / kTargetHeight);
+    const Vec3 direction = normalised(
+        step(step(step(Vec3{}, view.right, ndc_x * view.half_width), view.up, ndc_y * view.half_height), view.back, -1.0));
+    if (z_of(direction) >= 0.0) {
+        return false;
+    }
+    *at = step(kEye, direction, (z - z_of(kEye)) / z_of(direction));
+    return true;
+}
+
 // (round SKIN) kCover*: a quad alpha-blended over the floor that WRITES depth (a character's laces, a fence's soft edge -
 // engine/gfx/rt_coverage.h), its vertex alpha kCoverColour's at three heights
 enum class Over : uint8_t { kNothing, kGlass, kGlow, kLitGlow, kCoverFull, kCoverHigh, kCoverLow };
@@ -3819,12 +3848,25 @@ constexpr double kFrontGlassAlpha = 2.0 * 64.0 / 255.0; // (the pane's vertex al
 // albedo), the pass colour 0.25: its albedo the program's under v0 0.5 - 4 x 0.5 x the white texel x 0.25 = 0.5 (display)
 constexpr uint32_t kParticleFrontColour = 0x40202020U;
 constexpr float kParticleFrontC0 = 0.25F;
+// (round LAYER) a particle card standing in the air, facing the eye (+z) with the lamp behind it (z 40): no direct light on
+// its face - its whole light the bounce off the lamp's pool on the floor in front of it, where the radiance cache has no
+// cell (no surface there). Its layer's light against the floor's light integrated over its hemisphere (the floor's albedo
+// x the lamp model there, a Lambertian floor; z > the card's): the bounce traced on past the cache's miss.
+constexpr double kCardZ = 70.0;
+constexpr std::array<double, 4> kCard{-60.0, 40.0, 4.0, 34.0}; // x0, x1, y0, y1
+constexpr double kCardFloorStep = 2.0;                        // (the integral's floor cells, units)
+constexpr double kCardLeast = 0.002;                          // (pixels compared where the expected light is at least this)
+// the device's bounce over the integral's, its mean over the pixels: the floor's painted kind is not quite a Lambertian
+// surface of its albedo (its specular lobe takes a share - SHEETS' behind ratio 0.98), the bounce one ray a frame
+// (measured 0.974; the old cache-only bounce 0.000)
+constexpr double kCardRatioLow = 0.90;
+constexpr double kCardRatioHigh = 1.10;
 
 // A frame of the view: the floor, the glass over it or not; `front` / `lamps` read (RGBA16F each) when given.
 bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, std::span<const rt::Light> points,
                 bool glass, uint64_t frame, std::vector<uint8_t>* front, std::vector<uint8_t>* lamps,
                 std::vector<uint8_t>* colour = nullptr, bool particle = false, std::vector<uint8_t>* layer = nullptr,
-                std::vector<uint8_t>* behind = nullptr)
+                std::vector<uint8_t>* behind = nullptr, const std::vector<ColourVertex>* particle_quad = nullptr)
 {
     using render::GpuRenderState;
     rt::FrameRecord& record = rt::frame_record();
@@ -3882,9 +3924,12 @@ bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneM
             const std::array<float, 4> c0{kParticleFrontC0, kParticleFrontC0, kParticleFrontC0, kParticleFrontC0};
             gpu.set_pixel_constants(0, c0.data(), 1);
             rt::set_particles_drawing(true);
+            // (round LAYER: `particle_quad` in its place when given)
             const std::vector<ColourVertex> corners =
-                quad_at(kFrontGlassHeight, core::at(kFrontGlass, 0), core::at(kFrontGlass, 1), core::at(kFrontGlass, 2),
-                        core::at(kFrontGlass, 3), kParticleFrontColour);
+                particle_quad != nullptr
+                    ? *particle_quad
+                    : quad_at(kFrontGlassHeight, core::at(kFrontGlass, 0), core::at(kFrontGlass, 1),
+                              core::at(kFrontGlass, 2), core::at(kFrontGlass, 3), kParticleFrontColour);
             gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(corners.size() / 3),
                                  corners.data(), sizeof(ColourVertex));
             rt::set_particles_drawing(false);
@@ -4214,6 +4259,66 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                  text::format("  ... and drawn by it (the program's albedo under v0 0.5, %.3f, x the layer's light over the "
                               "floor behind - not its vertex colour): %d of %d pixels off",
                               particle_albedo, particle_wrong, particle_pixels));
+    // (round LAYER) the standing card: its light the floor's bounce alone
+    const std::vector<ColourVertex> card =
+        standing_quad_at(kCardZ, core::at(kCard, 0), core::at(kCard, 1), core::at(kCard, 2), core::at(kCard, 3),
+                         kParticleFrontColour);
+    std::vector<uint8_t> card_front;
+    for (int k = 0; ok && k < kFrontFrames; ++k) {
+        const bool last = k + 1 == kFrontFrames;
+        ok = draw_front(gpu, targets, meshes, points, true, frame++, last ? &card_front : nullptr, nullptr, nullptr, true,
+                        nullptr, nullptr, &card);
+    }
+    // the floor in front of the card: its cells' radiance toward the card (Lambertian: its albedo x the lamp model there)
+    struct FloorCell {
+        Vec3 at;
+        double radiance;
+    };
+    std::vector<FloorCell> cells;
+    const double floor_albedo = rt::linear_from_display(0.8F);
+    for (double x = -kFloorHalf + (kCardFloorStep / 2.0); emitter && x < kFloorHalf; x += kCardFloorStep) {
+        for (double z = kCardZ + (kCardFloorStep / 2.0); z < kFloorHalf; z += kCardFloorStep) {
+            const Vec3 at{x, 0.0, z};
+            cells.push_back({.at = at, .radiance = floor_albedo * luma_of(model(at))});
+        }
+    }
+    const auto card_bounce = [&cells](const Vec3& p) {
+        double sum = 0.0;
+        for (const FloorCell& cell : cells) {
+            const Vec3 d = minus(cell.at, p);
+            const double r2 = dot(d, d);
+            const double cos_card = z_of(d) / std::sqrt(r2);
+            const double cos_floor = y_of(p) / std::sqrt(r2);
+            sum += cell.radiance * cos_card * cos_floor / r2;
+        }
+        return sum * kCardFloorStep * kCardFloorStep / std::numbers::pi;
+    };
+    double card_got = 0.0;
+    double card_want = 0.0;
+    int card_pixels = 0;
+    for (int y = 0; ok && emitter && y < kRows; ++y) {
+        for (int x = 0; x < kColumns; ++x) {
+            Vec3 at{};
+            if (!standing_point(x, y, kCardZ, &at) || x_of(at) < core::at(kCard, 0) + kFrontMargin ||
+                x_of(at) > core::at(kCard, 1) - kFrontMargin || y_of(at) < core::at(kCard, 2) + kFrontMargin ||
+                y_of(at) > core::at(kCard, 3) - kFrontMargin) {
+                continue;
+            }
+            const double want = card_bounce(at);
+            if (want < kCardLeast) {
+                continue;
+            }
+            card_got += luma_of(linear_pixel_at(card_front, x, y));
+            card_want += want;
+            ++card_pixels;
+        }
+    }
+    const double card_ratio = card_want > 0.0 ? card_got / card_want : 0.0;
+    tally->check(ok && emitter && card_pixels > 500 && card_ratio >= kCardRatioLow && card_ratio <= kCardRatioHigh,
+                 text::format("  (round LAYER) a particle card in the air, its face away from the lamp: its light the floor's "
+                              "bounce (traced on past the radiance cache's miss) - %d pixels, %.4f x the floor's integral "
+                              "(mean %.4g)",
+                              card_pixels, card_ratio, card_pixels > 0 ? card_want / card_pixels : 0.0));
     vk::set_rt_gi_settings({.indirect = vk::RtIndirectLight::kPasses});
     vk::set_rt_light_settings({});
     rt::set_level_emitters({});

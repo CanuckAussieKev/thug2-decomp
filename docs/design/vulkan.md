@@ -3298,6 +3298,18 @@ level's other lamps): the candidate most nearly straight over the pool wins; a s
 fitting's size under it, facing the pool), another lamp means the card is that lamp's pool (no lamp of its own), and
 with neither it is no lamp - no lamp hangs in the air (relit data v26; `thug2_vulkan_rt_relit_check`).
 
+**Round LAYER: the front layer's bounce traced on past the radiance cache's miss.** The front layer's point took its
+bounce from the radiance cache alone (`cache_bounce`: the young entry's light, else 0). The cache's cells are claimed
+where paths meet surfaces; a particle cloud, or a pane standing away from every wall, lies in the air, where no surface
+claims a cell - its bounce was 0. Barcelona's fountain mist, lit by the layer, took its direct light (sun, sky, lamps)
+and no bounce: ~0.6 - 0.8 of the reference's light in the cloud, 0.4 - 0.5 over the shaded facade, where the bounce is
+most of what lights it. The layer now follows SHaRC's query rule as ReSTIR GI's vertices do: a trusted cell is the
+bounce, a miss is traced on - one ray along a white diffuser's cosine lobe to the surface it meets, lit there as a
+bounce's vertex (its direct light and its reflectance x the cache's bounce; not its emission, which the layer's own
+light samples take; nothing where the ray leaves the world - the sky is the list's). `thug2_vulkan_rt_lights_check`: a
+particle card standing in the air with the lamp behind its face, lit by the floor's pool alone, against the floor's light
+integrated over its hemisphere.
+
 **Round POOL: one water material in the raster, the rays and the path tracer.** The path tracer meets the game's water as
 an interface (round LW): Fresnel's share mirrored, the rest into it - the sheet's drawn alpha (2 x the vertex alpha x the
 texel's) its own colour, a diffuse surface of the material's albedo, the remainder through to what is behind. The water
