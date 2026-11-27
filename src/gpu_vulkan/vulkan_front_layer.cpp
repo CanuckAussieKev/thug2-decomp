@@ -301,19 +301,38 @@ vec3 mirror_light(vec3 origin, vec3 r, inout uint rng, out float travel)
 // (hit_lit), times what the see-through surfaces crossed before it let through (seen_through: a lower water
 // sheet, glass - each one's expected share, as every light ray takes them; the layer lying on the hit is its material's,
 // left out). Nothing met: no light (deep water - the water's body is the shading's), `travel` -1.
-vec3 behind_light(vec3 origin, vec3 r, inout uint rng, out float travel)
+vec3 behind_light(vec3 origin, vec3 r, inout uint rng, out float travel, out bool layered)
 {
     travel = -1.0;
+    layered = false;
     uint instance;
     uint primitive;
     uint id;
     vec2 barycentrics;
     float t;
     mat4x3 to_world;
+    uint li;
+    uint lp;
+    uint lid;
+    vec2 lb;
+    mat4x3 lw;
     HitSurface h;
-    if (!camera_surface(origin, r, LL_REACH, -1.0, no_cone(), instance, primitive, id, barycentrics, t, to_world, h) ||
-        h.hidden) {
+    // (camera_surface's steps, its layer known: trace_drawn_layered, the hit's surface, the layer laid by its alpha)
+    if (!trace_drawn_layered(origin, r, LL_REACH, -1.0, instance, primitive, id, barycentrics, t, to_world, layered, li, lp,
+                             lid, lb, lw) ||
+        !hit_surface_at(instance, primitive, id, barycentrics, to_world, r, no_cone(), h) || h.hidden) {
+        layered = false;
         return vec3(0.0);
+    }
+    HitSurface layer;
+    if (layered && hit_surface_at(li, lp, lid, lb, lw, r, no_cone(), layer) && !layer.hidden && !layer.cut_out) {
+        float a = clamp(layer.alpha, 0.0, 1.0);
+        h.base_colour = mix(h.base_colour, layer.base_colour, a);
+        h.material.albedo = mix(h.material.albedo, layer.material.albedo, a);
+        h.material.f0 = mix(h.material.f0, layer.material.f0, a);
+        h.material.roughness = mix(h.material.roughness, layer.material.roughness, a);
+    } else {
+        layered = false;
     }
     travel = t;
     float lift = RAY_LAYER_LIFT / max(abs(dot(h.normal, r)), 0.1); // (the layer lying on the hit: within this along the ray)
@@ -447,10 +466,11 @@ void main()
     // The water's own medium along it is the shading's (its distance in a).
     vec4 behind_out = vec4(0.0);
     if (up_n.y >= REFLECT_LEAST_UP) {
-        behind_out = vec4(0.0, 0.0, 0.0, -1.0); // (traced; nothing met: a negative distance)
+        behind_out = vec4(0.0, 0.0, 0.0, -65504.0); // (traced; nothing met)
         vec3 from = here + dir * local_light_offset(here);
         float travel;
-        vec3 seen = behind_light(from, dir, rng, travel) * pass.eye.w;
+        bool layered;
+        vec3 seen = behind_light(from, dir, rng, travel, layered) * pass.eye.w;
         if (travel > 0.0) {
             float b_frames = 0.0;
             vec3 b_before = vec3(0.0);
@@ -460,12 +480,15 @@ void main()
                     ivec2 qi = ivec2(floor(q.xy / q.w));
                     if (all(greaterThanEqual(qi, pass.rect.xy)) && all(lessThan(qi, pass.rect.xy + pass.rect.zw))) {
                         vec4 hb = imageLoad(h_behind, qi);
-                        b_frames = hb.a > 0.0 && abs(hb.a - travel) <= 0.05 * travel + 1.0 ? min(frames, REFLECT_FRAMES - 1.0) : 0.0;
+                        b_frames = hb.a != 0.0 && abs(abs(hb.a) - travel) <= 0.05 * travel + 1.0 ? min(frames, REFLECT_FRAMES - 1.0) : 0.0;
                         b_before = good3(hb.rgb * pass.prev.x);
                     }
                 }
             }
-            behind_out = vec4(min(mix(b_before, good3(seen), 1.0 / (b_frames + 1.0)), vec3(65504.0)), max(travel, 1.0e-3));
+            // (a: the distance; negative where a blended layer lies on the hit - the overlay the raster may draw after
+            // the water's copy: the water takes the trace there, not the copy)
+            behind_out = vec4(min(mix(b_before, good3(seen), 1.0 / (b_frames + 1.0)), vec3(65504.0)),
+                              max(travel, 1.0e-3) * (layered ? -1.0 : 1.0));
         }
     }
     imageStore(o_behind, p, behind_out);

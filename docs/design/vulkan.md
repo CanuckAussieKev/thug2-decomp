@@ -3518,9 +3518,12 @@ front layer (Round FL) now traces the rest surface's other side where it faces u
 surface (the path tracer's thin interface goes straight on) to the surface a camera ray takes there (`camera_surface` -
 cut-outs by their alpha, the blended layer lying on it laid into its material), lit as the mirror's hit is (`hit_lit`),
 times what the see-through surfaces it crosses let through (a lower sheet, glass: `seen_through`); its distance with it
-(the light input `kLightFrontBehindBinding`). Where the front layer is the water, the water shader takes that as what
-is behind it - the path through the water its distance - and the sheet is a whole interface (its alpha 1 there, as the
-path tracer meets every water hit); elsewhere (no ray tracing, a wall of water) the copy as before. Ray-traced
+(the light input `kLightFrontBehindBinding`; negative where a blended layer lies on the hit). Where the front layer is
+the water, the sheet is a whole interface (its alpha 1 there, as the path tracer meets every water hit) and what is
+behind it is the copy where the trace meets the very surface the copy holds (its depth within 0.2 % + 0.25 units - that
+surface lit by the view's own ReSTIR passes, the refraction's shift kept: screen space first), else the trace - the
+slope, the coins a unit over the floor, a layer on the hit, a lower sheet - with the path through the water its
+distance; elsewhere (no ray tracing, a wall of water) the copy as before. Ray-traced
 translucency of this kind (the trace standing for the screen's copy) is what 2026's path-traced and Lumen-lit games do
 for refractive water. `thug2_vulkan_rt_lights_check`: the glass pane's other side meets the floor under it at every
 pixel (worst 0.95 units), its light 0.980 x the floor's albedo x its lamps input; nothing traced (mutation) fails both.

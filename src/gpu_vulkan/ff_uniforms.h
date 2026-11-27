@@ -91,7 +91,8 @@ constexpr uint32_t kLightFrontSunBinding = 10;  // RGBA16F: rgb the disc's (the 
 constexpr uint32_t kLightFrontReflectBinding = 11;
 // (round SHEETS) RGBA16F: rgb what the layer's rest surface lets through from behind it - the view's ray traced on past
 // it, its hit lit by the light list, x what the see-through surfaces it crosses on the way let through (lower water
-// sheets, glass) - pre-exposed; a the hit's distance from the surface (0: none traced there or nothing met - deep water)
+// sheets, glass) - pre-exposed; a the hit's distance from the surface, negative where a blended layer lies on the hit
+// (0: none traced there; -65504: traced, nothing met - deep water)
 constexpr uint32_t kLightFrontBehindBinding = 12;
 constexpr uint32_t kLightInputCount = 13;
 

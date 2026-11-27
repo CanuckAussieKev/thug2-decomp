@@ -483,12 +483,24 @@ vec4 water_shade(vec4 colour, vec4 texel, vec2 uv, inout float alpha, vec3 albed
     // surface the path through the water. Not the copy made before the view's first water draw: whatever was drawn after
     // that copy - a sheet under this one, a slope or the coins lying in the water among the transparencies - is missing
     // from it (each sheet replaced what was under it). Nothing met: deep water (the body's colour alone).
+    // Where the trace meets the very surface the copy holds there (its depth along the view within the depth's precision
+    // of the copy's, 0.2 % + 0.25 units: the coins a unit over the fountain's floor are not the floor), the copy is
+    // kept: that surface lit by the view's own passes (ReSTIR's - not one light sample a frame), and the refraction's shift - screen space first, the trace where the screen lacks what is behind (as 2026's hybrid
+    // screen / ray-traced translucency and reflections do).
     vec4 traced_behind = light_front_behind_at(ivec2(gl_FragCoord.xy));
     if (traced_behind.a != 0.0) {
-        under = traced_behind.a > 0.0 ? water_light_of(display_from_linear(max(traced_behind.rgb, vec3(0.0)))) : deep;
-        behind = traced_behind.a > 0.0 ? surface_w * (1.0 + traced_behind.a / dist) : kWaterFar * 10.0;
-        seen_behind = true;
         traced_through = true;
+        // (a: the hit's distance - negative where a blended layer lies on it, whose raster draw may come after the copy:
+        // the trace then; -65504: nothing met)
+        bool met = traced_behind.a > -65000.0;
+        bool layer_on_it = traced_behind.a < 0.0 && met;
+        float traced_w = met ? surface_w * (1.0 + abs(traced_behind.a) / dist) : kWaterFar * 10.0;
+        float copy_w = copied ? textureLod(water_depth, gl_FragCoord.xy * water.target.xy, 0.0).r : -1.0;
+        if (layer_on_it || !(copied && abs(traced_w - copy_w) <= 0.002 * copy_w + 0.25)) {
+            under = met ? water_light_of(display_from_linear(max(traced_behind.rgb, vec3(0.0)))) : deep;
+            behind = traced_w;
+            seen_behind = true;
+        }
     }
 #endif
     float path = max(behind - surface_w, 0.0) * dist / surface_w;

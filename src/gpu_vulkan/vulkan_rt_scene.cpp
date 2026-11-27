@@ -3131,8 +3131,13 @@ bool camera_face(vec3 eye, vec3 here, out vec3 face)
     vec2 barycentrics;
     float t;
     mat4x3 to_world;
-    if (!trace_drawn(eye, dir, distance * 1.05 + 1.0, distance, instance, primitive, id, barycentrics, t, to_world) ||
-        abs(t - distance) > 1.0 + 0.02 * distance) {
+    // (the ray starts within the match of the depth's point: a see-through surface in front of it - a glass pane the
+    // prepass kept no depth of, over a frame seen through it - is not the pixel's surface)
+    float match = 1.0 + 0.02 * distance;
+    float start = max(distance - match, 0.0);
+    if (!trace_drawn(eye + dir * start, dir, distance + match - start, distance - start, instance, primitive, id,
+                     barycentrics, t, to_world) ||
+        abs(t + start - distance) > match) {
         return false;
     }
     HitVertices v;
