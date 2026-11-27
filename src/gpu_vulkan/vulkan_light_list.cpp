@@ -662,8 +662,9 @@ void cache_key(vec3 at, vec3 ng, out uint slot, out uint check)
 // for none). SHaRC's query (SharcGetCachedRadiance) is the same test, and on a miss its caller goes on tracing the path -
 // a miss is not "no light": read as 0 it darkened every newly seen region's bounce for the ~64 frames the cache takes to
 // fill (round MV: GI's diffuse there 0.57 - 0.73 x converged). ReSTIR GI's secondary vertices continue the path
-// (trace_secondary's go_on); the readers that can't trace on (the update paths' last vertex, the reflections' hits, the
-// front layer - cache_bounce) take the young entry's light, else 0. With the cache off: true and 0 (the one-bounce tier).
+// (trace_secondary's go_on), and so does the front layer's point (round LAYER - vulkan_front_layer.cpp traced_bounce);
+// the readers that can't trace on (the update paths' last vertex, the reflections' and the front layer's hits -
+// cache_bounce) take the young entry's light, else 0. With the cache off: true and 0 (the one-bounce tier).
 // (SHaRC's sample threshold: the kept samples an entry needs before a caller that can go on takes it - a young entry's
 // update paths end in the cache's other young entries, low: trusted at 8 the cold room's first frames were -7 %, at 32
 // within 0.2 % - thug2_vulkan_restir_gi_check)

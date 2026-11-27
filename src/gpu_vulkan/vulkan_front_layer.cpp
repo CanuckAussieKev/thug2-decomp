@@ -238,15 +238,17 @@ vec3 front_normal(ivec2 p, vec3 here, vec3 dir, bool water)
 }
 
 // A surface a ray from the layer met (seen along `r`), lit as ReSTIR GI's secondary vertices and the reflections pass's
-// hits are - its emission, the light list's light through its BSDF (one sample, its own candidates), the disc's by its
-// own ray, its reflectance x the radiance cache's bounce. The global unit (the caller pre-exposes).
-vec3 hit_lit(HitSurface h, vec3 r, inout uint rng)
+// hits are - its emission (`emitting`; (round LAYER) not a bounce ray's: its estimate takes the list's lights by their
+// own samples - next-event estimation - as ReSTIR GI's next_event does), the light list's light through its BSDF (one
+// sample, its own candidates), the disc's by its own ray, its reflectance x the radiance cache's bounce. The global unit
+// (the caller pre-exposes).
+vec3 hit_lit(HitSurface h, vec3 r, inout uint rng, bool emitting)
 {
     vec3 v = -r;
     vec3 ng = dot(h.normal, v) >= 0.0 ? h.normal : -h.normal;
     vec3 sn = dot(h.shading_normal, v) > 0.0 ? h.shading_normal : ng;
     vec3 p = h.position + ng * local_light_offset(h.position);
-    vec3 lit = max(h.emitted, vec3(0.0));
+    vec3 lit = emitting ? max(h.emitted, vec3(0.0)) : vec3(0.0);
     ll_cell_candidates = false; // (its own candidates: no reuse smooths a shared cell's error - the reflections' hits)
     vec3 toward;
     vec3 incident = light_sample(p, sn, ng, FRONT_RAYS, rng, toward);
@@ -292,7 +294,54 @@ vec3 mirror_light(vec3 origin, vec3 r, inout uint rng, out float travel)
         return vec3(0.0);
     }
     travel = rayQueryGetIntersectionTEXT(query, true);
-    return hit_lit(h, r, rng);
+    return hit_lit(h, r, rng, true);
+}
+
+// (round LAYER) The bounce a white diffuser at `at` facing `n` gets (E / pi, the radiance cache's unit) where the cache
+// has no trusted cell for it - SHaRC's query rule (cache_lookup): on a miss the caller goes on tracing the path, as ReSTIR
+// GI's secondary vertices do (continue_path). One ray along the diffuser's cosine lobe - with the cosine's pdf the light
+// it meets is a one-sample estimate of E / pi - to the closest surface (hidden ones passed), lit as a bounce's vertex
+// (hit_lit: its direct light, its reflectance x the cache's bounce there; not its emission - the list's lights are the
+// layer's own samples); nothing where it leaves the world (the sky's light is the list's). The layer's point is often in
+// the air - a particle cloud, a pane away from every wall - where no surface ever claims a cell: read as 0 there (the
+// cache's miss), the layer had no bounce at all (Barcelona's fountain mist ~0.6 - 0.8 of the reference's light, 0.4 - 0.5
+// over the shaded facade, where the bounce is most of it).
+vec3 traced_bounce(vec3 at, vec3 n, inout uint rng)
+{
+    vec3 r = path_to_world(n, path_cosine_direction(path_next(rng), path_next(rng)));
+    if (!(dot(r, n) > 0.0)) {
+        return vec3(0.0);
+    }
+    vec3 origin = at;
+    for (uint skipped = 0u; skipped <= 4u; ++skipped) {
+        rayQueryEXT query;
+        rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, FRONT_RAYS, origin, 0.0, r, LL_REACH);
+        while (rayQueryProceedEXT(query)) {
+            if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
+                cutout_kept(rayQueryGetIntersectionInstanceIdEXT(query, false),
+                            rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
+                            rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
+                            rayQueryGetIntersectionBarycentricsEXT(query, false))) {
+                rayQueryConfirmIntersectionEXT(query);
+            }
+        }
+        if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
+            return vec3(0.0);
+        }
+        HitSurface h;
+        if (!hit_surface(rayQueryGetIntersectionInstanceIdEXT(query, true),
+                         rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                         rayQueryGetIntersectionInstanceCustomIndexEXT(query, true),
+                         rayQueryGetIntersectionBarycentricsEXT(query, true),
+                         rayQueryGetIntersectionObjectToWorldEXT(query, true), r, h)) {
+            return vec3(0.0);
+        }
+        if (!h.hidden) {
+            return hit_lit(h, r, rng, false);
+        }
+        origin = h.position + r * local_light_offset(h.position); // (a mesh the light store hides: not there)
+    }
+    return vec3(0.0);
 }
 
 // (round SHEETS) What the layer's rest surface lets through from behind it: the view's ray from `origin` (just past the
@@ -337,7 +386,7 @@ vec3 behind_light(vec3 origin, vec3 r, inout uint rng, out float travel, out boo
     travel = t;
     float lift = RAY_LAYER_LIFT / max(abs(dot(h.normal, r)), 0.1); // (the layer lying on the hit: within this along the ray)
     vec3 through = t > lift ? seen_through(RAY_WORLD_KINDS | RAY_OBJECT_KINDS, origin, r, t - lift) : vec3(1.0);
-    vec3 lit = hit_lit(h, r, rng);
+    vec3 lit = hit_lit(h, r, rng, true);
     // A blended surface met (one the prepass would keep - over half covering): a surface over its coverage, as the path
     // tracer meets it (HIT_COVERAGE), the rest what lies behind it (a foam card round a buoy under the water's sheet is
     // not a white floor)
@@ -395,7 +444,12 @@ void main()
         vec3 incident = light_sample(at, n, n, FRONT_RAYS, rng, toward);
         rest += incident * max(dot(n, toward), 0.0);
     }
-    rest = rest / (PATH_PI * float(samples)) + cache_bounce(here, n);
+    // (round LAYER) the bounce: the radiance cache's where it has a trusted cell there, else traced on (traced_bounce)
+    vec3 bounce;
+    if (!cache_lookup(here, n, bounce)) {
+        bounce = traced_bounce(at, n, rng);
+    }
+    rest = rest / (PATH_PI * float(samples)) + bounce;
     // the disc: its visibility toward a point of its cone (the clouds' shadow with it), its light on a white diffuser
     vec3 sun = vec3(0.0);
     float seen = 0.0;
