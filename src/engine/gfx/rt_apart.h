@@ -75,6 +75,19 @@ private:
     uint64_t released_ = 0;
 };
 
+// (round MIST) What the last commit (of any store) held: an FNV-1a hash of its batches' vertex bytes in order and their
+// triangles - the particles and billboards as the frame drew them. The measuring session logs it (devtools/console.cpp
+// `state`, `measure on`): two runs of a plan froze the same particles when it is the same. Hashed only once asked for
+// (keep_apart_frames - the console's first `state` / `measure`): no cost in play.
+struct ApartFrame {
+    uint64_t hash = 0;
+    uint64_t triangles = 0;
+    uint64_t batches = 0;
+    bool kept = false; // (false: not hashed - keep_apart_frames not asked for when it was committed)
+};
+void keep_apart_frames();
+[[nodiscard]] ApartFrame last_apart_frame();
+
 // The vertices a batch's buffer holds for `count` triangles' vertices: the least power of two from kLeastVertices.
 [[nodiscard]] uint32_t apart_capacity(uint32_t vertices);
 
