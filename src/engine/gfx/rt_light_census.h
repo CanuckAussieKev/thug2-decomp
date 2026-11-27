@@ -31,6 +31,14 @@ enum class LightPath : uint8_t {
     kWorldUnlitField,
     kBillboardField,    // a billboard (the level's camera-facing cards: render_pc/pc_billboards.h) - x the field's ratio
     kBillboardOwn,      // ... kept as baked (no field: the level not relit)
+    // (round CENSUS - the bake ratio retired) A view lit per surface's kept draws (gpu_vulkan/vulkan_surface_light.h),
+    // counted where the backend keeps them - draws, not objects: without a light store lit per pixel by the rays' light
+    // (its own colours, whatever ratio render_pc put on them, read only where the sun's visibility wasn't traced:
+    // ff_shaders.cpp no_store_light); a colour kept and taken by shares (a program the per-pixel lighting can't take,
+    // a lit draw without normals); a particle's colour lit by the front layer (share_front)
+    kSurfaceNoStore,
+    kSurfaceShares,
+    kSurfaceParticle,
     kCount
 };
 inline constexpr std::size_t kLightPaths = static_cast<std::size_t>(LightPath::kCount);

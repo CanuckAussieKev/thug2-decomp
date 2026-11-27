@@ -32,7 +32,10 @@ constexpr std::array<const char*, kLightPaths> kNames{"objects lit (field)", "ob
                                                        "models (field)", "models (indoor colour)",
                                                        "particles (level whole)",
                                                        "world meshes without their own light (field)",
-                                                       "billboards (field)", "billboards (own colours)"};
+                                                       "billboards (field)", "billboards (own colours)",
+                                                       "surface draws without a store (the rays' light)",
+                                                       "surface draws by shares (their colour)",
+                                                       "particle draws (the front layer)"};
 
 } // namespace
 
