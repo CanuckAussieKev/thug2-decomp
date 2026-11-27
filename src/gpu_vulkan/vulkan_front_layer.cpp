@@ -337,7 +337,18 @@ vec3 behind_light(vec3 origin, vec3 r, inout uint rng, out float travel, out boo
     travel = t;
     float lift = RAY_LAYER_LIFT / max(abs(dot(h.normal, r)), 0.1); // (the layer lying on the hit: within this along the ray)
     vec3 through = t > lift ? seen_through(RAY_WORLD_KINDS | RAY_OBJECT_KINDS, origin, r, t - lift) : vec3(1.0);
-    return hit_lit(h, r, rng) * through;
+    vec3 lit = hit_lit(h, r, rng);
+    // A blended surface met (one the prepass would keep - over half covering): a surface over its coverage, as the path
+    // tracer meets it (HIT_COVERAGE), the rest what lies behind it (a foam card round a buoy under the water's sheet is
+    // not a white floor)
+    if ((geometry_record(instance).instance_flags & HIT_INSTANCE_TRANSPARENT) != 0u) {
+        HitBlend b = hit_blend(instance, primitive, id, barycentrics);
+        float c = clamp(b.coverage, 0.0, 1.0);
+        float beyond_travel;
+        vec3 beyond = mirror_light(h.position + r * local_light_offset(h.position), r, rng, beyond_travel);
+        lit = lit * c + (beyond_travel > 0.0 ? beyond : vec3(0.0)) * (1.0 - c);
+    }
+    return lit * through;
 }
 
 void main()
