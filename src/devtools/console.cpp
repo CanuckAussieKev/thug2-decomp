@@ -38,6 +38,7 @@
 #include "engine/script/tokens.h"
 #include "engine/sys/game_clock.h"
 #include "engine/sys/mlp.h"
+#include "engine/sys/stopwatch.h"
 #include "engine/ui/ui_backend.h"
 #include "engine/ui/ui_fonts.h"
 #include "game/front_end/front_end.h"
@@ -207,8 +208,8 @@ constexpr const char* kHelp = "scripts [text]  the scripts running (names holdin
                               "pt off | status  the reference stopped / its progress\n"
                               "measure on | off  (round MV) the world frozen as the original's pause (no menu), every frame drawn once\n"
                               "state           (round MIST) the loop, the game clock, the random sequence, the particles' hash\n"
-                              "seed <n>        (round MIST) the game's random sequences started again from n (a measuring plan's\n"
-                              "                start: the game seeds the C runtime's from the clock, so each run's spray differs)\n"
+                              "seed <n>        (round MIST) the game's random sequences started again from n, its clocks from 1 s (a\n"
+                              "                measuring plan's spot: the same frozen world on every run)\n"
                               "restart        the skater at the level's next restart (F8)\n"
                               "textures [original | pbrify | seedvr2]  the texture set in use / switched (not saved)\n"
                               "paint [clear]   the paint trails' strokes and drops so far; clear: the paint wiped\n"
@@ -566,9 +567,12 @@ std::string run_command(const std::string& line)
     if (command == "seed") {
         // (round MIST) The game seeds the C runtime's random sequence from the clock at start-up (app/winmain.cpp - the
         // original's), and the particles' bursts, the pedestrians' choices... draw from it: two runs of a measuring plan
-        // froze different sprays, different haze (Barcelona's fountain: its night ratio 0.73 - 0.95 between rounds). A
-        // plan seeds it (and the game's two streams) at its start, as a demo does - the simulation then runs the same
-        // steps from the same state, the same world at every measurement.
+        // froze different sprays, different haze (Barcelona's fountain: its night ratio 0.73 - 0.95 between rounds). And
+        // the clocks count every step since the game started, so a spot measured after other levels froze its water's
+        // waves at another time (the harbour 0.05 apart between plans). A plan seeds the sequences (and the game's two
+        // streams) and starts the clocks again at the same time before each spot's level, as a demo puts back the ones
+        // it was recorded with - the simulation then runs the same steps from the same state: the same world at every
+        // measurement, whatever the plan measured before it.
         std::istringstream words(rest);
         unsigned long long seed = 0;
         if (!(words >> seed)) {
@@ -576,7 +580,14 @@ std::string run_command(const std::string& line)
         }
         crt::game_srand(static_cast<unsigned>(seed));
         maths::seed_random(static_cast<uint32_t>(seed));
-        get_log("console: the game's random sequences seeded with %llu - %s", seed, world_state().c_str());
+        constexpr uint64_t kSeededVblanks = 60; // (a second in: the clocks' start for every seeded spot)
+        frame_clock::set_vblanks_since_reset(kSeededVblanks);
+        frame_clock::GameClockSnapshot clock = frame_clock::game_clock_snapshot();
+        clock.last_change = frame_clock::get_time();
+        clock.offset = 0;
+        frame_clock::set_game_clock_snapshot(clock);
+        get_log("console: the game's random sequences seeded with %llu, its clocks started again - %s", seed,
+                world_state().c_str());
         return text::format("seeded with %llu", seed);
     }
     if (command == "state") {

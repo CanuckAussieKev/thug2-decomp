@@ -90,7 +90,8 @@ export const kDefaultSamples = 256;
 export const kTrimFactor = 20; // x the reference's 99th percentile
 // (round MIST) the game's random sequences seeded before each spot's level (the console's `seed`): the game seeds them from
 // the clock, so two runs froze different sprays and haze; and a paused world still draws from them while the reference
-// renders (its length is the device's) - seeded at each level, every spot's world is the same frozen moment on every run,
+// renders (its length is the device's); and the clocks start again with it (the water's waves at the same time) - seeded at
+// each level, every spot's world is the same frozen moment on every run,
 // whatever the plan measured before it
 export const kPlanSeed = 1;
 export const kTermFrames = 8; // (a term view: its frames averaged - one Ray Reconstruction frame keeps a few % of noise)

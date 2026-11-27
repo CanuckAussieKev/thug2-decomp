@@ -6041,9 +6041,13 @@ through the tone curve at that EV. `pt off` ends it.
   particles' bursts, the pedestrians' choices... draw from it - and a paused world still draws from it while the
   reference renders, for as many loops as the device takes. Shown by the console's `state` (the loop, the game clock,
   the random sequence and a hash of the particles the last frame drew; `measure on` / `off` log it too): two runs of
-  the same plan, the same game clock at every spot, a different random state from the main menu on. The plan now seeds
-  the game's random sequences (`console seed 1`: the C runtime's and the game's two streams, as a demo does) before
-  each spot's level - every spot freezes the same moment whatever was measured before it. `scene_bias.ts repeat
+  the same plan, the same game clock at every spot, a different random state from the main menu on. And the clocks
+  count every step since the game started, so a spot measured after other levels froze its water's waves at another
+  time: the harbour 1.047 in the whole plan, 0.992 in a plan of Barcelona's two spots - the same code, the same
+  reference within 0.4 %. The plan now seeds the game's random sequences and starts the clocks again (`console seed
+  1`: the C runtime's sequence and the game's two streams seeded, the vblanks and the game clock set to 1 s - as a demo
+  puts back the ones it was recorded with) before each spot's level - every spot freezes the same moment whatever was
+  measured before it. `scene_bias.ts repeat
   <Screenshots> <tag a> <tag b>` compares two runs (each ratio, each picture's mean, the worst cell).
 - What the reference showed by night in Boston (relit data v14, full moon, EV100 fixed): the frame 3.6 - 29 x the
   reference, varying from one load to the next. Two causes on the realtime side: (1) the meshes met after the
