@@ -3308,7 +3308,10 @@ bounce, a miss is traced on - one ray along a white diffuser's cosine lobe to th
 bounce's vertex (its direct light and its reflectance x the cache's bounce; not its emission, which the layer's own
 light samples take; nothing where the ray leaves the world - the sky is the list's). `thug2_vulkan_rt_lights_check`: a
 particle card standing in the air with the lamp behind its face, lit by the floor's pool alone, against the floor's light
-integrated over its hemisphere.
+integrated over its hemisphere (0.974; the cache-only bounce 0.000). Barcelona's fountain at noon: the mist's own light
+over the facade 0.22 - 0.66 of the reference's per cell before, 0.72 - 1.08 after (the dense cells 0.96 - 1.08); the
+whole scene 0.933 -> 0.963. The 2026 alternative for a cloud deeper than its front layer - per-particle lighting from
+a translucency lighting volume (UE5 Lumen's translucency volume) - was not needed for this cloud.
 
 **Round POOL: one water material in the raster, the rays and the path tracer.** The path tracer meets the game's water as
 an interface (round LW): Fresnel's share mirrored, the rest into it - the sheet's drawn alpha (2 x the vertex alpha x the
