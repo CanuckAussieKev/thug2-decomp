@@ -457,7 +457,7 @@ std::string light_grid_reader_glsl(std::string_view grid)
            "(LightGridMarks(" + g + ".xy).words)\n#define LL_GRID_ON (" + g + ".z != 0u)\n" + std::string(kLightGridSlotGlsl);
 }
 
-std::string_view light_sample_glsl()
+const std::string& light_sample_glsl()
 {
     static constexpr std::string_view kSource = R"(
 #ifndef LL_LOCAL_CANDIDATES
@@ -613,8 +613,16 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
     }
     return carried * ray_light_leaving(mask, p, ng, dir, reach);
 }
+)";
+    // (round DEPTH: the cache's readers apart - radiance_cache_read_glsl - for a pass without the list's sampling)
+    static const std::string kWhole = std::string(kSource) + "\n#ifdef LL_CACHE\n" + std::string(radiance_cache_read_glsl()) +
+                                      "#endif\n";
+    return kWhole;
+}
 
-#ifdef LL_CACHE
+std::string_view radiance_cache_read_glsl()
+{
+    static constexpr std::string_view kSource = R"(
 // --- (round MB) the radiance cache: the light further bounces bring --------------------------------------------------
 // NVIDIA's SHaRC (spatially hashed radiance cache - Cyberpunk 2077's path tracing reads it where its paths end; Binder
 // et al. 2019's hash grid without its jitter): a hash table of cells of the world, each a point's position
@@ -770,7 +778,6 @@ vec3 cache_bounce(vec3 at, vec3 ng)
     cache_lookup(at, ng, bounce);
     return bounce;
 }
-#endif
 )";
     return kSource;
 }

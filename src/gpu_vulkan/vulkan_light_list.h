@@ -258,7 +258,10 @@ struct FrameLightList {
 // CACHE_PROBES, CACHE_CELL_LEAST, LL_EYE, LL_CACHE_CELLS, LL_CACHE_ON):
 //   void cache_key(vec3 at, vec3 ng, out uint slot, out uint check); vec3 cache_bounce(vec3 at, vec3 ng);
 //   bool cache_lookup_whole(vec3 at, vec3 ng, out vec3 bounce, out vec3 direct); float cache_cell_side(vec3 at)
-[[nodiscard]] std::string_view light_sample_glsl();
+[[nodiscard]] const std::string& light_sample_glsl();
+// (round DEPTH) The radiance cache's readers alone (light_sample_glsl's LL_CACHE part, its contract; after rt_path.h's
+// kPathGlsl): what a pass that doesn't sample the list reads the cache with - the forward pass's see-through fragments.
+[[nodiscard]] std::string_view radiance_cache_read_glsl();
 
 // (round PT4d) GLSL for ReSTIR DI's and GI's temporal passes (local_size 8 x 8; after rt_path.h's kPathGlsl): what makes
 // their output a denoiser's input (NVIDIA RTXDI's settings for a denoiser that follows - Ray Reconstruction):
