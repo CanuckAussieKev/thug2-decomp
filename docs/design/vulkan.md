@@ -3342,6 +3342,19 @@ update tiles, they held few samples each, and one bright sample lit a whole cell
 night +4.9 % on the whole picture, a cell +24 %; scene_bias.ts). Front layer 5.9 -> 4.4 ms at the
 fountain, 4.9 -> 3.3 ms at the harbour (noon, 2560 x 1440 DLSS Quality + Ray Reconstruction).
 
+**Round GPU: the front layer in three passes (wavefront).** One compute pass did every layer pixel's light samples,
+its traced bounce, the disc's ray and history, the water's mirror and what is behind it: its registers were set by the
+four inlined copies of the hit lighting (the bounce's, the mirror's, the bed's, a blended bed's beyond), and in a work
+group the pixels that faced no way up or had a trusted cell sat idle while the others traced. Now the layer's pass
+queues, as ReSTIR GI's sample pass queues its continued paths (round PERF5 - wavefront path tracing, Laine et al. 2013),
+the pixels whose bounce is traced (a cache miss, an update tile's pixel: their light samples' sum and random sequence)
+and finishes the rest; a pass over that queue (an indirect dispatch) traces their bounces and finishes them; each
+finished pixel whose rest surface faces up is queued for the tail - the mirror and what is behind (its history's frames
+and random sequence) - a third pass over that queue. The same numbers as the one pass (the same code, the same random
+sequence; the cache's adds land later in the frame, as other work groups' always did). Barcelona's fountain: the layer
+4.46 -> 2.96 ms, the harbour 3.30 -> 2.53 (noon, 2560 x 1440 DLSS Quality + Ray Reconstruction); the queues take 16 and
+48 bytes a pixel of the view.
+
 **Round SKIN2: a see-through fragment's own sun ray.** A see-through draw lit per pixel (an object's glass, a
 character's alpha-blended hair or strap cards, the relit world's blended overlays) has light inputs only where its
 fragment is the prepass's surface or the front layer's - the nearest see-through surface. A second pane behind the
