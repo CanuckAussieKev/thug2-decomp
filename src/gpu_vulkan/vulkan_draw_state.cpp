@@ -13,6 +13,7 @@
 #include "engine/gfx/gpu.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
+#include "gpu_vulkan/vulkan_matrix.h"
 #include "gpu_vulkan/vulkan_pixel_program.h"
 #include "gpu_vulkan/vulkan_rt_fog.h"
 
@@ -67,20 +68,7 @@ THUG2_FORCEINLINE float at(const Float4x4& matrix, std::size_t row, std::size_t 
 }
 
 // a x b, Direct3D's row-major matrices (row vectors: v x a x b).
-Float4x4 multiply(const Float4x4& a, const Float4x4& b)
-{
-    Float4x4 product{};
-    for (std::size_t row = 0; row < kRows; ++row) {
-        for (std::size_t column = 0; column < kRows; ++column) {
-            float sum = 0.0F;
-            for (std::size_t k = 0; k < kRows; ++k) {
-                sum += at(a, row, k) * at(b, k, column);
-            }
-            at(product, row, column) = sum;
-        }
-    }
-    return product;
-}
+Float4x4 multiply(const Float4x4& a, const Float4x4& b) { return matrix_product(a, b); }
 
 // The transpose of the inverse of a matrix's 3x3 part (what turns normals into camera space with row vectors), in a
 // 4x4: the cofactor matrix over the determinant. Cofactor (r, c) is the 2x2 determinant of the rows and columns other

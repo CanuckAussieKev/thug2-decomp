@@ -394,6 +394,12 @@ struct Mesh {
     MicromapKey micromap_refused;
     uint64_t wanted_writes = 0;
     uint64_t micromap_round = 0;
+    // (round PERF2) the vertices' alpha hash last taken (plan_micromaps), at their writes and count: a mesh whose key was
+    // refused asked for it again every frame - its vertices hashed again each time though nothing was written
+    uint64_t hashed_alpha = 0;
+    uint64_t hashed_writes = 0;
+    uint32_t hashed_vertices = 0;
+    bool hashed = false;
 };
 
 // A frame in flight's TLAS and the instances it is built from.
@@ -1529,9 +1535,17 @@ void plan_micromaps(Backend& state, Scene& made, const rt::FrameRecord& record)
         }
         MicromapKey key = micromap_key(state, given.material, mode);
         const uint32_t vertex_count = mesh.built ? mesh.max_vertex + 1 : mesh.geometry.vertex_count;
-        key.alpha_hash = have.mode != MicromapMode::kNone && vertices->writes == mesh.micromap.vertex_writes
-                             ? have.alpha_hash
-                             : micromap_alpha_hash(written_bytes(vertices), mesh.geometry, vertex_count);
+        if (have.mode != MicromapMode::kNone && vertices->writes == mesh.micromap.vertex_writes) {
+            key.alpha_hash = have.alpha_hash;
+        } else if (mesh.hashed && vertices->writes == mesh.hashed_writes && vertex_count == mesh.hashed_vertices) {
+            key.alpha_hash = mesh.hashed_alpha;
+        } else {
+            key.alpha_hash = micromap_alpha_hash(written_bytes(vertices), mesh.geometry, vertex_count);
+            mesh.hashed_alpha = key.alpha_hash;
+            mesh.hashed_writes = vertices->writes;
+            mesh.hashed_vertices = vertex_count;
+            mesh.hashed = true;
+        }
         if (key == have) {
             mesh.micromap.vertex_writes = vertices->writes;
             continue;

@@ -13,6 +13,7 @@
 #include "engine/gfx/gpu.h"
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/vulkan_backend.h"
+#include "gpu_vulkan/vulkan_matrix.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_pipelines.h"
@@ -82,20 +83,7 @@ Float4x4 unjittered(const Float4x4& projection, const Float4& jitter)
 
 } // namespace
 
-Float4x4 motion_multiply(const Float4x4& a, const Float4x4& b)
-{
-    Float4x4 result{};
-    for (std::size_t row = 0; row < kSide; ++row) {
-        for (std::size_t column = 0; column < kSide; ++column) {
-            float sum = 0.0F;
-            for (std::size_t k = 0; k < kSide; ++k) {
-                sum += cell(a, row, k) * cell(b, k, column);
-            }
-            cell(result, row, column) = sum;
-        }
-    }
-    return result;
-}
+Float4x4 motion_multiply(const Float4x4& a, const Float4x4& b) { return matrix_product(a, b); }
 
 bool motion_inverse(const Float4x4& matrix, Float4x4* inverse)
 {
