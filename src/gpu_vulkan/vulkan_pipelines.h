@@ -149,6 +149,10 @@ public:
     // (round HITCH) The key's pipeline when it is made (the same as pipeline's), else VK_NULL_HANDLE - its making handed to
     // the workers (once): the caller draws its fallback meanwhile (counted in stats().fallbacks).
     VkPipeline ready_or_made_ahead(const PipelineKey& key);
+    // (round HITCH2) false: ready_or_made_ahead makes the pipeline at once (never a fallback) - a render that must be exact
+    // (the check programs; the device's default) waits for its pipelines. The game turns it on (Choices
+    // background_pipelines): its frames meet the workers' pipelines under the loading screen (pending()) or fall back.
+    void set_background_tracing(bool on) { background_tracing_ = on; }
     // (round HITCH) The level's main scene the frame draws (rt_relit_world.h level_scene; 0: none): the keys the draws
     // use are recorded with it, and a new one's recorded keys are handed to the workers.
     void set_scene(uint32_t scene);
@@ -203,6 +207,7 @@ private:
     // queue taken out of it) or waited for (one a worker is making) - the drawing thread's miss.
     VkPipeline made_or_make(const PipelineKey& key, std::string* error);
     void record(const PipelineKey& key);
+    bool background_tracing_ = false; // (set_background_tracing)
     // (round HITCH) whether a key read from the file can be made on this device (its shaders supported - never generated
     // from bits the generator does not read -, a ray query only where there are ray queries)
     [[nodiscard]] bool makeable(const PipelineKey& key) const;

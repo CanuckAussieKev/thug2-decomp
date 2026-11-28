@@ -337,6 +337,7 @@ void configure(const Choices& choices)
     state.options.crash_markers = choices.crash_markers ? CrashMarkerChoice::kBest : CrashMarkerChoice::kOff;
     state.options.on_message = log_message;
     state.cache_folder = choices.cache_folder;
+    state.pipelines.set_background_tracing(choices.background_pipelines);
     set_upscalers_ready(choices.upscalers, choices.dlss);
 }
 

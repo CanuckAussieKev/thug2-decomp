@@ -1202,6 +1202,10 @@ VkPipeline Pipelines::made_or_make(const PipelineKey& key, std::string* error)
 
 VkPipeline Pipelines::ready_or_made_ahead(const PipelineKey& key)
 {
+    if (!background_tracing_) {
+        std::string error;
+        return pipeline(key, &error); // (exact frames: the draw waits for its own light's pipeline)
+    }
     const auto found = pipelines_.find(key);
     if (found != pipelines_.end()) {
         if (found->second.recorded_scene != scene_) {

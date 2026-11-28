@@ -51,6 +51,9 @@ struct Choices {
     // (dlss: Streamline's DLSS features loaded) - so [Graphics] upscaler can change while the game runs
     bool upscalers = false;
     bool dlss = false;
+    // (round HITCH2) the game: a tracing key not made yet is made by worker threads and its draw falls back meanwhile
+    // (vulkan_pipelines.h). false (the check programs): such a draw waits for its pipeline - their renders are exact.
+    bool background_pipelines = false;
 };
 void configure(const Choices& choices);
 

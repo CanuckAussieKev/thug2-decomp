@@ -1456,6 +1456,7 @@ void check_pipelines_ahead(Tally* tally)
     {
         Pipelines second;
         const bool made = second.init(state.context.device(), state.context.physical_device(), where);
+        second.set_background_tracing(true); // (the game's mode; the device's default waits)
         second.set_scene(kOtherScene);
         const std::size_t others = second.pending();
         second.set_scene(kScene);
@@ -1479,6 +1480,17 @@ void check_pipelines_ahead(Tally* tally)
                                   static_cast<unsigned>(second.stats().fallbacks),
                                   static_cast<unsigned>(second.stats().made_drawing)));
         second.shutdown();
+    }
+    {
+        // (round HITCH2) exact frames - the device's default, the check programs': the same ask is answered with its
+        // pipeline at once, never a fallback
+        Pipelines exact;
+        const bool made = exact.init(state.context.device(), state.context.physical_device(), where);
+        const VkPipeline at_once = made ? exact.ready_or_made_ahead(other) : VK_NULL_HANDLE;
+        tally->check(at_once != VK_NULL_HANDLE && exact.stats().fallbacks == 0,
+                     text::format("exact frames: a key not made is made at once, no fallback (%u)",
+                                  static_cast<unsigned>(exact.stats().fallbacks)));
+        exact.shutdown();
     }
     std::filesystem::remove_all(folder, failed);
 }

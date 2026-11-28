@@ -921,7 +921,8 @@ void install_vulkan(const Resolution& in_effect)
                                .opacity_micromaps = in_effect.on("rt_opacity_micromaps"),
                                // (round CS: ready for the upscalers this machine has, so they change while it runs)
                                .upscalers = config::capabilities().x64,
-                               .dlss = config::capabilities().rtx > 0});
+                               .dlss = config::capabilities().rtx > 0,
+                               .background_pipelines = true});
     read_frame_generation(in_effect);
     read_upscale(in_effect);
     read_all_effects(in_effect);
