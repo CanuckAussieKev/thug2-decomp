@@ -5,9 +5,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <initializer_list>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 #include <volk.h>
 
@@ -63,8 +65,11 @@ constexpr uint32_t kListBuffers = 8;
 constexpr uint32_t kBindingCloudMap = kBindingList + kListBuffers; // the clouds' shadow map on the disc's light
 constexpr uint32_t kBindingTail = kBindingCloudMap + 1; // (round GPU) the tail pass's queue (kBody's Tail: binding 24)
 static_assert(kBindingTail == 24);
-constexpr uint32_t kBindingCount = kBindingTail + 1;
-constexpr VkDeviceSize kTailEntryBytes = 16; // (a uvec4 a queued pixel, after the dispatch's and the length's uvec4)
+constexpr uint32_t kBindingBounce = kBindingTail + 1; // (round GPU) the bounce pass's queue (kBody's Bounced: binding 25)
+static_assert(kBindingBounce == 25);
+constexpr uint32_t kBindingCount = kBindingBounce + 1;
+constexpr VkDeviceSize kTailEntryBytes = 16;   // (a uvec4 a queued pixel, after the dispatch's and the length's uvec4)
+constexpr VkDeviceSize kBounceEntryBytes = 48; // (three)
 constexpr uint32_t kTailGroup = 64;           // (the shader's TAIL_GROUP)
 static_assert(kTailGroup == 8 * 8);
 constexpr uint32_t kMaterialSet = 1;
@@ -179,7 +184,15 @@ layout(std430, set = 0, binding = 24) buffer Tail {
     uint tail_count;
     uvec4 tail[];
 };
-const uint TAIL_GROUP = 64u; // (local_size_x x local_size_y)
+// (round GPU) the bounce pass's queue: the same, then three uvec4s a pixel (queue_bounce)
+layout(std430, set = 0, binding = 25) buffer Bounced {
+    uint bounce_groups;
+    uint bounce_rows;
+    uint bounce_depth;
+    uint bounce_count;
+    uvec4 bounced[];
+};
+const uint TAIL_GROUP = 64u; // (local_size_x x local_size_y - the queues' passes)
 const uint FRONT_RAYS = 15u; // (the light rays' kinds: the world, the objects, the cut-outs, drawn apart - ReSTIR GI's)
 // (round LW) the most frames a reflection's history weighs (a mirror's light moves with the view: shorter than the light's;
 // the image's alpha holds the hit's distance, the frames are the layer's own)
@@ -352,69 +365,13 @@ void queue_tail(ivec2 p, uint rng, float frames, bool water)
     }
     tail[slot] = uvec4(uint(p.x) | (uint(p.y) << 16), rng, floatBitsToUint(frames), water ? 1u : 0u);
 }
-void main()
+// The layer's light at pixel p once its light samples (`rest`: their sum) and its bounce are known: the disc's
+// visibility and light, the history, the layer's images written, and - where the rest surface faces up - the pixel
+// queued for the tail.
+void finish_layer(ivec2 p, float z, vec3 here, float dist, vec3 n, vec3 at, bool water, vec3 rest, vec3 bounce,
+                  inout uint rng)
 {
-    ivec2 local = ivec2(gl_GlobalInvocationID.xy);
-    if (any(greaterThanEqual(local, pass.rect.zw))) {
-        return;
-    }
-    ivec2 p = pass.rect.xy + local;
-    float z;
-    vec3 eye = pass.eye.xyz;
-    vec3 here = vec3(0.0);
-    float dist = 0.0;
-    bool water = false;
-    if (in_front(p, z)) {
-        here = world_at(vec2(p) + 0.5, z);
-        dist = length(here - eye);
-    } else if (in_front(p, z, true)) {
-        // (round POOL) within 1 % of the opaque surface: the layer only where it is water
-        vec3 at = world_at(vec2(p) + 0.5, z);
-        float d = length(at - eye);
-        if (d > 0.0 && water_drawn_at(eye, (at - eye) / d, d)) {
-            here = at;
-            dist = d;
-            water = true;
-        }
-    }
-    if (!(dist > 0.0)) {
-        imageStore(o_depth, p, vec4(1.0, 0.0, 0.0, 0.0));
-        imageStore(o_light, p, vec4(0.0));
-        imageStore(o_sun, p, vec4(0.0));
-        imageStore(o_reflect, p, vec4(0.0));
-        return;
-    }
-    vec3 dir = (here - eye) / dist;
-    vec3 n = front_normal(p, here, dir, water);
-    vec3 at = here + n * local_light_offset(here);
-    uint rng = path_sequence_start(uint(p.x), uint(p.y), pass.counts.y, 0x464C4159u);
-    // the rest of the list on a white diffuser (the disc's picks bring nothing: LL_NO_DISC) + every further bounce
-    vec3 rest = vec3(0.0);
     uint samples = max(pass.counts.z, 1u);
-    for (uint k = 0u; k < samples; ++k) {
-        vec3 toward;
-        vec3 incident = light_sample(at, n, n, FRONT_RAYS, rng, toward);
-        rest += incident * max(dot(n, toward), 0.0);
-    }
-    // (round LAYER) the bounce: the radiance cache's where it has a trusted cell there, else traced on (traced_bounce)
-    // (round PERF) ... and the traced bounce added to the point's own cell: a miss's (the cell fills - trusted after
-    // CACHE_TRUSTED_FRAMES, as an opaque surface's) and every pixel's of one tile in UPDATE_TILES a frame, each tile in
-    // turn (SHaRC's update paths - the trusted cells kept current; whole tiles: the work group traces together). Before,
-    // no path ever wrote a layer point's cell (the water's surface, the mist: no opaque surface's path ends there), so
-    // every layer pixel traced its bounce every frame (Barcelona's fountain at 1707 x 960: ~3 ms of the layer's ~6).
-    vec3 bounce;
-    bool trusted = cache_lookup(here, n, bounce);
-    uint tile_turn = path_sequence_start(gl_WorkGroupID.x, gl_WorkGroupID.y, 0u, 0x46435550u);
-    bool update = LL_CACHE_ON && (tile_turn + pass.counts.y) % UPDATE_TILES == 0u;
-    if (!trusted || update) {
-        vec3 traced = traced_bounce(at, n, rng);
-        if (LL_CACHE_ON) {
-            cache_add(here, n, traced, rng);
-        }
-        if (!trusted) {
-            bounce = traced;
-        }
-    }
     rest = rest / (PATH_PI * float(samples)) + bounce;
     // the disc: its visibility toward a point of its cone (the clouds' shadow with it), its light on a white diffuser
     vec3 sun = vec3(0.0);
@@ -465,6 +422,120 @@ void main()
         imageStore(o_reflect, p, vec4(0.0));
         imageStore(o_behind, p, vec4(0.0));
     }
+}
+#endif
+
+#if !defined(PASS_TAIL) && !defined(PASS_BOUNCE)
+// (round GPU) A pixel whose bounce is traced queued for the bounce pass: its place, its random sequence's state, whether
+// it is water and its cell trusted, its light samples' sum, the trusted cell's bounce. The bounce pass's dispatch grows a
+// group every TAIL_GROUP.
+void queue_bounce(ivec2 p, uint rng, bool water, bool trusted, vec3 rest, vec3 bounce)
+{
+    uint slot = atomicAdd(bounce_count, 1u);
+    if (slot % TAIL_GROUP == 0u) {
+        atomicAdd(bounce_groups, 1u);
+    }
+    uint at = slot * 3u;
+    bounced[at] = uvec4(uint(p.x) | (uint(p.y) << 16), rng, (water ? 1u : 0u) | (trusted ? 2u : 0u), 0u);
+    bounced[at + 1u] = uvec4(floatBitsToUint(rest), 0u);
+    bounced[at + 2u] = uvec4(floatBitsToUint(bounce), 0u);
+}
+void main()
+{
+    ivec2 local = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(local, pass.rect.zw))) {
+        return;
+    }
+    ivec2 p = pass.rect.xy + local;
+    float z;
+    vec3 eye = pass.eye.xyz;
+    vec3 here = vec3(0.0);
+    float dist = 0.0;
+    bool water = false;
+    if (in_front(p, z)) {
+        here = world_at(vec2(p) + 0.5, z);
+        dist = length(here - eye);
+    } else if (in_front(p, z, true)) {
+        // (round POOL) within 1 % of the opaque surface: the layer only where it is water
+        vec3 at = world_at(vec2(p) + 0.5, z);
+        float d = length(at - eye);
+        if (d > 0.0 && water_drawn_at(eye, (at - eye) / d, d)) {
+            here = at;
+            dist = d;
+            water = true;
+        }
+    }
+    if (!(dist > 0.0)) {
+        imageStore(o_depth, p, vec4(1.0, 0.0, 0.0, 0.0));
+        imageStore(o_light, p, vec4(0.0));
+        imageStore(o_sun, p, vec4(0.0));
+        imageStore(o_reflect, p, vec4(0.0));
+        return;
+    }
+    vec3 dir = (here - eye) / dist;
+    vec3 n = front_normal(p, here, dir, water);
+    vec3 at = here + n * local_light_offset(here);
+    uint rng = path_sequence_start(uint(p.x), uint(p.y), pass.counts.y, 0x464C4159u);
+    // the rest of the list on a white diffuser (the disc's picks bring nothing: LL_NO_DISC) + every further bounce
+    vec3 rest = vec3(0.0);
+    uint samples = max(pass.counts.z, 1u);
+    for (uint k = 0u; k < samples; ++k) {
+        vec3 toward;
+        vec3 incident = light_sample(at, n, n, FRONT_RAYS, rng, toward);
+        rest += incident * max(dot(n, toward), 0.0);
+    }
+    // (round LAYER) the bounce: the radiance cache's where it has a trusted cell there, else traced on (traced_bounce)
+    // (round PERF) ... and the traced bounce added to the point's own cell: a miss's (the cell fills - trusted after
+    // CACHE_TRUSTED_FRAMES, as an opaque surface's) and every pixel's of one tile in UPDATE_TILES a frame, each tile in
+    // turn (SHaRC's update paths - the trusted cells kept current; whole tiles: the work group traces together). Before,
+    // no path ever wrote a layer point's cell (the water's surface, the mist: no opaque surface's path ends there), so
+    // every layer pixel traced its bounce every frame (Barcelona's fountain at 1707 x 960: ~3 ms of the layer's ~6).
+    // (round GPU) A traced bounce is the bounce pass's: the pixel queued with what it has so far.
+    vec3 bounce;
+    bool trusted = cache_lookup(here, n, bounce);
+    uint tile_turn = path_sequence_start(gl_WorkGroupID.x, gl_WorkGroupID.y, 0u, 0x46435550u);
+    bool update = LL_CACHE_ON && (tile_turn + pass.counts.y) % UPDATE_TILES == 0u;
+    if (!trusted || update) {
+        queue_bounce(p, rng, water, trusted, rest, bounce);
+        return;
+    }
+    finish_layer(p, z, here, dist, n, at, water, rest, bounce, rng);
+}
+#endif
+
+#ifdef PASS_BOUNCE
+// (round GPU) The bounce pass: one thread a queued pixel (the dispatch the queue's length), its point and normal found
+// again as the layer's pass found them, its bounce traced (and added to its cell) with the random sequence where the
+// layer's pass left it, then the rest of the layer's light (finish_layer) - what one pass did, in two.
+void main()
+{
+    uint slot = gl_WorkGroupID.x * TAIL_GROUP + gl_LocalInvocationIndex;
+    if (slot >= bounce_count) {
+        return;
+    }
+    uint e_at = slot * 3u;
+    uvec4 e = bounced[e_at];
+    ivec2 p = ivec2(int(e.x & 0xFFFFu), int(e.x >> 16));
+    uint rng = e.y;
+    bool water = (e.z & 1u) != 0u;
+    bool trusted = (e.z & 2u) != 0u;
+    vec3 rest = uintBitsToFloat(bounced[e_at + 1u].xyz);
+    vec3 bounce = uintBitsToFloat(bounced[e_at + 2u].xyz);
+    float z = texelFetch(u_drawn, p, 0).r;
+    vec3 eye = pass.eye.xyz;
+    vec3 here = world_at(vec2(p) + 0.5, z);
+    float dist = length(here - eye);
+    vec3 dir = (here - eye) / dist;
+    vec3 n = front_normal(p, here, dir, water);
+    vec3 at = here + n * local_light_offset(here);
+    vec3 traced = traced_bounce(at, n, rng);
+    if (LL_CACHE_ON) {
+        cache_add(here, n, traced, rng);
+    }
+    if (!trusted) {
+        bounce = traced;
+    }
+    finish_layer(p, z, here, dist, n, at, water, rest, bounce, rng);
 }
 #endif
 
@@ -580,10 +651,11 @@ struct FrontState {
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkDescriptorSetLayout material_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
-    // without, with the clouds' shadow map; (round GPU) then the tail pass's two
-    std::array<VkPipeline, 4> pipelines{};
+    // without, with the clouds' shadow map; (round GPU) then the bounce pass's two, the tail pass's two (Step)
+    std::array<VkPipeline, 6> pipelines{};
     VkSampler sampler = VK_NULL_HANDLE;
-    DeviceBuffer tail; // (round GPU) the tail pass's queue (its dispatch, then a pixel's entry each)
+    DeviceBuffer tail;   // (round GPU) the tail pass's queue (its dispatch, then a pixel's entry each)
+    DeviceBuffer bounce; // (round GPU) the bounce pass's
     bool failed = false;
     // the last lit view's camera (the history's)
     bool before = false;
@@ -618,10 +690,16 @@ VkDescriptorType binding_type(uint32_t binding)
     return binding >= kBindingList ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 }
 
-std::string shader_source(bool cloud_map, bool tail)
+// (round GPU) The pass's steps: the layer's light, the traced bounces queued by it, the mirror and what is behind (the
+// tail) - each a pipeline.
+enum class Step : uint8_t { kLight, kBounce, kTail };
+
+std::string shader_source(bool cloud_map, Step step)
 {
     std::string source = "#version 460\n#extension GL_EXT_ray_query : require\n";
-    if (tail) {
+    if (step == Step::kBounce) {
+        source += "#define PASS_BOUNCE\n"; // (round GPU: the traced bounces - the queued pixels)
+    } else if (step == Step::kTail) {
         source += "#define PASS_TAIL\n"; // (round GPU: the mirror and what is behind - the queued pixels)
     }
     source += "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
@@ -700,9 +778,9 @@ VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::str
     return pipeline;
 }
 
-// The layout, the sampler and the pipeline wanted (made on first use; `tail` the tail pass's). False (reported once): they
+// The layout, the sampler and the pipeline wanted (made on first use; `step` the pass's step). False (reported once): they
 // can't be made.
-VkPipeline ensure_pipeline(Backend& state, bool cloud_map, bool tail, std::string* error)
+VkPipeline ensure_pipeline(Backend& state, bool cloud_map, Step step, std::string* error)
 {
     FrontState& own = front_state();
     const VkDevice device = state.context.device();
@@ -757,9 +835,9 @@ VkPipeline ensure_pipeline(Backend& state, bool cloud_map, bool tail, std::strin
             return VK_NULL_HANDLE;
         }
     }
-    VkPipeline& pipeline = core::at(own.pipelines, (tail ? 2U : 0U) + (cloud_map ? 1U : 0U));
+    VkPipeline& pipeline = core::at(own.pipelines, (static_cast<std::size_t>(step) * 2U) + (cloud_map ? 1U : 0U));
     if (pipeline == VK_NULL_HANDLE) {
-        pipeline = make_compute(device, own.layout, shader_source(cloud_map, tail), error);
+        pipeline = make_compute(device, own.layout, shader_source(cloud_map, step), error);
     }
     return pipeline;
 }
@@ -865,8 +943,10 @@ void release_front_layer(Backend& state)
             vkDestroyQueryPool(device, own.timing.pool, nullptr);
         }
     }
-    if (own.tail.buffer != VK_NULL_HANDLE) {
-        state.memory.destroy_buffer(&own.tail);
+    for (DeviceBuffer* queue : {&own.tail, &own.bounce}) {
+        if (queue->buffer != VK_NULL_HANDLE) {
+            state.memory.destroy_buffer(queue);
+        }
     }
     own = FrontState{};
 }
@@ -890,9 +970,12 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     CloudShadowMap cloud_map;
     const bool map_now = cloud_shadow_map(state, &cloud_map);
     std::string error;
-    const VkPipeline pipeline = ensure_pipeline(state, map_now, false, &error);
-    const VkPipeline tail_pipeline = pipeline == VK_NULL_HANDLE ? VK_NULL_HANDLE : ensure_pipeline(state, map_now, true, &error);
-    if (pipeline == VK_NULL_HANDLE || tail_pipeline == VK_NULL_HANDLE) {
+    const VkPipeline pipeline = ensure_pipeline(state, map_now, Step::kLight, &error);
+    const VkPipeline bounce_pipeline =
+        pipeline == VK_NULL_HANDLE ? VK_NULL_HANDLE : ensure_pipeline(state, map_now, Step::kBounce, &error);
+    const VkPipeline tail_pipeline =
+        bounce_pipeline == VK_NULL_HANDLE ? VK_NULL_HANDLE : ensure_pipeline(state, map_now, Step::kTail, &error);
+    if (pipeline == VK_NULL_HANDLE || bounce_pipeline == VK_NULL_HANDLE || tail_pipeline == VK_NULL_HANDLE) {
         own.failed = true;
         if (first_report(state, kReportPipeline)) {
             get_log("front layer: its pass couldn't be made (%s) - see-through surfaces keep their own light", error.c_str());
@@ -938,16 +1021,19 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     if (width == 0 || height == 0) {
         return false;
     }
-    // (round GPU) the tail pass's queue: room for every pixel of the view (made again only when the view grows)
-    const VkDeviceSize tail_bytes = kTailEntryBytes * (1 + (static_cast<VkDeviceSize>(width) * height));
-    if (own.tail.buffer == VK_NULL_HANDLE || own.tail.bytes < tail_bytes) {
-        retire_buffer(state, &own.tail);
-        if (!state.memory.create_buffer(tail_bytes,
-                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
-                                            VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                        BufferPlace::kDevice, &own.tail)) {
-            own.tail = DeviceBuffer{};
-            return false;
+    // (round GPU) the bounce and tail passes' queues: room for every pixel of the view (made again only when it grows)
+    const auto pixels = static_cast<VkDeviceSize>(width) * height;
+    for (const auto& [queue, entry] : {std::pair{&own.bounce, kBounceEntryBytes}, std::pair{&own.tail, kTailEntryBytes}}) {
+        const VkDeviceSize bytes = kTailEntryBytes + (entry * pixels);
+        if (queue->buffer == VK_NULL_HANDLE || queue->bytes < bytes) {
+            retire_buffer(state, queue);
+            if (!state.memory.create_buffer(bytes,
+                                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
+                                                VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                            BufferPlace::kDevice, queue)) {
+                *queue = DeviceBuffer{};
+                return false;
+            }
         }
     }
     const float exposure = rt::frame_pre_exposure();
@@ -991,8 +1077,8 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     for (Image* image : storage) {
         Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
     }
-    // (round GPU) the tail's queue emptied, its dispatch (0, 1, 1) - after the last pass's reads of it (the barrier below
-    // makes the fill visible to this pass)
+    // (round GPU) the queues emptied, their dispatches (0, 1, 1) - after the last pass's reads of them (the barrier below
+    // makes the fills visible to this pass)
     const VkMemoryBarrier tail_free{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                                     .pNext = nullptr,
                                     .srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_SHADER_READ_BIT |
@@ -1002,6 +1088,7 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
                          VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &tail_free, 0, nullptr, 0, nullptr);
     constexpr std::array<uint32_t, 4> kNoTail{0U, 1U, 1U, 0U};
     vkCmdUpdateBuffer(commands, own.tail.buffer, 0, sizeof(kNoTail), kNoTail.data());
+    vkCmdUpdateBuffer(commands, own.bounce.buffer, 0, sizeof(kNoTail), kNoTail.data());
     const VkMemoryBarrier ready{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                                 .pNext = nullptr,
                                 .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
@@ -1061,6 +1148,8 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     }
     const VkDescriptorBufferInfo tail_info = whole(own.tail.buffer);
     add(kBindingTail, &tail_info, nullptr, nullptr);
+    const VkDescriptorBufferInfo bounce_info = whole(own.bounce.buffer);
+    add(kBindingBounce, &bounce_info, nullptr, nullptr);
     const VkDescriptorSet material_set = state.materials.descriptor_set();
     {
         const FrameStep light_step(state.frames, commands, gpu_markers::section::kFrontLight);
@@ -1071,13 +1160,13 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
                                   static_cast<uint32_t>(writes.size()), writes.data());
         vkCmdDispatch(commands, (width + kGroupSide - 1) / kGroupSide, (height + kGroupSide - 1) / kGroupSide, 1);
     }
-    {
-        // (round GPU) The tail: the mirror and what is behind, over the pixels the layer's pass queued (the water's rest
-        // surface and level panes - those facing up) - a pass of their own, wavefront style (Laine et al. 2013; ReSTIR
-        // GI's continued paths, round PERF5): the layer's pass no longer holds their traces, hits and lights (its
-        // registers), and the tail runs densely over the queued pixels alone - the mist's and the panes' pixels that face
-        // no way up don't sit idle in their work groups.
-        const FrameStep tail_step(state.frames, commands, gpu_markers::section::kFrontTail);
+    // (round GPU) The queued pixels' passes, wavefront style (Laine et al. 2013; ReSTIR GI's continued paths, round
+    // PERF5), each over its queue alone (an indirect dispatch), after what queued it: the traced bounces (a miss of the
+    // radiance cache, an update tile's pixels) and the rest of their light, then the tail - the mirror and what is
+    // behind, where the rest surface faces up (the water, level panes). The layer's pass no longer holds their traces,
+    // hits and lights (its registers), and each runs densely over its own pixels - the mist's pixels that face no way up,
+    // a trusted cell's, don't sit idle in their work groups.
+    const auto queued_pass = [&](VkPipeline queued_pipeline, const DeviceBuffer& queue) {
         const VkMemoryBarrier queued{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                                      .pNext = nullptr,
                                      .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
@@ -1086,12 +1175,20 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
         vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                              VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &queued, 0,
                              nullptr, 0, nullptr);
-        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, tail_pipeline);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, queued_pipeline);
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1, &material_set, 0,
                                 nullptr);
         vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
                                   static_cast<uint32_t>(writes.size()), writes.data());
-        vkCmdDispatchIndirect(commands, own.tail.buffer, 0);
+        vkCmdDispatchIndirect(commands, queue.buffer, 0);
+    };
+    {
+        const FrameStep bounce_step(state.frames, commands, gpu_markers::section::kFrontLight);
+        queued_pass(bounce_pipeline, own.bounce);
+    }
+    {
+        const FrameStep tail_step(state.frames, commands, gpu_markers::section::kFrontTail);
+        queued_pass(tail_pipeline, own.tail);
     }
     const VkMemoryBarrier written{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                                   .pNext = nullptr,
