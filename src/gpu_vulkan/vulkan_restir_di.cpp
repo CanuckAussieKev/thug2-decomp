@@ -518,18 +518,64 @@ Surface primary(ivec2 p)
 #ifndef CHECK
     ray_drawn_least = coverage_least(uvec2(p), pass.cone.z); // (round SKIN: the prepass's threshold here)
 #endif
-    bool found = camera_surface(eye, dir, reach, expected, cone, instance, primitive, id, bary, t, to_world, h) && !h.hidden;
-#ifndef CHECK
+    // camera_surface's steps (vulkan_rt_scene.h), with the fallback below, as one loop over the surfaces whose hit is
+    // read: (round GPU) hit_surface_at - the material at the raster's mips, the pass's bulk - inlined once, not three
+    // times (camera_surface's hit and its layer's, the fallback's): the pass's code and registers were set by the copies.
+    // The same surfaces, read with the same arguments, in the same order.
     // (round PANES - vulkan_rt_scene.h depth_triangle) where the rays' drawn rule decides otherwise than the raster did (a
     // pane's border at the coverage threshold, a cut-out's texel edge), the triangle the depth's point lies on - the
     // surface the raster drew there, its material known. Before, such a pixel took the depth's own surface: a normal
     // from its neighbours' depths, another surface's on a strip one or two pixels wide (Training's glass box: its frames'
     // strips lit by the sky through the hall's roof, ReSTIR GI's irradiance there x 10 000).
-    if (!found) {
-        found = depth_triangle(RAY_DRAWN, eye, dir, expected, instance, primitive, id, bary, t, to_world) &&
-                hit_surface_at(instance, primitive, id, bary, to_world, dir, cone, h) && !h.hidden;
+    const uint READ_HIT = 0u;      // camera_surface's hit (trace_drawn_layered's, at the depth's distance)
+    const uint READ_LAYER = 1u;    // ... the blended world layer lying on it
+    const uint READ_FALLBACK = 2u; // the depth's own triangle (depth_triangle)
+    const uint READ_DONE = 3u;
+    bool layered;
+    uint li;
+    uint lp;
+    uint lid;
+    vec2 lb;
+    mat4x3 lw;
+    bool found = false;
+    uint reading = READ_HIT;
+    if (!trace_drawn_layered(eye, dir, reach, expected, instance, primitive, id, bary, t, to_world, layered, li, lp, lid, lb,
+                             lw) ||
+        (expected >= 0.0 && abs(t - expected) > 1.0 + 0.02 * expected)) {
+        reading = READ_FALLBACK;
     }
+    while (reading != READ_DONE) {
+#ifdef CHECK
+        if (reading == READ_FALLBACK) {
+            break;
+        }
+#else
+        if (reading == READ_FALLBACK &&
+            !depth_triangle(RAY_DRAWN, eye, dir, expected, instance, primitive, id, bary, t, to_world)) {
+            break;
+        }
 #endif
+        bool is_layer = reading == READ_LAYER;
+        HitSurface read;
+        bool got = hit_surface_at(is_layer ? li : instance, is_layer ? lp : primitive, is_layer ? lid : id,
+                                  is_layer ? lb : bary, is_layer ? lw : to_world, dir, cone, read) && !read.hidden;
+        if (is_layer) {
+            if (got && !read.cut_out) {
+                float a = clamp(read.alpha, 0.0, 1.0);
+                h.base_colour = mix(h.base_colour, read.base_colour, a);
+                h.material.albedo = mix(h.material.albedo, read.material.albedo, a);
+                h.material.f0 = mix(h.material.f0, read.material.f0, a);
+                h.material.roughness = mix(h.material.roughness, read.material.roughness, a);
+            }
+            reading = READ_DONE;
+        } else if (got) {
+            h = read;
+            found = true;
+            reading = reading == READ_HIT && layered ? READ_LAYER : READ_DONE;
+        } else {
+            reading = reading == READ_HIT ? READ_FALLBACK : READ_DONE;
+        }
+    }
     if (!found) {
 #ifdef CHECK
         return shared_primary(p, no_surface(), false, vec3(0.0), 1.0, PRIMARY_NONE);
