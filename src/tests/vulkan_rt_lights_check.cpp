@@ -54,6 +54,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include <volk.h>
 
@@ -2742,7 +2743,9 @@ constexpr std::string_view kLitGlowShader = "ps.1.1\ntex t0\nmul r0.rgb,t0,c0\n+
 struct LitGlowDraw {
     render::GpuTexture* texture = nullptr;
     render::GpuPixelShader* shader = nullptr;
+    render::GpuPixelShader* untextured = nullptr; // (round VEIL: the untextured program - vertex colour x pass colour x 2)
 };
+constexpr std::string_view kUntexturedShader = "ps.1.1\nmul_x2 r0.rgb,v0,c0\n+mov r0.a, v0.a\n";
 LitGlowDraw& lit_glow_draw()
 {
     static LitGlowDraw draw;
@@ -2802,7 +2805,7 @@ constexpr uint32_t kFvfColourTexture = 0x142; // XYZ | DIFFUSE | TEX1
 // A frame of the view lit per surface: the floor (blended first pass) before or after the box, and what is over it.
 bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, bool floor_first,
                       Over over, uint64_t frame, std::vector<uint8_t>* texels, std::vector<uint8_t>* guides = nullptr,
-                      std::vector<uint8_t>* layer = nullptr, uint32_t textured_floor = 0)
+                      std::vector<uint8_t>* layer = nullptr, uint32_t textured_floor = 0, bool untextured_floor = false)
 {
     using render::GpuRenderState;
     rt::FrameRecord& record = rt::frame_record();
@@ -2834,12 +2837,24 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
         gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(vertices.size() / 3),
                              vertices.data(), sizeof(ColourVertex));
     };
-    const auto draw_floor = [&gpu, &draw_solid, textured_floor] {
+    const auto draw_floor = [&gpu, &draw_solid, textured_floor, untextured_floor] {
         if (textured_floor == 0) {
             draw_solid(core::at(kScene, 0), true);
             return;
         }
         gpu.set_render_state(GpuRenderState::kAlphaBlendEnable, 0);
+        if (untextured_floor) {
+            // (round VEIL) the untextured program: its colour the vertex colour x the pass colour x 2 - under the neutral
+            // v0 0.5 the pass colour, here 2 x kNoStorePass: the textured floor's albedo
+            gpu.set_pixel_shader(lit_glow_draw().untextured);
+            constexpr std::array<float, 4> kPass{2.0F * kNoStorePass, 2.0F * kNoStorePass, 2.0F * kNoStorePass, 0.5F};
+            gpu.set_pixel_constants(0, kPass.data(), 1);
+            const std::vector<ColourVertex> quad = quad_at(0.0, -kFloorHalf, kFloorHalf, -kFloorHalf, kFloorHalf, textured_floor);
+            gpu.draw_from_memory(render::GpuPrimitive::kTriangleList, static_cast<uint32_t>(quad.size() / 3), quad.data(),
+                                 sizeof(ColourVertex));
+            gpu.set_pixel_shader(nullptr);
+            return;
+        }
         gpu.set_vertex_format(kFvfColourTexture);
         gpu.set_texture(0, lit_glow_draw().texture);
         gpu.set_pixel_shader(lit_glow_draw().shader);
@@ -3044,7 +3059,9 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
              make_texture_material(gpu, 0xFFFFFFFFU, {1.0, 1.0, 1.0}, rt::Material{}, &lit_glow_draw().texture,
                                    &glow_material, &glow_made) &&
              gpu.create_pixel_shader(kLitGlowShader.data(), static_cast<uint32_t>(kLitGlowShader.size()),
-                                     &lit_glow_draw().shader) == value::kResultOk;
+                                     &lit_glow_draw().shader) == value::kResultOk &&
+             gpu.create_pixel_shader(kUntexturedShader.data(), static_cast<uint32_t>(kUntexturedShader.size()),
+                                     &lit_glow_draw().untextured) == value::kResultOk;
     }
     {
         render::vulkan::Backend& state = render::vulkan::backend();
@@ -3355,12 +3372,15 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
         const float exposure = rt::frame_pre_exposure();
         const brdf::Vec3 floor_up{0.0F, 1.0F, 0.0F};
         const brdf::Vec3 l{static_cast<float>(x_of(toward)), static_cast<float>(y_of(toward)), static_cast<float>(z_of(toward))};
-        for (const uint32_t vertex_colour : {0xFF404040U, 0xFFC0C0C0U}) {
+        // (round VEIL: the untextured program's floor too - vertex colour x pass colour x 2, which the per-pixel lighting
+        // didn't take: its colour kept by shares)
+        for (const auto& [vertex_colour, untextured] : std::array<std::pair<uint32_t, bool>, 4>{
+                 {{0xFF404040U, false}, {0xFFC0C0C0U, false}, {0xFF404040U, true}, {0xFFC0C0C0U, true}}}) {
             std::vector<uint8_t> shot;
             bool drew = ok;
             for (int pass = 0; drew && pass < 2; ++pass) {
                 drew = draw_per_surface(gpu, targets, meshes, true, Over::kNothing, frame++, &shot, nullptr, nullptr,
-                                        vertex_colour);
+                                        vertex_colour, untextured);
             }
             const float bake = static_cast<float>(
                 rt::linear_from_display(2.0 * static_cast<double>(vertex_colour & 0xFFU) / 255.0));
@@ -3393,10 +3413,11 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                 (pixel.shadowed ? shaded : sunlit) += 1;
             }
             tally->check(drew && sunlit > 1000 && shaded > 300 && off_model == 0,
-                         text::format("a surface without a light store (its own colours 0x%02X) lit by the rays' light: "
+                         text::format("a surface without a light store (its own colours 0x%02X%s) lit by the rays' light: "
                                       "%d sunlit and %d shadowed pixels, %d off the light model (the sun on its material, "
                                       "its colour's indirect share; worst %.1f %%)",
-                                      vertex_colour & 0xFFU, sunlit, shaded, off_model, 100.0 * worst_share));
+                                      vertex_colour & 0xFFU, untextured ? ", untextured" : "", sunlit, shaded, off_model,
+                                      100.0 * worst_share));
         }
     }
     // (round SKIN2 - ff_shaders.cpp kSurfaceSunGlsl) A lit object's see-through pane (its fragments neither the surface
@@ -3467,6 +3488,9 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     run_front_layer(gpu, meshes, tally);  // (round FL: the same)
     if (lit_glow_draw().shader != nullptr) {
         gpu.release_pixel_shader(lit_glow_draw().shader);
+        if (lit_glow_draw().untextured != nullptr) {
+            gpu.release_pixel_shader(lit_glow_draw().untextured);
+        }
     }
     if (lit_glow_draw().texture != nullptr) {
         gpu.release_texture(lit_glow_draw().texture);
@@ -4061,6 +4085,11 @@ constexpr double kCardLeast = 0.002;                          // (pixels compare
 // (measured 0.974; the old cache-only bounce 0.000)
 constexpr double kCardRatioLow = 0.90;
 constexpr double kCardRatioHigh = 1.10;
+// (round VEIL) a pane without a front layer (ReSTIR GI off) under a lamp across the box from it: height, x0, x1, z0, z1 -
+// low beside the box, on the side away from the lamp, so the box's lamp shadow lies across part of it
+constexpr std::array<double, 5> kVeilPane{10.0, 14.0, 110.0, -70.0, 70.0};
+constexpr Vec3 kVeilLamp{-60.0, 45.0, 0.0};
+constexpr double kVeilStep = 3.0; // (units: a point counted where it and its neighbours this far agree on the shadow)
 
 // (round SKIN2) The radiance cache's cell of a point (vulkan_light_list.cpp cache_key's twin: the hash grid's level by
 // the distance from the eye the cells were keyed from, the cell, the normal's main axis and side) and whether the cache
@@ -4132,7 +4161,8 @@ CacheCell cache_cell_at(const std::vector<uint8_t>& entries, const render::vulka
 bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, std::span<const rt::Light> points,
                 bool glass, uint64_t frame, std::vector<uint8_t>* front, std::vector<uint8_t>* lamps,
                 std::vector<uint8_t>* colour = nullptr, bool particle = false, std::vector<uint8_t>* layer = nullptr,
-                std::vector<uint8_t>* behind = nullptr, const std::vector<ColourVertex>* particle_quad = nullptr)
+                std::vector<uint8_t>* behind = nullptr, const std::vector<ColourVertex>* particle_quad = nullptr,
+                const std::array<double, 5>* pane = nullptr)
 {
     using render::GpuRenderState;
     rt::FrameRecord& record = rt::frame_record();
@@ -4202,6 +4232,9 @@ bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneM
             gpu.set_pixel_constants(0, kHalf.data(), 1);
             gpu.set_vertex_format(kFvfColourNormal);
             gpu.set_render_state(GpuRenderState::kLighting, 1);
+        } else if (pane != nullptr) { // (round VEIL: the pane elsewhere - height, x0, x1, z0, z1)
+            quad(core::at(*pane, 0), core::at(*pane, 1), core::at(*pane, 2), core::at(*pane, 3), core::at(*pane, 4),
+                 0x40FFFFFFU);
         } else {
             quad(kFrontGlassHeight, core::at(kFrontGlass, 0), core::at(kFrontGlass, 1), core::at(kFrontGlass, 2),
                  core::at(kFrontGlass, 3), 0x40FFFFFFU);
@@ -4620,6 +4653,112 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                      text::format("  (round SKIN2) the card's points in the radiance cache - written by the front layer's "
                                   "update paths alone (round PERF): %d points, %d cells claimed, %d trusted",
                                   points, claimed, trusted));
+    }
+    // (round VEIL - ff_shaders.cpp kSurfaceLampsGlsl) Without ReSTIR GI there is no front layer: the pane's fragments are
+    // neither the inputs' surface (the floor is) nor a layer's, and took no lamp light at all. They sample the local lights
+    // themselves (ReSTIR DI's grid and pool, one inline shadow ray). A pane low beside the box, the lamp across the box
+    // from it: where the lamp sees the pane's point its light is the lamp model's (as the layer's above), in the box's
+    // shadow none.
+    {
+        vk::set_rt_gi_settings({.indirect = vk::RtIndirectLight::kPasses});
+        const std::array<rt::Light, 1> veil_points{{{.kind = rt::Light::Kind::kPoint,
+                                                     .colour = {1.0F, 0.9F, 0.7F},
+                                                     .position = floats(kVeilLamp),
+                                                     .radius = static_cast<float>(kFrontReach)}}};
+        std::vector<uint8_t> with_pane;
+        std::vector<uint8_t> without_pane;
+        constexpr int kVeilFrames = 6;
+        for (int k = 0; ok && k < kVeilFrames; ++k) {
+            ok = draw_front(gpu, targets, meshes, veil_points, true, frame++, nullptr, nullptr,
+                            k + 1 == kVeilFrames ? &with_pane : nullptr, false, nullptr, nullptr, nullptr, &kVeilPane);
+        }
+        ok = ok && draw_front(gpu, targets, meshes, veil_points, false, frame++, nullptr, nullptr, &without_pane);
+        rt::Emitter veil_lamp;
+        const bool veil_made = rt::lights::point_emitter(
+            core::at(veil_points, 0), std::clamp(rt::open_sky_lamps(rt::day_light(), rt::level_emitters().get()), 0.0F, 1.0F),
+            &veil_lamp);
+        const rt::LampShape veil_shape{.position = veil_lamp.position,
+                                       .shape = veil_lamp.shape,
+                                       .axis = veil_lamp.axis,
+                                       .half_length = veil_lamp.half_length,
+                                       .core = veil_lamp.core,
+                                       .reach = veil_lamp.reach};
+        const auto veil_model = [&](const Vec3& at) {
+            std::array<float, 3> toward{};
+            return veil_lamp.intensity * rt::lamp_geometry(veil_shape, floats(at), up, &toward) * exposure *
+                   luma_of(Rgb{core::at(veil_lamp.colour, 0), core::at(veil_lamp.colour, 1), core::at(veil_lamp.colour, 2)});
+        };
+        const auto lamp_hidden = [&box](const Vec3& at) {
+            const Vec3 to = minus(kVeilLamp, at);
+            return intersect(box, at, normalised(to)).distance < length_of(to);
+        };
+        double veil_got = 0.0;
+        double veil_want = 0.0;
+        int veil_lit = 0;
+        int veil_dark = 0; // (seen by the lamp, under half its light)
+        int veil_shaded = 0;
+        int veil_shaded_lit = 0; // (in its shadow, over a quarter of the lit pixels' mean light)
+        double veil_brightest_shaded = 0.0;
+        std::vector<double> shaded_light;
+        const auto [vx0, vx1, vz0, vz1] = std::array<double, 4>{core::at(kVeilPane, 1), core::at(kVeilPane, 2),
+                                                                core::at(kVeilPane, 3), core::at(kVeilPane, 4)};
+        for (int y = 0; ok && veil_made && y < kRows; ++y) {
+            for (int x = 0; x < kColumns; ++x) {
+                Vec3 at{};
+                if (!through_quad(x, y, core::at(kVeilPane, 0), vx0, vx1, vz0, vz1) ||
+                    !floor_point(kEye, x, y, core::at(kVeilPane, 0), &at) || x_of(at) < vx0 + kFrontMargin ||
+                    x_of(at) > vx1 - kFrontMargin || z_of(at) < vz0 + kFrontMargin || z_of(at) > vz1 - kFrontMargin) {
+                    continue;
+                }
+                const Vec3 to_eye = minus(kEye, at);
+                if (intersect(box, at, normalised(to_eye)).distance < length_of(to_eye)) {
+                    continue; // (the box in front of the pane here)
+                }
+                const bool shadow = lamp_hidden(at);
+                bool clear = true;
+                for (const Vec3 d : {Vec3{kVeilStep, 0.0, 0.0}, Vec3{-kVeilStep, 0.0, 0.0}, Vec3{0.0, 0.0, kVeilStep},
+                                     Vec3{0.0, 0.0, -kVeilStep}}) {
+                    clear = clear && lamp_hidden(step(at, d, 1.0)) == shadow;
+                }
+                if (!clear) {
+                    continue;
+                }
+                // the pane's own light: what it adds over the floor behind it, over its alpha x its diffuse lobe's share
+                const auto pane_nv = static_cast<float>(y_of(normalised(to_eye)));
+                const rt::brdf::Rgb pane_e = rt::brdf::specular_albedo(
+                    rt::material_f0(rt::MaterialKind::kPainted), pane_nv, rt::material_values(rt::MaterialKind::kPainted).roughness);
+                const double light = (luma_of(linear_pixel_at(with_pane, x, y)) -
+                                      ((1.0 - kFrontGlassAlpha) * luma_of(linear_pixel_at(without_pane, x, y)))) /
+                                     (kFrontGlassAlpha * (1.0 - core::at(pane_e, 1)));
+                if (shadow) {
+                    ++veil_shaded;
+                    shaded_light.push_back(light);
+                    veil_brightest_shaded = std::max(veil_brightest_shaded, light);
+                    continue;
+                }
+                const double want = veil_model(at);
+                if (want < kFrontLeast) {
+                    continue;
+                }
+                veil_got += light;
+                veil_want += want;
+                ++veil_lit;
+                veil_dark += light < 0.5 * want ? 1 : 0;
+            }
+        }
+        const double veil_ratio = veil_want > 0.0 ? veil_got / veil_want : 0.0;
+        const double lit_mean = veil_lit > 0 ? veil_want / veil_lit : 0.0;
+        for (const double light : shaded_light) {
+            veil_shaded_lit += light > 0.25 * lit_mean ? 1 : 0;
+        }
+        tally->check(ok && veil_made && veil_lit > 300 && veil_ratio >= kFrontRatioLow && veil_ratio <= kFrontRatioHigh &&
+                         veil_dark * 100 <= veil_lit,
+                     text::format("  (round VEIL) a pane without a front layer (ReSTIR GI off) samples the local lights "
+                                  "itself: %d pixels the lamp sees, their light %.4f x the lamp model's (%d dark)",
+                                  veil_lit, veil_ratio, veil_dark));
+        tally->check(ok && veil_made && veil_shaded > 100 && veil_shaded_lit == 0,
+                     text::format("  ... %d in the box's shadow of the lamp: brightest %.4f (the lit ones' mean %.4f), %d lit",
+                                  veil_shaded, veil_brightest_shaded, lit_mean, veil_shaded_lit));
     }
     vk::set_rt_gi_settings({.indirect = vk::RtIndirectLight::kPasses});
     vk::set_rt_light_settings({});

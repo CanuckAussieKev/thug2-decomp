@@ -659,6 +659,7 @@ bool set_surface_uniforms(Backend& state, const GpuStateBlock& block, const Surf
     fill_surface_uniforms(block, state.bound.vertex_uniforms, draw, state.frames.serial(), &uniforms);
     if ((flags & kSurfaceSunTraced) != 0U && (flags & kSurfaceCel) == 0U) {
         fill_eye_to_world(block, &uniforms.eye_to_world); // (round SKIN2: its fragments' own sun rays start in the world)
+        uniforms.local_lights = surface_light_forward_lights(state); // (round VEIL: ... and their lamps)
     }
     // (round M) the roughest texel whose environment the reflections pass traces for this surface (0: it traces none -
     // the light store's estimate stands everywhere)

@@ -3594,6 +3594,22 @@ vec3 hit_albedo(uint instance, uint primitive, uint id, vec2 barycentrics)
     return made;
 }
 
+std::string_view emitter_faces_glsl()
+{
+    // (round VEIL: split out of hit_surface_glsl - it reads no scene table)
+    static const std::string made = "const float EMITTER_FRONT_SIGN = " + std::to_string(rt::kFrontFaceSign) + ";\n" + R"(
+// The cosine at an emitting triangle (`across`: (b - a) x (c - a) of its corners in the world, wound as drawn) toward the
+// unit direction `toward` leaving it: |cos| from a two-sided one, its front's cosine (0 behind it) from a one-sided one.
+float emitter_cos(float sides, vec3 across, vec3 toward)
+{
+    float l = length(across);
+    float c = l > 0.0 ? dot(across, toward) / l : 0.0;
+    return sides > 1.5 ? abs(c) : max(c * EMITTER_FRONT_SIGN, 0.0);
+}
+)";
+    return made;
+}
+
 std::string_view hit_surface_glsl()
 {
     // (path tracing, stage 1 - P1: one hit surface; vulkan_rt_scene.h) The painted surface's values and the metal's
@@ -3609,9 +3625,9 @@ std::string_view hit_surface_glsl()
                            ";\nconst float HIT_COAT_ROUGHNESS = " +
                            std::to_string(rt::material_values(rt::MaterialKind::kLacquer).roughness) +
                            ";\nconst uint HIT_CLASS_COAT = " + std::to_string(rt::kReflectCoat) +
-                           "u;\nconst uint HIT_MASK_CLEAR = " + std::to_string(rt::kMaskClear) + "u" +
-                           ";\nconst float EMITTER_FRONT_SIGN = " + std::to_string(rt::kFrontFaceSign) + ";\n";
+                           "u;\nconst uint HIT_MASK_CLEAR = " + std::to_string(rt::kMaskClear) + "u;\n";
         text += hit_albedo_glsl();     // (round BAKEALB: the albedo, the relit bake's bounce rays' too)
+        text += emitter_faces_glsl(); // (round VEIL: the emitters' faces - one copy, the forward pass's lamps read it too)
         text += R"(
 const uint HIT_RELIT_WORLD = 0u;
 const uint HIT_BAKED_WORLD = 1u;
@@ -3658,14 +3674,6 @@ vec3 store_emission(uint instance, uint id, vec3 emit, vec2 uv, float lod)
 float emitter_sides(uint id)
 {
     return (material(id).flags & MATERIAL_TWO_SIDED) != 0u ? 2.0 : 1.0;
-}
-// The cosine at an emitting triangle (`across`: (b - a) x (c - a) of its corners in the world, wound as drawn) toward the
-// unit direction `toward` leaving it: |cos| from a two-sided one, its front's cosine (0 behind it) from a one-sided one.
-float emitter_cos(float sides, vec3 across, vec3 toward)
-{
-    float l = length(across);
-    float c = l > 0.0 ? dot(across, toward) / l : 0.0;
-    return sides > 1.5 ? abs(c) : max(c * EMITTER_FRONT_SIGN, 0.0);
 }
 // (round PT4b) The light a triangle of the world sends at a point (hit_surface's `emitted` alone - no normals, no
 // material: ReSTIR DI's target evaluates it at every candidate); false where nothing is there (a cut-out texel, a hidden

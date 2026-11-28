@@ -111,11 +111,20 @@ void normalise_stages(FragmentKey& key)
 }
 
 // (NOT ORIGINAL - rt_pbr) The programs the per-pixel lighting can take: those whose last line multiplies by v0.
+// (Round VEIL) The untextured one too - vertex colour x pass colour x 2 (kVertexFactor): it multiplies by v0 as the
+// others do, its albedo under the game's neutral light (v0 0.5) the pass colour - the material's colour, as the rays'
+// hit_surface has it. Left out before, its draws - an untextured lit object, an unlit one without a light store, the
+// relit world's untextured meshes - kept their colour taken by shares (round CENSUS "by shares": AU's lit objects, NO's
+// unlit ones).
 bool takes_surface(const FragmentKey& key)
 {
     return key.unlit == 0 && (key.program == PixelProgram::kMaterial || key.program == PixelProgram::kTextureVertexX4 ||
-                              key.program == PixelProgram::kTextureConstantAlpha);
+                              key.program == PixelProgram::kTextureConstantAlpha || key.program == PixelProgram::kVertexFactor);
 }
+
+// (rt_water) The programs rt_water's water takes: the textured ones of takes_surface (its body is its texture's mean lit
+// by the front layer)
+bool takes_water(const FragmentKey& key) { return takes_surface(key) && key.program != PixelProgram::kVertexFactor; }
 
 void normalise_fragment(FragmentKey& key, bool points)
 {
@@ -123,9 +132,12 @@ void normalise_fragment(FragmentKey& key, bool points)
         key.surface = 0;
     }
     key.surface = static_cast<uint8_t>(key.surface & kSurfaceKnown);
-    key.light = static_cast<uint8_t>(key.light & kLightKnown); // (NOT ORIGINAL - round V)
+    if (key.program == PixelProgram::kVertexFactor) {
+        key.surface = static_cast<uint8_t>(key.surface & ~kSurfaceMap); // (round VEIL: no texture - no surface map)
+    }
+    key.light =static_cast<uint8_t>(key.light & kLightKnown); // (NOT ORIGINAL - round V)
     // (NOT ORIGINAL - rt_water: flat, or the moving surface)
-    key.water = key.water != 0U && takes_surface(key) && !points ? std::min(key.water, kWaterMoving) : 0;
+    key.water = key.water != 0U && takes_water(key) && !points ? std::min(key.water, kWaterMoving) : 0;
     if (key.program != PixelProgram::kStages) {
         key.stages = {};
         key.specular_add = false;
@@ -393,7 +405,9 @@ ShaderKey normalised(const ShaderKey& key)
     result.fragment.motion = result.vertex.motion; // (the fragment half reads what the vertex half hands it)
     // (NOT ORIGINAL - rt_pbr) the per-pixel lighting needs camera-space positions (not pre-transformed vertices) and
     // stage 0's coordinates; the vertex half writes its inputs exactly when the fragment half reads them
-    if (fvf_pre_transformed(result.vertex.fvf) || (result.vertex.coord_mask & 1U) == 0U ||
+    // (round VEIL: the untextured program reads no coordinates - no texture, no surface map, its emission map's mean)
+    const bool coordinates_read = result.fragment.program != PixelProgram::kVertexFactor;
+    if (fvf_pre_transformed(result.vertex.fvf) || (coordinates_read && (result.vertex.coord_mask & 1U) == 0U) ||
         result.fragment.point_sprite) {
         result.fragment.surface = 0;
         result.fragment.water = 0; // (rt_water: the same inputs)

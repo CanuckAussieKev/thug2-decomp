@@ -193,7 +193,14 @@ struct SurfaceUniforms {
     // (NOT ORIGINAL - round SKIN2) camera space to the world (rows, w the offset - CelUniforms::eye_to_world's twin): set
     // only for a key with kSurfaceSunTraced (its fragments' own sun rays), zero otherwise
     std::array<Float4, 3> eye_to_world{};
+    // (NOT ORIGINAL - round VEIL) the forward pass's local lights (vulkan_surface_light.h surface_light_forward_lights): xy
+    // the block's device address, z 1 - set only for a key with kSurfaceSunTraced, zero otherwise
+    std::array<uint32_t, 4> local_lights{};
 };
+// (round VEIL) The forward pass's local lights block (32-bit words, ff_shaders.cpp kSurfaceLampsGlsl's SurfaceLocalLights):
+// the presampled pool (vulkan_light_list.h light_pool_reader_glsl's uvec4), the light grid's picks (light_grid_reader_glsl's),
+// the lamps' records (address, 1, count), then the frame's count and its pre-exposure's bits
+inline constexpr std::size_t kForwardLightsWords = 16;
 
 // (added by cel shading) Binding 8 (vertex and fragment shaders): vulkan_cel.cpp fills it.
 struct CelUniforms {
@@ -290,7 +297,7 @@ static_assert(offsetof(VertexUniforms, previous_clip) == offsetof(VertexUniforms
 static_assert(sizeof(VertexUniforms) == offsetof(VertexUniforms, previous_clip) + kMatrixBytes + (3 * kVectorBytes),
               "std140: no padding");
 static_assert(sizeof(FragmentUniforms) == kFragmentVectors * kVectorBytes, "std140: no padding");
-constexpr std::size_t kSurfaceVectors = (2 * kMaxLights) + 9;
+constexpr std::size_t kSurfaceVectors = (2 * kMaxLights) + 10;
 static_assert(sizeof(SurfaceUniforms) == kSurfaceVectors * kVectorBytes, "std140: no padding");
 constexpr std::size_t kCelVectors = 11;
 static_assert(sizeof(CelUniforms) == kCelVectors * kVectorBytes, "std140: no padding");

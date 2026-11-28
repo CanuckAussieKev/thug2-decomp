@@ -146,6 +146,17 @@ struct RestirLocalLights {
 };
 struct Backend;
 bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLighting& lighting, RestirLocalLights* out);
+// (round VEIL) The local group's picks as this frame's ReSTIR DI made them - its presampled pool, the light grid's picks
+// when made this frame, the lamps' records - by their device addresses (lo, hi; z 1 when there): what a pass that has none
+// of the scene's tables samples the local lights from (the forward pass's see-through fragments without light inputs -
+// vulkan_surface_light.h). pool's w: its share of the picks' bits (1.0 - the local group alone); lamps' w their count.
+// All zero where no pool was made this frame. The caller holds the lock.
+struct ForwardLocalLights {
+    std::array<uint32_t, 4> pool{};
+    std::array<uint32_t, 4> grid{};
+    std::array<uint32_t, 4> lamps{};
+};
+[[nodiscard]] ForwardLocalLights restir_forward_local_lights(const Backend& state);
 // (round OM) The emitting triangles the local group's list holds now (0: none, or no scan in yet); the caller holds the lock.
 [[nodiscard]] std::size_t restir_listed_triangles_locked(const Backend& state);
 
@@ -186,6 +197,11 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
 // caller's: the same lights, the same power and the same emission as ReSTIR DI's light_point, GI's next_event and the
 // reference path tracer.
 [[nodiscard]] std::string_view local_light_glsl();
+// (round VEIL) Its first part alone - LocalLight, LightPick, light_seen_from and (after light_pool_reader_glsl) the pool's
+// reader light_pick_words / light_pool_read: what a pick (the pool's, the light grid's) sends a point, without the scene's
+// tables (after rt_path.h's kPathGlsl, rt_lamp_glsl and vulkan_rt_scene.h emitter_faces_glsl; the caller declares
+// `lamps[]`). The forward pass's see-through fragments read it (ff_shaders.cpp kSurfaceLampsGlsl).
+[[nodiscard]] std::string_view local_light_seen_glsl();
 // (round PERF) GLSL: the radiance cache's writes - a point's entry claimed (cache_claim) and a sample of its bounce
 // (cache_add) or of its direct light (cache_add_direct) added to the entry's sums, which ReSTIR GI's resolve pass folds
 // into its light the next frame. After light_sample_glsl with LL_CACHE; the caller declares `cache[]` writable and defines

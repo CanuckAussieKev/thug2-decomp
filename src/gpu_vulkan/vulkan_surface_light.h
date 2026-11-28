@@ -102,6 +102,11 @@ void release_surface_light(Backend& state);
 // lit objects' draws lit per pixel. `relit`: the draw has a light store (vulkan_cel_draw.h relit_colour_stream). Called
 // before record_draw adds the store's bits (kSurfaceRelit to a draw lit per pixel).
 void surface_light_force(const GpuStateBlock& block, bool relit, ShaderKey* shaders);
+// (round VEIL) The forward pass's local lights for a draw whose see-through fragments trace their own light
+// (kSurfaceSunTraced - SurfaceUniforms::local_lights): the block's device address (lo, hi, 1) - ff_uniforms.h
+// kForwardLightsWords words, written as each view's draws are shaded (ReSTIR DI's picks of the frame, the frame's count,
+// its pre-exposure). Zero where it can't be made. The caller holds the lock.
+[[nodiscard]] std::array<uint32_t, 4> surface_light_forward_lights(Backend& state);
 // Then: a shaded draw's light bits and the inputs to push (`out`).
 void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey* shaders, SurfaceInputDescriptors* out);
 // The view's inputs while its passes make them; null: none - a pass draws over the colour as before.
