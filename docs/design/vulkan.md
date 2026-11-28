@@ -569,6 +569,18 @@ Direct3D 9 (V7).
   newest up to 24 MB of shaders and 40 MB of pipelines and drops the rest ("N entries dropped for the size" in the
   save's log line); a file in the old format (the driver's whole cache) isn't read and is replaced at the first save. foun makes 52 pipelines from 40 shaders (0.9 s of glslang in the
   Debug build the first time, none after).
+  Since 2026-11-28 (round HITCH) the keys are recorded too (`thug2-decomp-vulkan-keys.bin` / `-x64.bin`, at most 16 384
+  keys, the newest runs' first): every key a level's draws use, with the level's main scene (rt_relit_world level_scene)
+  and the run that last used it - PSO precaching from recorded use, as UE5's PSO precache with its recorded pipeline
+  cache. When a level's scene comes up (each frame tells the device - from its first frame under the loading screen)
+  the keys its last 4 runs used are made by up to 3 worker threads, and the loading screen stays until they are made
+  (load_cover's `pipelines_pending`). A new build (new shader text: every module compiled again) pays its compiles
+  there, in parallel, not while playing: Barcelona's first play after a build had 30 pipelines made after the reveal
+  (1.6 s, the worst 201 ms - its tracing glass), now none. A key no run recorded is still met while drawing: a tracing
+  key (`kSurfaceSunTraced`) is then made by the workers and its draw takes the key without the traced bit meanwhile
+  (the light those fragments have on a frame without the scene's tables - asynchronous PSO creation with a fallback);
+  any other key is made at once. The frame log's line counts them ("N while drawing, M ahead; K draws without their
+  traced light meanwhile").
 - **The key from the state block** (`draw_shader_key`): the render states, the four stages' operations, arguments,
   coordinate indices and transform flags, and the bound pixel shader's program. A pixel shader is recognised from the
   text the PC layer assembles (`classify_pixel_shader`): the six fixed shaders by their text, a material's generated

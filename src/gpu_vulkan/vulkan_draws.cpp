@@ -940,15 +940,16 @@ PipelineKey pipeline_key(const Backend& state, const GpuStateBlock& block, const
 
 void log_stats(Backend& state)
 {
-    const PipelineStats& made = state.pipelines.stats();
+    const PipelineStats made = state.pipelines.stats();
     DrawStats& stats = state.stats;
     const double frames = static_cast<double>(std::max<uint64_t>(stats.frames, 1));
     get_log("vulkan: frame %llu: %u pipelines (%u refused), shaders %u compiled in %.1f s and %u from the disk cache, "
-            "pipelines made in %.1f s; %.2f ms a frame (%.2f ms of it waiting for the device and the swapchain), %.0f draws and %.1f passes a frame over the last %llu; uploads "
+            "pipelines made in %.1f s (%u while drawing in %.2f s, %u ahead; %u draws without their traced light meanwhile); %.2f ms a frame (%.2f ms of it waiting for the device and the swapchain), %.0f draws and %.1f passes a frame over the last %llu; uploads "
             "%llu (%.1f MB) in %.2f s; %llu waits for the device",
             static_cast<unsigned long long>(state.frame), static_cast<unsigned>(made.pipelines),
             static_cast<unsigned>(made.refused), static_cast<unsigned>(made.shaders_compiled), made.compile_seconds,
-            static_cast<unsigned>(made.shaders_from_disk), made.pipeline_seconds,
+            static_cast<unsigned>(made.shaders_from_disk), made.pipeline_seconds, static_cast<unsigned>(made.made_drawing),
+            made.drawing_seconds, static_cast<unsigned>(made.made_ahead), static_cast<unsigned>(made.fallbacks),
             stats.frame_seconds * kMilliseconds / frames, stats.wait_seconds * kMilliseconds / frames,
             static_cast<double>(stats.draws) / frames,
             static_cast<double>(stats.passes) / frames, static_cast<unsigned long long>(stats.frames),
@@ -1460,6 +1461,14 @@ Prepared prepare_draw(Backend& state, const GpuStateBlock& block, const DrawCall
         return Prepared::kNone;
     }
     out->key = pipeline_key(state, block, shaders, call.primitive);
+    // (round HITCH - vulkan_pipelines.h) a see-through draw whose fragments trace their own light, its pipeline not made
+    // yet: made by the workers, and drawn meanwhile as on a frame without the scene's tables - the same key without the
+    // traced bit (its fragments' light the engine's lower tier, never a missing draw)
+    if ((shaders.fragment.surface & kSurfaceSunTraced) != 0U && (shaders.fragment.surface & kSurfaceCel) == 0U &&
+        state.pipelines.ready_or_made_ahead(out->key) == VK_NULL_HANDLE) {
+        shaders.fragment.surface = static_cast<uint8_t>(shaders.fragment.surface & ~kSurfaceSunTraced);
+        out->key = pipeline_key(state, block, shaders, call.primitive);
+    }
     std::string error;
     out->pipeline = state.pipelines.pipeline(out->key, &error);
     if (out->pipeline == VK_NULL_HANDLE) {

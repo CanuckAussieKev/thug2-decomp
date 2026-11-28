@@ -679,6 +679,11 @@ public:
     // NOT ORIGINAL - (round LS) how many pipelines the backend has made so far: a frame that made none drew only from
     // what was ready (render_pc/load_cover.h - the loading screen kept until then). Direct3D 9 makes none: always 0.
     [[nodiscard]] virtual uint64_t pipelines_made() const { return 0; }
+    // NOT ORIGINAL - (round HITCH) the level's main scene the frame draws (0: none): the backend records the pipelines
+    // its draws use with it and makes those an earlier run recorded ahead, off the drawing thread - and how many it is
+    // still making (render_pc/load_cover.h keeps the loading screen up until they are made). Direct3D 9: nothing.
+    virtual void pipeline_scene(uint32_t scene) { (void)scene; }
+    [[nodiscard]] virtual std::size_t pipelines_pending() { return 0; }
     // NOT ORIGINAL - (round LS2) whether the camera's exposure has settled for the frame being drawn (asked at its end):
     // the auto exposure's eye at its target and the frame exposed there - another of the level's readiness terms
     // (render_pc/load_cover.h). Direct3D 9 meters nothing: always settled.

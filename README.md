@@ -197,7 +197,7 @@ The 64-bit build goes in the same folder the same way, in place of the 32-bit on
 folder holds one build or the other): `thug2-decomp.exe` (+ `plugins\thug2-level-editor.dll`, the PDBs, a Release build's runtime DLLs), and from its own build
 folder the 64-bit `d3dx9_43.dll` and `SDL3.dll`, `gamecontrollerdb.txt`, and FFmpeg's four 64-bit DLLs (below). Direct3D 9 comes with Windows; for Vulkan (the default renderer) the 64-bit Vulkan
 runtime comes with the graphics driver. Its Vulkan caches are files of their own
-(`thug2-decomp-vulkan-shaders-x64.bin`, `thug2-decomp-vulkan-pipelines-x64.bin`); the ini, the editor's layouts and the
+(`thug2-decomp-vulkan-shaders-x64.bin`, `thug2-decomp-vulkan-pipelines-x64.bin`, `thug2-decomp-vulkan-keys-x64.bin`); the ini, the editor's layouts and the
 data overlays are the same files for both builds.
 
 ### FFmpeg's DLLs
