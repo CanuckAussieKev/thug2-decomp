@@ -49,10 +49,12 @@ inline constexpr uint16_t kGiContinued = 20;  // (round PERF5) ReSTIR GI: the se
 inline constexpr uint16_t kDiPrimary = 21;   // (round PERF6) ReSTIR DI: the pixels' primary surfaces (the camera rays)
 inline constexpr uint16_t kDiCandidates = 22; // (round PERF6; round BUDGET: in kDiTemporal again - not marked)
 inline constexpr uint16_t kGiUpsample = 23;   // (round BUDGET) ReSTIR GI: the trace grid's light into the view's pixels
-// (round LW2) the front layer's two steps: the see-through draws' depth, then their light (with the water's traced mirror)
+// (round LW2) the front layer's two steps: the see-through draws' depth, then their light (round GPU: the water's traced mirror and what is behind it the tail's)
 inline constexpr uint16_t kFrontDepth = 24;
 inline constexpr uint16_t kFrontLight = 25;
-inline constexpr uint16_t kCount = 26;
+// (round GPU) ... and the water's mirror and what it lets through from behind, a pass of their own (the tail)
+inline constexpr uint16_t kFrontTail = 26;
+inline constexpr uint16_t kCount = 27;
 } // namespace section
 
 struct Mark {

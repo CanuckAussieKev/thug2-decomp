@@ -61,7 +61,12 @@ constexpr uint32_t kBindingBehindBefore = 14; // ... the last view's, read
 constexpr uint32_t kBindingList = 15; // 15 - 22: the light list and the radiance cache (vulkan_light_list.h FrameLightList)
 constexpr uint32_t kListBuffers = 8;
 constexpr uint32_t kBindingCloudMap = kBindingList + kListBuffers; // the clouds' shadow map on the disc's light
-constexpr uint32_t kBindingCount = kBindingCloudMap + 1;
+constexpr uint32_t kBindingTail = kBindingCloudMap + 1; // (round GPU) the tail pass's queue (kBody's Tail: binding 24)
+static_assert(kBindingTail == 24);
+constexpr uint32_t kBindingCount = kBindingTail + 1;
+constexpr VkDeviceSize kTailEntryBytes = 16; // (a uvec4 a queued pixel, after the dispatch's and the length's uvec4)
+constexpr uint32_t kTailGroup = 64;           // (the shader's TAIL_GROUP)
+static_assert(kTailGroup == 8 * 8);
 constexpr uint32_t kMaterialSet = 1;
 constexpr uint32_t kGroupSide = 8;
 constexpr VkDeviceSize kUniformAlignment = 256;
@@ -166,6 +171,15 @@ layout(set = 0, binding = 11, rgba16f) uniform writeonly image2D o_reflect;
 layout(set = 0, binding = 12, rgba16f) uniform readonly image2D h_reflect;
 layout(set = 0, binding = 13, rgba16f) uniform writeonly image2D o_behind;
 layout(set = 0, binding = 14, rgba16f) uniform readonly image2D h_behind;
+// (round GPU) the tail pass's queue: its dispatch (x, y, z), its length, then a uvec4 a pixel (queue_tail)
+layout(std430, set = 0, binding = 24) buffer Tail {
+    uint tail_groups;
+    uint tail_rows;
+    uint tail_depth;
+    uint tail_count;
+    uvec4 tail[];
+};
+const uint TAIL_GROUP = 64u; // (local_size_x x local_size_y)
 const uint FRONT_RAYS = 15u; // (the light rays' kinds: the world, the objects, the cut-outs, drawn apart - ReSTIR GI's)
 // (round LW) the most frames a reflection's history weighs (a mirror's light moves with the view: shorter than the light's;
 // the image's alpha holds the hit's distance, the frames are the layer's own)
@@ -327,6 +341,17 @@ vec3 behind_light(vec3 origin, vec3 r, inout uint rng, out float travel, out boo
     return lit * through;
 }
 
+#ifndef PASS_TAIL
+// (round GPU) A pixel whose rest surface faces up queued for the tail pass (mirror_and_behind): its place, its random
+// sequence's state, its history's frames, whether it is water; the tail's dispatch grows a group every TAIL_GROUP.
+void queue_tail(ivec2 p, uint rng, float frames, bool water)
+{
+    uint slot = atomicAdd(tail_count, 1u);
+    if (slot % TAIL_GROUP == 0u) {
+        atomicAdd(tail_groups, 1u);
+    }
+    tail[slot] = uvec4(uint(p.x) | (uint(p.y) << 16), rng, floatBitsToUint(frames), water ? 1u : 0u);
+}
 void main()
 {
     ivec2 local = ivec2(gl_GlobalInvocationID.xy);
@@ -432,12 +457,26 @@ void main()
     imageStore(o_depth, p, vec4(z, 0.0, 0.0, 0.0));
     imageStore(o_light, p, vec4(min(rest_out, vec3(65504.0)), frames + 1.0));
     imageStore(o_sun, p, vec4(min(sun_out.rgb, vec3(65504.0)), sun_out.a));
+    vec3 up_n = n.y < 0.0 ? -n : n;
+    if (up_n.y >= REFLECT_LEAST_UP) {
+        // (round GPU) the rest surface's mirror and its other side: the tail pass's, over the pixels queued here
+        queue_tail(p, rng, frames, water);
+    } else {
+        imageStore(o_reflect, p, vec4(0.0));
+        imageStore(o_behind, p, vec4(0.0));
+    }
+}
+#endif
+
+// The rest surface's mirror and its other side at a pixel of the layer facing up (`up_n`): its point `here`, `dist` along
+// the view's `dir`, the layer's history `frames`, the random sequence where the layer's light left it.
+void mirror_and_behind(ivec2 p, vec3 here, vec3 dir, float dist, vec3 up_n, float frames, inout uint rng)
+{
     // (round LW) the rest surface's mirror, where it faces up: the view's ray reflected about its normal, traced; its
     // history where the mirror image's point (as far behind the surface along the view as the hit is in front of it - the
     // point the reflection shows) was in the last view's layer
     vec4 reflect_out = vec4(0.0);
-    vec3 up_n = n.y < 0.0 ? -n : n;
-    if (up_n.y >= REFLECT_LEAST_UP) {
+    {
         vec3 r = reflect(dir, up_n);
         float travel;
         vec3 mirrored = mirror_light(here + up_n * local_light_offset(here), r, rng, travel) * pass.eye.w;
@@ -471,7 +510,7 @@ void main()
     // see-through and cut-out surfaces drawn among the transparencies - Barcelona's harbour slope, the fountain's coins).
     // The water's own medium along it is the shading's (its distance in a).
     vec4 behind_out = vec4(0.0);
-    if (up_n.y >= REFLECT_LEAST_UP) {
+    {
         behind_out = vec4(0.0, 0.0, 0.0, -65504.0); // (traced; nothing met)
         vec3 from = here + dir * local_light_offset(here);
         float travel;
@@ -499,6 +538,32 @@ void main()
     }
     imageStore(o_behind, p, behind_out);
 }
+
+#ifdef PASS_TAIL
+// (round GPU) The tail pass: one thread a queued pixel (the dispatch the queue's length), its point, view and normal found
+// again as the layer's pass found them (the same depths, the same numbers), then its mirror and its other side with the
+// random sequence where the layer's pass left it - what one pass did, in two.
+void main()
+{
+    uint slot = gl_WorkGroupID.x * TAIL_GROUP + gl_LocalInvocationIndex;
+    if (slot >= tail_count) {
+        return;
+    }
+    uvec4 e = tail[slot];
+    ivec2 p = ivec2(int(e.x & 0xFFFFu), int(e.x >> 16));
+    uint rng = e.y;
+    float frames = uintBitsToFloat(e.z);
+    bool water = e.w != 0u;
+    float z = texelFetch(u_drawn, p, 0).r;
+    vec3 eye = pass.eye.xyz;
+    vec3 here = world_at(vec2(p) + 0.5, z);
+    float dist = length(here - eye);
+    vec3 dir = (here - eye) / dist;
+    vec3 n = front_normal(p, here, dir, water);
+    vec3 up_n = n.y < 0.0 ? -n : n;
+    mirror_and_behind(p, here, dir, dist, up_n, frames, rng);
+}
+#endif
 )";
 
 struct Timing {
@@ -515,8 +580,10 @@ struct FrontState {
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkDescriptorSetLayout material_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
-    std::array<VkPipeline, 2> pipelines{}; // without, with the clouds' shadow map
+    // without, with the clouds' shadow map; (round GPU) then the tail pass's two
+    std::array<VkPipeline, 4> pipelines{};
     VkSampler sampler = VK_NULL_HANDLE;
+    DeviceBuffer tail; // (round GPU) the tail pass's queue (its dispatch, then a pixel's entry each)
     bool failed = false;
     // the last lit view's camera (the history's)
     bool before = false;
@@ -551,9 +618,12 @@ VkDescriptorType binding_type(uint32_t binding)
     return binding >= kBindingList ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 }
 
-std::string shader_source(bool cloud_map)
+std::string shader_source(bool cloud_map, bool tail)
 {
     std::string source = "#version 460\n#extension GL_EXT_ray_query : require\n";
+    if (tail) {
+        source += "#define PASS_TAIL\n"; // (round GPU: the mirror and what is behind - the queued pixels)
+    }
     source += "layout(set = 0, binding = 0) uniform accelerationStructureEXT u_scene;\n";
     source += "#define THUG2_MATERIAL_SET 1\n";
     source += material_glsl();
@@ -630,8 +700,9 @@ VkPipeline make_compute(VkDevice device, VkPipelineLayout layout, const std::str
     return pipeline;
 }
 
-// The layout, the sampler and the pipeline wanted (made on first use). False (reported once): they can't be made.
-VkPipeline ensure_pipeline(Backend& state, bool cloud_map, std::string* error)
+// The layout, the sampler and the pipeline wanted (made on first use; `tail` the tail pass's). False (reported once): they
+// can't be made.
+VkPipeline ensure_pipeline(Backend& state, bool cloud_map, bool tail, std::string* error)
 {
     FrontState& own = front_state();
     const VkDevice device = state.context.device();
@@ -686,9 +757,9 @@ VkPipeline ensure_pipeline(Backend& state, bool cloud_map, std::string* error)
             return VK_NULL_HANDLE;
         }
     }
-    VkPipeline& pipeline = core::at(own.pipelines, cloud_map ? 1U : 0U);
+    VkPipeline& pipeline = core::at(own.pipelines, (tail ? 2U : 0U) + (cloud_map ? 1U : 0U));
     if (pipeline == VK_NULL_HANDLE) {
-        pipeline = make_compute(device, own.layout, shader_source(cloud_map), error);
+        pipeline = make_compute(device, own.layout, shader_source(cloud_map, tail), error);
     }
     return pipeline;
 }
@@ -794,6 +865,9 @@ void release_front_layer(Backend& state)
             vkDestroyQueryPool(device, own.timing.pool, nullptr);
         }
     }
+    if (own.tail.buffer != VK_NULL_HANDLE) {
+        state.memory.destroy_buffer(&own.tail);
+    }
     own = FrontState{};
 }
 
@@ -816,8 +890,9 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     CloudShadowMap cloud_map;
     const bool map_now = cloud_shadow_map(state, &cloud_map);
     std::string error;
-    const VkPipeline pipeline = ensure_pipeline(state, map_now, &error);
-    if (pipeline == VK_NULL_HANDLE) {
+    const VkPipeline pipeline = ensure_pipeline(state, map_now, false, &error);
+    const VkPipeline tail_pipeline = pipeline == VK_NULL_HANDLE ? VK_NULL_HANDLE : ensure_pipeline(state, map_now, true, &error);
+    if (pipeline == VK_NULL_HANDLE || tail_pipeline == VK_NULL_HANDLE) {
         own.failed = true;
         if (first_report(state, kReportPipeline)) {
             get_log("front layer: its pass couldn't be made (%s) - see-through surfaces keep their own light", error.c_str());
@@ -863,6 +938,18 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     if (width == 0 || height == 0) {
         return false;
     }
+    // (round GPU) the tail pass's queue: room for every pixel of the view (made again only when the view grows)
+    const VkDeviceSize tail_bytes = kTailEntryBytes * (1 + (static_cast<VkDeviceSize>(width) * height));
+    if (own.tail.buffer == VK_NULL_HANDLE || own.tail.bytes < tail_bytes) {
+        retire_buffer(state, &own.tail);
+        if (!state.memory.create_buffer(tail_bytes,
+                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
+                                            VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                        BufferPlace::kDevice, &own.tail)) {
+            own.tail = DeviceBuffer{};
+            return false;
+        }
+    }
     const float exposure = rt::frame_pre_exposure();
     const bool history = images.history && own.before;
     FrontBlock block;
@@ -904,6 +991,17 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     for (Image* image : storage) {
         Memory::transition(commands, image, VK_IMAGE_LAYOUT_GENERAL, true);
     }
+    // (round GPU) the tail's queue emptied, its dispatch (0, 1, 1) - after the last pass's reads of it (the barrier below
+    // makes the fill visible to this pass)
+    const VkMemoryBarrier tail_free{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                                    .pNext = nullptr,
+                                    .srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_SHADER_READ_BIT |
+                                                     VK_ACCESS_SHADER_WRITE_BIT,
+                                    .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT};
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &tail_free, 0, nullptr, 0, nullptr);
+    constexpr std::array<uint32_t, 4> kNoTail{0U, 1U, 1U, 0U};
+    vkCmdUpdateBuffer(commands, own.tail.buffer, 0, sizeof(kNoTail), kNoTail.data());
     const VkMemoryBarrier ready{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                                 .pNext = nullptr,
                                 .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
@@ -961,14 +1059,40 @@ bool record_front_layer_pass(Backend& state, const rt::ViewDrawn& view)
     if (map_now) {
         add(kBindingCloudMap, nullptr, &cloud_map.image, nullptr);
     }
-    const FrameStep light_step(state.frames, commands, gpu_markers::section::kFrontLight);
-    vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+    const VkDescriptorBufferInfo tail_info = whole(own.tail.buffer);
+    add(kBindingTail, &tail_info, nullptr, nullptr);
     const VkDescriptorSet material_set = state.materials.descriptor_set();
-    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1, &material_set, 0,
-                            nullptr);
-    vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0, static_cast<uint32_t>(writes.size()),
-                              writes.data());
-    vkCmdDispatch(commands, (width + kGroupSide - 1) / kGroupSide, (height + kGroupSide - 1) / kGroupSide, 1);
+    {
+        const FrameStep light_step(state.frames, commands, gpu_markers::section::kFrontLight);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1, &material_set, 0,
+                                nullptr);
+        vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
+                                  static_cast<uint32_t>(writes.size()), writes.data());
+        vkCmdDispatch(commands, (width + kGroupSide - 1) / kGroupSide, (height + kGroupSide - 1) / kGroupSide, 1);
+    }
+    {
+        // (round GPU) The tail: the mirror and what is behind, over the pixels the layer's pass queued (the water's rest
+        // surface and level panes - those facing up) - a pass of their own, wavefront style (Laine et al. 2013; ReSTIR
+        // GI's continued paths, round PERF5): the layer's pass no longer holds their traces, hits and lights (its
+        // registers), and the tail runs densely over the queued pixels alone - the mist's and the panes' pixels that face
+        // no way up don't sit idle in their work groups.
+        const FrameStep tail_step(state.frames, commands, gpu_markers::section::kFrontTail);
+        const VkMemoryBarrier queued{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                                     .pNext = nullptr,
+                                     .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+                                     .dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_SHADER_READ_BIT |
+                                                      VK_ACCESS_SHADER_WRITE_BIT};
+        vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                             VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &queued, 0,
+                             nullptr, 0, nullptr);
+        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_COMPUTE, tail_pipeline);
+        vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, kMaterialSet, 1, &material_set, 0,
+                                nullptr);
+        vkCmdPushDescriptorSetKHR(commands, VK_PIPELINE_BIND_POINT_COMPUTE, own.layout, 0,
+                                  static_cast<uint32_t>(writes.size()), writes.data());
+        vkCmdDispatchIndirect(commands, own.tail.buffer, 0);
+    }
     const VkMemoryBarrier written{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
                                   .pNext = nullptr,
                                   .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,

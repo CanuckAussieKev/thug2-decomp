@@ -77,7 +77,8 @@ constexpr std::array<const char*, section::kCount> kSections{
     "ReSTIR DI's initial candidates",
     "ReSTIR GI's upsample",
     "the front layer's depth",
-    "the front layer's light and mirror",
+    "the front layer's light",
+    "the front layer's mirror and what is behind",
 };
 
 constexpr std::array<const char*, kPhaseCount> kPhases{
