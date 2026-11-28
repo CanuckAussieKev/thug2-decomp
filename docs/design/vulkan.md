@@ -3350,6 +3350,33 @@ takes no lamp light (the lamps reach a surface through the inputs or the front l
 the light list sampled in the forward pass is the technique for that. Check: `thug2_vulkan_rt_lights_check` "a lit
 object's see-through pane without light inputs traces its key light".
 
+**Round VEIL: the local lights on a see-through fragment without light inputs.** The same fragments (a second
+see-through layer, every see-through fragment of a view without a front layer - ReSTIR GI off) took no lamp light at
+all. They now sample the light list's local group themselves in the forward pass (`ff_shaders.cpp kSurfaceLampsGlsl`),
+the way NVIDIA's RTXDI lights surfaces its screen-space reservoirs don't hold: resampled importance sampling over 8
+picks of this frame's light grid cell round the point (ReSTIR DI's ReGIR cells) or of the presampled pool outside the
+grid, weighed by the unshadowed light each sends the point, one chosen and its visibility traced with one inline ray
+query (the world's and the objects' solid casters, as ReSTIR DI's lamps are shadowed) - the picks, lamp records and
+light model ReSTIR GI's next-event estimation, the reflections' hits, the fog and the front layer use
+(`vulkan_light_list.h local_light_seen_glsl`, the half of `local_light_glsl` that reads no scene table;
+`emitter_faces_glsl` split out of `hit_surface_glsl` likewise). The result is the lamps input's unit (a white diffuser's
+radiance on the side facing the eye, pre-exposed) and goes where the inputs' lamps go. The picks reach the draws through
+a small block (`ff_uniforms.h kForwardLightsWords`: the pool's, the grid's and the lamp records' device addresses, the
+frame and its pre-exposure) written as each view's draws are shaded - after ReSTIR DI made the frame's picks; the
+draws' `SurfaceUniforms::local_lights` holds the block's address. ReSTIR DI now makes the pool every frame it runs (it
+was ReSTIR GI's and the fog's), so the fragments have it with GI off. Chosen over a translucency lighting volume by cost,
+as the sun's ray: only the fragments that need it pay. Compromise: one sample a fragment a frame, no history of its own
+(Ray Reconstruction averages it in the frame). Check: `thug2_vulkan_rt_lights_check` "a pane without a front layer
+(ReSTIR GI off) samples the local lights itself" and its lamp-shadow case.
+The same round: the untextured program (vertex colour x pass colour x 2, `PixelProgram::kVertexFactor`) is one the
+per-pixel lighting takes (`ff_key.cpp takes_surface`) - it multiplies by v0 as the others do, its albedo under the
+neutral v0 0.5 the pass colour - and reads no texture coordinates (`normalised` asked for stage 0's of every surface
+key). Its draws - Australia's untextured lit objects, New Orleans' unlit ones without a light store - were the opaque
+draws round CENSUS still found lit by shares; they now take the rays' light and the one light model as everything else
+(rt_water keeps its textured programs: `takes_water`). The rest of the "by shares" draws are unlit see-through ones
+(alpha-blended or drawn without depth, not particles) without a light store - a colour lit already that the inputs
+are never made for. Check: the no-store floor's case with the untextured program.
+
 **Round CENSUS: the bake ratio retired - a surface without a light store takes the rays' light.** What the relit data
 gives no light store - an unlit object's own baked colours (one the relit level doesn't list: it moves, it stands at
 another place), a world mesh with no entry (a day-only mesh of a level baked in its night state - New Orleans' 230 at

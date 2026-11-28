@@ -289,6 +289,10 @@ std::string_view hit_surface_glsl();
 //        vertex alpha read (0 where the instance isn't live)
 //   bool hit_store(...) - the light store at the hit (hit_surface's, below)
 std::string_view hit_albedo_glsl();
+// (round VEIL) GLSL: an emitting triangle's faces - EMITTER_FRONT_SIGN (rt_scene.h kFrontFaceSign) and
+//   float emitter_cos(float sides, vec3 across, vec3 toward) - the cosine it sends `toward` with (|cos| two-sided, its
+//   front's one-sided). hit_surface_glsl holds it; alone it needs no scene table (the forward pass's lamps - ff_shaders.cpp).
+std::string_view emitter_faces_glsl();
 inline constexpr float kHitMetalF0 = 0.2F; // (a surface map's F0 at least this: a metal - the reflections' HIT_METAL_F0)
 // The caller holds the backend's lock.
 SceneView current_scene(const Backend& state);

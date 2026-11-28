@@ -2139,10 +2139,11 @@ bool ensure_buffer(Backend& state, DeviceBuffer* buffer, VkDeviceSize bytes, VkB
 }
 
 // A buffer the processor writes once and the device reads (made again; an earlier frame may still read the old one).
-bool upload_buffer(Backend& state, DeviceBuffer* buffer, const void* data, std::size_t bytes)
+// (`usage`: more than a storage buffer's - round VEIL: the lamps' records read through their device address too)
+bool upload_buffer(Backend& state, DeviceBuffer* buffer, const void* data, std::size_t bytes, VkBufferUsageFlags usage = 0)
 {
     retire_buffer(state, buffer);
-    if (!state.memory.create_buffer(std::max<VkDeviceSize>(bytes, 16), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+    if (!state.memory.create_buffer(std::max<VkDeviceSize>(bytes, 16), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | usage,
                                     BufferPlace::kUpload, buffer) ||
         buffer->mapped == nullptr) {
         return false;
@@ -2335,7 +2336,8 @@ bool update_table(Backend& state, RestirState& own, const std::vector<rt::Emitte
     const rt::lights::LightList list = rt::lights::build_light_list(set, rt::lights::LightWeights::kPower);
     if (!upload_buffer(state, &own.lights, list.table.entries.data(),
                        list.table.entries.size() * sizeof(rt::lights::AliasEntry)) ||
-        !upload_buffer(state, &own.lamps, records.data(), records.size() * sizeof(float))) {
+        !upload_buffer(state, &own.lamps, records.data(), records.size() * sizeof(float),
+                       VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)) {
         return false;
     }
     own.entries = static_cast<uint32_t>(list.table.entries.size());
@@ -2671,6 +2673,30 @@ bool restir_local_lights(Backend& state, VkCommandBuffer commands, const SceneLi
     return true;
 }
 
+ForwardLocalLights restir_forward_local_lights(const Backend& state)
+{
+    const RestirState& own = restir_state();
+    ForwardLocalLights out;
+    const uint64_t serial = state.frames.serial();
+    if (own.entries == 0 || own.light_pool.buffer == VK_NULL_HANDLE || own.lamps.buffer == VK_NULL_HANDLE ||
+        own.pool_serial != serial || own.pool_table != own.table_key) {
+        return out; // (no pool made this frame from this table: nothing to sample)
+    }
+    const auto address = [&state](VkBuffer buffer) {
+        const VkBufferDeviceAddressInfo info{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = buffer};
+        return vkGetBufferDeviceAddress(state.context.device(), &info);
+    };
+    const VkDeviceAddress pool = address(own.light_pool.buffer);
+    out.pool = {static_cast<uint32_t>(pool & 0xFFFFFFFFULL), static_cast<uint32_t>(pool >> 32U), 1U, std::bit_cast<uint32_t>(1.0F)};
+    if (own.grid_serial == serial && own.grid_table == own.table_key && own.grid_picks.buffer != VK_NULL_HANDLE) {
+        const VkDeviceAddress grid = address(own.grid_picks.buffer);
+        out.grid = {static_cast<uint32_t>(grid & 0xFFFFFFFFULL), static_cast<uint32_t>(grid >> 32U), 1U, 0U};
+    }
+    const VkDeviceAddress lamps = address(own.lamps.buffer);
+    out.lamps = {static_cast<uint32_t>(lamps & 0xFFFFFFFFULL), static_cast<uint32_t>(lamps >> 32U), 1U, own.lamp_count};
+    return out;
+}
+
 std::string_view restir_denoiser_glsl()
 {
     // (round PT4d) ReSTIR's output as a denoiser's input. Ray Reconstruction (like every temporal denoiser) averages noise
@@ -2897,6 +2923,10 @@ bool record_restir_di_pass(Backend& state, const rt::ViewDrawn& view)
         own.lit_view = true;
         return true;
     }
+    // (round VEIL) the presampled pool made each frame ReSTIR DI runs, as its grid is: the forward pass's see-through
+    // fragments take their local lights from them whether or not ReSTIR GI runs (GI then finds it made this frame)
+    static_cast<void>(keep_light_pool(state, own, commands, scene,
+                                      core::at(own.emitters, static_cast<std::size_t>(std::max(own.list_now, 0)))));
     // the per-pixel buffers (a new size: no history)
     const std::size_t pixels = static_cast<std::size_t>(width) * height;
     const VkBufferUsageFlags storage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |

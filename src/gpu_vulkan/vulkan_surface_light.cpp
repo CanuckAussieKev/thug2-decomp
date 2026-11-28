@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cstring>
 #include <cstdint>
 #include <string>
@@ -13,6 +14,7 @@
 #include "base/core/checked_index.h"
 #include "base/core/enum_ops.h"
 #include "engine/gfx/rt_cel.h"
+#include "engine/gfx/rt_daylight.h"
 #include "engine/gfx/rt_light_census.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/surface_trail.h"
@@ -21,6 +23,7 @@
 #include "gpu_vulkan/vulkan_backend.h"
 #include "gpu_vulkan/vulkan_cel_draw.h"
 #include "gpu_vulkan/vulkan_hdr.h"
+#include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_memory.h"
 #include "gpu_vulkan/vulkan_objects.h"
 #include "gpu_vulkan/vulkan_prepared_draw.h"
@@ -186,6 +189,10 @@ struct LightState {
     VkSampler sampler = VK_NULL_HANDLE; // (nearest, clamped: the depth, and the inputs for the draws)
     bool failed = false;
     SurfaceLightStats stats;
+    // (round VEIL) the forward pass's local lights (ff_uniforms.h kForwardLightsWords): written as each view's draws are
+    // shaded - after its ReSTIR DI made this frame's picks -, read through its device address by the see-through fragments
+    // without light inputs (ff_shaders.cpp kSurfaceLampsGlsl)
+    DeviceBuffer forward_lights;
 };
 
 LightState& light_state()
@@ -924,6 +931,31 @@ void lay_layers(Backend& state)
 
 bool begin_inputs(Backend& state);
 
+// (round VEIL) This view's forward local lights (LightState::forward_lights): ReSTIR DI's picks of this frame
+// (vulkan_light_list.h restir_forward_local_lights), the frame's count and pre-exposure - read by the shading's draws.
+void write_forward_lights(Backend& state, VkCommandBuffer commands)
+{
+    LightState& own = light_state();
+    if (own.forward_lights.buffer == VK_NULL_HANDLE) {
+        return; // (no draw asked for it: no see-through fragment traces this view)
+    }
+    const ForwardLocalLights lights = restir_forward_local_lights(state);
+    std::array<uint32_t, kForwardLightsWords> words{};
+    std::copy(lights.pool.begin(), lights.pool.end(), words.begin());
+    std::copy(lights.grid.begin(), lights.grid.end(), words.begin() + 4);
+    std::copy(lights.lamps.begin(), lights.lamps.end(), words.begin() + 8);
+    core::at(words, 12) = static_cast<uint32_t>(state.frames.serial());
+    core::at(words, 13) = std::bit_cast<uint32_t>(rt::frame_pre_exposure());
+    vkCmdUpdateBuffer(commands, own.forward_lights.buffer, 0, sizeof(words), words.data());
+    // (the words, and the picks ReSTIR DI's compute passes wrote, read by the draws' fragments)
+    const VkMemoryBarrier written{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                                  .pNext = nullptr,
+                                  .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                                  .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT};
+    vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &written, 0, nullptr, 0, nullptr);
+}
+
 // A view's leftovers shaded (a view that ended without its opaque_drawn): its inputs begun - nothing traced, no lamps,
 // no decals - and its draws shaded with them.
 void flush(Backend& state)
@@ -1083,6 +1115,7 @@ public:
         }
         own.guides_frame = ray_reconstruction_active() || own.guides_forced ? state.frames.serial() : 0;
         own.phase = Phase::kIdle;
+        write_forward_lights(state, commands);
         state.bound = BoundState{}; // (the inputs pushed afresh: draw_kept's draws then keep them)
         const SurfaceLightStats before = own.stats;
         const std::size_t kept = own.kept.size();
@@ -1165,6 +1198,10 @@ void release_surface_light(Backend& state)
         }
         *image = Image{};
     }
+    if (own.forward_lights.buffer != VK_NULL_HANDLE) {
+        state.memory.destroy_buffer(&own.forward_lights);
+    }
+    own.forward_lights = DeviceBuffer{};
     own.layer_frame = 0;
     own.front_history = false;
     own.front_lit = false;
@@ -1282,6 +1319,23 @@ bool surface_light_keep(Backend& state, const GpuStateBlock& block, const DrawCa
 }
 
 SurfaceDrawRole surface_draw_role() { return light_state().role; }
+
+std::array<uint32_t, 4> surface_light_forward_lights(Backend& state)
+{
+    LightState& own = light_state();
+    if (own.forward_lights.buffer == VK_NULL_HANDLE &&
+        !state.memory.create_buffer(kForwardLightsWords * sizeof(uint32_t),
+                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                    BufferPlace::kDevice, &own.forward_lights)) {
+        own.forward_lights = DeviceBuffer{};
+        return {};
+    }
+    const VkBufferDeviceAddressInfo info{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = own.forward_lights.buffer};
+    const VkDeviceAddress address = vkGetBufferDeviceAddress(state.context.device(), &info);
+    return {static_cast<uint32_t>(address & 0xFFFFFFFFULL), static_cast<uint32_t>(address >> 32U), 1U, 0U};
+}
 
 void surface_light_force(const GpuStateBlock& block, bool relit, ShaderKey* shaders)
 {

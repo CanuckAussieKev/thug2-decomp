@@ -849,9 +849,10 @@ void cache_add_direct(vec3 at, vec3 ng, vec3 light, inout uint rng)
     return kSource;
 }
 
-std::string_view local_light_glsl()
-{
-    static constexpr std::string_view kSource = R"(
+namespace {
+// (round VEIL) local_light_glsl in two: what a pick sends a point (no scene table read - the forward pass's lamps read
+// it alone: local_light_seen_glsl) and the pick made from the list (the triangles' corners, emission and instances)
+constexpr std::string_view kLocalSeenGlsl = R"(
 struct LocalLight {
     vec3 light;
     vec3 dir;
@@ -872,48 +873,6 @@ struct LightPick {
 };
 const uint LIGHT_PICK_TRIANGLE = 0xFFFFFFFFu;
 LightPick no_light_pick() { return LightPick(vec3(0.0), vec3(0.0, 1.0, 0.0), vec3(0.0), 0.0, LIGHT_PICK_TRIANGLE, 2.0); }
-LightPick light_pick_at(uint e, uint count, vec2 uv)
-{
-    LightPick p = no_light_pick();
-    if (e >= count) {
-        return p;
-    }
-    LightEntry entry = light_entries[e];
-    uint kind = light_kind(entry.payload);
-    uint index = light_index(entry.payload);
-    if (kind == LIGHT_TRIANGLE) {
-        uvec4 listed = emitter_entries[index];
-        HitVertices tri;
-        if (!hit_vertices(listed.x, listed.y, tri)) {
-            return p;
-        }
-        mat4x3 to_world = instance_transform(listed.x);
-        vec3 a = to_world * vec4(tri.position[0], 1.0);
-        vec3 b = to_world * vec4(tri.position[1], 1.0);
-        vec3 c = to_world * vec4(tri.position[2], 1.0);
-        vec3 across = cross(b - a, c - a);
-        float twice = length(across);
-        if (!(twice > 0.0)) {
-            return p;
-        }
-        vec3 bc = path_triangle_point(uv.x, uv.y);
-        vec3 emitted;
-        if (!hit_emission_of(listed.x, listed.y, instance_material(listed.x), bc.yz, tri, emitted)) { // (round PERF2)
-            return p;
-        }
-        p.y = a * bc.x + b * bc.y + c * bc.z;
-        p.n = across / twice * EMITTER_FRONT_SIGN;
-        p.sides = emitter_sides(instance_material(listed.x));
-        p.emitted = emitted;
-        p.pdf = entry.pdf / (0.5 * twice);
-        return p;
-    }
-    if (kind == LIGHT_LAMP) {
-        p.lamp = index;
-        p.pdf = entry.pdf;
-    }
-    return p;
-}
 // The light a picked point sends `at` (LocalLight, as local_light_at's).
 bool light_seen_from(LightPick p, vec3 at, out LocalLight l)
 {
@@ -957,10 +916,6 @@ bool light_seen_from(LightPick p, vec3 at, out LocalLight l)
     l.reach = max(d - lamp.at.w, 0.0);
     l.pdf = p.pdf;
     return max(l.light.r, max(l.light.g, l.light.b)) > 0.0;
-}
-bool local_light_at(uint e, uint count, vec2 uv, vec3 at, out LocalLight l)
-{
-    return light_seen_from(light_pick_at(e, count, uv), at, l);
 }
 
 // (round PF - NVIDIA RTXDI's presampled light tiles: Wyman and Panteleev 2021, "Rearchitecting spatiotemporal resampling
@@ -1012,7 +967,62 @@ LightPick light_pool_read(uint slot) { return light_pick_words(light_pool[2u * s
 #endif
 #endif
 )";
-    return kSource;
+constexpr std::string_view kLocalPickGlsl = R"(
+LightPick light_pick_at(uint e, uint count, vec2 uv)
+{
+    LightPick p = no_light_pick();
+    if (e >= count) {
+        return p;
+    }
+    LightEntry entry = light_entries[e];
+    uint kind = light_kind(entry.payload);
+    uint index = light_index(entry.payload);
+    if (kind == LIGHT_TRIANGLE) {
+        uvec4 listed = emitter_entries[index];
+        HitVertices tri;
+        if (!hit_vertices(listed.x, listed.y, tri)) {
+            return p;
+        }
+        mat4x3 to_world = instance_transform(listed.x);
+        vec3 a = to_world * vec4(tri.position[0], 1.0);
+        vec3 b = to_world * vec4(tri.position[1], 1.0);
+        vec3 c = to_world * vec4(tri.position[2], 1.0);
+        vec3 across = cross(b - a, c - a);
+        float twice = length(across);
+        if (!(twice > 0.0)) {
+            return p;
+        }
+        vec3 bc = path_triangle_point(uv.x, uv.y);
+        vec3 emitted;
+        if (!hit_emission_of(listed.x, listed.y, instance_material(listed.x), bc.yz, tri, emitted)) { // (round PERF2)
+            return p;
+        }
+        p.y = a * bc.x + b * bc.y + c * bc.z;
+        p.n = across / twice * EMITTER_FRONT_SIGN;
+        p.sides = emitter_sides(instance_material(listed.x));
+        p.emitted = emitted;
+        p.pdf = entry.pdf / (0.5 * twice);
+        return p;
+    }
+    if (kind == LIGHT_LAMP) {
+        p.lamp = index;
+        p.pdf = entry.pdf;
+    }
+    return p;
+}
+bool local_light_at(uint e, uint count, vec2 uv, vec3 at, out LocalLight l)
+{
+    return light_seen_from(light_pick_at(e, count, uv), at, l);
+}
+)";
+} // namespace
+
+std::string_view local_light_seen_glsl() { return kLocalSeenGlsl; }
+
+std::string_view local_light_glsl()
+{
+    static const std::string made = std::string(kLocalSeenGlsl) + std::string(kLocalPickGlsl);
+    return made;
 }
 
 } // namespace render::vulkan

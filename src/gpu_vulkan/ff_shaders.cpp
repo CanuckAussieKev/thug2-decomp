@@ -23,11 +23,15 @@
 #include "engine/gfx/rt_emission_map.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_material_table.h"
+#include "engine/gfx/rt_path.h"
 #include "engine/gfx/rt_relit.h"
 #include "engine/gfx/rt_scene.h"
 #include "engine/gfx/rt_surface_class.h"
 #include "gpu_vulkan/ff_key.h"
 #include "gpu_vulkan/ff_uniforms.h"
+#include "gpu_vulkan/vulkan_light_list.h"
+#include "gpu_vulkan/vulkan_rt_lights.h"
+#include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/water_shader.h"
 
 namespace render::vulkan {
@@ -643,6 +647,7 @@ constexpr const char* kSurfaceBlock = R"(layout(set = 0, binding = 6, std140) un
     vec4 sheen;
     vec4 albedo;
     vec4 eye_to_world[3];
+    uvec4 local_lights;
 } s;
 // (NOT ORIGINAL - round O) the lit paths' colour: with the one light (v_surface_base.w -1) linear light summed on the
 // surface's colour and encoded once; else Direct3D's sum, held to 0 - 1
@@ -733,6 +738,117 @@ float surface_sun_traced(vec3 eye, vec3 eye_normal, vec3 eye_toward, uint mask)
 bool surface_sun_key(const FragmentKey& key)
 {
     return (key.surface & kSurfaceSunTraced) != 0U && (key.surface & kSurfaceCel) == 0U;
+}
+
+// (NOT ORIGINAL - round VEIL) The local lights - the level's lamps and emitting surfaces - on such a fragment (a second
+// see-through layer, a strand card behind another; every see-through fragment of a view without a front layer, where
+// ReSTIR GI is off): before, it took none at all - the lamps reach a surface through the light inputs or the front layer
+// alone. The technique (NVIDIA RTXDI's for surfaces its screen-space reservoirs don't hold: ReGIR at a secondary or
+// transparent surface): the light list's local group sampled in the forward translucency pass - resampled importance
+// sampling (Talbot et al. 2005) over SURFACE_LAMP_CANDIDATES picks of this frame's light grid cell round the point
+// (ReSTIR DI's ReGIR cells - the lights near it) or of the presampled pool outside it, weighed by the light each sends
+// the point (its luminance x the cosine, unshadowed), one chosen, its visibility traced with one inline ray query (DXR
+// 1.1 inline tracing) - the same picks, records and light model ReSTIR GI's next-event estimation, the reflections' hits,
+// the fog and the front layer take (vulkan_light_list.h local_light_seen_glsl). One sample a fragment a frame, no history:
+// Ray Reconstruction averages it in the frame. The result is the lamps input's unit (a white diffuser's radiance - E / pi
+// on the side facing the eye -, pre-exposed); the surface's model puts it on its diffuse lobe as the inputs' lamps.
+// Chosen over a translucency lighting volume (UE's TLV - a froxel grid lit every frame, ~0.3 - 1 ms at 1440p whether or
+// not a fragment reads it, its shadows a froxel wide) by cost: this costs only the fragments that need it (none in most
+// views). The same solid-only ray as the sun's (kSurfaceSunGlsl), of the world's and the objects' solid casters (mask
+// 0x03 - ReSTIR DI's lamps are shadowed by both).
+constexpr const char* kSurfaceLampsGlsl = R"(
+const uint SURFACE_LAMP_CANDIDATES = 8u;
+const uint SURFACE_LAMP_RAYS = 0x03u;
+vec3 surface_lamps_traced(vec3 eye, vec3 eye_normal)
+{
+    if (s.local_lights.z == 0u || !LL_POOL) {
+        return vec3(0.0);
+    }
+    uvec4 frame = SURFACE_LOCAL.frame;
+    vec4 p4 = vec4(eye, 1.0);
+    vec3 at = vec3(dot(s.eye_to_world[0], p4), dot(s.eye_to_world[1], p4), dot(s.eye_to_world[2], p4));
+    vec3 n = vec3(dot(s.eye_to_world[0].xyz, eye_normal), dot(s.eye_to_world[1].xyz, eye_normal),
+                  dot(s.eye_to_world[2].xyz, eye_normal));
+    if (!(dot(n, n) > 1.0e-12)) {
+        return vec3(0.0);
+    }
+    n = normalize(n);
+    at += n * local_light_offset(at);
+    uint rng = path_sequence_start(uint(gl_FragCoord.x), uint(gl_FragCoord.y), frame.x, 0x5645494Cu);
+    float wsum = 0.0;
+    float chosen_target = 0.0;
+    float chosen_cos = 0.0;
+    LocalLight chosen = LocalLight(vec3(0.0), vec3(0.0, 1.0, 0.0), 0.0, 0.0);
+    for (uint k = 0u; k < SURFACE_LAMP_CANDIDATES; ++k) {
+        float uk = path_next(rng);
+        float uc = path_next(rng);
+        LightPick pick;
+        bool from_grid = false;
+        // (light_sample's choice: the cell of the point moved by up to half a cell - each candidate its own)
+        if (LL_GRID_ON) {
+            vec4 place = uintBitsToFloat(light_grid[0]);
+            vec3 jitter = (vec3(path_next(rng), path_next(rng), path_next(rng)) - 0.5) * place.w;
+            uint slot;
+            if (place.w > 0.0 && light_grid_slot(floor((at + jitter - place.xyz) / place.w), uk, slot)) {
+                pick = light_pick_words(light_grid[2u * slot], light_grid[2u * slot + 1u]);
+                from_grid = true;
+            }
+        }
+        if (!from_grid) {
+            pick = light_pool_read(min(uint(uk * float(LIGHT_POOL_SIZE)), LIGHT_POOL_SIZE - 1u));
+        }
+        LocalLight c;
+        if (!light_seen_from(pick, at, c) || !(c.pdf > 0.0)) {
+            continue;
+        }
+        float cosine = dot(c.dir, n);
+        float target = cosine > 1.0e-4 ? path_luma(c.light) * cosine : 0.0;
+        float w = target / c.pdf;
+        if (!(w > 0.0) || isinf(w)) {
+            continue;
+        }
+        wsum += w;
+        if (uc * wsum < w) {
+            chosen = c;
+            chosen_target = target;
+            chosen_cos = cosine;
+        }
+    }
+    if (!(chosen_target > 0.0)) {
+        return vec3(0.0);
+    }
+    // (from the point the light list's samples start at - local_light_offset off it, as every light ray of the list: the
+    // fragment's own surface is see-through, never in the ray's kinds; the cel ray's offset of 2 units moved the shadow's
+    // edge by up to 10 % of the lamp's distance)
+    if (chosen.reach > 1.0e-3) {
+        rayQueryEXT q;
+        rayQueryInitializeEXT(q, surface_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, SURFACE_LAMP_RAYS,
+                              at, 0.0, chosen.dir, chosen.reach);
+        while (rayQueryProceedEXT(q)) {
+        }
+        if (rayQueryGetIntersectionTypeEXT(q, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
+            return vec3(0.0);
+        }
+    }
+    float weight = wsum / (float(SURFACE_LAMP_CANDIDATES) * chosen_target);
+    return chosen.light * (chosen_cos * weight / PATH_PI * uintBitsToFloat(frame.y));
+})";
+
+// (round VEIL) The forward pass's local lights block (ff_uniforms.h kForwardLightsWords) through its device address, the
+// lamps' records through theirs, and the readers of the picks (light_pool_reader_glsl, light_grid_reader_glsl,
+// local_light_seen_glsl) over them - nothing of the scene's tables.
+void surface_lamps_declarations(std::string& out)
+{
+    add(out, {"layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceLocalLights {\n"
+              "    uvec4 pool;\n    uvec4 grid;\n    uvec4 lamp_records;\n    uvec4 frame;\n};\n"
+              "#define SURFACE_LOCAL (SurfaceLocalLights(s.local_lights.xy))\n"
+              "layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceLampRecords { "
+              "LightRecord records[]; };\n"
+              "#define lamps (SurfaceLampRecords(SURFACE_LOCAL.lamp_records.xy).records)"});
+    out += light_pool_reader_glsl("SURFACE_LOCAL.pool");
+    out += light_grid_reader_glsl("SURFACE_LOCAL.grid");
+    out += local_light_seen_glsl();
+    add(out, {"#undef lamps", kSurfaceLampsGlsl});
 }
 
 void cel_declarations(std::string& out, const FragmentKey& key)
@@ -1159,6 +1275,11 @@ void surface_declarations(std::string& out, const FragmentKey& key)
     if (surface_sun_key(key)) {
         static_assert(kCelSceneBinding == 9, "kSurfaceSunGlsl names it");
         add(out, {kSurfaceSunGlsl}); // (round SKIN2)
+        // (round VEIL: the local lights' readers - kSurfaceLampsGlsl)
+        out += rt::path::kPathGlsl;
+        out += rt_lamp_glsl();
+        out += emitter_faces_glsl();
+        surface_lamps_declarations(out);
     }
     if ((key.surface & kSurfaceRelit) != 0U && (key.surface & kSurfaceCel) == 0U && (key.trails & kTrailSnowTint) == 0U) {
         add(out, {kCelVaryingsIn}); // (round M: the relit world's light store, its words 0 - 2)
@@ -1404,6 +1525,9 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
             add(out, {"    if (", unseen, " && s.sun.w > 0.5) {\n"
                       "        surface_traced = surface_sun_traced(surface_eye, surface_geo, s.sun.xyz, 0x03u);\n    }"});
         }
+        // (NOT ORIGINAL - round VEIL: kSurfaceLampsGlsl) ... and its local lights sampled here, on the side facing the eye
+        add(out, {"    if (", unseen, ") {\n        surface_lamps = surface_lamps_traced(surface_eye, "
+                  "dot(surface_geo, surface_v) >= 0.0 ? surface_geo : -surface_geo);\n    }"});
     }
     // (round DB: the decals' material layers - the environment's weight above stays the surface's own roughness's: what
     // the reflections pass, which sees the surface and not its decals, takes over; the layered material weighs the rest)
@@ -2248,6 +2372,8 @@ std::string fragment_shader_glsl(const FragmentKey& key)
     std::string out = std::string(traced ? "#version 460\n" : "#version 450\n") + "// generated: " + describe(key) + "\n";
     if (traced) {
         out += "#extension GL_EXT_ray_query : require\n";
+        // (round VEIL: the local lights' picks and records read through their device addresses)
+        out += "#extension GL_EXT_buffer_reference : require\n#extension GL_EXT_buffer_reference_uvec2 : require\n";
     }
     if (emission_splat_key(key)) {
         out += "#extension GL_EXT_fragment_shader_barycentric : require\n"; // (round SUBPIX)
