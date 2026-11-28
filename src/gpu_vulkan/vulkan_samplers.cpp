@@ -7,6 +7,7 @@
 #include <map>
 #include <volk.h>
 
+#include "base/core/checked_index.h"
 #include "engine/gfx/gpu.h"
 #include "gpu_vulkan/vulkan_formats.h"
 
@@ -75,16 +76,23 @@ VkSamplerCreateInfo sampler_info(const SamplerKey& key, const SamplerLimits& lim
 
 VkSampler SamplerCache::sampler(const SamplerKey& key)
 {
-    const auto found = samplers_.find(key);
-    if (found != samplers_.end()) {
-        return found->second;
+    for (const Recent& entry : recent_) {
+        if (entry.sampler != VK_NULL_HANDLE && entry.key == key) {
+            return entry.sampler;
+        }
     }
-    const VkSamplerCreateInfo info = sampler_info(key, limits_);
     VkSampler made = VK_NULL_HANDLE;
-    if (vkCreateSampler(device_, &info, nullptr, &made) != VK_SUCCESS) {
-        return VK_NULL_HANDLE;
+    if (const auto found = samplers_.find(key); found != samplers_.end()) {
+        made = found->second;
+    } else {
+        const VkSamplerCreateInfo info = sampler_info(key, limits_);
+        if (vkCreateSampler(device_, &info, nullptr, &made) != VK_SUCCESS) {
+            return VK_NULL_HANDLE;
+        }
+        samplers_.emplace(key, made);
     }
-    samplers_.emplace(key, made);
+    core::at(recent_, recent_next_) = {.key = key, .sampler = made};
+    recent_next_ = (recent_next_ + 1) % kRecent;
     return made;
 }
 
@@ -94,6 +102,8 @@ void SamplerCache::clear()
         vkDestroySampler(device_, sampler, nullptr);
     }
     samplers_.clear();
+    recent_ = {};
+    recent_next_ = 0;
 }
 
 } // namespace render::vulkan

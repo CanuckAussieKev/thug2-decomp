@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <volk.h>
@@ -64,6 +66,15 @@ private:
     VkDevice device_ = nullptr;
     SamplerLimits limits_;
     std::map<SamplerKey, VkSampler> samplers_;
+    // (round PERF2) the last keys asked for and their samplers, looked at before the map: a view's draws ask for the
+    // same few (four stages and the detail layer a draw, three thousand draws a view at NO), each a walk down the tree
+    struct Recent {
+        SamplerKey key;
+        VkSampler sampler = VK_NULL_HANDLE;
+    };
+    static constexpr std::size_t kRecent = 8;
+    std::array<Recent, kRecent> recent_{};
+    std::size_t recent_next_ = 0;
 };
 
 // The sampler's create info for a key (what SamplerCache makes; for the checks).
