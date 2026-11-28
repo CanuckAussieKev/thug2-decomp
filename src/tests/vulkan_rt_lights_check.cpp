@@ -3433,11 +3433,15 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     // list does (local_light_offset off the point). The cel ray's start it took before - 2 units up the normal, 1 along
     // the light - put the ray's start above the plane by more than the shadow's edge allows at a grazing sun: the box's
     // top edge then cut it ~8 units further from the box, so the pane lit inside the box's shadow along its far edge.
-    const auto pane_case = [&](const Vec3& toward, const char* what) {
+    // (round BIND) `scene` in place of the meshes when given (the box a cut-out caster); `shadowed` false: the box casts
+    // nothing (its texels' alpha 0) - every pixel lit, in the box's shadow too
+    const auto pane_case = [&](const Vec3& toward, const char* what, std::span<const SceneMesh> scene = {},
+                               bool shadowed = true) {
+        const std::span<const SceneMesh> drawn = scene.empty() ? meshes : scene;
         std::vector<uint8_t> pane;
         bool drew = ok;
         for (int pass = 0; drew && pass < 2; ++pass) { // (the second time round: the TLAS of the frame before built)
-            drew = draw_per_surface(gpu, targets, meshes, true, Over::kLitPane, frame++, &pane, nullptr, nullptr, 0, false,
+            drew = draw_per_surface(gpu, targets, drawn, true, Over::kLitPane, frame++, &pane, nullptr, nullptr, 0, false,
                                     &toward);
         }
         const Solid& box = core::at(kScene, 1);
@@ -3470,7 +3474,11 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                     continue;
                 }
                 const double light = luma_of(linear_pixel_at(pane, x, y));
-                if (shadow) {
+                if (shadow && !shadowed) { // (round BIND: the cut-out's holes - lit as in the open)
+                    ++shaded;
+                    brightest_shaded = std::max(brightest_shaded, light);
+                    shaded_lit += light < 0.02 ? 1 : 0; // (here: the dark ones)
+                } else if (shadow) {
                     ++shaded;
                     brightest_shaded = std::max(brightest_shaded, light);
                     shaded_lit += light > kLinearTolerance ? 1 : 0;
@@ -3483,11 +3491,33 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
         }
         tally->check(drew && sunlit > 1000 && shaded > 300 && shaded_lit == 0 && sunlit_dark == 0,
                      text::format("%s: %d sunlit pixels (darkest %.4f, %d dark), %d in the box's sun shadow (brightest %.4f, "
-                                  "%d lit)",
+                                  "%d %s)",
                                   what, sunlit, sunlit > 0 ? darkest_lit : 0.0, sunlit_dark, shaded, brightest_shaded,
-                                  shaded_lit));
+                                  shaded_lit, shadowed ? "lit" : "dark"));
     };
     pane_case(toward, "(round SKIN2) a lit object's see-through pane without light inputs traces its key light");
+    // (round BIND - ff_shaders.cpp kSurfaceThroughGlsl) The same with the box a cut-out caster (alpha tested - a fence, a
+    // grate): the pane's sun ray is the light list's one light ray (ray_light), the cut-out by its alpha. Its texels' alpha
+    // 255: it shadows the pane as the solid box; alpha 0: no shadow at all. Before, the ray took the solid casters alone
+    // (the cut-outs' mask 0x04 not in it): the pane lit through the opaque cut-out's shadow.
+    for (const uint32_t texel : {0xFFFFFFFFU, 0x00FFFFFFU}) {
+        render::GpuTexture* cut_texture = nullptr;
+        rt::MaterialId cut_material = 0;
+        if (!make_cutout_material(gpu, texel, core::at(kScene, 1).albedo, &cut_texture, &cut_material)) {
+            tally->check(false, "(round BIND) the cut-out material made");
+            continue;
+        }
+        std::vector<SceneMesh> cut(meshes.begin(), meshes.end());
+        core::at(cut, 1).material = cut_material;
+        core::at(cut, 1).flags = rt::kWorld | rt::kAlphaTested | rt::kCastsShadow;
+        const bool solid = texel == 0xFFFFFFFFU;
+        pane_case(toward,
+                  solid ? "(round BIND) ... the box a cut-out caster, its texels' alpha 255: its shadow on the pane"
+                        : "(round BIND) ... its texels' alpha 0: no shadow on the pane",
+                  cut, solid);
+        rt::ray_tracing()->remove_material(cut_material);
+        gpu.release_texture(cut_texture);
+    }
     {
         const Vec3 low = normalised({1.0, 0.25, 0.3});
         const std::array<float, 3> low_sun = floats(low);
@@ -4787,6 +4817,15 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
         tally->check(ok && veil_made && veil_shaded > 100 && veil_shaded_lit == 0,
                      text::format("  ... %d in the box's shadow of the lamp: brightest %.4f (the lit ones' mean %.4f), %d lit",
                                   veil_shaded, veil_brightest_shaded, lit_mean, veil_shaded_lit));
+        // (round BIND) Each lamp counted once on a relit overlay's fragment there: its environment is the light store's
+        // words 0 + 2 (the sky and bounce, the lamps' light - rt_cel.h), and word 2 is written x (1 - lamps_drawn) -
+        // relit's per-vertex lamps give way wholly to the pass that owns them (render_pc/rt_relit_world.cpp
+        // vertex_lamps). The lamps these fragments trace are ReSTIR DI's picks, made only while that pass owns them: so
+        // the store's lamps are 0 wherever they are traced.
+        tally->check(rt::lamps_drawn() == 1.0F,
+                     text::format("  (round BIND) the lamps traced here are the lamps pass's own (lamps_drawn %.1f): the "
+                                  "light store holds none of their light - counted once",
+                                  static_cast<double>(rt::lamps_drawn())));
     }
     // (round DEPTH - ff_shaders.cpp kSurfaceIndirectGlsl) With ReSTIR GI on, a pane seen through another one: its fragments
     // are neither the inputs' surface nor the front layer's (the pane over it is). A pane low over the floor (5 units: past
@@ -4796,30 +4835,64 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     // one alone, the low one alone and neither) against its light as the front layer at the same pixels (the frames with
     // it alone): the same - the lamp, the sky and the bounce. Before, behind the high pane it took the lamp alone (the
     // store's environment, black here, in place of the sky and the bounce).
-    {
-        constexpr std::array<double, 5> kLowPane{5.0, -26.0, -12.0, -40.0, 40.0};
-        constexpr std::array<double, 5> kHighPane{40.0, -23.0, -4.0, 16.0, 84.0};
-        // (the bounce is ~a tenth of the low pane's light here: the case without it reads ~0.93)
-        constexpr double kDepthTolerance = 0.05;
+    // (round BIND) `miss`: the low pane in the air (no surface's cell where it is), drawn behind the high one first - its
+    // points' radiance cache cells never written while it is seen through the high pane (checked), so its bounce is
+    // traced on there (light_bounce_glsl traced_bounce - the front layer's rule) where before it took 0
+    const auto depth_case = [&](const std::array<double, 5>& kLowPane, const std::array<double, 5>& kHighPane,
+                                const Vec3& lamp_at, bool miss, double kDepthTolerance, const char* what) {
         vk::set_rt_gi_settings({.indirect = vk::RtIndirectLight::kRestir});
         const std::array<rt::Light, 1> depth_points{{{.kind = rt::Light::Kind::kPoint,
                                                       .colour = {1.0F, 0.9F, 0.7F},
-                                                      .position = floats(kVeilLamp),
+                                                      .position = floats(lamp_at),
                                                       .radius = static_cast<float>(kFrontReach)}}};
         std::vector<uint8_t> both;
         std::vector<uint8_t> high_only;
         std::vector<uint8_t> low_only;
         std::vector<uint8_t> neither;
-        const auto frames = [&](const std::array<double, 5>* pane, const std::array<double, 5>* over, std::vector<uint8_t>* out) {
+        // (round BIND: more - the frames' last kAveraged colours too, the one-sample estimates averaged)
+        constexpr int kAveraged = 16;
+        std::vector<std::vector<uint8_t>> both_frames;
+        const auto frames = [&](const std::array<double, 5>* pane, const std::array<double, 5>* over, std::vector<uint8_t>* out,
+                                std::vector<std::vector<uint8_t>>* more = nullptr) {
             for (int k = 0; ok && k < kFrontFrames; ++k) {
+                std::vector<uint8_t> kept;
+                const bool keep = more != nullptr && k + kAveraged >= kFrontFrames;
                 ok = draw_front(gpu, targets, meshes, depth_points, pane != nullptr, frame++, nullptr, nullptr,
-                                k + 1 == kFrontFrames ? out : nullptr, false, nullptr, nullptr, nullptr, pane, over);
+                                k + 1 == kFrontFrames ? out : (keep ? &kept : nullptr), false, nullptr, nullptr, nullptr, pane,
+                                over);
+                if (keep) {
+                    more->push_back(k + 1 == kFrontFrames ? *out : std::move(kept));
+                }
             }
         };
-        frames(&kLowPane, nullptr, &low_only); // (first: the low pane the front layer - its cells written)
-        frames(&kLowPane, &kHighPane, &both);
+        int missed = 0; // (round BIND: the low pane's points without a trusted cell after its frames behind the high one)
+        int cell_points = 0;
+        if (!miss) {
+            frames(&kLowPane, nullptr, &low_only); // (first: the low pane the front layer - its cells written)
+        }
+        frames(&kLowPane, &kHighPane, &both, miss ? &both_frames : nullptr);
+        if (miss) {
+            std::vector<uint8_t> entries;
+            vk::FrameLightList list;
+            bool read = false;
+            {
+                vk::Backend& state = vk::backend();
+                const std::scoped_lock lock(state.mutex);
+                read = vk::restir_gi_read_cache(state, &entries, &list);
+            }
+            for (double x = core::at(kLowPane, 1) + kFrontMargin; read && x <= core::at(kLowPane, 2) - kFrontMargin; x += 2.0) {
+                for (double z = core::at(kLowPane, 3) + kFrontMargin; z <= core::at(kLowPane, 4) - kFrontMargin; z += 2.0) {
+                    const CacheCell cell = cache_cell_at(entries, list, Vec3{x, core::at(kLowPane, 0), z}, Vec3{0.0, 1.0, 0.0});
+                    ++cell_points;
+                    missed += !cell.found || (cell.samples < 32U && cell.frames < 16U) ? 1 : 0;
+                }
+            }
+        }
         frames(&kHighPane, nullptr, &high_only);
         frames(nullptr, nullptr, &neither);
+        if (miss) {
+            frames(&kLowPane, nullptr, &low_only); // (last: as the front layer it writes its cells)
+        }
         const Solid& box = core::at(kScene, 1);
         double behind_sum = 0.0;
         double front_sum = 0.0;
@@ -4849,7 +4922,14 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
                 // (each pane blends a over what is behind it: both - high alone = (1 - a) a (low - floor); the low one's
                 // own colour x a from the differences)
                 const double floor = luma_of(linear_pixel_at(neither, x, y));
-                const double behind = ((luma_of(linear_pixel_at(both, x, y)) - luma_of(linear_pixel_at(high_only, x, y))) /
+                double both_light = luma_of(linear_pixel_at(both, x, y));
+                if (!both_frames.empty()) {
+                    both_light = 0.0;
+                    for (const std::vector<uint8_t>& one : both_frames) {
+                        both_light += luma_of(linear_pixel_at(one, x, y)) / static_cast<double>(both_frames.size());
+                    }
+                }
+                const double behind = ((both_light - luma_of(linear_pixel_at(high_only, x, y))) /
                                        (1.0 - kFrontGlassAlpha)) +
                                       (kFrontGlassAlpha * floor);
                 const double front = luma_of(linear_pixel_at(low_only, x, y)) - ((1.0 - kFrontGlassAlpha) * floor);
@@ -4859,11 +4939,22 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
             }
         }
         const double depth_ratio = front_sum > 0.0 ? behind_sum / front_sum : 0.0;
-        tally->check(ok && pixels > 300 && std::abs(depth_ratio - 1.0) <= kDepthTolerance,
-                     text::format("  (round DEPTH) with ReSTIR GI, a pane seen through another one: its light %.4f x its "
-                                  "light as the front layer at the same %d pixels (its colour's mean %.4f there)",
-                                  depth_ratio, pixels, pixels > 0 ? front_sum / (pixels * kFrontGlassAlpha) : 0.0));
-    }
+        tally->check(ok && pixels > 300 && std::abs(depth_ratio - 1.0) <= kDepthTolerance &&
+                         (!miss || (cell_points > 20 && missed == cell_points)),
+                     text::format("  %s: its light %.4f x its light as the front layer at the same %d pixels (its colour's "
+                                  "mean %.4f there)%s",
+                                  what, depth_ratio, pixels, pixels > 0 ? front_sum / (pixels * kFrontGlassAlpha) : 0.0,
+                                  miss ? text::format("; %d of %d points a miss of the cache", missed, cell_points).c_str()
+                                       : ""));
+    };
+    // (the bounce is ~a tenth of the low pane's light here: the case without it reads ~0.93)
+    depth_case({5.0, -26.0, -12.0, -40.0, 40.0}, {40.0, -23.0, -4.0, 16.0, 84.0}, kVeilLamp, false, 0.05,
+               "(round DEPTH) with ReSTIR GI, a pane seen through another one");
+    // (round BIND) the low pane 20 units up in the air beside the box's wall, the lamp low across it (15 up: under the
+    // pane's plane - no direct light on its upper face): its light all the bounce off the lamp-lit wall over it, where no
+    // cell of the radiance cache is ever written while it is behind the high pane. Before, 0 there.
+    depth_case({20.0, -26.0, -12.0, -40.0, 40.0}, {50.0, -22.0, -6.0, 14.0, 81.0}, Vec3{-60.0, 15.0, 0.0}, true, 0.10,
+               "(round BIND) ... the pane in the air, a miss of the radiance cache: its bounce traced on");
     vk::set_rt_gi_settings({.indirect = vk::RtIndirectLight::kPasses});
     vk::set_rt_light_settings({});
     rt::set_level_emitters({});

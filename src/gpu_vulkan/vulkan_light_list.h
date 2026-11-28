@@ -208,6 +208,14 @@ struct ForwardLocalLights {
 // CACHE_SCALE (kRadianceCacheScale), LL_CACHE_FRAME (ReSTIR GI's frame count - FrameLightList::cache_frame: an entry's
 // last update, what the resolve pass frees it by) and LL_CACHE_EXPOSURE (the frame's pre-exposure).
 [[nodiscard]] std::string_view radiance_cache_write_glsl();
+// (round BIND - the front layer's, shared) GLSL: a surface a ray met lit as a bounce's vertex, and the bounce traced on
+// past a miss of the radiance cache (after light_sample_glsl with LL_CACHE and hit_surface_glsl / cutout_rays_glsl over
+// the TLAS `u_scene`; the caller defines LL_RAYS - the light rays' kinds - and LL_SUN / LL_SUN_RADIANCE as light_sample's):
+//   vec3 good3(vec3 x);                                            - x, or 0 where it is not a number
+//   vec3 hit_lit(HitSurface h, vec3 r, inout uint rng, bool emitting) - its light seen along r (the global unit)
+//   vec3 traced_bounce(vec3 at, vec3 n, inout uint rng)           - one cosine ray's bounce on a white diffuser (E / pi)
+// The front layer's and the forward pass's see-through fragments' (ff_shaders.cpp kSurfaceIndirectGlsl) one rule.
+[[nodiscard]] std::string_view light_bounce_glsl();
 
 // (round WF - path tracing, stage 7) The full list and the radiance cache as ReSTIR GI used them in the frame (vulkan_restir_gi.h
 // restir_gi_frame_lights): what the passes after it that light surfaces the prepass doesn't hold sample - one light list

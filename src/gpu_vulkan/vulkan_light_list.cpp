@@ -620,6 +620,92 @@ vec3 light_sample(vec3 p, vec3 n, vec3 ng, uint mask, inout uint rng, out vec3 d
     return kWhole;
 }
 
+std::string_view light_bounce_glsl()
+{
+    // (round BIND - moved here from the front layer, unchanged but for the caller's ray kinds - LL_RAYS - and the disc's
+    // LL_SUN / LL_SUN_RADIANCE: the forward pass's see-through fragments trace a cache miss on by the same text)
+    static constexpr std::string_view kSource = R"(
+vec3 good3(vec3 x) { return any(isnan(x)) || any(isinf(x)) ? vec3(0.0) : x; }
+// A surface a ray met (seen along `r`), lit as ReSTIR GI's secondary vertices and the reflections pass's hits are - its
+// emission (`emitting`; (round LAYER) not a bounce ray's: its estimate takes the list's lights by their own samples -
+// next-event estimation - as ReSTIR GI's next_event does), the light list's light through its BSDF (one sample, its own
+// candidates), the disc's by its own ray, its reflectance x the radiance cache's bounce. The global unit (the caller
+// pre-exposes).
+vec3 hit_lit(HitSurface h, vec3 r, inout uint rng, bool emitting)
+{
+    vec3 v = -r;
+    vec3 ng = dot(h.normal, v) >= 0.0 ? h.normal : -h.normal;
+    vec3 sn = dot(h.shading_normal, v) > 0.0 ? h.shading_normal : ng;
+    vec3 p = h.position + ng * local_light_offset(h.position);
+    vec3 lit = emitting ? max(h.emitted, vec3(0.0)) : vec3(0.0);
+    ll_cell_candidates = false; // (its own candidates: no reuse smooths a shared cell's error - the reflections' hits)
+    vec3 toward;
+    vec3 incident = light_sample(p, sn, ng, LL_RAYS, rng, toward);
+    ll_cell_candidates = true;
+    if (max(incident.r, max(incident.g, incident.b)) > 0.0) {
+        lit += path_bsdf_cosine(h.material, sn, v, toward) * incident;
+    }
+    if (LL_SUN.w < 1.5) {
+        vec3 l = path_to_world(LL_SUN.xyz, path_cone_direction(LL_SUN.w, path_next(rng), path_next(rng)));
+        if (dot(ng, l) > 0.0 && dot(sn, l) > 0.0) {
+            float seen = sun_kept(p) * ray_light_share(LL_RAYS, p, l, LL_REACH);
+            lit += path_bsdf_cosine(h.material, sn, v, l) * LL_SUN_RADIANCE.rgb * (LL_SUN_RADIANCE.w * seen);
+        }
+    }
+    lit += brdf_ambient(h.material, dot(sn, v), vec3(1.0), vec3(1.0)) * cache_bounce(h.position, ng);
+    return good3(lit);
+}
+
+// (round LAYER) The bounce a white diffuser at `at` facing `n` gets (E / pi, the radiance cache's unit) where the cache
+// has no trusted cell for it - SHaRC's query rule (cache_lookup): on a miss the caller goes on tracing the path, as ReSTIR
+// GI's secondary vertices do (continue_path). One ray along the diffuser's cosine lobe - with the cosine's pdf the light
+// it meets is a one-sample estimate of E / pi - to the closest surface (hidden ones passed), lit as a bounce's vertex
+// (hit_lit: its direct light, its reflectance x the cache's bounce there; not its emission - the list's lights are the
+// caller's own samples); nothing where it leaves the world (the sky's light is the list's). The front layer's point is
+// often in the air - a particle cloud, a pane away from every wall - where no surface ever claims a cell: read as 0 there
+// (the cache's miss), the layer had no bounce at all (Barcelona's fountain mist ~0.6 - 0.8 of the reference's light, 0.4 -
+// 0.5 over the shaded facade, where the bounce is most of it).
+vec3 traced_bounce(vec3 at, vec3 n, inout uint rng)
+{
+    vec3 r = path_to_world(n, path_cosine_direction(path_next(rng), path_next(rng)));
+    if (!(dot(r, n) > 0.0)) {
+        return vec3(0.0);
+    }
+    vec3 origin = at;
+    for (uint skipped = 0u; skipped <= 4u; ++skipped) {
+        rayQueryEXT query;
+        rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, LL_RAYS, origin, 0.0, r, LL_REACH);
+        while (rayQueryProceedEXT(query)) {
+            if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
+                cutout_kept(rayQueryGetIntersectionInstanceIdEXT(query, false),
+                            rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
+                            rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
+                            rayQueryGetIntersectionBarycentricsEXT(query, false))) {
+                rayQueryConfirmIntersectionEXT(query);
+            }
+        }
+        if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
+            return vec3(0.0);
+        }
+        HitSurface h;
+        if (!hit_surface(rayQueryGetIntersectionInstanceIdEXT(query, true),
+                         rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
+                         rayQueryGetIntersectionInstanceCustomIndexEXT(query, true),
+                         rayQueryGetIntersectionBarycentricsEXT(query, true),
+                         rayQueryGetIntersectionObjectToWorldEXT(query, true), r, h)) {
+            return vec3(0.0);
+        }
+        if (!h.hidden) {
+            return hit_lit(h, r, rng, false);
+        }
+        origin = h.position + r * local_light_offset(h.position); // (a mesh the light store hides: not there)
+    }
+    return vec3(0.0);
+}
+)";
+    return kSource;
+}
+
 std::string_view radiance_cache_read_glsl()
 {
     static constexpr std::string_view kSource = R"(

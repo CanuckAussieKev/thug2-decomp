@@ -948,17 +948,28 @@ void write_forward_lights(Backend& state, VkCommandBuffer commands)
     core::at(words, 13) = std::bit_cast<uint32_t>(rt::frame_pre_exposure());
     // (round DEPTH) ReSTIR GI's list as it lit this view: the sky and the radiance cache - the indirect light the rest of
     // the view has, for the fragments that read neither the inputs nor the front layer (ff_shaders.cpp kSurfaceIndirectGlsl)
+    const auto address = [&state](VkBuffer buffer) {
+        const VkBufferDeviceAddressInfo info{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = buffer};
+        return vkGetBufferDeviceAddress(state.context.device(), &info);
+    };
+    const auto put = [&words](std::size_t at, VkDeviceAddress a) {
+        core::at(words, at) = static_cast<uint32_t>(a & 0xFFFFFFFFULL);
+        core::at(words, at + 1) = static_cast<uint32_t>(a >> 32U);
+    };
+    // (round BIND) the scene's tables - the geometry table and the TLAS instances - as every light ray reads them (the
+    // cut-outs' alpha, the seen-through surfaces' share, a bounce's hit): with or without ReSTIR GI
+    const SceneView scene = current_scene(state);
+    if (scene.geometry != VK_NULL_HANDLE && scene.instances_address != 0) {
+        put(38, scene.instances_address);
+        core::at(words, 40) = scene.instances;
+        put(41, address(scene.geometry));
+        core::at(words, 52) = 1U;
+    }
     FrameLightList list;
     if (restir_gi_frame_lights(state, &list) && list.cache != VK_NULL_HANDLE && list.sky_cells != VK_NULL_HANDLE &&
-        list.sky_alias != VK_NULL_HANDLE && list.table != VK_NULL_HANDLE) {
-        const auto address = [&state](VkBuffer buffer) {
-            const VkBufferDeviceAddressInfo info{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = buffer};
-            return vkGetBufferDeviceAddress(state.context.device(), &info);
-        };
-        const auto put = [&words](std::size_t at, VkDeviceAddress a) {
-            core::at(words, at) = static_cast<uint32_t>(a & 0xFFFFFFFFULL);
-            core::at(words, at + 1) = static_cast<uint32_t>(a >> 32U);
-        };
+        list.sky_alias != VK_NULL_HANDLE && list.table != VK_NULL_HANDLE && list.emitters != VK_NULL_HANDLE &&
+        list.lamps != VK_NULL_HANDLE && list.membership != VK_NULL_HANDLE && list.slots != VK_NULL_HANDLE &&
+        core::at(words, 52) != 0U) {
         put(16, address(list.sky_cells));
         put(18, address(list.sky_alias));
         put(20, address(list.cache));
@@ -970,6 +981,22 @@ void write_forward_lights(Backend& state, VkCommandBuffer commands)
         core::at(words, 27) = std::bit_cast<uint32_t>(list.cache_cells);
         core::at(words, 28) = std::bit_cast<uint32_t>(list.sky_dist);
         put(29, address(list.table));
+        // (round BIND) the rest of the list - a miss of the cache traces the bounce on (vulkan_light_list.h
+        // light_bounce_glsl: its hit lit by light_sample, as the front layer's): the emitters, the instances' first
+        // triangles, the triangles' places, the entries, the disc; and the pool's share of the list's picks as GI read
+        // it (light_sample's LL_POOL_SHARE - the local lights' own sampling, kSurfaceLampsGlsl, reads no share)
+        put(32, address(list.emitters));
+        put(34, address(list.membership));
+        put(36, address(list.slots));
+        core::at(words, 43) = list.entries;
+        for (std::size_t k = 0; k < 4; ++k) {
+            core::at(words, 44 + k) = std::bit_cast<uint32_t>(core::at(list.sun, k));
+            core::at(words, 48 + k) = std::bit_cast<uint32_t>(core::at(list.sun_radiance, k));
+        }
+        if (core::at(list.pool, 2) != 0U && core::at(words, 2) != 0U && core::at(list.pool, 0) == core::at(words, 0) &&
+            core::at(list.pool, 1) == core::at(words, 1)) { // (the same pool: ReSTIR DI's, this frame's)
+            core::at(words, 3) = core::at(list.pool, 3);
+        }
     }
     vkCmdUpdateBuffer(commands, own.forward_lights.buffer, 0, sizeof(words), words.data());
     // (the words, and the picks ReSTIR DI's compute passes wrote, read by the draws' fragments)
@@ -1462,7 +1489,9 @@ void surface_light_finish(Backend& state, const GpuStateBlock& block, ShaderKey*
     // the front layer's (a second pane behind the first, a strand card behind another) trace their key light's
     // visibility themselves, through the frame's TLAS - one rule for every see-through fragment lit per pixel. Not
     // where the device can't trace from a fragment shader or no TLAS was built this frame (the fallbacks stand).
-    if (overlay && state.pipelines.ray_queries() && cel_scene() != VK_NULL_HANDLE) {
+    // (round BIND: their rays read the material table - set 2 - as every light ray does)
+    if (overlay && state.pipelines.ray_queries() && cel_scene() != VK_NULL_HANDLE && state.materials.ready() &&
+        state.materials.descriptor_set() != VK_NULL_HANDLE) {
         fragment.surface = static_cast<uint8_t>(fragment.surface | kSurfaceSunTraced);
     }
     // (round DECAL - UE's DBuffer decals) such an overlay of the relit world is a material layer of the surface it lies

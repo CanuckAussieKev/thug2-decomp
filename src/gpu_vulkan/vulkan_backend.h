@@ -139,6 +139,8 @@ struct BoundState {
     bool surface_pushed = false;
     // (NOT ORIGINAL - round V; round FL: a set of its own) the view's light inputs' descriptor set bound (set 1)
     VkDescriptorSet light_set = VK_NULL_HANDLE;
+    // (NOT ORIGINAL - round BIND) the material table's descriptor set bound (set 2: a tracing fragment's rays read it)
+    VkDescriptorSet material_set = VK_NULL_HANDLE;
 };
 
 // Counts and times for the log (vulkan_draws.cpp writes a line every so many frames).

@@ -2155,6 +2155,9 @@ bool upload_buffer(Backend& state, DeviceBuffer* buffer, const void* data, std::
     return true;
 }
 
+// (round BIND) the list's buffers the forward pass reads by address (vulkan_surface_light.cpp write_forward_lights)
+constexpr VkBufferUsageFlags kAddressed = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
 void barrier(VkCommandBuffer commands, VkPipelineStageFlags from, VkAccessFlags from_access, VkPipelineStageFlags to,
              VkAccessFlags to_access)
 {
@@ -2205,14 +2208,15 @@ bool record_scan(Backend& state, RestirState& own, VkCommandBuffer commands, con
     const int into = own.list_now == 0 ? 1 : 0;
     DeviceBuffer& list = core::at(own.emitters, static_cast<std::size_t>(into));
     DeviceBuffer& slots = core::at(own.slots, static_cast<std::size_t>(into));
-    const VkBufferUsageFlags storage =
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    // (round BIND: the list and the triangles' places read by the forward pass through their addresses too)
+    const VkBufferUsageFlags storage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     const VkDeviceSize list_bytes =
         (kEmitterHeaderWords + (static_cast<VkDeviceSize>(kEmitterEntryWords) * kListCapacity)) * sizeof(uint32_t);
     if (!ensure_buffer(state, &list, list_bytes, storage, BufferPlace::kDevice) ||
         !ensure_buffer(state, &slots, std::max<VkDeviceSize>(total, 1) * sizeof(uint32_t), storage,
                        BufferPlace::kDevice) ||
-        !upload_buffer(state, &own.membership, firsts.data(), firsts.size() * sizeof(uint32_t)) ||
+        !upload_buffer(state, &own.membership, firsts.data(), firsts.size() * sizeof(uint32_t), kAddressed) ||
         !ensure_buffer(state, &own.read_back, list_bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT, BufferPlace::kReadBack)) {
         return false;
     }
@@ -2538,15 +2542,15 @@ bool keep_local_lights(Backend& state, RestirState& own, VkCommandBuffer command
     }
     const std::array<uint32_t, 4> empty_list{};
     if (own.list_now < 0 && core::at(own.emitters, 0).buffer == VK_NULL_HANDLE &&
-        !upload_buffer(state, &core::at(own.emitters, 0), empty_list.data(), sizeof(empty_list))) {
+        !upload_buffer(state, &core::at(own.emitters, 0), empty_list.data(), sizeof(empty_list), kAddressed)) {
         return false;
     }
     if (own.membership.buffer == VK_NULL_HANDLE &&
-        !upload_buffer(state, &own.membership, empty_list.data(), sizeof(empty_list))) {
+        !upload_buffer(state, &own.membership, empty_list.data(), sizeof(empty_list), kAddressed)) {
         return false;
     }
     if (core::at(own.slots, 0).buffer == VK_NULL_HANDLE &&
-        !upload_buffer(state, &core::at(own.slots, 0), empty_list.data(), sizeof(empty_list))) {
+        !upload_buffer(state, &core::at(own.slots, 0), empty_list.data(), sizeof(empty_list), kAddressed)) {
         return false;
     }
     own.local_lamps = lighting.lamps;

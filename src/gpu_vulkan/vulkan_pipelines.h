@@ -102,7 +102,10 @@ public:
     // caches read from the files in `folder` (ending in a separator; empty: none kept).
     // (added by cel shading) `ray_queries`: the device has ray tracing - the layout gets the scene's binding
     // (kCelSceneBinding) and fragment shaders that trace (kSurfaceSunTraced) can be made.
-    bool init(VkDevice device, VkPhysicalDevice physical, const std::string& folder, bool ray_queries = false);
+    // (round BIND) `scene_materials`: the ray-tracing material table's set layout (vulkan_rt_materials.h), set 2 of the
+    // layout with ray queries (ff_uniforms.h kSceneMaterialsSet) - without it no fragment shader that traces is made.
+    bool init(VkDevice device, VkPhysicalDevice physical, const std::string& folder, bool ray_queries = false,
+              VkDescriptorSetLayout scene_materials = VK_NULL_HANDLE);
     // (round SKIN2) whether fragment shaders that trace can be made (init's `ray_queries`)
     [[nodiscard]] bool ray_queries() const { return ray_queries_; }
     // The caches written and everything destroyed (the device idle).

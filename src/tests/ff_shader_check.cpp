@@ -190,7 +190,11 @@ bool validate(Job& job)
         messages += text;
         messages += '\n';
     });
-    const bool valid = tools.Validate(job.spirv);
+    // (round BIND) the traced keys read the scene's tables and the material table in scalar layout - as every ray pass
+    // does; the device enables scalarBlockLayout with ray tracing (vulkan_context.cpp)
+    spvtools::ValidatorOptions options;
+    options.SetScalarBlockLayout(job.traced);
+    const bool valid = tools.Validate(job.spirv.data(), job.spirv.size(), options);
     if (!valid) {
         job.log += messages;
     }

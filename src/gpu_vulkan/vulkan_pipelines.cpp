@@ -334,11 +334,14 @@ std::vector<VkDescriptorSetLayoutBinding> light_set_bindings()
     return {light_bindings.begin(), light_bindings.end()};
 }
 
-bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::string& folder, bool ray_queries)
+bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::string& folder, bool ray_queries,
+                     VkDescriptorSetLayout scene_materials)
 {
     device_ = device;
     folder_ = folder;
-    ray_queries_ = ray_queries;
+    // (round BIND) the tracing fragments read the material table (set 2): none can be made without it
+    ray_queries_ = ray_queries && scene_materials != VK_NULL_HANDLE;
+    ray_queries = ray_queries_;
     const std::vector<VkDescriptorSetLayoutBinding> bindings = draw_set_bindings(ray_queries);
     const VkDescriptorSetLayoutCreateInfo set_info{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                                                    .pNext = nullptr,
@@ -360,11 +363,14 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
         return false;
     }
     static_assert(kLightInputsSet == 1, "the light inputs' set follows the draws' pushed set");
-    const std::array<VkDescriptorSetLayout, 2> set_layouts{set_layout_, light_set_layout_};
+    // (NOT ORIGINAL - round BIND) set 2: the ray-tracing material table (vulkan_rt_materials.h - its own layout, bound
+    // as the table's descriptor set) - the tracing fragments' rays read it (ff_uniforms.h kSceneMaterialsSet)
+    static_assert(kSceneMaterialsSet == 2, "the material table's set follows the light inputs'");
+    const std::array<VkDescriptorSetLayout, 3> set_layouts{set_layout_, light_set_layout_, scene_materials};
     const VkPipelineLayoutCreateInfo layout_info{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                                                  .pNext = nullptr,
                                                  .flags = 0,
-                                                 .setLayoutCount = static_cast<uint32_t>(set_layouts.size()),
+                                                 .setLayoutCount = ray_queries_ ? 3U : 2U,
                                                  .pSetLayouts = set_layouts.data(),
                                                  .pushConstantRangeCount = 0,
                                                  .pPushConstantRanges = nullptr};
