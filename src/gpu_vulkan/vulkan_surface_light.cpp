@@ -105,6 +105,9 @@ void main()
 // is made when it is drawn) or its preparation no longer holds (the frame's work was submitted since - a read-back
 // mid-view: the ring's blocks and the transitions were the submission's).
 struct KeptDraw {
+    // (round PERF2) made from the draw's block and call in its place in the list: the block (~5 KB) copied once - not
+    // zeroed first and then assigned (three thousand draws a view at NO)
+    KeptDraw(const GpuStateBlock& kept_block, const DrawCall& kept_call) : block(kept_block), call(kept_call) {}
     GpuStateBlock block;
     DrawCall call;
     CelSourceNamed cel;
@@ -168,6 +171,9 @@ struct LightState {
     bool lay_lit_forced = false; // (round DECAL, the checks': a lit object's overlays laid as the relit world's are)
     std::vector<DeviceBuffer> kept_buffers; // (kept draws' vertices and indices whose buffers were written again)
     std::unordered_set<VkBuffer> kept_reads; // the buffers the kept draws read now
+    // (round PERF2) the vertex and index buffers last put in it: a view's draws come in runs from the same buffers - no
+    // hash insert each (reset wherever a buffer leaves the set)
+    std::array<VkBuffer, 2> last_reads{};
     // (round FL) the front layer (vulkan_front_layer.h): the see-through draws' depth (the view's depth format and size),
     // the layer's depth, light and the disc's light - two of each, this view's and the last lit one's (its history)
     Surface front;
@@ -736,6 +742,7 @@ void draw_kept(Backend& state)
     std::vector<KeptDraw> kept;
     kept.swap(own.kept);
     own.kept_reads.clear();
+    own.last_reads = {};
     restore_sampled_layouts(state, kept);
     // The depth cleared: the draws are made again as the game made them, each with its own depth test and write, in its
     // order - the prepass's depth (the nearest surface, translucent ones' mostly opaque parts too: what the inputs were
@@ -1311,12 +1318,14 @@ bool surface_light_keep(Backend& state, const GpuStateBlock& block, const DrawCa
     if (!own.on || own.kept.size() >= kMostKept) {
         return false;
     }
-    KeptDraw& kept = own.kept.emplace_back();
-    kept.block = block;
-    kept.call = call;
-    own.kept_reads.insert(call.vertex_buffer);
-    if (call.indexed) {
+    KeptDraw& kept = own.kept.emplace_back(block, call);
+    if (call.vertex_buffer != own.last_reads.front()) {
+        own.kept_reads.insert(call.vertex_buffer);
+        own.last_reads.front() = call.vertex_buffer;
+    }
+    if (call.indexed && call.index_buffer != own.last_reads.back()) {
         own.kept_reads.insert(call.index_buffer);
+        own.last_reads.back() = call.index_buffer;
     }
     kept.cel = cel_source_now();
     kept.ground = surface_trail::current_ground();
@@ -1707,6 +1716,7 @@ void surface_light_buffer_rewritten(Backend& state, VkBuffer buffer, VkDeviceSiz
     }
     own.kept_buffers.push_back(copy);
     own.kept_reads.erase(buffer); // (no kept draw reads it now)
+    own.last_reads = {};
     ++own.stats.rewritten;
 }
 

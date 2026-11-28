@@ -722,28 +722,26 @@ public:
     VulkanGpu& operator=(VulkanGpu&&) = delete;
     ~VulkanGpu() = default;
 
-    // What the API holds: the state block's values (Vulkan has no device state to ask).
+    // What the API holds: the state block's values (Vulkan has no device state to ask). (round PERF2) Read without the
+    // backend's lock: the block is the drawing thread's own - the Gpu's setters record into it without it (gpu.h) - and
+    // the game asks for these states thousands of times a frame.
     long get_render_state(GpuRenderState state, uint32_t* value) override
     {
-        const std::scoped_lock lock(backend().mutex);
         *value = state_block().render_state(state);
         return kOk;
     }
     long get_stage_state(uint32_t stage, GpuStageState state, uint32_t* value) override
     {
-        const std::scoped_lock lock(backend().mutex);
         *value = state_block().stage_state(stage, state);
         return kOk;
     }
     long get_sampler_state(uint32_t sampler, GpuSamplerState state, uint32_t* value) override
     {
-        const std::scoped_lock lock(backend().mutex);
         *value = state_block().sampler_state(sampler, state);
         return kOk;
     }
     long get_transform(GpuTransform transform, float* matrix) override
     {
-        const std::scoped_lock lock(backend().mutex);
         const auto number = static_cast<uint32_t>(transform);
         const auto first_stage = static_cast<uint32_t>(GpuTransform::kTexture0);
         std::size_t slot = kGpuTransformCount;
@@ -771,7 +769,6 @@ public:
     }
     long get_vertex_format(uint32_t* fvf) override
     {
-        const std::scoped_lock lock(backend().mutex);
         *fvf = state_block().vertex_format;
         return kOk;
     }
