@@ -199,8 +199,11 @@ struct SurfaceUniforms {
 };
 // (round VEIL) The forward pass's local lights block (32-bit words, ff_shaders.cpp kSurfaceLampsGlsl's SurfaceLocalLights):
 // the presampled pool (vulkan_light_list.h light_pool_reader_glsl's uvec4), the light grid's picks (light_grid_reader_glsl's),
-// the lamps' records (address, 1, count), then the frame's count and its pre-exposure's bits
-inline constexpr std::size_t kForwardLightsWords = 16;
+// the lamps' records (address, 1, count), then the frame's count and its pre-exposure's bits; (round DEPTH) then ReSTIR
+// GI's list as this frame lit the view with it (vulkan_light_list.h FrameLightList - zero where GI didn't): the sky's
+// cells and alias tables (addresses), the radiance cache (address, 1 when GI lit the view, 1 when the cache is on), the
+// cache's camera and cell angle, the sky's 1 / integral and the list's table (address)
+inline constexpr std::size_t kForwardLightsWords = 32;
 
 // (added by cel shading) Binding 8 (vertex and fragment shaders): vulkan_cel.cpp fills it.
 struct CelUniforms {

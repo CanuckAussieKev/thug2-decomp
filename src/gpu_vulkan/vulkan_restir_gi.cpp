@@ -2557,7 +2557,9 @@ bool ensure_buffer(Backend& state, DeviceBuffer* buffer, VkDeviceSize bytes, VkB
 bool upload_buffer(Backend& state, DeviceBuffer* buffer, const void* data, std::size_t bytes)
 {
     retire_buffer(state, buffer);
-    if (!state.memory.create_buffer(std::max<VkDeviceSize>(bytes, 16), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+    // (round DEPTH: the list's table and the sky's alias tables read by the forward pass through their addresses)
+    if (!state.memory.create_buffer(std::max<VkDeviceSize>(bytes, 16),
+                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                     BufferPlace::kUpload, buffer) ||
         buffer->mapped == nullptr) {
         return false;
@@ -2746,8 +2748,9 @@ bool record_sky(Backend& state, GiState& own, VkCommandBuffer commands, const Sc
     const int into = own.sky_now == 0 ? 1 : 0;
     DeviceBuffer& cells = core::at(own.sky_cells, static_cast<std::size_t>(into));
     const VkDeviceSize bytes = sky_cell_count() * 4 * sizeof(float);
-    const VkBufferUsageFlags storage =
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    // (round DEPTH: read by the forward pass through its address - vulkan_surface_light.cpp write_forward_lights)
+    const VkBufferUsageFlags storage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     if (!ensure_buffer(state, &cells, bytes, storage, BufferPlace::kDevice) ||
         !ensure_buffer(state, &own.sky_read, bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT, BufferPlace::kReadBack)) {
         return false;
@@ -3080,8 +3083,9 @@ bool record_restir_gi_pass(Backend& state, const rt::ViewDrawn& view)
     const uint32_t cells_x = (width + scale - 1) / scale;
     const uint32_t cells_y = (height + scale - 1) / scale;
     const std::size_t cells = static_cast<std::size_t>(cells_x) * cells_y;
+    // (round DEPTH: the radiance cache read by the forward pass through its address - write_forward_lights)
     const VkBufferUsageFlags storage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     if (own.width != width || own.height != height || own.scale != scale) {
         own.history = false;
         own.width = width;

@@ -21,6 +21,7 @@
 #include "engine/gfx/rt_coverage.h"
 #include "engine/gfx/rt_display.h"
 #include "engine/gfx/rt_emission_map.h"
+#include "engine/gfx/rt_light_list.h"
 #include "engine/gfx/rt_lights.h"
 #include "engine/gfx/rt_material_table.h"
 #include "engine/gfx/rt_path.h"
@@ -711,10 +712,13 @@ float cel_visible(vec3 eye, vec3 eye_normal, uint mask)
 // shadows pass's own rule); a relit world's fragment both. Solid casters only: the cut-out casters' holes and the
 // seen-through casters' transmittance are the shadows pass's (it reads the geometry tables), not this ray's - as the
 // cel shading's, the grass's and the snow's sun rays: the stated compromise.
-constexpr const char* kSurfaceSunGlsl = R"(layout(set = 0, binding = 9) uniform accelerationStructureEXT surface_scene;
-const float SURFACE_RAY_OFF = 2.0;   // (world units off the surface along its normal - the cel ray's)
-const float SURFACE_RAY_ALONG = 1.0; // ... and along the light
-const float SURFACE_RAY_LENGTH = 1.0e6;
+// (round DEPTH) The ray starts where every light ray of the light list does (local_light_offset off the point along the
+// normal on the light's side - the front layer's sun ray, ReSTIR GI's and the path reference's ray_offset, round VEIL's
+// lamp ray in this pass): one start rule for every ray from a surface. Before, it took the cel ray's 2 units along the
+// normal + 1 along the light: at a low sun that start sits ~1 - 2 units above the pane toward the sun, past a caster's
+// edge right beside it - the shadow's edge moved by that much (5 % at 40 units from the caster, every unit at grazing).
+constexpr const char* kSurfaceSceneGlsl = R"(layout(set = 0, binding = 9) uniform accelerationStructureEXT surface_scene;)";
+constexpr const char* kSurfaceSunGlsl = R"(const float SURFACE_RAY_LENGTH = 1.0e6;
 float surface_sun_traced(vec3 eye, vec3 eye_normal, vec3 eye_toward, uint mask)
 {
     vec4 p = vec4(eye, 1.0);
@@ -727,10 +731,14 @@ float surface_sun_traced(vec3 eye, vec3 eye_normal, vec3 eye_toward, uint mask)
         return 1.0;
     }
     to = normalize(to);
+    if (!(dot(n, n) > 1.0e-12)) {
+        return 1.0;
+    }
+    n = normalize(n);
     if (dot(n, to) < 0.0) n = -n;
     rayQueryEXT q;
     rayQueryInitializeEXT(q, surface_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask,
-                          world + n * SURFACE_RAY_OFF + to * SURFACE_RAY_ALONG, 0.0, to, SURFACE_RAY_LENGTH);
+                          world + n * local_light_offset(world), 0.0, to, SURFACE_RAY_LENGTH);
     while (rayQueryProceedEXT(q)) {
     }
     return rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
@@ -840,7 +848,8 @@ vec3 surface_lamps_traced(vec3 eye, vec3 eye_normal)
 void surface_lamps_declarations(std::string& out)
 {
     add(out, {"layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceLocalLights {\n"
-              "    uvec4 pool;\n    uvec4 grid;\n    uvec4 lamp_records;\n    uvec4 frame;\n};\n"
+              "    uvec4 pool;\n    uvec4 grid;\n    uvec4 lamp_records;\n    uvec4 frame;\n"
+              "    uvec4 sky;\n    uvec4 gi_cache;\n    vec4 cache_place;\n    uvec4 table;\n};\n"
               "#define SURFACE_LOCAL (SurfaceLocalLights(s.local_lights.xy))\n"
               "layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceLampRecords { "
               "LightRecord records[]; };\n"
@@ -849,6 +858,90 @@ void surface_lamps_declarations(std::string& out)
     out += light_grid_reader_glsl("SURFACE_LOCAL.grid");
     out += local_light_seen_glsl();
     add(out, {"#undef lamps", kSurfaceLampsGlsl});
+}
+
+// (NOT ORIGINAL - round DEPTH) The indirect light of such a fragment where ReSTIR GI lit the view. Before, it took the
+// light store's environment (the probe's ambient, the store's sky + bounce, x surface_li.b = 1) - the GI-off standing -
+// while every other surface of the view took GI's: the prepass's surfaces GI's samples, the front layer the list's sky by
+// its own samples + the radiance cache's bounce. One indirect rule: the fragment takes the front layer's - the sky (one
+// direction by the sky's own distribution - the list's sky_sample -, one solid ray from local_light_offset off the point;
+// the disc not in it: surface_sun_traced owns it) + the radiance cache's bounce at the point (SHaRC's query - cache_lookup
+// keyed from GI's camera; on a miss the young entry's light, else 0: cache_bounce, the rule of the front layer's and the
+// reflections' hits - a reader that can't trace the path on; no scene tables here), on a white diffuser facing the eye
+// (E / pi), pre-exposed - the lamps input's unit, beside the local lights' (kSurfaceLampsGlsl). The probe's weight then 0
+// (surface_li as the front layer's: the traced visibility, no share, no occlusion weight).
+// Compromise (named): one sky sample a fragment a frame, no history (Ray Reconstruction averages it - as the local
+// lights'); solid casters only (the sun's and the lamps' ray).
+constexpr const char* kSurfaceIndirectGlsl = R"(
+struct LightEntry {
+    float threshold;
+    uint alias;
+    float pdf;
+    uint payload;
+};
+layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceLightTable { LightEntry entries[]; };
+layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceSkyCells { vec4 cells[]; };
+layout(buffer_reference, buffer_reference_align = 8, std430) readonly buffer SurfaceSkyAlias { uvec2 words[]; };
+layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceCache { uvec4 words[]; };
+#define light_entries (SurfaceLightTable(SURFACE_LOCAL.table.yz).entries)
+#define sky_cells (SurfaceSkyCells(SURFACE_LOCAL.sky.xy).cells)
+#define sky_alias (SurfaceSkyAlias(SURFACE_LOCAL.sky.zw).words)
+#define cache (SurfaceCache(SURFACE_LOCAL.gi_cache.xy).words)
+#define SURFACE_GI_LIT (s.local_lights.z != 0u && SURFACE_LOCAL.gi_cache.z != 0u)
+#define SURFACE_SKY_DIST uintBitsToFloat(SURFACE_LOCAL.table.x)
+#define LL_EYE SURFACE_LOCAL.cache_place.xyz
+#define LL_CACHE_CELLS SURFACE_LOCAL.cache_place.w
+#define LL_CACHE_ON (SURFACE_LOCAL.gi_cache.w != 0u)
+@SKY_CACHE@
+const uint SURFACE_SKY_RAYS = 0x03u;
+vec3 surface_indirect_traced(vec3 eye, vec3 eye_normal)
+{
+    vec4 p4 = vec4(eye, 1.0);
+    vec3 at = vec3(dot(s.eye_to_world[0], p4), dot(s.eye_to_world[1], p4), dot(s.eye_to_world[2], p4));
+    vec3 n = vec3(dot(s.eye_to_world[0].xyz, eye_normal), dot(s.eye_to_world[1].xyz, eye_normal),
+                  dot(s.eye_to_world[2].xyz, eye_normal));
+    if (!(dot(n, n) > 1.0e-12)) {
+        return vec3(0.0);
+    }
+    n = normalize(n);
+    vec3 light = cache_bounce(at, n);
+    if (SURFACE_SKY_DIST > 0.0) {
+        uint rng = path_sequence_start(uint(gl_FragCoord.x), uint(gl_FragCoord.y), SURFACE_LOCAL.frame.x, 0x534B5944u);
+        float u0 = path_next(rng);
+        float u1 = path_next(rng);
+        float u2 = path_next(rng);
+        float u3 = path_next(rng);
+        uint cell;
+        vec3 dir = sky_sample(u0, u1, u2, u3, cell);
+        float cosine = dot(dir, n);
+        vec3 radiance = sky_cells[cell].rgb;
+        float pdf = path_luma(radiance) * SURFACE_SKY_DIST;
+        if (cosine > 0.0 && pdf > 0.0) {
+            rayQueryEXT q;
+            rayQueryInitializeEXT(q, surface_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, SURFACE_SKY_RAYS,
+                                  at + n * local_light_offset(at), 0.0, dir, 1.0e6);
+            while (rayQueryProceedEXT(q)) {
+            }
+            if (rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
+                light += radiance * (cosine / (pdf * PATH_PI));
+            }
+        }
+    }
+    return light * uintBitsToFloat(SURFACE_LOCAL.frame.y);
+}
+#undef cache
+)";
+std::string surface_indirect_glsl()
+{
+    std::string text = kSurfaceIndirectGlsl;
+    std::string tables = "const uint SKY_WIDTH = " + num(rt::lights::kSkyGridWidth) + "u;\nconst uint SKY_HEIGHT = " +
+                         num(rt::lights::kSkyGridHeight) + "u;\nconst uint CACHE_CAPACITY = " + num(kRadianceCacheCapacity) +
+                         "u;\nconst uint CACHE_PROBES = " + num(kRadianceCacheProbes) + "u;\nconst float CACHE_CELL_LEAST = " +
+                         num(kRadianceCacheCellLeast) + ";\n" + rt::lights::kLightListGlsl +
+                         std::string(radiance_cache_read_glsl());
+    const std::string_view mark = "@SKY_CACHE@";
+    text.replace(text.find(mark), mark.size(), tables);
+    return text;
 }
 
 void cel_declarations(std::string& out, const FragmentKey& key)
@@ -1273,13 +1366,15 @@ void surface_declarations(std::string& out, const FragmentKey& key)
         cel_declarations(out, key); // (added by cel shading)
     }
     if (surface_sun_key(key)) {
-        static_assert(kCelSceneBinding == 9, "kSurfaceSunGlsl names it");
-        add(out, {kSurfaceSunGlsl}); // (round SKIN2)
+        static_assert(kCelSceneBinding == 9, "kSurfaceSceneGlsl names it");
+        add(out, {kSurfaceSceneGlsl});
         // (round VEIL: the local lights' readers - kSurfaceLampsGlsl)
         out += rt::path::kPathGlsl;
         out += rt_lamp_glsl();
         out += emitter_faces_glsl();
         surface_lamps_declarations(out);
+        add(out, {kSurfaceSunGlsl}); // (round SKIN2; after the list's readers - local_light_offset)
+        out += surface_indirect_glsl(); // (round DEPTH)
     }
     if ((key.surface & kSurfaceRelit) != 0U && (key.surface & kSurfaceCel) == 0U && (key.trails & kTrailSnowTint) == 0U) {
         add(out, {kCelVaryingsIn}); // (round M: the relit world's light store, its words 0 - 2)
@@ -1451,13 +1546,16 @@ void surface_coat_layer(std::string& out, const FragmentKey& key, uint32_t sampl
 // where the bake was dark, on an albedo that isn't the material's.
 std::string no_store_light(const std::string& light, const std::string& indent, bool inputs, bool relief)
 {
-    const std::string ambient = indent + "surface_out = brdf_ambient(surface_m, surface_nv, " + light + " * surface_hemi, " +
-                                light + " * surface_env) * ";
+    // (round DEPTH: the environment's specular by its own weight - surface_spec_w, the diffuse's where it is < 0)
+    const auto ambient = [&](const std::string& weight) {
+        return indent + "surface_out = brdf_ambient(surface_m, surface_nv, " + light + " * surface_hemi * (" + weight + "), " +
+               light + " * surface_env * (surface_spec_w >= 0.0 ? surface_spec_w : (" + weight + ")))";
+    };
     const std::string lamps = " + brdf_ambient(surface_m, surface_nv, surface_lamps, vec3(0.0));\n";
     if (!inputs) {
-        return ambient + "light_share(surface_li)" + lamps;
+        return ambient("light_share(surface_li)") + lamps;
     }
-    return ambient + "(surface_li.r >= 0.0 ? (1.0 - surface_li.g) * surface_li.b : light_share(surface_li))" + lamps +
+    return ambient("surface_li.r >= 0.0 ? (1.0 - surface_li.g) * surface_li.b : light_share(surface_li)") + lamps +
            indent + "if (surface_li.r >= 0.0 && s.sun.w > 0.5 && dot(surface_geo, s.sun.xyz) > 0.0) {\n" + indent +
            "    surface_out += brdf_direct(surface_m, surface_n, surface_v, s.sun.xyz, s.sun_light.rgb * surface_li.r" +
            (relief ? " * relief_shadow" : "") + ");\n" + indent + "}\n";
@@ -1516,6 +1614,9 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
     // (NOT ORIGINAL - round SKIN2: kSurfaceSunGlsl) where neither the light inputs nor the front layer are this fragment's,
     // its key light's visibility traced here (-1: not traced - the fallbacks stand)
     add(out, {"    float surface_traced = -1.0;"});
+    // (round DEPTH) the weight of the environment's specular estimate (the store's / the probe's) where it isn't the
+    // diffuse's: < 0 the same as the diffuse's (surface_li.b)
+    add(out, {"    float surface_spec_w = -1.0;"});
     if (surface_sun_key(key) && inputs) {
         const std::string unseen = std::string("!light_here()") + (front ? " && !light_front_at" : "");
         if ((key.surface & kSurfaceLit) != 0U) {
@@ -1527,6 +1628,14 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
         }
         // (NOT ORIGINAL - round VEIL: kSurfaceLampsGlsl) ... and its local lights sampled here, on the side facing the eye
         add(out, {"    if (", unseen, ") {\n        surface_lamps = surface_lamps_traced(surface_eye, "
+                  "dot(surface_geo, surface_v) >= 0.0 ? surface_geo : -surface_geo);\n    }"});
+        // (NOT ORIGINAL - round DEPTH: kSurfaceIndirectGlsl) ... and where ReSTIR GI lit the view, its indirect light the
+        // front layer's rule (the sky's samples + the radiance cache's bounce) in place of the store's environment's
+        // diffuse light; its specular estimate kept (nothing traces this fragment's reflection - not the reflections
+        // pass, which sees the prepass's and the layer's surfaces alone - and GI's specular is the inputs')
+        add(out, {"    if (", unseen, " && SURFACE_GI_LIT) {\n"
+                  "        surface_li = vec4(surface_traced, 0.0, 0.0, 1.0);\n        surface_spec_w = 1.0;\n"
+                  "        surface_lamps += surface_indirect_traced(surface_eye, "
                   "dot(surface_geo, surface_v) >= 0.0 ? surface_geo : -surface_geo);\n    }"});
     }
     // (round DB: the decals' material layers - the environment's weight above stays the surface's own roughness's: what
@@ -1577,8 +1686,8 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
                   // texel x the material's own colour is, as the rays' hit_surface has it)
                   "    BrdfMaterial surface_lit = surface_m;\n",
                   layer_m, layer_lit,
-                  "    surface_out = brdf_ambient(surface_m, surface_nv, surface_ambient * surface_hemi, surface_ambient * "
-                  "surface_env) * surface_li.b;\n"
+                  "    surface_out = brdf_ambient(surface_m, surface_nv, surface_ambient * surface_hemi * surface_li.b, "
+                  "surface_ambient * surface_env * (surface_spec_w >= 0.0 ? surface_spec_w : surface_li.b));\n"
                   "    surface_out += brdf_ambient(surface_lit, surface_nv, surface_lamps, vec3(0.0));\n"
                   "    for (int i = 0; i < 8; ++i) {\n"
                   "        vec3 l = s.light_toward[i].xyz;\n        if (dot(l, l) == 0.0) continue;\n"
@@ -1614,7 +1723,8 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
                   layer_m_inner,
                   // (round MATALB: the store's light alone - the material's albedo is surface_m's, no tint on it)
                   "        vec3 env = v_cel_light.rgb + v_cel_residual.rgb;\n"
-                  "        surface_out = brdf_ambient(surface_m, surface_nv, env * surface_hemi, env * surface_env) * surface_li.b;\n"
+                  "        surface_out = brdf_ambient(surface_m, surface_nv, env * surface_hemi * surface_li.b, env * surface_env * "
+                  "(surface_spec_w >= 0.0 ? surface_spec_w : surface_li.b));\n"
                   "        if (s.sun.w > 0.5 && dot(surface_geo, s.sun.xyz) > 0.0) {\n"
                   "            surface_out += brdf_direct(surface_m, surface_n, surface_v, s.sun.xyz, s.sun_light.rgb * "
                   "light_seen(surface_li, surface_traced >= 0.0 ? surface_traced : v_cel_tint.a)",

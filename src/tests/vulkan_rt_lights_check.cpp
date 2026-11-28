@@ -2805,7 +2805,8 @@ constexpr uint32_t kFvfColourTexture = 0x142; // XYZ | DIFFUSE | TEX1
 // A frame of the view lit per surface: the floor (blended first pass) before or after the box, and what is over it.
 bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const SceneMesh> meshes, bool floor_first,
                       Over over, uint64_t frame, std::vector<uint8_t>* texels, std::vector<uint8_t>* guides = nullptr,
-                      std::vector<uint8_t>* layer = nullptr, uint32_t textured_floor = 0, bool untextured_floor = false)
+                      std::vector<uint8_t>* layer = nullptr, uint32_t textured_floor = 0, bool untextured_floor = false,
+                      const Vec3* pane_sun = nullptr)
 {
     using render::GpuRenderState;
     rt::FrameRecord& record = rt::frame_record();
@@ -2920,7 +2921,10 @@ bool draw_per_surface(render::Gpu& gpu, const Targets& targets, std::span<const 
         gpu.set_render_state(GpuRenderState::kAmbient, 0x00000000U);
         gpu.set_render_state(GpuRenderState::kDiffuseMaterialSource, value::kSourceColour1);
         gpu.set_material({.diffuse = {1, 1, 1, 1}, .ambient = {}, .specular = {}, .emissive = {}, .power = 0});
-        const Vec3 toward = normalised({core::at(kStreamSun, 0), core::at(kStreamSun, 1), core::at(kStreamSun, 2)});
+        // (round DEPTH: `pane_sun` in its place when given - the low sun's case)
+        const Vec3 toward = pane_sun != nullptr
+                                ? *pane_sun
+                                : normalised({core::at(kStreamSun, 0), core::at(kStreamSun, 1), core::at(kStreamSun, 2)});
         render::GpuLight light{};
         light.type = value::kLightDirectional;
         light.diffuse = {1, 1, 1, 1};
@@ -3425,11 +3429,16 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
     // shadow across part of it: lit by its one light, the sun alone (no ambient, no fill, no lamps), so where the box
     // hides the sun from the pane's point it is black, elsewhere lit. Before, such a fragment took its key light whole
     // (light_seen's fallback 1): the pane lit through the box's shadow.
-    {
+    // (round DEPTH) ... and again with a low sun (13.5 degrees up): the pane's ray starts where every light ray of the
+    // list does (local_light_offset off the point). The cel ray's start it took before - 2 units up the normal, 1 along
+    // the light - put the ray's start above the plane by more than the shadow's edge allows at a grazing sun: the box's
+    // top edge then cut it ~8 units further from the box, so the pane lit inside the box's shadow along its far edge.
+    const auto pane_case = [&](const Vec3& toward, const char* what) {
         std::vector<uint8_t> pane;
         bool drew = ok;
         for (int pass = 0; drew && pass < 2; ++pass) { // (the second time round: the TLAS of the frame before built)
-            drew = draw_per_surface(gpu, targets, meshes, true, Over::kLitPane, frame++, &pane);
+            drew = draw_per_surface(gpu, targets, meshes, true, Over::kLitPane, frame++, &pane, nullptr, nullptr, 0, false,
+                                    &toward);
         }
         const Solid& box = core::at(kScene, 1);
         const auto in_shadow = [&box, &toward](const Vec3& at) {
@@ -3473,10 +3482,25 @@ void run_per_surface(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
             }
         }
         tally->check(drew && sunlit > 1000 && shaded > 300 && shaded_lit == 0 && sunlit_dark == 0,
-                     text::format("(round SKIN2) a lit object's see-through pane without light inputs traces its key light: "
-                                  "%d sunlit pixels (darkest %.4f, %d dark), %d in the box's sun shadow (brightest %.4f, "
+                     text::format("%s: %d sunlit pixels (darkest %.4f, %d dark), %d in the box's sun shadow (brightest %.4f, "
                                   "%d lit)",
-                                  sunlit, sunlit > 0 ? darkest_lit : 0.0, sunlit_dark, shaded, brightest_shaded, shaded_lit));
+                                  what, sunlit, sunlit > 0 ? darkest_lit : 0.0, sunlit_dark, shaded, brightest_shaded,
+                                  shaded_lit));
+    };
+    pane_case(toward, "(round SKIN2) a lit object's see-through pane without light inputs traces its key light");
+    {
+        const Vec3 low = normalised({1.0, 0.25, 0.3});
+        const std::array<float, 3> low_sun = floats(low);
+        rt::set_sun_override(&low_sun);
+        rt::set_cel_world({.relit = true, .sun = {1.0F, 1.0F, 1.0F}, .toward = low_sun});
+        rt::DayLight low_day = day;
+        low_day.light = low_sun;
+        low_day.sun = low_sun;
+        rt::set_day_light(low_day);
+        pane_case(low, "(round DEPTH) ... with a low sun (13.5 degrees), its ray from the light list's start");
+        rt::set_sun_override(&toward_sun);
+        rt::set_cel_world({.relit = true, .sun = {1.0F, 1.0F, 1.0F}, .toward = toward_sun});
+        rt::set_day_light(day);
     }
     {
         render::vulkan::Backend& state = render::vulkan::backend();
@@ -4162,7 +4186,7 @@ bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneM
                 bool glass, uint64_t frame, std::vector<uint8_t>* front, std::vector<uint8_t>* lamps,
                 std::vector<uint8_t>* colour = nullptr, bool particle = false, std::vector<uint8_t>* layer = nullptr,
                 std::vector<uint8_t>* behind = nullptr, const std::vector<ColourVertex>* particle_quad = nullptr,
-                const std::array<double, 5>* pane = nullptr)
+                const std::array<double, 5>* pane = nullptr, const std::array<double, 5>* over_pane = nullptr)
 {
     using render::GpuRenderState;
     rt::FrameRecord& record = rt::frame_record();
@@ -4235,6 +4259,10 @@ bool draw_front(render::Gpu& gpu, const Targets& targets, std::span<const SceneM
         } else if (pane != nullptr) { // (round VEIL: the pane elsewhere - height, x0, x1, z0, z1)
             quad(core::at(*pane, 0), core::at(*pane, 1), core::at(*pane, 2), core::at(*pane, 3), core::at(*pane, 4),
                  0x40FFFFFFU);
+            if (over_pane != nullptr) { // (round DEPTH: a second pane over it, nearer the eye - drawn after, back to front)
+                quad(core::at(*over_pane, 0), core::at(*over_pane, 1), core::at(*over_pane, 2), core::at(*over_pane, 3),
+                     core::at(*over_pane, 4), 0x40FFFFFFU);
+            }
         } else {
             quad(kFrontGlassHeight, core::at(kFrontGlass, 0), core::at(kFrontGlass, 1), core::at(kFrontGlass, 2),
                  core::at(kFrontGlass, 3), 0x40FFFFFFU);
@@ -4759,6 +4787,82 @@ void run_front_layer(render::Gpu& gpu, std::span<const SceneMesh> meshes, Tally*
         tally->check(ok && veil_made && veil_shaded > 100 && veil_shaded_lit == 0,
                      text::format("  ... %d in the box's shadow of the lamp: brightest %.4f (the lit ones' mean %.4f), %d lit",
                                   veil_shaded, veil_brightest_shaded, lit_mean, veil_shaded_lit));
+    }
+    // (round DEPTH - ff_shaders.cpp kSurfaceIndirectGlsl) With ReSTIR GI on, a pane seen through another one: its fragments
+    // are neither the inputs' surface nor the front layer's (the pane over it is). A pane low over the floor (5 units: past
+    // kLayerLift, not a layer of it) beside the box's lamp-lit wall (a fifth of its sky the wall: its bounce), a second
+    // pane high over it covering it in the view. The low pane drawn alone first: as the front layer its points' radiance
+    // cache cells are written (round PERF) - the case read here is the cache's hit (a cell never written is a miss: 0). The low pane's own light behind the high one (from the frames with both, the high
+    // one alone, the low one alone and neither) against its light as the front layer at the same pixels (the frames with
+    // it alone): the same - the lamp, the sky and the bounce. Before, behind the high pane it took the lamp alone (the
+    // store's environment, black here, in place of the sky and the bounce).
+    {
+        constexpr std::array<double, 5> kLowPane{5.0, -26.0, -12.0, -40.0, 40.0};
+        constexpr std::array<double, 5> kHighPane{40.0, -23.0, -4.0, 16.0, 84.0};
+        // (the bounce is ~a tenth of the low pane's light here: the case without it reads ~0.93)
+        constexpr double kDepthTolerance = 0.05;
+        vk::set_rt_gi_settings({.indirect = vk::RtIndirectLight::kRestir});
+        const std::array<rt::Light, 1> depth_points{{{.kind = rt::Light::Kind::kPoint,
+                                                      .colour = {1.0F, 0.9F, 0.7F},
+                                                      .position = floats(kVeilLamp),
+                                                      .radius = static_cast<float>(kFrontReach)}}};
+        std::vector<uint8_t> both;
+        std::vector<uint8_t> high_only;
+        std::vector<uint8_t> low_only;
+        std::vector<uint8_t> neither;
+        const auto frames = [&](const std::array<double, 5>* pane, const std::array<double, 5>* over, std::vector<uint8_t>* out) {
+            for (int k = 0; ok && k < kFrontFrames; ++k) {
+                ok = draw_front(gpu, targets, meshes, depth_points, pane != nullptr, frame++, nullptr, nullptr,
+                                k + 1 == kFrontFrames ? out : nullptr, false, nullptr, nullptr, nullptr, pane, over);
+            }
+        };
+        frames(&kLowPane, nullptr, &low_only); // (first: the low pane the front layer - its cells written)
+        frames(&kLowPane, &kHighPane, &both);
+        frames(&kHighPane, nullptr, &high_only);
+        frames(nullptr, nullptr, &neither);
+        const Solid& box = core::at(kScene, 1);
+        double behind_sum = 0.0;
+        double front_sum = 0.0;
+        int pixels = 0;
+        for (int y = 0; ok && y < kRows; ++y) {
+            for (int x = 0; x < kColumns; ++x) {
+                Vec3 at{};
+                Vec3 high_at{};
+                if (!through_quad(x, y, core::at(kLowPane, 0), core::at(kLowPane, 1), core::at(kLowPane, 2),
+                                  core::at(kLowPane, 3), core::at(kLowPane, 4)) ||
+                    !through_quad(x, y, core::at(kHighPane, 0), core::at(kHighPane, 1), core::at(kHighPane, 2),
+                                  core::at(kHighPane, 3), core::at(kHighPane, 4)) ||
+                    !floor_point(kEye, x, y, core::at(kLowPane, 0), &at) ||
+                    !floor_point(kEye, x, y, core::at(kHighPane, 0), &high_at) ||
+                    x_of(at) < core::at(kLowPane, 1) + kFrontMargin || x_of(at) > core::at(kLowPane, 2) - kFrontMargin ||
+                    z_of(at) < core::at(kLowPane, 3) + kFrontMargin || z_of(at) > core::at(kLowPane, 4) - kFrontMargin ||
+                    x_of(high_at) < core::at(kHighPane, 1) + kFrontMargin ||
+                    x_of(high_at) > core::at(kHighPane, 2) - kFrontMargin ||
+                    z_of(high_at) < core::at(kHighPane, 3) + kFrontMargin ||
+                    z_of(high_at) > core::at(kHighPane, 4) - kFrontMargin) {
+                    continue;
+                }
+                const Vec3 to_eye = minus(kEye, at);
+                if (intersect(box, at, normalised(to_eye)).distance < length_of(to_eye)) {
+                    continue;
+                }
+                // (each pane blends a over what is behind it: both - high alone = (1 - a) a (low - floor); the low one's
+                // own colour x a from the differences)
+                const double floor = luma_of(linear_pixel_at(neither, x, y));
+                const double behind = ((luma_of(linear_pixel_at(both, x, y)) - luma_of(linear_pixel_at(high_only, x, y))) /
+                                       (1.0 - kFrontGlassAlpha)) +
+                                      (kFrontGlassAlpha * floor);
+                const double front = luma_of(linear_pixel_at(low_only, x, y)) - ((1.0 - kFrontGlassAlpha) * floor);
+                behind_sum += behind;
+                front_sum += front;
+                ++pixels;
+            }
+        }
+        const double depth_ratio = front_sum > 0.0 ? behind_sum / front_sum : 0.0;
+        tally->check(ok && pixels > 300 && std::abs(depth_ratio - 1.0) <= kDepthTolerance,
+                     text::format("  (round DEPTH) with ReSTIR GI, a pane seen through another one: its light %.4f x its "
+                                  "light as the front layer at the same %d pixels (its colour's mean %.4f there)",
+                                  depth_ratio, pixels, pixels > 0 ? front_sum / (pixels * kFrontGlassAlpha) : 0.0));
     }
     vk::set_rt_gi_settings({.indirect = vk::RtIndirectLight::kPasses});
     vk::set_rt_light_settings({});

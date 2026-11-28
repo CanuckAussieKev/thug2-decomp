@@ -946,6 +946,31 @@ void write_forward_lights(Backend& state, VkCommandBuffer commands)
     std::copy(lights.lamps.begin(), lights.lamps.end(), words.begin() + 8);
     core::at(words, 12) = static_cast<uint32_t>(state.frames.serial());
     core::at(words, 13) = std::bit_cast<uint32_t>(rt::frame_pre_exposure());
+    // (round DEPTH) ReSTIR GI's list as it lit this view: the sky and the radiance cache - the indirect light the rest of
+    // the view has, for the fragments that read neither the inputs nor the front layer (ff_shaders.cpp kSurfaceIndirectGlsl)
+    FrameLightList list;
+    if (restir_gi_frame_lights(state, &list) && list.cache != VK_NULL_HANDLE && list.sky_cells != VK_NULL_HANDLE &&
+        list.sky_alias != VK_NULL_HANDLE && list.table != VK_NULL_HANDLE) {
+        const auto address = [&state](VkBuffer buffer) {
+            const VkBufferDeviceAddressInfo info{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .pNext = nullptr, .buffer = buffer};
+            return vkGetBufferDeviceAddress(state.context.device(), &info);
+        };
+        const auto put = [&words](std::size_t at, VkDeviceAddress a) {
+            core::at(words, at) = static_cast<uint32_t>(a & 0xFFFFFFFFULL);
+            core::at(words, at + 1) = static_cast<uint32_t>(a >> 32U);
+        };
+        put(16, address(list.sky_cells));
+        put(18, address(list.sky_alias));
+        put(20, address(list.cache));
+        core::at(words, 22) = 1U;
+        core::at(words, 23) = list.cache_on ? 1U : 0U;
+        for (std::size_t k = 0; k < 3; ++k) {
+            core::at(words, 24 + k) = std::bit_cast<uint32_t>(core::at(list.eye, k));
+        }
+        core::at(words, 27) = std::bit_cast<uint32_t>(list.cache_cells);
+        core::at(words, 28) = std::bit_cast<uint32_t>(list.sky_dist);
+        put(29, address(list.table));
+    }
     vkCmdUpdateBuffer(commands, own.forward_lights.buffer, 0, sizeof(words), words.data());
     // (the words, and the picks ReSTIR DI's compute passes wrote, read by the draws' fragments)
     const VkMemoryBarrier written{.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
