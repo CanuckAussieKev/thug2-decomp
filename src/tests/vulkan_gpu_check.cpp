@@ -27,6 +27,7 @@
 #include <array>
 #include <atomic>
 #include <bit>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -1406,6 +1407,81 @@ void check_threads(render::Gpu& gpu, Tally* tally)
                  text::format("%d rounds on each of two threads, 0 failed (%d)", kThreadRounds, failures.load()));
 }
 
+
+// (round HITCH - vulkan_pipelines.h) The pipelines a level's draws used are recorded with its scene and made ahead by the
+// workers when the scene comes up again (a run after it: the keys file); a tracing key never recorded is handed to them
+// and its draw falls back meanwhile; a scene's keys are not another's. Pipelines of their own on the device, their caches
+// in a folder of their own.
+bool wait_made(const render::vulkan::Pipelines& pipelines)
+{
+    constexpr int kMostWaits = 2000; // (10 s)
+    for (int wait = 0; wait < kMostWaits && pipelines.pending() != 0; ++wait) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    return pipelines.pending() == 0;
+}
+
+void check_pipelines_ahead(Tally* tally)
+{
+    text::print("pipelines made ahead:\n");
+    using render::vulkan::PipelineKey;
+    using render::vulkan::Pipelines;
+    const render::vulkan::Backend& state = render::vulkan::backend();
+    const std::filesystem::path folder = std::filesystem::current_path() / "thug2_pipelines_ahead_check";
+    std::error_code failed;
+    std::filesystem::remove_all(folder, failed);
+    std::filesystem::create_directories(folder, failed);
+    const std::string where = folder.string() + "\\";
+    PipelineKey drawn{};
+    drawn.shaders = render::vulkan::normalised(render::vulkan::ShaderKey{});
+    drawn.colour_format = VK_FORMAT_B8G8R8A8_UNORM;
+    drawn.write_mask = 0x0F;
+    PipelineKey other = drawn;
+    other.write_mask = 0x07;
+    constexpr uint32_t kScene = 0x1234ABCDU;
+    constexpr uint32_t kOtherScene = 0x0BADF00DU;
+    tally->check(render::vulkan::supported(drawn.shaders, nullptr), "the check's key is one the emulation makes");
+    {
+        Pipelines first;
+        const bool made = first.init(state.context.device(), state.context.physical_device(), where);
+        first.set_scene(kScene);
+        std::string error;
+        const bool drew = made && first.pipeline(drawn, &error) != VK_NULL_HANDLE;
+        tally->check(drew && first.stats().made_drawing == 1 && first.stats().made_ahead == 0,
+                     text::format("a first run: the scene's key made while drawing (%u while drawing, %u ahead)",
+                                  static_cast<unsigned>(first.stats().made_drawing),
+                                  static_cast<unsigned>(first.stats().made_ahead)));
+        first.shutdown(); // (the caches and the keys written)
+    }
+    {
+        Pipelines second;
+        const bool made = second.init(state.context.device(), state.context.physical_device(), where);
+        second.set_scene(kOtherScene);
+        const std::size_t others = second.pending();
+        second.set_scene(kScene);
+        const bool ahead = made && wait_made(second);
+        std::string error;
+        const bool drew = ahead && second.pipeline(drawn, &error) != VK_NULL_HANDLE;
+        tally->check(others == 0, text::format("another scene's keys are not made for it (%zu)", others));
+        tally->check(drew && second.stats().made_ahead == 1 && second.stats().made_drawing == 0,
+                     text::format("the next run: the scene's key made ahead, none while drawing (%u ahead, %u while drawing)",
+                                  static_cast<unsigned>(second.stats().made_ahead),
+                                  static_cast<unsigned>(second.stats().made_drawing)));
+        // a key never recorded, as a tracing draw asks for it: the fallback first, then its own once made - never
+        // made while drawing
+        const VkPipeline at_once = second.ready_or_made_ahead(other);
+        const bool later = wait_made(second);
+        const VkPipeline after = second.ready_or_made_ahead(other);
+        tally->check(at_once == VK_NULL_HANDLE && later && after != VK_NULL_HANDLE && second.stats().fallbacks == 1 &&
+                         second.stats().made_drawing == 0 && second.pipeline(other, &error) == after,
+                     text::format("a key not recorded: handed to the workers, its draw's fallback once (%u), then its own "
+                                  "pipeline (%u while drawing)",
+                                  static_cast<unsigned>(second.stats().fallbacks),
+                                  static_cast<unsigned>(second.stats().made_drawing)));
+        second.shutdown();
+    }
+    std::filesystem::remove_all(folder, failed);
+}
 // The loading screen's way: a timer thread draws whole frames (scene, clear, a draw, present) while the main thread
 // loads - textures and static buffers made, filled and released, now and then a read-back of the back buffer (which
 // finishes the work recorded so far, the other thread's half-drawn frame with it).
@@ -1612,6 +1688,7 @@ int run(const Options& options, SDL_Window* window)
     check_ui(gpu, &tally);
     check_threads(gpu, &tally);
     check_loading_threads(gpu, &tally);
+    check_pipelines_ahead(&tally);
 
     const VmaTotalStatistics after = state.memory.statistics();
     const bool all_released = after.total.statistics.allocationCount == baseline && state.textures.size() == 0 &&

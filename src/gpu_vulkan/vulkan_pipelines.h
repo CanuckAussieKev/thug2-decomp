@@ -2,14 +2,17 @@
 
 #include <array>
 #include <atomic>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <volk.h>
 
@@ -27,6 +30,20 @@
 // (thug2-decomp-vulkan-pipelines.bin), so a second run of a level makes its pipelines from both. Both files keep what
 // the newest runs used, up to a size (a save drops the rest). The 64-bit build's files end in -x64 (an x86 driver's
 // cache is never given to x64's).
+//
+// (round HITCH) A pipeline made while drawing stalls that frame (a traced key's shaders: ~3 200 lines, 35 - 200 ms the
+// first time). What 2026 engines do about it, here:
+//   - PSO precaching from recorded use (UE5's PSO precache with its recorded pipeline file cache): every key a level's
+//     draws used is kept with the level's main scene (thug2-decomp-vulkan-keys.bin beside the others, bounded), and when
+//     a level's scene comes up (set_scene - each frame, from its first frame under the loading screen) the keys its
+//     last runs used are made ahead by worker threads - the loading screen stays over the level until they are made
+//     (pending(); render_pc/load_cover.h). A key's pipeline comes from the shader and driver caches when they have it,
+//     else it is compiled there - a new build's first play pays its compiles under the loading screen, in parallel.
+//   - Background compiling with a fallback (UE5's asynchronous PSO creation, the "skip or fall back" draw): a key never
+//     recorded meets its pipeline while drawing. A tracing key (kSurfaceSunTraced - the see-through fragments that
+//     trace their own light) is then made by the workers (ready_or_made_ahead) and its draw takes the same key without
+//     the traced bit meanwhile - the light those fragments have on a frame without the scene's tables, the engine's own
+//     lower tier, never a missing or wrong draw; any other key is made at once, as before (it has no lower tier).
 namespace render::vulkan {
 
 // (added by the upscaler) The motion attachment's format (vulkan_motion.h): the move in 0 - 1 of the viewport (x, y),
@@ -82,6 +99,12 @@ struct PipelineStats {
     std::size_t refused = 0;
     double compile_seconds = 0.0;  // glslang
     double pipeline_seconds = 0.0; // vkCreateGraphicsPipelines
+    // (round HITCH) the pipelines made while drawing (a frame waited for each) and their time; those made ahead by the
+    // workers; the tracing draws drawn without their traced bit while theirs was made
+    std::size_t made_drawing = 0;
+    double drawing_seconds = 0.0;
+    std::size_t made_ahead = 0;
+    std::size_t fallbacks = 0;
 };
 
 // (round TRAIN) The draws' set 0 bindings (the scene's with ray queries) and set 1's (the view's light inputs): one
@@ -96,7 +119,7 @@ public:
     Pipelines& operator=(const Pipelines&) = delete;
     Pipelines(Pipelines&&) = delete;
     Pipelines& operator=(Pipelines&&) = delete;
-    ~Pipelines() = default;
+    ~Pipelines() { stop_workers(); } // (round HITCH: the workers wait for work - told to stop and joined)
 
     // The set layout (push descriptors: the two uniform blocks and the stages' textures), the pipeline layout, and the
     // caches read from the files in `folder` (ending in a separator; empty: none kept).
@@ -123,7 +146,15 @@ public:
     // The key's pipeline (made the first time); VK_NULL_HANDLE when its shaders don't compile or the driver refuses it
     // (reported once through `error`).
     VkPipeline pipeline(const PipelineKey& key, std::string* error);
-    [[nodiscard]] const PipelineStats& stats() const { return stats_; }
+    // (round HITCH) The key's pipeline when it is made (the same as pipeline's), else VK_NULL_HANDLE - its making handed to
+    // the workers (once): the caller draws its fallback meanwhile (counted in stats().fallbacks).
+    VkPipeline ready_or_made_ahead(const PipelineKey& key);
+    // (round HITCH) The level's main scene the frame draws (rt_relit_world.h level_scene; 0: none): the keys the draws
+    // use are recorded with it, and a new one's recorded keys are handed to the workers.
+    void set_scene(uint32_t scene);
+    // (round HITCH) The keys handed to the workers and not made yet.
+    [[nodiscard]] std::size_t pending() const;
+    [[nodiscard]] PipelineStats stats() const;
     // A full-screen pass's pipeline (made the first time): a triangle covering the target from three vertices without
     // a vertex buffer, `fragment` (GLSL using this layout's bindings; its input v_uv runs 0 - 1 over the target) for each
     // pixel, no blending and no depth, into one single-sampled target of `colour_format`; the viewport and scissor
@@ -154,8 +185,31 @@ public:
         std::shared_ptr<const std::vector<uint8_t>> data;
         uint32_t used = 0;
     };
+    // (round HITCH) A key a level's draws used: the level's main scene and the key, with the run that last used it.
+    struct SceneKey {
+        uint32_t scene = 0;
+        PipelineKey key{};
+        bool operator==(const SceneKey&) const = default;
+    };
+    struct SceneKeyHash {
+        std::size_t operator()(const SceneKey& key) const;
+    };
 
 private:
+    // (round HITCH) The key's pipeline made (any thread: the caches under mutex_, the compiles and the driver's work
+    // outside it); `drawing`: on the drawing thread (counted and, when slow, logged - a frame waited for it).
+    VkPipeline make(const PipelineKey& key, std::string* error, bool drawing);
+    // (round HITCH) A key made by the workers taken into pipelines_ (true), or made here (a key still waiting in the
+    // queue taken out of it) or waited for (one a worker is making) - the drawing thread's miss.
+    VkPipeline made_or_make(const PipelineKey& key, std::string* error);
+    void record(const PipelineKey& key);
+    // (round HITCH) whether a key read from the file can be made on this device (its shaders supported - never generated
+    // from bits the generator does not read -, a ray query only where there are ray queries)
+    [[nodiscard]] bool makeable(const PipelineKey& key) const;
+    void queue_locked(const PipelineKey& key);
+    void start_workers();
+    void stop_workers();
+    void work();
     VkShaderModule module(bool vertex, const ShaderKey& key, std::string* error);
     // GLSL's module: its SPIR-V from the disk cache or compiled; VK_NULL_HANDLE when it doesn't compile.
     VkShaderModule spirv_module(ShaderStage stage, const std::string& source, std::string* error, bool ray_query = false);
@@ -169,7 +223,28 @@ private:
     VkDescriptorSetLayout light_set_layout_ = VK_NULL_HANDLE; // (round FL)
     VkPipelineLayout layout_ = VK_NULL_HANDLE;
     std::string folder_;
-    std::unordered_map<PipelineKey, VkPipeline, PipelineKeyTableHash> pipelines_;
+    // (round HITCH) the drawing thread's table: each pipeline with the scene it was last recorded for
+    struct Made {
+        VkPipeline pipeline = VK_NULL_HANDLE;
+        uint32_t recorded_scene = 0;
+    };
+    std::unordered_map<PipelineKey, Made, PipelineKeyTableHash> pipelines_;
+    // (round HITCH) what the workers share with the drawing thread - mutex_ guards it and the caches below (the module
+    // tables, spirv_, blobs_, keys_, stats_, dirty_)
+    mutable std::mutex mutex_;
+    std::condition_variable work_ready_;
+    std::condition_variable work_done_;
+    std::deque<PipelineKey> queue_;
+    std::unordered_set<PipelineKey, PipelineKeyTableHash> waiting_; // (queued or being made)
+    struct Finished {
+        VkPipeline pipeline = VK_NULL_HANDLE;
+        std::string error;
+    };
+    std::unordered_map<PipelineKey, Finished, PipelineKeyTableHash> finished_;
+    std::vector<std::jthread> workers_;
+    bool stopping_ = false;
+    std::unordered_map<SceneKey, uint32_t, SceneKeyHash> keys_; // (round HITCH) the recorded keys, each with its last run
+    uint32_t scene_ = 0;
     std::unordered_map<VertexKey, VkShaderModule, VertexKeyHash> vertex_modules_;
     std::unordered_map<FragmentKey, VkShaderModule, FragmentKeyHash> fragment_modules_;
     std::unordered_map<uint64_t, VkShaderModule> screen_modules_; // by the GLSL's hash

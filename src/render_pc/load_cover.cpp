@@ -94,7 +94,9 @@ bool frame_covered()
     }
     ++own.frames;
     const uint64_t made = gpu().pipelines_made();
-    const bool drew_from_ready = made == own.pipelines_before;
+    // (round HITCH) ... and none still being made ahead for the level (the pipelines its last runs drew)
+    const std::size_t pending = gpu().pipelines_pending();
+    const bool drew_from_ready = made == own.pipelines_before && pending == 0;
     const bool movie = engine_parts().current_movie() != nullptr;
     // (round LS2) the world shows the level's light: its first light, and the lighting's cut shown (rt_daylight.h
     // cut_settling - the stores still being written for the light the clock published, at most kCutMostSeconds)
@@ -130,7 +132,8 @@ bool frame_covered()
         return false;
     }
     if (!drew_from_ready) {
-        gfx::loading_console::get_note("first frames: %llu pipelines made", static_cast<unsigned long long>(made - own.pipelines_before));
+        gfx::loading_console::get_note("first frames: %llu pipelines made, %zu being made", static_cast<unsigned long long>(made - own.pipelines_before),
+                                       pending);
     }
     return true;
 }

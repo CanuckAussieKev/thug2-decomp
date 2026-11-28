@@ -1355,6 +1355,9 @@ void draw_world()
         ext::before_draw_world();
     }
     renderer().count_frame(); // frames rendered
+    // Not original - (round HITCH) the level's scene to the device: the pipelines its draws use recorded with it, and
+    // those its last runs used made ahead (vulkan_pipelines.h) - from its first frame under the loading screen.
+    gpu().pipeline_scene(rt_relit_world::level_scene());
     if (!engine_parts().loading_screen_up()) { // (nothing while the device is lost)
         // Not original - the game view (engine/gfx/game_view.h; the level editor's Scene panel): the frame drawn into
         // the picture asked for, at its size, instead of the window.

@@ -16,6 +16,7 @@
 //   - the level's first light: rt_relit_world.h hold_first_light (the clock's light published, the level's own scripts
 //     for its time of day ended, the level relit for that light - or relighting not in play: ready at once), and
 //   - the frame drew only from what was ready: no pipeline made since the previous frame's cover (Gpu::pipelines_made -
+//     and, round HITCH, none of those the level's last runs drew still being made ahead: Gpu::pipelines_pending -
 //     the passes' pipelines are made the first time they draw or trace; Direct3D 9 makes none, so it is ready at once),
 //   - (round LS2) the lighting's cut shown (rt_daylight.h cut_settling: the stores written for the light the clock
 //     published - the eye follows the picture without adapting until then; at most kCutMostSeconds),

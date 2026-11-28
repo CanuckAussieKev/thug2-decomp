@@ -1,0 +1,33 @@
+# First-use pipeline hitches (frame_bench.ts run --levels NO,BA --scenario this file --seconds 80): skating about the
+# start level at the ini's time of day, then the time of day changed twice from the console while skating on - new
+# views, the skater's tricks' particles and the other times' draws each meet their pipelines for the first time. Run
+# it with the pipeline caches beside the exe moved away (a cold run: what a new build's first play meets) and again
+# with them (warm). Count the hitches in the report and the game.log's "a pipeline took" lines after the reveal.
+hold up 280
+wait 120
+press x 4
+wait 100
+hold left 20
+wait 73
+hold up 280
+wait 120
+press x 4
+wait 100
+hold right 40
+wait 73
+hold up 280
+wait 300
+console rt tod night
+hold up 280
+wait 120
+press x 4
+wait 100
+hold left 20
+wait 300
+console rt tod dusk
+hold up 280
+wait 120
+press x 4
+wait 100
+hold right 40
+wait 300

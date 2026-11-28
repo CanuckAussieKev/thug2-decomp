@@ -4,11 +4,14 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <string>
 #include <thread>
@@ -39,6 +42,19 @@ constexpr const char* kShaderFile =
     core::kPointers32Bit ? "thug2-decomp-vulkan-shaders.bin" : "thug2-decomp-vulkan-shaders-x64.bin";
 constexpr const char* kPipelineFile =
     core::kPointers32Bit ? "thug2-decomp-vulkan-pipelines.bin" : "thug2-decomp-vulkan-pipelines-x64.bin";
+// (round HITCH) the keys the levels' draws used (Pipelines::SceneKey), each with the run that last used it
+constexpr const char* kKeyFile = core::kPointers32Bit ? "thug2-decomp-vulkan-keys.bin" : "thug2-decomp-vulkan-keys-x64.bin";
+constexpr uint32_t kKeyFileMagic = 0x4B324854U; // "TH2K"
+// (a key's bytes are the build's PipelineKey: a file written with another layout - its size in the header - is not
+// read; a change of the key's meaning without one of its size bumps this)
+constexpr uint32_t kKeyFileVersion = 1;
+// The keys kept (a key is ~150 bytes: ~2.5 MB at most) - the newest runs' first - and the runs of a level whose keys are
+// made ahead when it comes up (a key the level last used before them - other settings, other builds' keys - waits for
+// a draw that wants it)
+constexpr std::size_t kMostKeys = 16384;
+constexpr uint32_t kKeyRunsMadeAhead = 4;
+// The workers that make pipelines ahead: a few - the game's own threads, the driver's and the loading go on beside them
+constexpr unsigned kMostWorkers = 3;
 constexpr uint32_t kShaderFileMagic = 0x53324854U; // "TH2S"
 constexpr uint32_t kShaderFileVersion = 2;
 constexpr uint32_t kPipelineFileMagic = 0x50324854U; // "TH2P"
@@ -378,6 +394,7 @@ bool Pipelines::init(VkDevice device, VkPhysicalDevice /*physical*/, const std::
         return false;
     }
     load(folder);
+    start_workers(); // (round HITCH: the keys made ahead)
     return true;
 }
 
@@ -428,6 +445,29 @@ void Pipelines::load(const std::string& folder)
         }
     }
     generation_ = newest + 1;
+    // (round HITCH) the levels' keys: each kept when this build's device could make it (a ray query's only with ray
+    // queries; the key as normalised keeps it - a stale key's shaders are never generated)
+    if (!folder.empty()) {
+        const std::vector<uint8_t> key_bytes = read_file(folder + kKeyFile);
+        Reader reader(key_bytes);
+        uint32_t magic = 0;
+        uint32_t version = 0;
+        uint32_t size = 0;
+        uint32_t count = 0;
+        if (reader.read(&magic) && reader.read(&version) && reader.read(&size) && reader.read(&count) &&
+            magic == kKeyFileMagic && version == kKeyFileVersion && size == sizeof(PipelineKey)) {
+            for (uint32_t entry = 0; entry < count && entry < kMostKeys; ++entry) {
+                SceneKey key;
+                uint32_t used = 0;
+                if (!reader.read(&key.scene) || !reader.read(&used) || !reader.read(&key.key)) {
+                    break;
+                }
+                if (makeable(key.key)) {
+                    keys_.emplace(key, used);
+                }
+            }
+        }
+    }
 }
 
 namespace {
@@ -437,6 +477,7 @@ struct Snapshot {
     uint32_t generation = 1;
     std::vector<std::pair<uint64_t, Pipelines::SpirvEntry>> shaders;
     std::vector<std::pair<uint64_t, Pipelines::PipelineBlob>> blobs;
+    std::vector<std::pair<Pipelines::SceneKey, uint32_t>> keys; // (round HITCH)
 };
 
 // The newest entries (by `used`, this run's first) that fit in `cap` bytes.
@@ -504,6 +545,27 @@ void write_caches(Snapshot snapshot, const std::string& folder)
             bytes += file.size();
         }
     }
+    {
+        // (round HITCH) the newest runs' keys, up to kMostKeys
+        std::ranges::stable_sort(snapshot.keys, [](const auto& left, const auto& right) { return left.second > right.second; });
+        if (snapshot.keys.size() > kMostKeys) {
+            dropped += snapshot.keys.size() - kMostKeys;
+            snapshot.keys.resize(kMostKeys);
+        }
+        std::vector<uint8_t> file;
+        append(file, kKeyFileMagic);
+        append(file, kKeyFileVersion);
+        append(file, static_cast<uint32_t>(sizeof(PipelineKey)));
+        append(file, static_cast<uint32_t>(snapshot.keys.size()));
+        for (const auto& [key, used] : snapshot.keys) {
+            append(file, key.scene);
+            append(file, used);
+            append(file, key.key);
+        }
+        if (write_file_replacing(folder + kKeyFile, file)) {
+            bytes += file.size();
+        }
+    }
     get_log("vulkan: the shader and pipeline caches saved (%.1f MB, %zu entries dropped for the size) in %.0f ms, off the drawing thread",
             static_cast<double>(bytes) / (1024.0 * 1024.0), dropped, seconds_since(began) * 1000.0);
 }
@@ -512,7 +574,8 @@ void write_caches(Snapshot snapshot, const std::string& folder)
 // busy, the file scanned). One save at a time - a save asked for meanwhile waits for the next time (still dirty); the
 // entries are taken here as pointers (a few thousand), everything else is the saver's.
 Snapshot take_snapshot(uint32_t generation, const std::unordered_map<uint64_t, Pipelines::SpirvEntry>& spirv,
-                       const std::unordered_map<uint64_t, Pipelines::PipelineBlob>& blobs)
+                       const std::unordered_map<uint64_t, Pipelines::PipelineBlob>& blobs,
+                       const std::unordered_map<Pipelines::SceneKey, uint32_t, Pipelines::SceneKeyHash>& keys)
 {
     Snapshot snapshot;
     snapshot.generation = generation;
@@ -528,6 +591,7 @@ Snapshot take_snapshot(uint32_t generation, const std::unordered_map<uint64_t, P
             snapshot.blobs.emplace_back(identity, blob);
         }
     }
+    snapshot.keys.assign(keys.begin(), keys.end());
     return snapshot;
 }
 
@@ -535,6 +599,7 @@ Snapshot take_snapshot(uint32_t generation, const std::unordered_map<uint64_t, P
 
 void Pipelines::save()
 {
+    const std::unique_lock lock(mutex_); // (round HITCH: the workers fill the caches)
     if (!dirty_ || folder_.empty() || device_ == nullptr || saving_.load()) {
         return;
     }
@@ -543,7 +608,7 @@ void Pipelines::save()
         saver_.join(); // (finished: saving_ is false)
     }
     saving_.store(true);
-    saver_ = std::jthread([this, snapshot = take_snapshot(generation_, spirv_, blobs_)]() mutable {
+    saver_ = std::jthread([this, snapshot = take_snapshot(generation_, spirv_, blobs_, keys_)]() mutable {
         write_caches(std::move(snapshot), folder_);
         saving_.store(false);
     });
@@ -554,11 +619,12 @@ void Pipelines::save_now()
     if (saver_.joinable()) {
         saver_.join();
     }
+    const std::scoped_lock lock(mutex_);
     if (!dirty_ || folder_.empty() || device_ == nullptr) {
         return;
     }
     dirty_ = false;
-    write_caches(take_snapshot(generation_, spirv_, blobs_), folder_);
+    write_caches(take_snapshot(generation_, spirv_, blobs_, keys_), folder_);
 }
 
 void Pipelines::shutdown()
@@ -566,12 +632,23 @@ void Pipelines::shutdown()
     if (device_ == nullptr) {
         return;
     }
-    save_now(); // (a save under way finished first)
-    for (const auto& [key, pipeline] : pipelines_) {
-        if (pipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(device_, pipeline, nullptr);
+    stop_workers(); // (round HITCH: what they were making finished - its pipeline kept below)
+    save_now();     // (a save under way finished first)
+    for (const auto& [key, made] : pipelines_) {
+        if (made.pipeline != VK_NULL_HANDLE) {
+            vkDestroyPipeline(device_, made.pipeline, nullptr);
         }
     }
+    for (const auto& [key, made] : finished_) {
+        if (made.pipeline != VK_NULL_HANDLE) {
+            vkDestroyPipeline(device_, made.pipeline, nullptr);
+        }
+    }
+    finished_.clear();
+    queue_.clear();
+    waiting_.clear();
+    keys_.clear();
+    scene_ = 0;
     for (const auto& [key, module] : vertex_modules_) {
         if (module != VK_NULL_HANDLE) {
             vkDestroyShaderModule(device_, module, nullptr);
@@ -618,41 +695,53 @@ void Pipelines::shutdown()
 VkShaderModule Pipelines::spirv_module(ShaderStage stage, const std::string& source, std::string* error, bool ray_query)
 {
     const uint64_t hash = text_hash(source);
-    auto kept = spirv_.find(hash);
-    if (kept == spirv_.end()) {
+    // (round HITCH: the workers make modules too - the table under the lock, the compile outside it; two threads that
+    // compile the same text at once keep the first's)
+    std::shared_ptr<const std::vector<uint32_t>> spirv;
+    bool found = false;
+    {
+        const std::scoped_lock lock(mutex_);
+        const auto kept = spirv_.find(hash);
+        if (kept != spirv_.end()) {
+            found = true;
+            ++stats_.shaders_from_disk;
+            kept->second.used = generation_; // (kept in the next save: this run used it; nothing is written for that alone)
+            spirv = kept->second.words;
+        }
+    }
+    if (!found) {
         const auto start = std::chrono::steady_clock::now();
         CompiledShader compiled =
             ray_query ? compile_rt_glsl(RtShaderStage::kFragment, source) : compile_glsl(stage, source);
-        stats_.compile_seconds += seconds_since(start);
-        ++stats_.shaders_compiled;
-        if (!compiled.ok) {
-            if (error != nullptr) {
-                *error = compiled.log + "\n" + source;
-            }
-            kept = spirv_.emplace(hash, SpirvEntry{}).first;
-        } else {
-            kept = spirv_
-                       .emplace(hash, SpirvEntry{.words = std::make_shared<const std::vector<uint32_t>>(std::move(compiled.spirv)),
-                                                 .used = generation_})
-                       .first;
-            dirty_ = true;
+        const double seconds = seconds_since(start);
+        if (!compiled.ok && error != nullptr) {
+            *error = compiled.log + "\n" + source;
         }
-    } else {
-        ++stats_.shaders_from_disk;
-    }
-    if (kept->second.used != generation_) {
-        kept->second.used = generation_; // (kept in the next save: this run used it; nothing is written for that alone)
+        const std::scoped_lock lock(mutex_);
+        stats_.compile_seconds += seconds;
+        ++stats_.shaders_compiled;
+        auto kept = spirv_.find(hash);
+        if (kept == spirv_.end()) {
+            SpirvEntry entry;
+            if (compiled.ok) {
+                entry = SpirvEntry{.words = std::make_shared<const std::vector<uint32_t>>(std::move(compiled.spirv)),
+                                   .used = generation_};
+                dirty_ = true;
+            }
+            kept = spirv_.emplace(hash, std::move(entry)).first;
+        }
+        spirv = kept->second.words;
     }
     VkShaderModule made = VK_NULL_HANDLE;
-    if (kept->second.words && !kept->second.words->empty()) {
+    if (spirv && !spirv->empty()) {
         // (round OM: a ray-query module kept on disk by an earlier run says it traverses opacity micromaps as this
         // device does - vulkan_rt_glsl.h)
         std::vector<uint32_t> declared;
         if (ray_query) {
-            declared = *kept->second.words;
+            declared = *spirv;
             spirv_micromaps_declared(&declared, micromaps_declared());
         }
-        const std::vector<uint32_t>& words = ray_query ? declared : *kept->second.words;
+        const std::vector<uint32_t>& words = ray_query ? declared : *spirv;
         const VkShaderModuleCreateInfo info{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
                                             .pNext = nullptr,
                                             .flags = 0,
@@ -667,15 +756,18 @@ VkShaderModule Pipelines::spirv_module(ShaderStage stage, const std::string& sou
 
 VkShaderModule Pipelines::module(bool vertex, const ShaderKey& key, std::string* error)
 {
-    if (vertex) {
-        const auto found = vertex_modules_.find(key.vertex);
-        if (found != vertex_modules_.end()) {
-            return found->second;
-        }
-    } else {
-        const auto found = fragment_modules_.find(key.fragment);
-        if (found != fragment_modules_.end()) {
-            return found->second;
+    {
+        const std::scoped_lock lock(mutex_);
+        if (vertex) {
+            const auto found = vertex_modules_.find(key.vertex);
+            if (found != vertex_modules_.end()) {
+                return found->second;
+            }
+        } else {
+            const auto found = fragment_modules_.find(key.fragment);
+            if (found != fragment_modules_.end()) {
+                return found->second;
+            }
         }
     }
     const std::string source = vertex ? vertex_shader_glsl(key.vertex) : fragment_shader_glsl(key.fragment);
@@ -686,17 +778,24 @@ VkShaderModule Pipelines::module(bool vertex, const ShaderKey& key, std::string*
         if (error != nullptr) {
             *error = "a ray query on a device without ray tracing";
         }
+        const std::scoped_lock lock(mutex_);
         fragment_modules_.emplace(key.fragment, VK_NULL_HANDLE);
         return VK_NULL_HANDLE;
     }
     const VkShaderModule made =
         spirv_module(vertex ? ShaderStage::kVertex : ShaderStage::kFragment, source, error, ray_query);
+    const std::scoped_lock lock(mutex_);
+    // (round HITCH: another thread may have made the same module meanwhile - the first kept, this one destroyed)
+    VkShaderModule kept = made;
     if (vertex) {
-        vertex_modules_.emplace(key.vertex, made);
+        kept = vertex_modules_.emplace(key.vertex, made).first->second;
     } else {
-        fragment_modules_.emplace(key.fragment, made);
+        kept = fragment_modules_.emplace(key.fragment, made).first->second;
     }
-    return made;
+    if (made != VK_NULL_HANDLE && made != kept) {
+        vkDestroyShaderModule(device_, made, nullptr);
+    }
+    return kept;
 }
 
 bool Pipelines::make_graphics(const VkGraphicsPipelineCreateInfo& info, uint64_t identity, VkPipeline* made)
@@ -714,39 +813,54 @@ bool Pipelines::make_graphics(const VkGraphicsPipelineCreateInfo& info, uint64_t
     VkGraphicsPipelineCreateInfo chained = info;
     chained.pNext = &feedback;
     const auto start = std::chrono::steady_clock::now();
-    const auto kept = blobs_.find(identity);
-    const bool had_blob = kept != blobs_.end() && kept->second.data && !kept->second.data->empty();
+    std::shared_ptr<const std::vector<uint8_t>> blob; // (round HITCH: the table under the lock - the workers make too)
+    {
+        const std::scoped_lock lock(mutex_);
+        const auto kept = blobs_.find(identity);
+        if (kept != blobs_.end()) {
+            blob = kept->second.data;
+        }
+    }
+    const bool had_blob = blob && !blob->empty();
     VkPipelineCacheCreateInfo cache_info{.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
                                          .pNext = nullptr,
                                          .flags = 0,
-                                         .initialDataSize = had_blob ? kept->second.data->size() : 0,
-                                         .pInitialData = had_blob ? kept->second.data->data() : nullptr};
+                                         .initialDataSize = had_blob ? blob->size() : 0,
+                                         .pInitialData = had_blob ? blob->data() : nullptr};
     VkPipelineCache cache = VK_NULL_HANDLE;
     if (vkCreatePipelineCache(device_, &cache_info, nullptr, &cache) != VK_SUCCESS) {
         cache = VK_NULL_HANDLE;
     }
     const bool ok = vkCreateGraphicsPipelines(device_, cache, 1, &chained, nullptr, made) == VK_SUCCESS;
-    stats_.pipeline_seconds += seconds_since(start);
+    const double seconds = seconds_since(start);
     if (!ok) {
         *made = VK_NULL_HANDLE;
     }
-    if (ok && cache != VK_NULL_HANDLE) {
-        const bool from_cache = had_blob && (whole.flags & VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT) != 0U &&
-                                (whole.flags & VK_PIPELINE_CREATION_FEEDBACK_APPLICATION_PIPELINE_CACHE_HIT_BIT) != 0U;
-        if (from_cache) {
-            kept->second.used = generation_;
-        } else {
-            std::size_t size = 0;
-            std::vector<uint8_t> data;
-            if (vkGetPipelineCacheData(device_, cache, &size, nullptr) == VK_SUCCESS && size > 0) {
+    std::shared_ptr<const std::vector<uint8_t>> fresh;
+    const bool from_cache = ok && had_blob && (whole.flags & VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT) != 0U &&
+                            (whole.flags & VK_PIPELINE_CREATION_FEEDBACK_APPLICATION_PIPELINE_CACHE_HIT_BIT) != 0U;
+    if (ok && cache != VK_NULL_HANDLE && !from_cache) {
+        std::size_t size = 0;
+        std::vector<uint8_t> data;
+        if (vkGetPipelineCacheData(device_, cache, &size, nullptr) == VK_SUCCESS && size > 0) {
+            data.resize(size);
+            if (vkGetPipelineCacheData(device_, cache, &size, data.data()) == VK_SUCCESS) {
                 data.resize(size);
-                if (vkGetPipelineCacheData(device_, cache, &size, data.data()) == VK_SUCCESS) {
-                    data.resize(size);
-                    blobs_[identity] = PipelineBlob{.data = std::make_shared<const std::vector<uint8_t>>(std::move(data)),
-                                                    .used = generation_};
-                    dirty_ = true;
-                }
+                fresh = std::make_shared<const std::vector<uint8_t>>(std::move(data));
             }
+        }
+    }
+    {
+        const std::scoped_lock lock(mutex_);
+        stats_.pipeline_seconds += seconds;
+        if (from_cache) {
+            const auto kept = blobs_.find(identity);
+            if (kept != blobs_.end()) {
+                kept->second.used = generation_;
+            }
+        } else if (fresh) {
+            blobs_[identity] = PipelineBlob{.data = std::move(fresh), .used = generation_};
+            dirty_ = true;
         }
     }
     if (cache != VK_NULL_HANDLE) {
@@ -759,8 +873,17 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
 {
     const auto found = pipelines_.find(key);
     if (found != pipelines_.end()) {
-        return found->second;
+        if (found->second.recorded_scene != scene_) { // (round HITCH: this level's draws use it too)
+            found->second.recorded_scene = scene_;
+            record(key);
+        }
+        return found->second.pipeline;
     }
+    return made_or_make(key, error);
+}
+
+VkPipeline Pipelines::make(const PipelineKey& key, std::string* error, bool drawing)
+{
     const auto began = std::chrono::steady_clock::now();
     const VkShaderModule vertex = module(true, key.shaders, error);
     const VkShaderModule fragment = module(false, key.shaders, error);
@@ -1001,18 +1124,221 @@ VkPipeline Pipelines::pipeline(const PipelineKey& key, std::string* error)
             *error = "vkCreateGraphicsPipelines refused it";
         }
     }
-    if (made == VK_NULL_HANDLE) {
-        ++stats_.refused;
-    } else {
-        ++stats_.pipelines;
+    const double seconds = seconds_since(began);
+    unsigned so_far = 0;
+    {
+        const std::scoped_lock lock(mutex_);
+        if (made == VK_NULL_HANDLE) {
+            ++stats_.refused;
+        } else {
+            ++stats_.pipelines;
+        }
+        if (drawing) {
+            ++stats_.made_drawing;
+            stats_.drawing_seconds += seconds;
+        } else {
+            ++stats_.made_ahead;
+        }
+        so_far = static_cast<unsigned>(stats_.pipelines);
     }
     // (a pipeline made while drawing stalls that frame: the slow ones named - their fragment key - with what they took)
-    if (const double seconds = seconds_since(began); seconds > kSlowPipelineSeconds) {
+    if (drawing && seconds > kSlowPipelineSeconds) {
         get_log("vulkan: a pipeline took %.0f ms to make (%s; %u made so far)", seconds * 1000.0,
-                describe(key.shaders.fragment).c_str(), static_cast<unsigned>(stats_.pipelines));
+                describe(key.shaders.fragment).c_str(), so_far);
     }
-    pipelines_.emplace(key, made);
     return made;
+}
+
+// --- (round HITCH) the keys made ahead ------------------------------------------------------------------------------
+
+std::size_t Pipelines::SceneKeyHash::operator()(const SceneKey& key) const
+{
+    static_assert(std::has_unique_object_representations_v<SceneKey>, "SceneKey is hashed as bytes");
+    std::array<uint8_t, sizeof(SceneKey)> raw{};
+    std::memcpy(raw.data(), &key, sizeof(SceneKey));
+    return static_cast<std::size_t>(fnv1a(raw));
+}
+
+bool Pipelines::makeable(const PipelineKey& key) const
+{
+    const bool traced = (key.shaders.fragment.surface & kSurfaceSunTraced) != 0U;
+    return supported(key.shaders, nullptr) && (!traced || ray_queries_) && key.topology_class <= 2 &&
+           (key.samples == 1 || key.samples == 2 || key.samples == 4 || key.samples == 8);
+}
+
+VkPipeline Pipelines::made_or_make(const PipelineKey& key, std::string* error)
+{
+    bool taken = false;
+    Finished finished;
+    {
+        std::unique_lock lock(mutex_);
+        if (waiting_.contains(key)) {
+            const auto queued = std::ranges::find(queue_, key);
+            if (queued != queue_.end()) {
+                queue_.erase(queued); // (not started: made here, below)
+                waiting_.erase(key);
+            } else {
+                // (a worker is making it: what is left of its work is less than all of it here)
+                work_done_.wait(lock, [this, &key] { return finished_.contains(key); });
+            }
+        }
+        const auto done = finished_.find(key);
+        if (done != finished_.end()) {
+            finished = std::move(done->second);
+            finished_.erase(done);
+            taken = true;
+        }
+    }
+    if (!taken) {
+        finished.pipeline = make(key, &finished.error, true);
+    }
+    if (finished.pipeline == VK_NULL_HANDLE && error != nullptr && error->empty()) {
+        *error = finished.error;
+    }
+    pipelines_.emplace(key, Made{.pipeline = finished.pipeline, .recorded_scene = scene_});
+    record(key);
+    return finished.pipeline;
+}
+
+VkPipeline Pipelines::ready_or_made_ahead(const PipelineKey& key)
+{
+    const auto found = pipelines_.find(key);
+    if (found != pipelines_.end()) {
+        if (found->second.recorded_scene != scene_) {
+            found->second.recorded_scene = scene_;
+            record(key);
+        }
+        return found->second.pipeline;
+    }
+    {
+        const std::scoped_lock lock(mutex_);
+        const auto done = finished_.find(key);
+        if (done == finished_.end()) {
+            queue_locked(key);
+            ++stats_.fallbacks;
+            return VK_NULL_HANDLE;
+        }
+    }
+    std::string error;
+    return made_or_make(key, &error); // (made: taken over)
+}
+
+void Pipelines::record(const PipelineKey& key)
+{
+    if (scene_ == 0) {
+        return; // (no level's scene: the front end's loading, a scene not made yet)
+    }
+    const std::scoped_lock lock(mutex_);
+    uint32_t& used = keys_[SceneKey{.scene = scene_, .key = key}];
+    if (used != generation_) {
+        used = generation_;
+        dirty_ = true;
+    }
+}
+
+void Pipelines::queue_locked(const PipelineKey& key)
+{
+    if (workers_.empty() || pipelines_.contains(key) || finished_.contains(key) || !waiting_.insert(key).second) {
+        return;
+    }
+    queue_.push_back(key);
+    work_ready_.notify_one();
+}
+
+void Pipelines::set_scene(uint32_t scene)
+{
+    if (scene == scene_) {
+        return;
+    }
+    scene_ = scene;
+    if (scene == 0) {
+        return;
+    }
+    start_workers();
+    const std::scoped_lock lock(mutex_);
+    // the keys this scene's last kKeyRunsMadeAhead runs used (its runs: the distinct runs its keys were last used in)
+    std::vector<uint32_t> runs;
+    for (const auto& [key, used] : keys_) {
+        if (key.scene == scene && std::ranges::find(runs, used) == runs.end()) {
+            runs.push_back(used);
+        }
+    }
+    std::ranges::sort(runs, std::greater<>());
+    const uint32_t oldest = runs.size() > kKeyRunsMadeAhead ? runs[kKeyRunsMadeAhead - 1] : 0;
+    std::size_t queued = 0;
+    for (const auto& [key, used] : keys_) {
+        if (key.scene == scene && used >= oldest) {
+            const std::size_t before = queue_.size();
+            queue_locked(key.key);
+            queued += queue_.size() - before;
+        }
+    }
+    if (queued > 0) {
+        get_log("vulkan: the level's scene %08x: %zu pipelines its last runs drew made ahead by %zu threads", scene, queued,
+                workers_.size());
+    }
+}
+
+std::size_t Pipelines::pending() const
+{
+    const std::scoped_lock lock(mutex_);
+    return waiting_.size();
+}
+
+PipelineStats Pipelines::stats() const
+{
+    const std::scoped_lock lock(mutex_);
+    return stats_;
+}
+
+void Pipelines::start_workers()
+{
+    if (!workers_.empty() || device_ == nullptr) {
+        return;
+    }
+    const unsigned threads = std::clamp(std::thread::hardware_concurrency() / 4U, 1U, kMostWorkers);
+    stopping_ = false;
+    for (unsigned i = 0; i < threads; ++i) {
+        workers_.emplace_back([this] { work(); });
+    }
+}
+
+void Pipelines::stop_workers()
+{
+    {
+        const std::scoped_lock lock(mutex_);
+        stopping_ = true;
+        queue_.clear(); // (not started: dropped; the one being made is finished)
+    }
+    work_ready_.notify_all();
+    workers_.clear(); // (each joined)
+    const std::scoped_lock lock(mutex_);
+    waiting_.clear();
+    stopping_ = false;
+}
+
+void Pipelines::work()
+{
+    for (;;) {
+        PipelineKey key;
+        {
+            std::unique_lock lock(mutex_);
+            work_ready_.wait(lock, [this] { return stopping_ || !queue_.empty(); });
+            if (stopping_) {
+                return;
+            }
+            key = queue_.front();
+            queue_.pop_front();
+        }
+        Finished finished;
+        finished.pipeline = make(key, &finished.error, false);
+        {
+            const std::scoped_lock lock(mutex_);
+            waiting_.erase(key);
+            finished_.insert_or_assign(key, std::move(finished));
+        }
+        work_done_.notify_all();
+    }
 }
 
 namespace {
@@ -1166,10 +1492,13 @@ VkPipeline Pipelines::screen_pass(VkFormat colour_format, const std::string& fra
             *error = "vkCreateGraphicsPipelines refused it";
         }
     }
-    if (made == VK_NULL_HANDLE) {
-        ++stats_.refused;
-    } else {
-        ++stats_.pipelines;
+    {
+        const std::scoped_lock lock(mutex_); // (round HITCH: the workers count too)
+        if (made == VK_NULL_HANDLE) {
+            ++stats_.refused;
+        } else {
+            ++stats_.pipelines;
+        }
     }
     screen_pipelines_.emplace(key, made);
     return made;
@@ -1367,10 +1696,13 @@ VkPipeline Pipelines::ui_pass(VkFormat colour_format, VkFormat depth_format, uin
             *error = "vkCreateGraphicsPipelines refused it";
         }
     }
-    if (made == VK_NULL_HANDLE) {
-        ++stats_.refused;
-    } else {
-        ++stats_.pipelines;
+    {
+        const std::scoped_lock lock(mutex_); // (round HITCH: the workers count too)
+        if (made == VK_NULL_HANDLE) {
+            ++stats_.refused;
+        } else {
+            ++stats_.pipelines;
+        }
     }
     screen_pipelines_.emplace(key, made);
     return made;

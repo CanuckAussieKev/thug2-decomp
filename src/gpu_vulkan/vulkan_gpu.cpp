@@ -1249,6 +1249,19 @@ public:
     }
     // NOT ORIGINAL - (round LS) the pipelines the device has made (vulkan_pipeline_count.h).
     [[nodiscard]] uint64_t pipelines_made() const override { return vulkan::pipelines_made(); }
+    // NOT ORIGINAL - (round HITCH) the keys recorded and made ahead for the level's scene (vulkan_pipelines.h).
+    void pipeline_scene(uint32_t scene) override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        state.pipelines.set_scene(scene);
+    }
+    [[nodiscard]] std::size_t pipelines_pending() override
+    {
+        Backend& state = backend();
+        const std::scoped_lock lock(state.mutex);
+        return state.pipelines.pending();
+    }
     // NOT ORIGINAL - (round ALBEDO) the pass colours' tint apart (ff_shaders.cpp ps_common / surface_finish: on a surface
     // lit per pixel it is light, never albedo; on the other draws on the colours, as the original).
     [[nodiscard]] bool takes_pass_tint() const override { return true; }
