@@ -174,7 +174,6 @@ const float REFLECT_FRAMES = 8.0;
 // level pane's; a wall's pane keeps the in-place reflections pass's)
 const float REFLECT_LEAST_UP = 0.82;
 
-vec3 good3(vec3 x) { return any(isnan(x)) || any(isinf(x)) ? vec3(0.0) : x; }
 vec3 world_at(vec2 pixel, float depth)
 {
     vec4 w = pass.to_world * vec4(pixel, depth, 1.0);
@@ -240,36 +239,8 @@ vec3 front_normal(ivec2 p, vec3 here, vec3 dir, bool water)
     return dot(n, dir) > 0.0 ? -n : n;
 }
 
-// A surface a ray from the layer met (seen along `r`), lit as ReSTIR GI's secondary vertices and the reflections pass's
-// hits are - its emission (`emitting`; (round LAYER) not a bounce ray's: its estimate takes the list's lights by their
-// own samples - next-event estimation - as ReSTIR GI's next_event does), the light list's light through its BSDF (one
-// sample, its own candidates), the disc's by its own ray, its reflectance x the radiance cache's bounce. The global unit
-// (the caller pre-exposes).
-vec3 hit_lit(HitSurface h, vec3 r, inout uint rng, bool emitting)
-{
-    vec3 v = -r;
-    vec3 ng = dot(h.normal, v) >= 0.0 ? h.normal : -h.normal;
-    vec3 sn = dot(h.shading_normal, v) > 0.0 ? h.shading_normal : ng;
-    vec3 p = h.position + ng * local_light_offset(h.position);
-    vec3 lit = emitting ? max(h.emitted, vec3(0.0)) : vec3(0.0);
-    ll_cell_candidates = false; // (its own candidates: no reuse smooths a shared cell's error - the reflections' hits)
-    vec3 toward;
-    vec3 incident = light_sample(p, sn, ng, FRONT_RAYS, rng, toward);
-    ll_cell_candidates = true;
-    if (max(incident.r, max(incident.g, incident.b)) > 0.0) {
-        lit += path_bsdf_cosine(h.material, sn, v, toward) * incident;
-    }
-    if (pass.sun.w < 1.5) {
-        vec3 l = path_to_world(pass.sun.xyz, path_cone_direction(pass.sun.w, path_next(rng), path_next(rng)));
-        if (dot(ng, l) > 0.0 && dot(sn, l) > 0.0) {
-            float seen = sun_kept(p) * ray_light_share(FRONT_RAYS, p, l, LL_REACH);
-            lit += path_bsdf_cosine(h.material, sn, v, l) * pass.sun_radiance.rgb * (pass.sun_radiance.w * seen);
-        }
-    }
-    lit += brdf_ambient(h.material, dot(sn, v), vec3(1.0), vec3(1.0)) * cache_bounce(h.position, ng);
-    return good3(lit);
-}
-
+)";
+constexpr const char* kBodyTail = R"(
 // (round LW) What a mirror at `origin` facing `n` reflects along `r`: the closest surface (the world, the objects, the
 // cut-outs by their alpha) lit (hit_lit) - or the sky's light that way (the disc's glint is the water's own: its
 // glitter). `travel` the hit's distance (-1: the sky).
@@ -298,53 +269,6 @@ vec3 mirror_light(vec3 origin, vec3 r, inout uint rng, out float travel)
     }
     travel = rayQueryGetIntersectionTEXT(query, true);
     return hit_lit(h, r, rng, true);
-}
-
-// (round LAYER) The bounce a white diffuser at `at` facing `n` gets (E / pi, the radiance cache's unit) where the cache
-// has no trusted cell for it - SHaRC's query rule (cache_lookup): on a miss the caller goes on tracing the path, as ReSTIR
-// GI's secondary vertices do (continue_path). One ray along the diffuser's cosine lobe - with the cosine's pdf the light
-// it meets is a one-sample estimate of E / pi - to the closest surface (hidden ones passed), lit as a bounce's vertex
-// (hit_lit: its direct light, its reflectance x the cache's bounce there; not its emission - the list's lights are the
-// layer's own samples); nothing where it leaves the world (the sky's light is the list's). The layer's point is often in
-// the air - a particle cloud, a pane away from every wall - where no surface ever claims a cell: read as 0 there (the
-// cache's miss), the layer had no bounce at all (Barcelona's fountain mist ~0.6 - 0.8 of the reference's light, 0.4 - 0.5
-// over the shaded facade, where the bounce is most of it).
-vec3 traced_bounce(vec3 at, vec3 n, inout uint rng)
-{
-    vec3 r = path_to_world(n, path_cosine_direction(path_next(rng), path_next(rng)));
-    if (!(dot(r, n) > 0.0)) {
-        return vec3(0.0);
-    }
-    vec3 origin = at;
-    for (uint skipped = 0u; skipped <= 4u; ++skipped) {
-        rayQueryEXT query;
-        rayQueryInitializeEXT(query, u_scene, gl_RayFlagsNoneEXT, FRONT_RAYS, origin, 0.0, r, LL_REACH);
-        while (rayQueryProceedEXT(query)) {
-            if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT &&
-                cutout_kept(rayQueryGetIntersectionInstanceIdEXT(query, false),
-                            rayQueryGetIntersectionPrimitiveIndexEXT(query, false),
-                            rayQueryGetIntersectionInstanceCustomIndexEXT(query, false),
-                            rayQueryGetIntersectionBarycentricsEXT(query, false))) {
-                rayQueryConfirmIntersectionEXT(query);
-            }
-        }
-        if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
-            return vec3(0.0);
-        }
-        HitSurface h;
-        if (!hit_surface(rayQueryGetIntersectionInstanceIdEXT(query, true),
-                         rayQueryGetIntersectionPrimitiveIndexEXT(query, true),
-                         rayQueryGetIntersectionInstanceCustomIndexEXT(query, true),
-                         rayQueryGetIntersectionBarycentricsEXT(query, true),
-                         rayQueryGetIntersectionObjectToWorldEXT(query, true), r, h)) {
-            return vec3(0.0);
-        }
-        if (!h.hidden) {
-            return hit_lit(h, r, rng, false);
-        }
-        origin = h.position + r * local_light_offset(h.position); // (a mesh the light store hides: not there)
-    }
-    return vec3(0.0);
 }
 
 // (round SHEETS) What the layer's rest surface lets through from behind it: the view's ray from `origin` (just past the
@@ -660,6 +584,9 @@ std::string shader_source(bool cloud_map)
     source += light_sample_glsl();
     source += radiance_cache_write_glsl(); // (round PERF: the layer's own cells - its update paths)
     source += kBody;
+    source += "#define LL_RAYS FRONT_RAYS\n"; // (round BIND: the bounce's rays - vulkan_light_list.h light_bounce_glsl)
+    source += light_bounce_glsl();
+    source += kBodyTail;
     return source;
 }
 

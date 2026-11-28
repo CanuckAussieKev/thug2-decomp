@@ -498,7 +498,17 @@ void push_descriptors(Backend& state, VkCommandBuffer commands, const PreparedDr
                                 &light.set, 0, nullptr);
         bound.light_set = light.set;
     }
-    const bool same = bound.descriptors_set && same_buffer_info(bound.pushed_vertex_block, draw.vertex_block) &&
+    // (NOT ORIGINAL - round BIND) a see-through surface's own rays (kSurfaceSunTraced, not cel's) read the material table:
+    // set 2, the table's descriptor set as it is now (a new generation's when the table grew), bound when it changes
+    if (surface.scene != VK_NULL_HANDLE && !surface.cel) {
+        const VkDescriptorSet materials = state.materials.descriptor_set();
+        if (materials != VK_NULL_HANDLE && bound.material_set != materials) {
+            vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, state.pipelines.layout(), kSceneMaterialsSet, 1,
+                                    &materials, 0, nullptr);
+            bound.material_set = materials;
+        }
+    }
+    const bool same =bound.descriptors_set && same_buffer_info(bound.pushed_vertex_block, draw.vertex_block) &&
                       same_buffer_info(bound.pushed_fragment_block, draw.fragment_block) &&
                       std::ranges::equal(images, bound.images, same_image_info) && same_surface && !surface.cel &&
                       !surface.detail && surface.scene == VK_NULL_HANDLE;
@@ -1188,9 +1198,7 @@ bool create_draw_objects(Backend& state)
         return false;
     }
     if (!state.staging.init(&state.memory, VK_BUFFER_USAGE_TRANSFER_SRC_BIT) ||
-        !state.frames.init(state.context, &state.memory, {.draws = &state.ring, .staging = &state.staging}) ||
-        !state.pipelines.init(state.context.device(), state.context.physical_device(), state.cache_folder,
-                              state.context.ray_tracing_enabled())) {
+        !state.frames.init(state.context, &state.memory, {.draws = &state.ring, .staging = &state.staging})) {
         return false;
     }
     VkPhysicalDeviceProperties properties{};
@@ -1220,6 +1228,11 @@ bool create_draw_objects(Backend& state)
             std::data(properties.deviceName), state.cache_folder.empty() ? "not kept" : "kept beside the exe");
     if (state.context.ray_tracing_enabled()) {
         state.materials.init(state); // NOT ORIGINAL - ray tracing's material table (logged when it can't be made)
+    }
+    // (round BIND: after the material table - its set layout is set 2 of the draws' layout with ray queries)
+    if (!state.pipelines.init(state.context.device(), state.context.physical_device(), state.cache_folder,
+                              state.context.ray_tracing_enabled(), state.materials.layout())) {
+        return false;
     }
     install_crash_markers(state); // NOT ORIGINAL - (round GD) the passes' markers (vulkan_crash_markers.h)
     return true;

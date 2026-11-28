@@ -115,9 +115,18 @@ struct GeometryRecord {
     uint emission_slot;
     uvec2 water_address;
 };
+// (round BIND) THUG2_GEOMETRY_ADDRESS (a uvec2 expression) and THUG2_GEOMETRY_COUNT: the table read by its device address
+// (a pass with no binding for it - the forward pass's draws), else its binding
+#ifdef THUG2_GEOMETRY_ADDRESS
+layout(buffer_reference, buffer_reference_align = 4, scalar) readonly buffer GeometryTable { GeometryRecord records[]; };
+#define geometry_records (GeometryTable(THUG2_GEOMETRY_ADDRESS).records)
+#define GEOMETRY_RECORD_COUNT (THUG2_GEOMETRY_COUNT)
+#else
 layout(set = THUG2_GEOMETRY_SET, binding = THUG2_GEOMETRY_BINDING, scalar) readonly buffer GeometryRecords {
     GeometryRecord geometry_records[];
 };
+#define GEOMETRY_RECORD_COUNT uint(geometry_records.length())
+#endif
 layout(buffer_reference, buffer_reference_align = 4, scalar) readonly buffer GeometryWords { uint words[]; };
 const uint GEOMETRY_LIVE = 1u;
 const uint GEOMETRY_INDEX32 = 2u;
@@ -129,7 +138,7 @@ const uint GEOMETRY_OBJECT_LIGHT = 64u;
 const uint GEOMETRY_WATER = 128u;
 GeometryRecord geometry_record(uint instance)
 {
-    if (instance >= uint(geometry_records.length())) {
+    if (instance >= GEOMETRY_RECORD_COUNT) {
         return GeometryRecord(uvec2(0u), uvec2(0u), 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, uvec2(0u), uvec2(0u), 0.0, 0u,
                               0u, 0u, 0u, uvec2(0u));
     }
@@ -1275,9 +1284,11 @@ bool ensure_frame_scene(Backend& state, Scene& made, FrameScene* frame, uint32_t
         return false;
     }
     state.memory.name_buffer(frame->instances, "a frame's TLAS instances"); // (round GF: the crash report's)
-    // (R5's reflections: the geometry table, a record per instance)
+    // (R5's reflections: the geometry table, a record per instance; round BIND: read by address too - the forward pass's
+    // own rays, ff_shaders.cpp)
     if (!state.memory.create_buffer(static_cast<VkDeviceSize>(capacity) * sizeof(GeometryRecord),
-                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferPlace::kUpload, &frame->geometry) ||
+                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                    BufferPlace::kUpload, &frame->geometry) ||
         frame->geometry.mapped == nullptr) {
         return false;
     }

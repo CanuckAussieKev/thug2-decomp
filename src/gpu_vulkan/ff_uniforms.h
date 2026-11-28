@@ -95,6 +95,11 @@ constexpr uint32_t kLightFrontReflectBinding = 11;
 // (0: none traced there; -65504: traced, nothing met - deep water)
 constexpr uint32_t kLightFrontBehindBinding = 12;
 constexpr uint32_t kLightInputCount = 13;
+// (NOT ORIGINAL - round BIND) The ray-tracing material table (vulkan_rt_materials.h - its records, samplers and textures)
+// as descriptor set 2: bound for the draws whose fragments trace their own light (kSurfaceSunTraced), so their rays read
+// the materials every other light ray reads - the cut-outs' alpha, the seen-through surfaces' share, a bounce's hit
+// surface. In the layout of a device with ray tracing only.
+constexpr uint32_t kSceneMaterialsSet = 2;
 
 // The vertex attributes' locations (a vertex format's parts in Direct3D 9's order). D3DCOLOR is
 // VK_FORMAT_B8G8R8A8_UNORM: its bytes are blue, green, red, alpha, and the shader reads it as rgba.
@@ -202,8 +207,12 @@ struct SurfaceUniforms {
 // the lamps' records (address, 1, count), then the frame's count and its pre-exposure's bits; (round DEPTH) then ReSTIR
 // GI's list as this frame lit the view with it (vulkan_light_list.h FrameLightList - zero where GI didn't): the sky's
 // cells and alias tables (addresses), the radiance cache (address, 1 when GI lit the view, 1 when the cache is on), the
-// cache's camera and cell angle, the sky's 1 / integral and the list's table (address)
-inline constexpr std::size_t kForwardLightsWords = 32;
+// cache's camera and cell angle, the sky's 1 / integral and the list's table (address); (round BIND) then the rest of
+// GI's list - the emitters' list and the instances' first triangles (addresses), the triangles' places in the list and
+// the TLAS instances (addresses), the instances' count, the geometry table (address), the list's entries -, the disc
+// (toward it, the cosine of its radius) and its radiance (rgb, its solid angle), and 1 when the scene's tables (the
+// geometry table, the instances) are there - set with or without GI: the rays' cut-out casters read them
+inline constexpr std::size_t kForwardLightsWords = 64;
 
 // (added by cel shading) Binding 8 (vertex and fragment shaders): vulkan_cel.cpp fills it.
 struct CelUniforms {

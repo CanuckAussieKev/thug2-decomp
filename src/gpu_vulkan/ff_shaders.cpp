@@ -32,6 +32,7 @@
 #include "gpu_vulkan/ff_uniforms.h"
 #include "gpu_vulkan/vulkan_light_list.h"
 #include "gpu_vulkan/vulkan_rt_lights.h"
+#include "gpu_vulkan/vulkan_rt_materials.h"
 #include "gpu_vulkan/vulkan_rt_scene.h"
 #include "gpu_vulkan/water_shader.h"
 
@@ -709,15 +710,34 @@ float cel_visible(vec3 eye, vec3 eye_normal, uint mask)
 // the forward translucency pass, the per-pixel shadow test ray-traced renderers give translucent surfaces; its cost is
 // its own fragments', nothing in a view without them) from its point toward the light through the frame's TLAS
 // (kCelSceneBinding). The world's casters - an object's fragment takes the world's shadows, never the objects' (the
-// shadows pass's own rule); a relit world's fragment both. Solid casters only: the cut-out casters' holes and the
-// seen-through casters' transmittance are the shadows pass's (it reads the geometry tables), not this ray's - as the
-// cel shading's, the grass's and the snow's sun rays: the stated compromise.
+// shadows pass's own rule); a relit world's fragment both. (Round BIND: with the cut-outs by their alpha and the
+// seen-through casters by their share - the light list's one light ray, below; before, solid casters only.)
 // (round DEPTH) The ray starts where every light ray of the light list does (local_light_offset off the point along the
 // normal on the light's side - the front layer's sun ray, ReSTIR GI's and the path reference's ray_offset, round VEIL's
 // lamp ray in this pass): one start rule for every ray from a surface. Before, it took the cel ray's 2 units along the
 // normal + 1 along the light: at a low sun that start sits ~1 - 2 units above the pane toward the sun, past a caster's
 // edge right beside it - the shadow's edge moved by that much (5 % at 40 units from the caster, every unit at grazing).
-constexpr const char* kSurfaceSceneGlsl = R"(layout(set = 0, binding = 9) uniform accelerationStructureEXT surface_scene;)";
+// (round BIND) The ray: the light list's one light ray (vulkan_rt_scene.h ray_light - the cut-out casters by their alpha,
+// the seen-through ones by the share they let through: what every other light ray takes), now that the draw has the
+// scene's tables (the geometry table and the TLAS instances through the forward block's addresses, the material table as
+// set 2 - kSceneMaterialsSet). Before, an opaque ray of the solid casters alone: a fence's, a grate's or a tree card's
+// whole quad passed (the cut-outs' instances are of mask 0x04 - not in it) - no shadow of theirs on the pane behind.
+// Where the tables aren't there this frame (SURFACE_TABLES false): the solid casters alone, as before.
+constexpr const char* kSurfaceSceneGlsl = R"(layout(set = 0, binding = 9) uniform accelerationStructureEXT u_scene;)";
+constexpr const char* kSurfaceThroughGlsl = R"(
+// The light that gets from `origin` along `dir` to `reach` past the casters `mask` picks (1 or 0 without the tables).
+float surface_light_through(uint mask, vec3 origin, vec3 dir, float reach)
+{
+    if (SURFACE_TABLES) {
+        return ray_light_share(mask, origin, dir, reach);
+    }
+    rayQueryEXT q;
+    rayQueryInitializeEXT(q, u_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask & 0x03u, origin, 0.0,
+                          dir, reach);
+    while (rayQueryProceedEXT(q)) {
+    }
+    return rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
+})";
 constexpr const char* kSurfaceSunGlsl = R"(const float SURFACE_RAY_LENGTH = 1.0e6;
 float surface_sun_traced(vec3 eye, vec3 eye_normal, vec3 eye_toward, uint mask)
 {
@@ -736,12 +756,7 @@ float surface_sun_traced(vec3 eye, vec3 eye_normal, vec3 eye_toward, uint mask)
     }
     n = normalize(n);
     if (dot(n, to) < 0.0) n = -n;
-    rayQueryEXT q;
-    rayQueryInitializeEXT(q, surface_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, mask,
-                          world + n * local_light_offset(world), 0.0, to, SURFACE_RAY_LENGTH);
-    while (rayQueryProceedEXT(q)) {
-    }
-    return rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
+    return surface_light_through(mask, world + n * local_light_offset(world), to, SURFACE_RAY_LENGTH);
 })";
 bool surface_sun_key(const FragmentKey& key)
 {
@@ -762,11 +777,10 @@ bool surface_sun_key(const FragmentKey& key)
 // on the side facing the eye -, pre-exposed); the surface's model puts it on its diffuse lobe as the inputs' lamps.
 // Chosen over a translucency lighting volume (UE's TLV - a froxel grid lit every frame, ~0.3 - 1 ms at 1440p whether or
 // not a fragment reads it, its shadows a froxel wide) by cost: this costs only the fragments that need it (none in most
-// views). The same solid-only ray as the sun's (kSurfaceSunGlsl), of the world's and the objects' solid casters (mask
-// 0x03 - ReSTIR DI's lamps are shadowed by both).
+// views). The same light ray as the sun's (kSurfaceThroughGlsl - round BIND: the light list's, SURFACE_LIGHT_RAYS: the
+// world's and the objects' casters, the cut-outs by their alpha, the seen-through ones by their share).
 constexpr const char* kSurfaceLampsGlsl = R"(
 const uint SURFACE_LAMP_CANDIDATES = 8u;
-const uint SURFACE_LAMP_RAYS = 0x03u;
 vec3 surface_lamps_traced(vec3 eye, vec3 eye_normal)
 {
     if (s.local_lights.z == 0u || !LL_POOL) {
@@ -828,51 +842,50 @@ vec3 surface_lamps_traced(vec3 eye, vec3 eye_normal)
     // (from the point the light list's samples start at - local_light_offset off it, as every light ray of the list: the
     // fragment's own surface is see-through, never in the ray's kinds; the cel ray's offset of 2 units moved the shadow's
     // edge by up to 10 % of the lamp's distance)
-    if (chosen.reach > 1.0e-3) {
-        rayQueryEXT q;
-        rayQueryInitializeEXT(q, surface_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, SURFACE_LAMP_RAYS,
-                              at, 0.0, chosen.dir, chosen.reach);
-        while (rayQueryProceedEXT(q)) {
-        }
-        if (rayQueryGetIntersectionTypeEXT(q, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
-            return vec3(0.0);
-        }
+    // (round BIND: the light list's one light ray - surface_light_through)
+    float through = chosen.reach > 1.0e-3 ? surface_light_through(SURFACE_LIGHT_RAYS, at, chosen.dir, chosen.reach) : 1.0;
+    if (!(through > 0.0)) {
+        return vec3(0.0);
     }
     float weight = wsum / (float(SURFACE_LAMP_CANDIDATES) * chosen_target);
-    return chosen.light * (chosen_cos * weight / PATH_PI * uintBitsToFloat(frame.y));
+    return chosen.light * (chosen_cos * weight * through / PATH_PI * uintBitsToFloat(frame.y));
 })";
 
-// (round VEIL) The forward pass's local lights block (ff_uniforms.h kForwardLightsWords) through its device address, the
-// lamps' records through theirs, and the readers of the picks (light_pool_reader_glsl, light_grid_reader_glsl,
-// local_light_seen_glsl) over them - nothing of the scene's tables.
-void surface_lamps_declarations(std::string& out)
-{
-    add(out, {"layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceLocalLights {\n"
-              "    uvec4 pool;\n    uvec4 grid;\n    uvec4 lamp_records;\n    uvec4 frame;\n"
-              "    uvec4 sky;\n    uvec4 gi_cache;\n    vec4 cache_place;\n    uvec4 table;\n};\n"
-              "#define SURFACE_LOCAL (SurfaceLocalLights(s.local_lights.xy))\n"
-              "layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceLampRecords { "
-              "LightRecord records[]; };\n"
-              "#define lamps (SurfaceLampRecords(SURFACE_LOCAL.lamp_records.xy).records)"});
-    out += light_pool_reader_glsl("SURFACE_LOCAL.pool");
-    out += light_grid_reader_glsl("SURFACE_LOCAL.grid");
-    out += local_light_seen_glsl();
-    add(out, {"#undef lamps", kSurfaceLampsGlsl});
-}
-
-// (NOT ORIGINAL - round DEPTH) The indirect light of such a fragment where ReSTIR GI lit the view. Before, it took the
-// light store's environment (the probe's ambient, the store's sky + bounce, x surface_li.b = 1) - the GI-off standing -
-// while every other surface of the view took GI's: the prepass's surfaces GI's samples, the front layer the list's sky by
-// its own samples + the radiance cache's bounce. One indirect rule: the fragment takes the front layer's - the sky (one
-// direction by the sky's own distribution - the list's sky_sample -, one solid ray from local_light_offset off the point;
-// the disc not in it: surface_sun_traced owns it) + the radiance cache's bounce at the point (SHaRC's query - cache_lookup
-// keyed from GI's camera; on a miss the young entry's light, else 0: cache_bounce, the rule of the front layer's and the
-// reflections' hits - a reader that can't trace the path on; no scene tables here), on a white diffuser facing the eye
-// (E / pi), pre-exposed - the lamps input's unit, beside the local lights' (kSurfaceLampsGlsl). The probe's weight then 0
-// (surface_li as the front layer's: the traced visibility, no share, no occlusion weight).
-// Compromise (named): one sky sample a fragment a frame, no history (Ray Reconstruction averages it - as the local
-// lights'); solid casters only (the sun's and the lamps' ray).
-constexpr const char* kSurfaceIndirectGlsl = R"(
+// (round VEIL) The forward pass's local lights block (ff_uniforms.h kForwardLightsWords) through its device address;
+// (round BIND) the scene's tables through the addresses it holds - the geometry table (scene_geometry_glsl's
+// THUG2_GEOMETRY_ADDRESS), the TLAS instances - and the material table as set 2 (kSceneMaterialsSet): what every other
+// light ray reads (ray_light: the cut-outs' alpha, the seen-through surfaces' share), and with ReSTIR GI's list the rest
+// of its tables (the emitters, their triangles' places) - what a bounce's hit is lit by (light_sample, hit_lit).
+constexpr const char* kSurfaceBlockGlsl = R"(
+layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceLocalLights {
+    uvec4 pool;
+    uvec4 grid;
+    uvec4 lamp_records;
+    uvec4 frame;
+    uvec4 sky;
+    uvec4 gi_cache;
+    vec4 cache_place;
+    uvec4 table;
+    uvec4 emitters;
+    uvec4 places;
+    uvec4 geometry;
+    vec4 sun;
+    vec4 sun_radiance;
+    uvec4 scene;
+};
+#define SURFACE_LOCAL (SurfaceLocalLights(s.local_lights.xy))
+#define SURFACE_TABLES (s.local_lights.z != 0u && SURFACE_LOCAL.scene.x != 0u)
+#define THUG2_GEOMETRY_ADDRESS SURFACE_LOCAL.geometry.yz
+#define THUG2_GEOMETRY_COUNT SURFACE_LOCAL.geometry.x
+)";
+// The light list's tables (ReSTIR GI's FrameLightList, through the block's addresses: zero where GI didn't light the
+// view - SURFACE_GI_LIT false, nothing read) and the macros light_sample_glsl and light_bounce_glsl take.
+// SURFACE_LIGHT_RAYS: the light rays' kinds - the world, the objects, the cut-outs, what is drawn apart (the front layer's
+// FRONT_RAYS, ReSTIR GI's); SURFACE_OBJECT_SUN_RAYS: an object's key light's - the world's casters alone (the shadows
+// pass's rule: an object takes the world's shadows, never the objects').
+constexpr const char* kSurfaceListGlsl = R"(
+const uint SURFACE_LIGHT_RAYS = 0x0Fu;
+const uint SURFACE_OBJECT_SUN_RAYS = 0x0Du;
 struct LightEntry {
     float threshold;
     uint alias;
@@ -883,17 +896,61 @@ layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer Su
 layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceSkyCells { vec4 cells[]; };
 layout(buffer_reference, buffer_reference_align = 8, std430) readonly buffer SurfaceSkyAlias { uvec2 words[]; };
 layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceCache { uvec4 words[]; };
+layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceEmitters {
+    uint count;
+    uint spare;
+    uint unused;
+    uint pad;
+    uvec4 entries[];
+};
+layout(buffer_reference, buffer_reference_align = 4, std430) readonly buffer SurfaceListWords { uint words[]; };
+layout(buffer_reference, buffer_reference_align = 16, std430) readonly buffer SurfaceLampRecords { LightRecord records[]; };
 #define light_entries (SurfaceLightTable(SURFACE_LOCAL.table.yz).entries)
 #define sky_cells (SurfaceSkyCells(SURFACE_LOCAL.sky.xy).cells)
 #define sky_alias (SurfaceSkyAlias(SURFACE_LOCAL.sky.zw).words)
 #define cache (SurfaceCache(SURFACE_LOCAL.gi_cache.xy).words)
-#define SURFACE_GI_LIT (s.local_lights.z != 0u && SURFACE_LOCAL.gi_cache.z != 0u)
+#define emitter_count (SurfaceEmitters(SURFACE_LOCAL.emitters.xy).count)
+#define emitter_entries (SurfaceEmitters(SURFACE_LOCAL.emitters.xy).entries)
+#define membership (SurfaceListWords(SURFACE_LOCAL.emitters.zw).words)
+#define slots (SurfaceListWords(SURFACE_LOCAL.places.xy).words)
+#define lamps (SurfaceLampRecords(SURFACE_LOCAL.lamp_records.xy).records)
+#define LIST_INSTANCE_ADDRESS SURFACE_LOCAL.places.zw
+#define LIST_INSTANCES SURFACE_LOCAL.geometry.x
+#define SURFACE_GI_LIT (SURFACE_TABLES && SURFACE_LOCAL.gi_cache.z != 0u)
 #define SURFACE_SKY_DIST uintBitsToFloat(SURFACE_LOCAL.table.x)
+#define LL_COUNT SURFACE_LOCAL.geometry.w
+#define LL_SUN SURFACE_LOCAL.sun
+#define LL_SUN_RADIANCE SURFACE_LOCAL.sun_radiance
+#define LL_SKY_DIST SURFACE_SKY_DIST
+#define LL_REACH 1.0e6
+#define LL_NO_DISC
+#define LL_CACHE
 #define LL_EYE SURFACE_LOCAL.cache_place.xyz
 #define LL_CACHE_CELLS SURFACE_LOCAL.cache_place.w
 #define LL_CACHE_ON (SURFACE_LOCAL.gi_cache.w != 0u)
-@SKY_CACHE@
-const uint SURFACE_SKY_RAYS = 0x03u;
+#define LL_RAYS SURFACE_LIGHT_RAYS
+)";
+// (the list's names freed after the functions that read them: the shading's own code comes after)
+constexpr const char* kSurfaceListEndGlsl = "#undef light_entries\n#undef sky_cells\n#undef sky_alias\n#undef cache\n"
+                                            "#undef emitter_count\n#undef emitter_entries\n#undef membership\n#undef slots\n"
+                                            "#undef lamps";
+
+// (NOT ORIGINAL - round DEPTH) The indirect light of such a fragment where ReSTIR GI lit the view. Before, it took the
+// light store's environment (the probe's ambient, the store's sky + bounce, x surface_li.b = 1) - the GI-off standing -
+// while every other surface of the view took GI's: the prepass's surfaces GI's samples, the front layer the list's sky by
+// its own samples + the radiance cache's bounce. One indirect rule: the fragment takes the front layer's - the sky (one
+// direction by the sky's own distribution - the list's sky_sample -, one light ray from local_light_offset off the point;
+// the disc not in it: surface_sun_traced owns it) + the radiance cache's bounce at the point (SHaRC's query - cache_lookup
+// keyed from GI's camera), on a white diffuser facing the eye (E / pi), pre-exposed - the lamps input's unit, beside the
+// local lights' (kSurfaceLampsGlsl). The probe's weight then 0 (surface_li as the front layer's: the traced visibility, no
+// share, no occlusion weight).
+// (round BIND) On a miss of the cache (no trusted cell: a pane in the air, a region newly seen) the bounce is traced on -
+// SHaRC's query rule, the front layer's (light_bounce_glsl traced_bounce: one cosine ray, its hit lit by light_sample and
+// the disc's ray, x the cache's bounce there). Before, the young entry's light or 0 - a pane behind another one in the
+// air had no bounce at all. The sky's ray is the light list's one light ray (ray_light: cut-outs, seen-through shares).
+// Compromise (named): one sky sample and one bounce ray a fragment a frame, no history (Ray Reconstruction averages it -
+// as the local lights').
+constexpr const char* kSurfaceIndirectGlsl = R"(
 vec3 surface_indirect_traced(vec3 eye, vec3 eye_normal)
 {
     vec4 p4 = vec4(eye, 1.0);
@@ -904,9 +961,14 @@ vec3 surface_indirect_traced(vec3 eye, vec3 eye_normal)
         return vec3(0.0);
     }
     n = normalize(n);
-    vec3 light = cache_bounce(at, n);
+    vec3 from = at + n * local_light_offset(at);
+    uint rng = path_sequence_start(uint(gl_FragCoord.x), uint(gl_FragCoord.y), SURFACE_LOCAL.frame.x, 0x534B5944u);
+    // (round BIND) the bounce: the radiance cache's where it has a trusted cell, else traced on - the front layer's rule
+    vec3 light;
+    if (!cache_lookup(at, n, light)) {
+        light = traced_bounce(from, n, rng);
+    }
     if (SURFACE_SKY_DIST > 0.0) {
-        uint rng = path_sequence_start(uint(gl_FragCoord.x), uint(gl_FragCoord.y), SURFACE_LOCAL.frame.x, 0x534B5944u);
         float u0 = path_next(rng);
         float u1 = path_next(rng);
         float u2 = path_next(rng);
@@ -917,31 +979,49 @@ vec3 surface_indirect_traced(vec3 eye, vec3 eye_normal)
         vec3 radiance = sky_cells[cell].rgb;
         float pdf = path_luma(radiance) * SURFACE_SKY_DIST;
         if (cosine > 0.0 && pdf > 0.0) {
-            rayQueryEXT q;
-            rayQueryInitializeEXT(q, surface_scene, gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT, SURFACE_SKY_RAYS,
-                                  at + n * local_light_offset(at), 0.0, dir, 1.0e6);
-            while (rayQueryProceedEXT(q)) {
-            }
-            if (rayQueryGetIntersectionTypeEXT(q, true) == gl_RayQueryCommittedIntersectionNoneEXT) {
-                light += radiance * (cosine / (pdf * PATH_PI));
-            }
+            light += radiance * (cosine * surface_light_through(SURFACE_LIGHT_RAYS, from, dir, 1.0e6) / (pdf * PATH_PI));
         }
     }
     return light * uintBitsToFloat(SURFACE_LOCAL.frame.y);
 }
-#undef cache
 )";
-std::string surface_indirect_glsl()
+
+// (round BIND) The traced keys' declarations, in their order: the scene (u_scene), the material table (set 2), the block,
+// the geometry table, the rays' surfaces (cutout_rays_glsl - ray_light; hit_surface_glsl), the light model's lamps, the
+// list's tables, the local lights (the picks' readers, local_light_glsl), the forward rays (the lamps, the sun), the
+// list's sample and the bounce (light_sample_glsl, light_bounce_glsl - the front layer's), the indirect light.
+void surface_traced_declarations(std::string& out)
 {
-    std::string text = kSurfaceIndirectGlsl;
-    std::string tables = "const uint SKY_WIDTH = " + num(rt::lights::kSkyGridWidth) + "u;\nconst uint SKY_HEIGHT = " +
-                         num(rt::lights::kSkyGridHeight) + "u;\nconst uint CACHE_CAPACITY = " + num(kRadianceCacheCapacity) +
-                         "u;\nconst uint CACHE_PROBES = " + num(kRadianceCacheProbes) + "u;\nconst float CACHE_CELL_LEAST = " +
-                         num(kRadianceCacheCellLeast) + ";\n" + rt::lights::kLightListGlsl +
-                         std::string(radiance_cache_read_glsl());
-    const std::string_view mark = "@SKY_CACHE@";
-    text.replace(text.find(mark), mark.size(), tables);
-    return text;
+    static_assert(kCelSceneBinding == 9, "kSurfaceSceneGlsl names it");
+    static const std::string made = [] {
+        std::string text;
+        add(text, {kSurfaceSceneGlsl});
+        text += "#define THUG2_MATERIAL_SET " + num(kSceneMaterialsSet) + "\n";
+        text += material_glsl();
+        text += kSurfaceBlockGlsl;
+        text += scene_geometry_glsl();
+        text += cutout_rays_glsl();
+        add(text, {"#define THUG2_RAIN_RIPPLES"}); // (the rain's rings in it: the wet ground's block leaves them out)
+        text += hit_surface_glsl(); // (round VEIL's emitter faces in it)
+        text += rt::path::kPathGlsl;
+        text += rt_lamp_glsl();
+        text += kSurfaceListGlsl;
+        text += light_instances_glsl();
+        text += "const uint SKY_WIDTH = " + num(rt::lights::kSkyGridWidth) + "u;\nconst uint SKY_HEIGHT = " +
+                num(rt::lights::kSkyGridHeight) + "u;\nconst uint CACHE_CAPACITY = " + num(kRadianceCacheCapacity) +
+                "u;\nconst uint CACHE_PROBES = " + num(kRadianceCacheProbes) + "u;\nconst float CACHE_CELL_LEAST = " +
+                num(kRadianceCacheCellLeast) + ";\n";
+        text += rt::lights::kLightListGlsl;
+        text += light_pool_reader_glsl("SURFACE_LOCAL.pool");
+        text += light_grid_reader_glsl("SURFACE_LOCAL.grid");
+        text += local_light_glsl();
+        add(text, {kSurfaceThroughGlsl, kSurfaceLampsGlsl, kSurfaceSunGlsl});
+        text += light_sample_glsl();
+        text += light_bounce_glsl();
+        add(text, {kSurfaceIndirectGlsl, kSurfaceListEndGlsl});
+        return text;
+    }();
+    out += made;
 }
 
 void cel_declarations(std::string& out, const FragmentKey& key)
@@ -1243,9 +1323,10 @@ std::string wet_block()
                         "layout(set = 0, binding = 23) uniform usampler2D rain_map;\n"
                         "#define PRECIP_BLOCK rain\n#define PRECIP_MAP rain_map\n#define PRECIP_SIZE " +
                         std::to_string(precip::kMapSize) + "\n";
-    block += render::rain::glsl_constants();
+    // (round BIND: a traced key has the rain's constants and rings already - the rays' water surface, cutout_rays_glsl)
+    block += "#ifndef THUG2_RAIN_RIPPLES\n" + std::string(render::rain::glsl_constants()) + "#endif\n";
     block += precip::reached_glsl();
-    block += render::rain::ripple_glsl();
+    block += "#ifndef THUG2_RAIN_RIPPLES\n" + std::string(render::rain::ripple_glsl()) + "#endif\n";
     block += render::rain::surface_glsl();
     return block;
 }
@@ -1366,15 +1447,9 @@ void surface_declarations(std::string& out, const FragmentKey& key)
         cel_declarations(out, key); // (added by cel shading)
     }
     if (surface_sun_key(key)) {
-        static_assert(kCelSceneBinding == 9, "kSurfaceSceneGlsl names it");
-        add(out, {kSurfaceSceneGlsl});
-        // (round VEIL: the local lights' readers - kSurfaceLampsGlsl)
-        out += rt::path::kPathGlsl;
-        out += rt_lamp_glsl();
-        out += emitter_faces_glsl();
-        surface_lamps_declarations(out);
-        add(out, {kSurfaceSunGlsl}); // (round SKIN2; after the list's readers - local_light_offset)
-        out += surface_indirect_glsl(); // (round DEPTH)
+        // (round SKIN2's sun ray, VEIL's lamps, DEPTH's indirect light; round BIND: with the scene's tables and the
+        // material set - the light list's one light ray, a cache miss traced on)
+        surface_traced_declarations(out);
     }
     if ((key.surface & kSurfaceRelit) != 0U && (key.surface & kSurfaceCel) == 0U && (key.trails & kTrailSnowTint) == 0U) {
         add(out, {kCelVaryingsIn}); // (round M: the relit world's light store, its words 0 - 2)
@@ -1621,10 +1696,11 @@ void surface_finish(std::string& out, const FragmentKey& key, uint32_t sampled)
         const std::string unseen = std::string("!light_here()") + (front ? " && !light_front_at" : "");
         if ((key.surface & kSurfaceLit) != 0U) {
             add(out, {"    if (", unseen, " && v_surface_base.w < -0.5 && dot(s.light_toward[0].xyz, s.light_toward[0].xyz) > 0.0) {\n"
-                      "        surface_traced = surface_sun_traced(surface_eye, surface_geo, s.light_toward[0].xyz, 0x01u);\n    }"});
+                      "        surface_traced = surface_sun_traced(surface_eye, surface_geo, s.light_toward[0].xyz, "
+                      "SURFACE_OBJECT_SUN_RAYS);\n    }"});
         } else {
             add(out, {"    if (", unseen, " && s.sun.w > 0.5) {\n"
-                      "        surface_traced = surface_sun_traced(surface_eye, surface_geo, s.sun.xyz, 0x03u);\n    }"});
+                      "        surface_traced = surface_sun_traced(surface_eye, surface_geo, s.sun.xyz, SURFACE_LIGHT_RAYS);\n    }"});
         }
         // (NOT ORIGINAL - round VEIL: kSurfaceLampsGlsl) ... and its local lights sampled here, on the side facing the eye
         add(out, {"    if (", unseen, ") {\n        surface_lamps = surface_lamps_traced(surface_eye, "
